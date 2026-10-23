@@ -148,11 +148,13 @@ test('preview, then a run that deletes the _FAE copies: marked, revalidated, aud
   assert.equal((await admin('POST', '/api/fae-flush/start', { deleteFae: true })).status, 409, 'one run at a time');
 
   const done = await until((v) => v.job?.state === 'done', 60000);
-  // Each project: 30 To verify, the FAE scan reports 10 of them (and 2 of its own): 20 marked.
-  assert.equal(done.summary.totals.toVerify, 300);
+  // Each project: 30 To verify, 10 of them added by the AI engine (left as they are: the FAE scan is SAST only); the
+  // FAE scan reports 10 of the other 20 (and 2 of its own): 10 marked.
+  assert.equal(done.summary.totals.toVerify, 200);
+  assert.equal(done.summary.totals.aiLeft, 100);
   assert.equal(done.summary.totals.reported, 100);
-  assert.equal(done.summary.totals.marked, 200);
-  assert.equal(done.summary.totals.revalidated, 200);
+  assert.equal(done.summary.totals.marked, 100);
+  assert.equal(done.summary.totals.revalidated, 100);
   assert.equal(done.summary.steps.done, 10);
   assert.equal(done.summary.faeKept, 0);
   // Downloaded (from storage that wants the access token, as on a real tenant) and uploaded again for every project
@@ -162,7 +164,7 @@ test('preview, then a run that deletes the _FAE copies: marked, revalidated, aud
   assert.deepEqual(done.job.projects.find((p) => p.id === 'p8').codeSource, 'git');
   assert.ok(done.job.projects.find((p) => p.id === 'p0').attempts.some((a) => a.what === 'code: download and upload' && a.ok), 'each project says how its code came');
   const marks = await mock('/__predicates');
-  assert.equal(Object.values(marks).filter((s) => s === 'PROPOSED_NOT_EXPLOITABLE').length, 200);
+  assert.equal(Object.values(marks).filter((s) => s === 'PROPOSED_NOT_EXPLOITABLE').length, 100);
   // Only in the original projects, and the copies are gone.
   assert.ok(Object.keys(marks).every((k) => /^p\d+\|/.test(k)));
   assert.deepEqual((await mock('/__fae')).projects, {});
@@ -170,22 +172,22 @@ test('preview, then a run that deletes the _FAE copies: marked, revalidated, aud
   const audit = (await admin('GET', '/api/audit?q=FAE%20Flush&limit=200')).body;
   const reasons = audit.entries.map((e) => e.reason).join('\n');
   assert.match(reasons, /FAE Flush started for 10 projects, 3 scans at a time; marks them Proposed not exploitable; code: auto; stops to ask: normal; the _FAE projects are deleted/);
-  assert.match(reasons, /FAE Flush marked 20 of Project 0's 30 results To verify Proposed not exploitable/);
+  assert.match(reasons, /FAE Flush marked 10 of Project 0's 20 results To verify Proposed not exploitable/);
   assert.match(reasons, /code from download and upload/);
-  assert.match(reasons, /FAE Flush finished: 200 of 300 results/);
+  assert.match(reasons, /FAE Flush finished: 100 of 200 results/);
 
   // Kept after the run: the value it brought.
   const value = (await admin('GET', '/api/fae-flush/value')).body;
-  assert.deepEqual([value.total.marked, value.total.kept, value.saved.credits, value.saved.hours, value.saved.minutesPerTriage, value.runs.length, value.projects.length], [200, 200, 200, 66.7, 20, 1, 10]);
-  assert.equal(Object.values(value.total.bySeverity).reduce((a, b) => a + b, 0), 200);
+  assert.deepEqual([value.total.marked, value.total.kept, value.saved.credits, value.saved.hours, value.saved.minutesPerTriage, value.runs.length, value.projects.length], [100, 100, 100, 33.3, 20, 1, 10]);
+  assert.equal(Object.values(value.total.bySeverity).reduce((a, b) => a + b, 0), 100);
 
   const undo = await admin('POST', '/api/fae-flush/undo');
   assert.equal(undo.status, 200);
-  assert.equal(undo.body.restored, 200);
-  assert.equal(Object.values(await mock('/__predicates')).filter((s) => s === 'TO_VERIFY').length, 200);
+  assert.equal(undo.body.restored, 100);
+  assert.equal(Object.values(await mock('/__predicates')).filter((s) => s === 'TO_VERIFY').length, 100);
   assert.equal(undo.body.summary.steps.undone, 10);
   const after = (await admin('GET', '/api/fae-flush/value')).body;
-  assert.deepEqual([after.total.marked, after.total.undone, after.total.kept, after.saved.credits, after.runs[0].undone], [200, 200, 0, 0, 200], 'the history keeps the run and what was undone');
+  assert.deepEqual([after.total.marked, after.total.undone, after.total.kept, after.saved.credits, after.runs[0].undone], [100, 100, 0, 0, 100], 'the history keeps the run and what was undone');
 });
 
 test('a report-only run marks nothing until "Mark now"; the copies are kept for it', async () => {
@@ -193,13 +195,13 @@ test('a report-only run marks nothing until "Mark now"; the copies are kept for 
   assert.equal(started.status, 200, JSON.stringify(started.body));
   assert.equal(started.body.job.projects.length, 2, 'only the projects chosen');
   const reported = await until((v) => v.job?.state === 'done', 60000);
-  assert.deepEqual([reported.summary.steps.reported, reported.summary.totals.notReported, reported.summary.totals.marked], [2, 40, 0]);
+  assert.deepEqual([reported.summary.steps.reported, reported.summary.totals.notReported, reported.summary.totals.marked], [2, 20, 0]);
   assert.equal(Object.values(await mock('/__predicates')).filter((s) => s === 'PROPOSED_NOT_EXPLOITABLE').length, 0, 'nothing marked');
   assert.equal(Object.keys((await mock('/__fae')).projects).length, 2, 'kept until marked');
   assert.equal((await user('POST', '/api/fae-flush/mark-now')).status, 403);
   assert.equal((await admin('POST', '/api/fae-flush/mark-now')).status, 200);
   const marked = await until((v) => v.job?.state === 'done' && !v.summary.steps.reported, 60000);
-  assert.deepEqual([marked.summary.totals.marked, marked.summary.steps.done, marked.summary.faeKept], [40, 2, 0]);
+  assert.deepEqual([marked.summary.totals.marked, marked.summary.steps.done, marked.summary.faeKept], [20, 2, 0]);
   assert.equal((await admin('POST', '/api/fae-flush/mark-now')).status, 409, 'nothing left to mark');
 });
 
@@ -238,7 +240,7 @@ test('a run that keeps the _FAE copies, then "Delete all _FAE projects" with one
   const started = await admin('POST', '/api/fae-flush/start', { concurrency: 5, deleteFae: false });
   assert.equal(started.status, 200, JSON.stringify(started.body));
   const done = await until((v) => v.job?.state === 'done', 60000);
-  assert.equal(done.summary.totals.marked, 200);
+  assert.equal(done.summary.totals.marked, 100);
   assert.equal(done.summary.faeKept, 10);
   assert.equal(Object.keys((await mock('/__fae')).projects).length, 10);
   // The copies are not part of the backlog anywhere else.
@@ -250,9 +252,9 @@ test('a run that keeps the _FAE copies, then "Delete all _FAE projects" with one
   assert.equal(gone.body.deleted, 10);
   assert.equal(gone.body.summary.faeKept, 0);
   assert.deepEqual((await mock('/__fae')).projects, {});
-  // Every run stays in the value: 200 + 40 + 200 marked, the first 200 and the report run's 40 undone.
+  // Every run stays in the value: 100 + 20 + 100 marked, the first 100 and the report run's 20 undone.
   const value = (await admin('GET', '/api/fae-flush/value')).body;
-  assert.deepEqual([value.runs.length, value.total.marked, value.total.kept], [3, 440, 200]);
+  assert.deepEqual([value.runs.length, value.total.marked, value.total.kept], [3, 220, 100]);
 });
 
 test('Not exploitable is for Admins alone: another role that may run FAE Flush is refused it', async () => {

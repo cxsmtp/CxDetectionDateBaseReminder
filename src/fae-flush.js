@@ -255,6 +255,15 @@ export function whyRefused(error) {
   reason = text(reason.replace(/\s+/g, ' '), 200);
   return reason && !String(error?.message ?? '').includes(reason) ? `${error?.message ?? ''}: ${reason}` : String(error?.message ?? error);
 }
+/**
+ * A result the AI engine added (Fusion, LAST): no SAST query behind it (query id 0). The FAE scan is SAST only, so it
+ * can never report one: such results are left out of the comparison and never marked.
+ */
+export const fromAiEngine = (r) => {
+  if (r?.isAiGenerated === true) return true;
+  const q = r?.queryID ?? r?.queryId;
+  return q !== undefined && q !== null && q !== '' && Number(q) === 0;
+};
 /** A result the FAE scan reported: there, and not judged not exploitable by Findings Analysis itself. */
 const reportedByFae = (r) => ![PNE, 'NOT_EXPLOITABLE'].includes(upper(r?.state));
 
@@ -263,10 +272,12 @@ const reportedByFae = (r) => ![PNE, 'NOT_EXPLOITABLE'].includes(upper(r?.state))
  * One keeps a result's state by similarity id, so one mark covers every result sharing it: counts are in results,
  * as Checkmarx One shows them, and in distinct findings (similarity ids).
  * { toVerify, toVerifyFindings, reported, notReported (results), notReportedList: [{ similarityId, severity, query,
- * results }], extra }. `extra`: findings the FAE scan reported that the project does not have at all.
+ * results }], extra, aiLeft }. `extra`: findings the FAE scan reported that the project does not have at all;
+ * `aiLeft`: results To verify the AI engine added, left as they are (the FAE scan cannot report them).
  */
 export function compareResults(original, fae) {
-  const open = original.filter((r) => upper(r?.state || TO_VERIFY) === TO_VERIFY && upper(r?.status) !== 'FIXED' && keyOf(r));
+  const toVerify = original.filter((r) => upper(r?.state || TO_VERIFY) === TO_VERIFY && upper(r?.status) !== 'FIXED' && keyOf(r));
+  const open = toVerify.filter((r) => !fromAiEngine(r));
   const theirs = new Set(fae.filter(reportedByFae).map(keyOf).filter(Boolean));
   const ours = new Set(original.map(keyOf).filter(Boolean));
   const findings = new Map();
@@ -284,7 +295,7 @@ export function compareResults(original, fae) {
   }
   const extra = [...theirs].filter((k) => !ours.has(k)).length;
   const notReported = notReportedList.reduce((n, f) => n + f.results, 0);
-  return { toVerify: open.length, toVerifyFindings: findings.size, reported, notReported, notReportedList, extra, faeReported: theirs.size };
+  return { toVerify: open.length, toVerifyFindings: findings.size, reported, notReported, notReportedList, extra, faeReported: theirs.size, aiLeft: toVerify.length - open.length };
 }
 /** How many results a list of findings stands for (one each when not said). */
 const resultsIn = (list) => (list ?? []).reduce((n, m) => n + (Number(m.results) || 1), 0);
@@ -353,7 +364,7 @@ export async function previewTenant(client, { listProjects, getLastScans, concur
 /** The run's figures: how many projects at each step, and the results To verify, reported, marked and revalidated. */
 export function summaryOf(job) {
   const steps = Object.fromEntries(STEPS.map((s) => [s, 0]));
-  const totals = { toVerify: 0, toVerifyFindings: 0, reported: 0, notReported: 0, notReportedFindings: 0, marked: 0, markedFindings: 0, revalidated: 0, undone: 0 };
+  const totals = { toVerify: 0, toVerifyFindings: 0, reported: 0, notReported: 0, notReportedFindings: 0, marked: 0, markedFindings: 0, revalidated: 0, undone: 0, aiLeft: 0, notMarked: 0 };
   for (const p of job?.projects ?? []) {
     steps[p.step] = (steps[p.step] ?? 0) + 1;
     for (const k of Object.keys(totals)) totals[k] += p.counts?.[k] ?? 0;
@@ -737,9 +748,9 @@ export class FaeFlushRunner {
   async compare(client, p) {
     const [original, fae] = await Promise.all([scanResults(client, p.sourceScanId), scanResults(client, p.faeScanId)]);
     const c = compareResults(original, fae);
-    p.counts = { ...p.counts, toVerify: c.toVerify, toVerifyFindings: c.toVerifyFindings, reported: c.reported, notReported: c.notReported, notReportedFindings: c.notReportedList.length, extra: c.extra, faeReported: c.faeReported, marked: p.counts?.marked ?? 0 };
+    p.counts = { ...p.counts, toVerify: c.toVerify, toVerifyFindings: c.toVerifyFindings, reported: c.reported, notReported: c.notReported, notReportedFindings: c.notReportedList.length, extra: c.extra, faeReported: c.faeReported, aiLeft: c.aiLeft, marked: p.counts?.marked ?? 0 };
     p.pending = c.notReportedList;
-    this.attempt(p, 'compared', true, `${c.toVerify} results To verify (${c.toVerifyFindings} findings) · ${c.reported} still reported · ${c.notReported} not (${c.notReportedList.length} findings)`);
+    this.attempt(p, 'compared', true, `${c.toVerify} results To verify (${c.toVerifyFindings} findings) · ${c.reported} still reported · ${c.notReported} not (${c.notReportedList.length} findings)${c.aiLeft ? ` · ${c.aiLeft} found by the AI engine, left as they are` : ''}`);
     const exception = exceptionOf(p, this.limitsNow);
     if (exception) {
       p.exception = { ...exception, at: new Date(this.now()).toISOString() };
@@ -758,13 +769,37 @@ export class FaeFlushRunner {
     const done = new Set(p.marked.map((m) => m.similarityId));
     const todo = pending.filter((m) => !done.has(m.similarityId));
     const comment = `FAE Flush: not reported when the same code was scanned again with Findings Analysis (project ${p.name}${FAE_SUFFIX}, scan ${p.faeScanId}).`;
-    for (let i = 0; i < todo.length; i += PREDICATES_AT_ONCE) {
-      const batch = todo.slice(i, i + PREDICATES_AT_ONCE);
-      await client.request('/api/sast-results-predicates', { method: 'POST', body: batch.map((m) => ({ similarityId: m.similarityId, projectId: p.id, severity: m.severity, state, comment })), retries: 2 });
-      p.marked.push(...batch.map((m) => ({ similarityId: m.similarityId, severity: m.severity, query: m.query ?? '', results: Number(m.results) || 1 })));
+    const post = (list) => client.request('/api/sast-results-predicates', { method: 'POST', body: list.map((m) => ({ similarityId: m.similarityId, projectId: p.id, severity: m.severity, state, comment })), retries: 2 });
+    const took = (list) => {
+      p.marked.push(...list.map((m) => ({ similarityId: m.similarityId, severity: m.severity, query: m.query ?? '', results: Number(m.results) || 1 })));
       p.counts.marked = resultsIn(p.marked);
       p.counts.markedFindings = p.marked.length;
       this.store.save();
+    };
+    const notTaken = [];
+    for (let i = 0; i < todo.length; i += PREDICATES_AT_ONCE) {
+      const batch = todo.slice(i, i + PREDICATES_AT_ONCE);
+      try {
+        await post(batch);
+        took(batch);
+      } catch (error) {
+        // Checkmarx One refused the batch: one at a time, so one it will not take does not hold back the rest.
+        if (!refused(error)) throw Object.assign(new Error(whyRefused(error)), { status: error.status });
+        for (const m of batch) {
+          try {
+            await post([m]);
+            took([m]);
+          } catch (one) {
+            if (!refused(one)) throw Object.assign(new Error(whyRefused(one)), { status: one.status });
+            notTaken.push({ ...m, why: whyRefused(one) });
+          }
+        }
+      }
+    }
+    if (notTaken.length) {
+      p.notMarked = notTaken.map(({ similarityId, severity, query, results, why }) => ({ similarityId, severity, query, results, why: text(why, 200) }));
+      p.counts.notMarked = resultsIn(notTaken);
+      this.attempt(p, 'not marked', false, `${p.counts.notMarked} result(s) Checkmarx One would not mark: ${notTaken[0].why}${notTaken.length > 1 ? ` (and ${notTaken.length - 1} more finding(s))` : ''}`);
     }
     // Kept after the run: the value it brought.
     this.history?.put({ runId: this.job.id, at: new Date(this.now()).toISOString(), by: this.job.startedBy, projectId: p.id, project: p.name, faeScanId: p.faeScanId, state, toVerify: p.counts.toVerify ?? 0, toVerifyFindings: p.counts.toVerifyFindings ?? 0, items: p.marked.map((m) => [m.similarityId, m.severity, m.query ?? '', m.results ?? 1]), revalidated: 0, undone: 0 });

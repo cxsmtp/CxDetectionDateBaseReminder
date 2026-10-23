@@ -382,9 +382,10 @@ http.createServer((req, res) => {
         const faeScan = faeScans.get(scanId);
         const pid = faeScan ? faeScan.source : scanId.replace(/^(scan|feat)-/, '');
         const ai = u.searchParams.get('is-ai-generated');
-        // An FAE scan of the same code reports one in three of the project's results (Findings Analysis drops the rest),
-        // and two of its own; the project's results carry the states predicates gave them.
-        const kept = (r) => !faeScan || Number(r.id.split('-r')[1]) % 3 === 0;
+        // An FAE scan of the same code (SAST only) reports one in three of the project's results (Findings Analysis
+        // drops the rest) and none the AI engine added (every third, query id 0), and two of its own; the project's
+        // results carry the states predicates gave them.
+        const kept = (r) => !faeScan || Number(r.id.split('-r')[1]) % 3 === 1;
         const extra = faeScan ? [0, 1].map((n) => ({ id: `${pid}-x${n}`, riskName: `Finding ${pid}-x${n}`, severity: 'HIGH', state: 'TO_VERIFY', status: 'NEW', firstDetectionDate: day(0), groupId: `sim-${pid}-x${n}` })) : [];
         const rows = [...risksFor(pid).filter(kept), ...extra].map((r) => ({ ...r, state: faeScan ? r.state : (predicates.get(`${pid}|${r.groupId}`) ?? r.state) })).map((r) => {
           const k = Number(r.id.split(/-[rx]/)[1]);

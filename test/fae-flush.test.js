@@ -11,7 +11,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-unit-'));
 const original = Array.from({ length: 30 }, (_, k) => ({ similarityID: `s${k}`, state: 'TO_VERIFY', severity: 'HIGH' }));
 
 /** Checkmarx One as FAE Flush uses it; the FAE scan reports only `faeKeeps` of the project's results. */
-function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], refuse = [] } = {}) {
+function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], refuse = [], refuseMark = [], results = original } = {}) {
   const states = new Map();
   const calls = [];
   const patches = [];
@@ -36,10 +36,13 @@ function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], ref
       if (p.startsWith('/api/scans/')) return { status: scanStatus, statusDetails: [{ name: 'sast', status: scanStatus, loc: 1000 }] };
       if (p === '/api/sast-results') {
         if (query.offset > 0) return { results: [] };
-        if (query['scan-id'] === 'scan-fae') return { results: original.slice(0, faeKeeps) };
-        return { results: original.map((r) => ({ ...r, state: states.get(r.similarityID) ?? r.state })) };
+        if (query['scan-id'] === 'scan-fae') return { results: results.filter((r) => !r.isAiGenerated).slice(0, faeKeeps) };
+        return { results: results.map((r) => ({ ...r, state: states.get(r.similarityID) ?? r.state })) };
       }
-      if (p === '/api/sast-results-predicates') for (const m of body) states.set(m.similarityId, m.state);
+      if (p === '/api/sast-results-predicates' && method === 'POST') {
+        if (body.some((m) => refuseMark.includes(m.similarityId))) throw Object.assign(new Error('POST /api/sast-results-predicates failed: 400 Bad Request'), { status: 400, body: '{"code":400,"message":"invalid severity for this result"}' });
+        for (const m of body) states.set(m.similarityId, m.state);
+      }
       return [];
     },
   };
@@ -289,4 +292,27 @@ test('Retry after its _FAE project was removed makes a new one', async () => {
   assert.equal(p.faeDeleted, false);
   await turns(r, 1);
   assert.equal(p.faeProjectId, 'fae-2');
+});
+
+test('results the AI engine added are left out: the FAE scan (SAST only) cannot report them, so none is marked', async () => {
+  const withAi = [...original.slice(0, 20), ...original.slice(20).map((r) => ({ ...r, queryID: 0, isAiGenerated: true }))];
+  const client = fakeClient({ faeKeeps: 15, results: withAi });
+  const r = runner(client, 'ai-left');
+  await turns(r, 6);
+  const p = r.job.projects[0];
+  assert.equal(p.step, 'done');
+  assert.deepEqual([p.counts.toVerify, p.counts.aiLeft, p.counts.reported, p.counts.marked], [20, 10, 15, 5]);
+  assert.ok([...client.states.keys()].every((k) => Number(k.slice(1)) < 20), 'no AI-engine result marked');
+  assert.match(p.attempts.find((a) => a.what === 'compared').detail, /10 found by the AI engine, left as they are/);
+});
+
+test('a result Checkmarx One will not mark does not hold back the rest; its reason is kept', async () => {
+  const client = fakeClient({ faeKeeps: 25, refuseMark: ['s27'] });
+  const r = runner(client, 'refused-mark');
+  await turns(r, 6);
+  const p = r.job.projects[0];
+  assert.equal(p.step, 'done');
+  assert.deepEqual([p.counts.marked, p.counts.notMarked, p.counts.revalidated], [4, 1, 4]);
+  assert.equal(p.notMarked[0].similarityId, 's27');
+  assert.match(p.attempts.find((a) => a.what === 'not marked').detail, /1 result\(s\) Checkmarx One would not mark: .*400 Bad Request: 400 invalid severity for this result/);
 });
