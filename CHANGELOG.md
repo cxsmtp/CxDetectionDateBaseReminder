@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.98 | 484/s, 15 (main 459, 181; three pairs on a busy host) | 10.2 s | 1.5 s | 796 | 0 vulnerabilities | No new scan (checked); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.97 | 518/s, 0 (main 496, 147 in a host pause) | 7.3 s | 826 ms | 783 | 0 vulnerabilities | No new scan (connector needs signing in again); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.96 | 510/s, 0 (main 492, 37 in host pauses) | 6.1 s | 546 ms | 782 | 0 vulnerabilities | No new scan (connector needs signing in again); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.95 | 514/s, 0 (main 507, 0) | 6.5 s | 573 ms | 780 | 0 vulnerabilities | No new scan (connector needs signing in again); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -93,7 +94,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **Faster runs, compact top.** Freed scan slots fill at once, and compare, mark and clean-up follow one another without waiting; the Run controls, steps and figures each sit on one line.
 - **Fusion results: faster, AI results only.** A load reads scan types in bulk and the rest only for projects whose latest scan ran the AI engine, in parallel (about 4.4 s against 8.0 s for 300 projects in a test); "AI found → added" is gone from the table, side panel, CSV and report, the figures sit in one thin line, and **Details** opens the three blocks.
 - **The probe compares and marks.** `scripts/fae-probe.mjs --compare` lists what FAE Flush would mark on a project, and `--mark ne --limit 1` marks one, by similarity id or attack vector id, to check a tenant without building the container.
-- **Status.** STATUS98
+- **Status.** 484 requests a second for 3000 people at once on 2 vCPU with 15 failed, against main's 459 and 181 on the same host; the first two pairs, on the same busy host, went main's way (62 and 24 failed against 402 and 216), all in pauses where even the health check waited 20–30 s, and nothing this release changes is on the measured paths ([performance](docs/performance.md)); 796 tests pass; `npm audit` finds 0 vulnerabilities; checked in Checkmarx One, no scan of this code newer than rescan fe2eb036 ([status](docs/status.md)).
 
 ## MZ-01.00.97 — 2026-10-22 20:35 UTC · [#120](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/120)
 
