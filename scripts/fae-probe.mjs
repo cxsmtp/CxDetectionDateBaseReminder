@@ -377,6 +377,31 @@ async function allResults(scanId) {
   }
   return out;
 }
+/** Where does Checkmarx One give a result's attack vector id? Other API versions, a filter, the state history, /api/results. */
+const AV_KEY = /attack.?vector/i;
+const avKeys = (o, at = '') => Object.entries(o ?? {}).flatMap(([k, v]) => (AV_KEY.test(k) ? [`${at}${k}=${short(JSON.stringify(v), 60)}`] : v && typeof v === 'object' && !Array.isArray(v) ? avKeys(v, `${at}${k}.`) : []));
+async function findAttackVector(project, scanId, r) {
+  const sim = simOf(r);
+  for (const version of ['2.0', '1.1']) {
+    const { response } = await call('GET', '/api/sast-results', { query: { 'scan-id': scanId, 'similarity-id': sim, limit: '1' }, headers: { Accept: `application/json; version=${version}` } });
+    const row = (await json(response)).data?.results?.[0];
+    step(`  sast-results, API version ${version}`, null, `${response.status}${row ? ` · ${avKeys(row).join(' · ') || `no attack vector field (${Object.keys(row).length} fields)`}` : ''}`);
+  }
+  for (const q of [{ 'include-attack-vector': 'true' }, { 'include-attack-vector-id': 'true' }, { 'attack-vector-id-operation': 'NEQ', 'attack-vector-id': '0' }]) {
+    const { response } = await call('GET', '/api/sast-results', { query: { 'scan-id': scanId, 'similarity-id': sim, limit: '1', ...q } });
+    const { data, text } = await json(response);
+    const row = data?.results?.[0];
+    step(`  sast-results ?${Object.keys(q).join('&')}`, null, `${response.status}${row ? ` · ${avKeys(row).join(' · ') || 'no attack vector field'}` : ` ${short(text, 120)}`}`);
+  }
+  const ph = await call('GET', `/api/sast-results-predicates/${encodeURIComponent(sim)}`, { query: { 'project-ids': project.id } });
+  const hist = (await json(ph.response)).data;
+  const entries = (Array.isArray(hist?.predicateHistoryPerProject) ? hist.predicateHistoryPerProject : []).flatMap((x) => x?.predicates ?? []);
+  step('  its state history', null, `${ph.response.status} · ${entries.length} change(s)${entries[0] ? ` · fields: ${Object.keys(entries[0]).join(', ')}${avKeys(entries[0]).length ? ` · ${avKeys(entries[0]).join(' · ')}` : ''}` : ''}`);
+  const rs = await call('GET', '/api/results', { query: { 'scan-id': scanId, limit: '50' } });
+  const hit = ((await json(rs.response)).data?.results ?? []).find((x) => String(x?.similarityId ?? '') === sim) ?? null;
+  step('  /api/results', null, `${rs.response.status}${hit ? ` · ${avKeys(hit).join(' · ') || `no attack vector field (data: ${Object.keys(hit.data ?? {}).join(', ')})`}` : ' · that result not in the first 50'}`);
+}
+
 async function compareAndMark(project, scanId) {
   let faeScan = FAE_SCAN;
   if (!faeScan) {
@@ -400,13 +425,14 @@ async function compareAndMark(project, scanId) {
   for (const r of open) {
     const f = findings.get(simOf(r));
     if (f) f.results += 1;
-    else findings.set(simOf(r), { similarityId: simOf(r), attackVectorId: avOf(r), severity: upper(r.severity) || 'MEDIUM', query: String(r.queryName ?? ''), results: 1 });
+    else findings.set(simOf(r), { similarityId: simOf(r), attackVectorId: avOf(r), ids: { uniqueID: r.uniqueID, pathSystemID: r.pathSystemID, resultHash: r.resultHash }, severity: upper(r.severity) || 'MEDIUM', query: String(r.queryName ?? ''), results: 1 });
   }
   const notReported = [...findings.values()].filter((f) => !theirs.has(f.similarityId));
   const nr = notReported.reduce((n, f) => n + f.results, 0);
   const withAv = open.filter((r) => avOf(r)).length;
   const faeAv = fae.filter((r) => avOf(r)).length;
   step('Attack vector ids in the results', null, `${withAv} of ${open.length} SAST results To verify carry one${withAv ? ` (first: ${avOf(open.find((r) => avOf(r)))})` : ''} · ${faeAv} of ${fae.length} in the FAE scan · fields of a result: ${Object.keys(open[0] ?? {}).join(', ')}`);
+  if (!withAv && open[0]) await findAttackVector(project, scanId, open[0]);
   step('Compared, as FAE Flush does', true, `${toVerify.length} To verify · ${toVerify.length - open.length} added by the AI engine (left out) · ${open.length - nr} still reported · ${nr} not (${notReported.length} findings)`);
   const bySeverity = {};
   for (const f of notReported) bySeverity[f.severity] = (bySeverity[f.severity] ?? 0) + f.results;
@@ -435,8 +461,26 @@ async function compareAndMark(project, scanId) {
     // A tenant that groups similar results by attack vector refuses marks by similarity id: try the attack vector id.
     if (/attack vector/i.test(why)) {
       if (!f.attackVectorId) {
-        refused.push(why);
-        step(`  not marked: ${f.severity} ${short(f.query, 60)} (${f.similarityId})`, false, `${why} · this result has no attack vector id (scan it again on a recent engine)`);
+        // No attack vector id in what we read: is it one of the result's other ids?
+        let took = '';
+        const answers = [];
+        for (const [field, value] of Object.entries(f.ids ?? {})) {
+          if (value === undefined || value === null || value === '') continue;
+          const { response } = await call('POST', '/api/sast-results-predicates', { body: [{ attackVectorId: String(value), projectId: project.id, severity: f.severity, state, comment }] });
+          if (response.ok) {
+            took = field;
+            break;
+          }
+          answers.push(`${field}: ${response.status} ${short((await json(response)).text, 140)}`);
+        }
+        if (took) {
+          marked += 1;
+          avShape ||= `attackVectorId = the result's ${took}`;
+          step(`  ${f.severity} ${short(f.query, 60)} (${f.similarityId})`, true, `taken with attackVectorId = its ${took}; by similarity id: ${why}`);
+        } else {
+          refused.push(why);
+          step(`  not marked: ${f.severity} ${short(f.query, 60)} (${f.similarityId})`, false, `${why} · no attack vector id in the result; as attackVectorId: ${answers.join(' · ') || 'no other id to try'}`);
+        }
         continue;
       }
       const shapes = [
