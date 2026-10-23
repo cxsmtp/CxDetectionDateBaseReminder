@@ -2348,22 +2348,21 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             <div class="flush-tiles" id="flush-tiles"></div>
 
             <section class="panel" id="flush-run">
-              <h2>Run</h2>
               <div class="flush-bar">
                 <div class="flush-field"><span class="flush-label">Projects</span><b id="flush-chosen">None yet</b></div>
-                <div class="flush-field"><span class="flush-label" id="flush-mode-label">What to do</span>
+                <div class="flush-field" title="Only show: it scans and counts, and changes nothing; you can mark them afterwards."><span class="flush-label" id="flush-mode-label">What to do</span>
                   <span class="flush-seg" role="radiogroup" aria-labelledby="flush-mode-label">
                     <label><input type="radio" name="flush-mode" value="mark" checked /><span>Mark false positives</span></label>
                     <label><input type="radio" name="flush-mode" value="report" /><span>Only show</span></label>
                   </span>
                 </div>
-                <div class="flush-field" id="flush-markas-dd" hidden><span class="flush-label" id="flush-markas-dt">Mark them as</span>
+                <div class="flush-field" id="flush-markas-dd" hidden title="Proposed: a person confirms each one later (recommended). Not exploitable: final at once; they leave every count, and Undo still puts them back to To verify."><span class="flush-label" id="flush-markas-dt">Mark them as</span>
                   <span class="flush-seg" role="radiogroup" aria-labelledby="flush-markas-dt">
                     <label><input type="radio" name="flush-markas" value="pne" checked /><span>Proposed not exploitable</span></label>
                     <label><input type="radio" name="flush-markas" value="ne" /><span>Not exploitable</span></label>
                   </span>
                 </div>
-                <div class="flush-field"><span class="flush-label" id="flush-sensitivity-label">Stop and ask me if</span>
+                <div class="flush-field" title="For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on."><span class="flush-label" id="flush-sensitivity-label">Stop and ask me if</span>
                   <span class="flush-seg" role="radiogroup" aria-labelledby="flush-sensitivity-label">
                     <label><input type="radio" name="flush-sensitivity" value="rarely" /><span>Rarely</span></label>
                     <label><input type="radio" name="flush-sensitivity" value="normal" checked /><span>Something looks off</span></label>
@@ -2379,10 +2378,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </div>
               <p class="hint flush-hints">
                 <span id="flush-chosen-sub">Check the projects first, then tick them in the list below: try a few first.</span>
-                <span>Only show: it scans and counts, and changes nothing; you can mark them afterwards.</span>
-                <span id="flush-markas-hint" hidden>Proposed: a person confirms each one later (recommended). Not exploitable: final at once; they leave every count, and Undo still puts them back to To verify.</span>
                 <span class="status error" id="flush-markas-warn" hidden>Not exploitable is final: these results leave every count and dashboard at once, with no one confirming them. Undo puts them back to To verify.</span>
-                <span>For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.</span>
               </p>
               <p class="hint" id="flush-perm-note" hidden>Starting it needs the Checkmarx One integration permission: it creates, scans and deletes projects with the server's own key.</p>
             </section>

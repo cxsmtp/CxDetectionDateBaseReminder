@@ -3674,3 +3674,28 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 #fusion-filters[hidden] { display: none; }
 #fusion-filters .fusion-chip-key { width: auto; }
 .fusion .fusion-table td { padding-block: 8px; }
+/* FAE Flush, compact: the title and its six steps on one slim line; Run without its own heading; smaller Progress. */
+#flush-intro.panel { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 20px; padding: 8px 16px; margin-bottom: 8px; }
+#flush-intro .panel-head { margin: 0; }
+#flush-intro .panel-head h2 { font-size: 17px; margin: 0; }
+#flush-intro .flush-steps { margin: 0; }
+#flush-intro .flush-steps li { padding-block: 0; font-size: 12px; }
+#flush-intro #flush-status { margin: 0 0 0 auto; font-size: 12px; }
+#flush-intro #flush-status:empty { display: none; }
+#page-flush .ptabs { margin-block: 0 8px; }
+#page-flush #flush-tiles { margin-bottom: 8px; }
+#flush-run.panel { padding: 10px 16px; margin-bottom: 8px; }
+#flush-run .flush-bar { margin-top: 0; }
+#flush-run .flush-hints { margin-top: 6px; font-size: 12px; }
+#flush-run .flush-field[title] .flush-label { cursor: help; text-decoration: underline dotted color-mix(in srgb, var(--muted) 60%, transparent); text-underline-offset: 3px; }
+#flush-progress.panel { padding: 10px 16px; }
+#flush-progress .panel-head h2 { font-size: 16px; margin: 0; }
+#flush-progress #flush-result { margin-top: 2px; font-size: 12.5px; }
+#flush-run .flush-bar { gap: 8px 16px; }
+#flush-run .flush-field { gap: 3px; }
+#flush-run .flush-seg { padding: 2px; }
+#flush-run .flush-seg span { padding: 3px 9px; font-size: 12.5px; }
+#flush-run .flush-field select { min-height: 28px; padding-block: 2px; }
+#flush-run .flush-field > b { line-height: 28px; }
+#flush-run .flush-go button { min-height: 30px; padding-block: 4px; }
+#page-flush #flush-progress-title { font-size: 16px; line-height: 1.3; }

@@ -122,7 +122,6 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
   const showMarkAs = () => {
     $('flush-markas-dd').hidden = !can('faeFlush.notExploitable');
     const final = markAsChosen() === 'ne';
-    $('flush-markas-hint').hidden = final || !can('faeFlush.notExploitable');
     $('flush-markas-warn').hidden = !final;
   };
   for (const radio of document.querySelectorAll('input[name="flush-markas"]')) radio.addEventListener('change', showMarkAs);
