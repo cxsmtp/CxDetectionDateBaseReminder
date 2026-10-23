@@ -84,6 +84,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.98 — WHEN98 UTC · [#121](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/121)
+
+- **FAE Flush copies only the settings that count.** The `_FAE` project takes the project's own SAST settings that have a value, in one call; if Checkmarx One refuses, each is tried alone and the timeline names those refused, and a refused setting that changes the results (such as the preset) stops the project to ask: continue, skip or retry. This fixes the `PATCH /api/configuration/project … 403` seen on a live tenant.
+- **Marks on tenants that group by attack vector.** Where Checkmarx One refuses marks by similarity id (Account settings → Grouping similar results: Attack Vector ID), FAE Flush reads each result's attack vector id and marks by it instead, and Undo does the same; a result still refused stays To verify and is listed as not marked.
+- **Only SAST results are judged.** What the AI engine found (Fusion and LAST) is left out of the compare and marks, and counted apart.
+- **Project lists like the Workbench's.** Both FAE Flush tables sort and filter on their headings, with a search, show chips, a tick box that covers every project shown, and a hundred rows at a time; a bar acts on the projects ticked: retry, skip, **bring back** a skipped project, mark now, delete the `_FAE` projects, undo marks. A question shows in its project's row.
+- **Faster runs, compact top.** Freed scan slots fill at once, and compare, mark and clean-up follow one another without waiting; the Run controls, steps and figures each sit on one line.
+- **Fusion results: faster, AI results only.** A load reads scan types in bulk and the rest only for projects whose latest scan ran the AI engine, in parallel (about 4.4 s against 8.0 s for 300 projects in a test); "AI found → added" is gone from the table, side panel, CSV and report, the figures sit in one thin line, and **Details** opens the three blocks.
+- **The probe compares and marks.** `scripts/fae-probe.mjs --compare` lists what FAE Flush would mark on a project, and `--mark ne --limit 1` marks one, by similarity id or attack vector id, to check a tenant without building the container.
+- **Status.** STATUS98
+
 ## MZ-01.00.97 — 2026-10-22 20:35 UTC · [#120](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/120)
 
 - **FAE Flush uploads the code on every tenant.** The code is now sent to Checkmarx One's upload address with the access token, as it is read, after a live tenant's gateway answered 401 without it; the in-place choice, which that tenant's scanner refuses, is gone.
