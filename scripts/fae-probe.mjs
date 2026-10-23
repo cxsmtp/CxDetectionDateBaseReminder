@@ -230,11 +230,12 @@ async function main() {
     step('State history of that result (GET /api/sast-results-predicates/…)', pr.response.ok, `${pr.response.status}${pr.response.ok ? '' : ` ${short(prData.text, 160)}`}`);
   }
 
-  // 9. The project's own SAST settings: FAE Flush copies these to the _FAE project, with Findings Analysis on.
+  // 9. The project's own SAST settings with a value (Checkmarx One lists every one as the project's, most empty):
+  //    FAE Flush copies these to the _FAE project, with Findings Analysis on.
   const st = await call('GET', '/api/configuration/project', { query: { 'project-id': project.id } });
   const stData = await json(st.response);
   const all = Array.isArray(stData.data) ? stData.data : [];
-  const own = all.filter((e) => String(e?.originLevel ?? '').toLowerCase() === 'project' && /^scan\.config\.sast\./.test(String(e?.key ?? '')) && e.key !== 'scan.config.sast.findingsAnalysis');
+  const own = all.filter((e) => String(e?.originLevel ?? '').toLowerCase() === 'project' && /^scan\.config\.sast\./.test(String(e?.key ?? '')) && e.key !== 'scan.config.sast.findingsAnalysis' && String(e?.value ?? '').trim() !== '');
   const locked = all.filter((e) => /^scan\.config\.sast\./.test(String(e?.key ?? '')) && e?.allowOverride === false).map((e) => e.key);
   step('Its own SAST settings (GET /api/configuration/project)', st.response.ok, `${st.response.status}: ${st.response.ok ? `${own.length} set on the project${own.length ? `: ${own.map((e) => `${e.key}=${short(e.value, 60)}`).join(' · ')}` : ''}${locked.length ? ` · locked above the project: ${locked.join(', ')}` : ''}` : short(stData.text, 200)}`);
 

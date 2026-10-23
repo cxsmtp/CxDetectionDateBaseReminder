@@ -76,9 +76,9 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
   const ne = () => view?.job?.options?.markAs === 'ne';
   const markAsChosen = () => (can('faeFlush.notExploitable') && picked('flush-markas') === 'ne' ? 'ne' : 'pne');
   const showMarkAs = () => {
-    for (const id of ['flush-markas-dt', 'flush-markas-dd']) $(id).hidden = !can('faeFlush.notExploitable');
+    $('flush-markas-dd').hidden = !can('faeFlush.notExploitable');
     const final = markAsChosen() === 'ne';
-    $('flush-markas-hint').hidden = final;
+    $('flush-markas-hint').hidden = final || !can('faeFlush.notExploitable');
     $('flush-markas-warn').hidden = !final;
   };
   for (const radio of document.querySelectorAll('input[name="flush-markas"]')) radio.addEventListener('change', showMarkAs);
@@ -201,17 +201,21 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     $('flush-delete-fae').hidden = !allowed() || !summary.faeKept;
     $('flush-delete-fae').textContent = `Delete all _FAE projects (${num(summary.faeKept)})`;
     $('flush-undo').hidden = !allowed() || !totals.marked;
+    const skipped = summary.steps.skipped ?? 0;
+    $('flush-back-all').hidden = !allowed() || !skipped;
+    $('flush-back-all').textContent = skipped === 1 ? 'Bring back the skipped project' : `Bring back all ${num(skipped)} skipped`;
 
     // Those that stopped to ask.
     const asks = job.projects.filter((p) => p.step === 'needs-ok');
     $('flush-asks').innerHTML = asks
       .map((p) => {
-        const markable = !['scan', 'error', 'copy'].includes(p.exception?.code);
+        const markable = !['scan', 'error', 'copy', 'settings'].includes(p.exception?.code);
+        const carryOn = p.exception?.code === 'settings' ? `<button type="button" class="sm" data-decide="continue">${esc('Carry on without them')}</button>` : '';
         const mark = p.exception?.code === 'revalidation' ? 'Accept' : `Mark ${num(p.counts?.notReported ?? 0)} anyway`;
         // The reason in a sentence of its own (translated), a failed call's own message as it came.
-        const reason = ['error', 'copy'].includes(p.exception?.code) ? `<span translate="no">${esc(p.exception?.text ?? '')}</span>` : `<span>${esc(p.exception?.text ?? '')}</span>`;
+        const reason = ['error', 'copy', 'settings'].includes(p.exception?.code) ? `<span translate="no">${esc(p.exception?.text ?? '')}</span>` : `<span>${esc(p.exception?.text ?? '')}</span>`;
         const detail = p.exception?.detail ? ` <span class="hint" translate="no">${esc(p.exception.detail)}</span>` : '';
-        return `<div class="flush-ask" data-id="${esc(p.id)}"><p><b translate="no">${esc(p.name)}</b> ${reason}${detail}</p>${allowed() ? `<div class="actions">${markable ? `<button type="button" class="sm" data-decide="mark">${esc(mark)}</button>` : ''}<button type="button" class="sm" data-decide="retry">Retry</button><button type="button" class="sm" data-decide="skip">Skip</button></div>` : ''}</div>`;
+        return `<div class="flush-ask" data-id="${esc(p.id)}"><p><b translate="no">${esc(p.name)}</b> ${reason}${detail}</p>${allowed() ? `<div class="actions">${markable ? `<button type="button" class="sm" data-decide="mark">${esc(mark)}</button>` : ''}${carryOn}<button type="button" class="sm" data-decide="retry">Retry</button><button type="button" class="sm" data-decide="skip">Skip</button></div>` : ''}</div>`;
       })
       .join('');
 
@@ -224,7 +228,8 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
         const skippedBy = p.step === 'skipped' && /^Skipped by /.test(p.note ?? '') ? p.note.slice('Skipped by '.length) : '';
         const why = skippedBy ? `<span>Skipped by</span> <span translate="no">${esc(skippedBy)}</span>${p.exception?.text ? ` · <span>${esc(p.exception.text)}</span>` : ''}` : `<span>${esc(p.note || p.exception?.text || '')}</span>`;
         const cells = p.step === 'left-out' || p.step === 'skipped' ? `<td colspan="4" class="hint">${why}</td>` : `<td class="num">${num(c.reported)}</td><td class="num flush-pne">${num(p.markedCount || c.notReported)}</td><td>${c.revalidated !== undefined && c.revalidated !== null ? `✓ ${num(c.revalidated)} of ${num(p.markedCount)}` : '—'}</td><td>${p.faeProjectId ? (p.faeDeleted ? 'Removed' : `<span translate="no">${esc(`${p.name}_FAE`)}</span>`) : '—'}</td>`;
-        const row = `<tr class="flush-row${opened === p.id ? ' is-open' : ''}" data-flush-open="${esc(p.id)}"><td><b translate="no">${esc(p.name)}</b></td><td><span class="pill ${kind}">${esc(STEP_LABEL[p.step] ?? p.step)}</span></td><td class="num">${num(c.toVerify)}</td>${cells}</tr>`;
+        const back = p.step === 'skipped' && allowed() ? ` <button type="button" class="sm flush-back" data-flush-back="${esc(p.id)}">${esc('Bring back')}</button>` : '';
+        const row = `<tr class="flush-row${opened === p.id ? ' is-open' : ''}" data-flush-open="${esc(p.id)}"><td><b translate="no">${esc(p.name)}</b></td><td class="flush-step"><span class="pill ${kind}">${esc(STEP_LABEL[p.step] ?? p.step)}</span>${back}</td><td class="num">${num(c.toVerify)}</td>${cells}</tr>`;
         return opened === p.id ? row + timeline(p) : row;
       })
       .join('');
@@ -338,6 +343,8 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     act('/api/fae-flush/decide', { projectId: button.closest('[data-id]').dataset.id, decision: button.dataset.decide });
   });
   $('flush-table').addEventListener('click', (event) => {
+    const back = event.target.closest('[data-flush-back]');
+    if (back) return act('/api/fae-flush/bring-back', { projectIds: [back.dataset.flushBack] }, () => 'Brought back: it starts again when a scan slot is free.');
     const row = event.target.closest('[data-flush-open]');
     if (!row) return;
     opened = opened === row.dataset.flushOpen ? '' : row.dataset.flushOpen;
@@ -354,6 +361,7 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     if (!confirm(t(`Delete all ${num(n)} _FAE projects from Checkmarx One?\n\nThe projects FAE Flush made, and their scans. Your own projects and the results marked in them are not touched.`))) return;
     act('/api/fae-flush/delete-fae', {}, (v) => `${num(v.deleted)} _FAE project${v.deleted === 1 ? '' : 's'} deleted${v.failed?.length ? `; ${v.failed.length} could not be` : ''}.`);
   });
+  $('flush-back-all').addEventListener('click', () => act('/api/fae-flush/bring-back', {}, () => 'Brought back: they start again when a scan slot is free.'));
   $('flush-csv').addEventListener('click', () => view?.job && save(`fae-flush-${view.job.startedAt.slice(0, 10)}.csv`, new Blob([csvOf(view.job)], { type: 'text/csv' })));
 
   // ---- Troubleshoot ----

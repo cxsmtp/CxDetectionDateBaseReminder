@@ -10175,6 +10175,7 @@ const FAE_EVENTS = {
   'mark-now': (d) => `FAE Flush: ${d.by} marked the report-only run now: ${d.results} results in ${d.projects} project(s).`,
   'debug': (d) => `FAE Flush debug log turned ${d.on ? 'on' : 'off'} by ${d.by}.`,
   'needs-ok': (d) => `FAE Flush stopped at ${d.project} to ask: ${d.reason}`,
+  'brought-back': (d) => `FAE Flush: ${d.by || 'someone'} brought back ${d.projects} skipped project${d.projects === 1 ? '' : 's'} (${(d.names ?? []).join(', ')}).`,
   decided: (d) => `FAE Flush: ${d.by || 'someone'} chose "${d.decision}" for ${d.project}${d.reason ? ` (${d.reason})` : ''}.`,
   marked: (d) => `FAE Flush marked ${d.marked} of ${d.project}'s ${d.toVerify} results To verify ${d.state ?? 'Proposed not exploitable'}${d.findings !== undefined && d.findings !== d.marked ? ` (${d.findings} findings: Checkmarx One marks every result sharing one)` : ''}: not reported by the FAE scan ${d.faeScanId}.`,
   'fae-deleted': (d) => `FAE Flush deleted ${d.project}_FAE.`,
@@ -10253,6 +10254,17 @@ app.post('/api/fae-flush/decide', ...faeGuard, (req, res) => {
   if (String(req.body?.decision) === 'mark' && faeMarkRefused(req)) return res.status(403).json({ error: faeMarkRefused(req), permission: 'faeFlush.notExploitable' });
   try {
     faeRunner().decide(String(req.body?.projectId ?? ''), String(req.body?.decision ?? ''), req.user?.email ?? '');
+  } catch (error) {
+    return res.status(error.status ?? 400).json({ error: error.message });
+  }
+  faeTick();
+  res.json(faeView());
+});
+
+// Skipped projects back in the run (all of them, or those named).
+app.post('/api/fae-flush/bring-back', ...faeGuard, (req, res) => {
+  try {
+    faeRunner().bringBack(Array.isArray(req.body?.projectIds) ? req.body.projectIds : null, req.user?.email ?? '');
   } catch (error) {
     return res.status(error.status ?? 400).json({ error: error.message });
   }

@@ -8,7 +8,9 @@
  *      handed to the new scan, so nothing passes through this server; else downloaded and uploaded again
  *      (POST /api/uploads, then PUT); else the repository at the latest scan's commit. Which one is a run option.
  *   2. Scan it on a new project, "<name>_FAE" (POST /api/projects, tagged mz-fae-flush), with the project's own
- *      SAST settings and Findings Analysis on (PATCH /api/configuration/project), SAST only (POST /api/scans).
+ *      SAST settings (those with a value) and Findings Analysis on (PATCH /api/configuration/project), SAST only
+ *      (POST /api/scans). A setting Checkmarx One refuses is left out and named; one that changes which results a
+ *      scan can report (its preset, for one) stops the project to ask instead.
  *   3. Compare: each SAST result of the project still To verify against the FAE scan's results, by similarity id.
  *   4. Mark: each one the FAE scan did not report becomes Proposed not exploitable in the original project
  *      (POST /api/sast-results-predicates), with a comment naming the FAE scan.
@@ -52,6 +54,14 @@ export const SOURCE_LABEL = { link: 'Checkmarx One’s own copy', upload: 'downl
 /** Mark what the FAE scan no longer reports, or only report it (marked later, with "Mark now"). */
 export const MODES = ['mark', 'report'];
 const DEBUG_MAX = 500;
+/**
+ * SAST settings that change which results a scan can report: when Checkmarx One refuses to copy one to the _FAE
+ * project, results the FAE scan could not report would look like false positives, so the project stops to ask.
+ */
+export const MUST_COPY = new Set(['scan.config.sast.presetName', 'scan.config.sast.languageMode', 'scan.config.sast.extendedAnalysis', 'scan.config.sast.defaultConfigId', 'scan.config.sast.scanMode', 'scan.config.sast.lightQueries']);
+const FINDINGS_ANALYSIS = 'scan.config.sast.findingsAnalysis';
+/** Checkmarx One answered that it will not take the change (not that it could not be reached). */
+const refused = (error) => [400, 403, 409, 422].includes(error?.status);
 /** Projects whose scan is under way count against "scans at once". */
 const SCANNING = new Set(['copying', 'scanning']);
 
@@ -496,18 +506,47 @@ export class FaeFlushRunner {
     const code = p.exception?.code;
     if (decision === 'mark') {
       // "Mark anyway" once compared; "Accept" after a revalidation that did not match. Never without an FAE scan's results.
-      if (code === 'scan' || code === 'error' || !p.pending) throw Object.assign(new Error('Nothing to mark: retry or skip it.'), { status: 409 });
+      if (code === 'scan' || code === 'error' || code === 'settings' || !p.pending) throw Object.assign(new Error('Nothing to mark: retry or skip it.'), { status: 409 });
       this.move(p, code === 'revalidation' ? (this.job.deleteFae ? 'cleaning' : 'done') : this.job.options?.mode === 'report' ? 'reported' : 'marking');
+    } else if (decision === 'continue') {
+      // Scan without the settings Checkmarx One refused to copy.
+      if (code !== 'settings') throw Object.assign(new Error('Only a project whose settings could not be copied carries on without them.'), { status: 409 });
+      p.settingsWaived = true;
+      this.move(p, 'waiting');
     } else if (decision === 'retry') {
-      if (code === 'scan' || code === 'copy') p.failedSources = [];
-      this.move(p, p.faeScanId && code !== 'scan' ? 'comparing' : 'waiting');
+      if (code === 'scan' || code === 'copy' || code === 'settings') p.failedSources = [];
+      if (p.faeDeleted) this.freshCopy(p);
+      this.move(p, p.faeScanId && !['scan', 'settings'].includes(code) ? 'comparing' : 'waiting');
     } else if (decision === 'skip') this.move(p, this.job.deleteFae && p.faeProjectId && code !== 'scan' ? 'cleaning' : 'skipped', `Skipped by ${text(by, 254)}`);
-    else throw Object.assign(new Error('Mark, skip or retry.'), { status: 400 });
+    else throw Object.assign(new Error('Mark, continue, skip or retry.'), { status: 400 });
     this.attempt(p, `answered: ${decision}`, true, by);
     this.record('decided', { project: p.name, decision, reason: p.exception?.text ?? '', by });
     p.exception = decision === 'retry' ? null : p.exception;
     this.store.save();
     return p;
+  }
+
+  /** Its _FAE project was removed: the next try makes a new one. */
+  freshCopy(p) {
+    Object.assign(p, { faeProjectId: '', faeDeleted: false, faeConfigured: false, faeScanId: '', faeLoc: null, codeSource: '', failedSources: [] });
+  }
+
+  /** Skipped projects back in the run, from their first step; a finished run carries on for them. */
+  bringBack(projectIds, by) {
+    const ids = Array.isArray(projectIds) && projectIds.length ? new Set(projectIds.map(String)) : null;
+    const back = (this.job?.projects ?? []).filter((p) => p.step === 'skipped' && (!ids || ids.has(p.id)));
+    if (!back.length) throw Object.assign(new Error('Nothing skipped to bring back.'), { status: 409 });
+    for (const p of back) {
+      if (p.faeDeleted || !p.faeProjectId) this.freshCopy(p);
+      else Object.assign(p, { faeScanId: '', faeLoc: null, codeSource: '', failedSources: [] });
+      Object.assign(p, { exception: null, settingsWaived: false, pending: undefined, counts: { toVerify: p.counts?.toVerify ?? null, marked: p.counts?.marked ?? 0 } });
+      this.move(p, 'waiting', `Brought back by ${text(by, 254)}`);
+      this.attempt(p, 'brought back', true, by);
+    }
+    if (this.job.state === 'done') Object.assign(this.job, { state: 'running', finishedAt: null });
+    this.record('brought-back', { projects: back.length, names: back.map((p) => p.name).slice(0, 20), by });
+    this.store.save();
+    return back.length;
   }
 
   move(p, step, note = '') {
@@ -554,7 +593,7 @@ export class FaeFlushRunner {
       else if (p.step === 'revalidating') await this.revalidate(traced, p);
       else if (p.step === 'cleaning') await this.clean(traced, p);
     } catch (error) {
-      p.exception = { code: error.code === 'copy' ? 'copy' : 'error', text: `${p.step}: ${text(error?.message, 400)}`, at: new Date(this.now()).toISOString() };
+      p.exception = { code: ['copy', 'settings'].includes(error.code) ? error.code : 'error', text: error.code === 'settings' ? text(error.message, 400) : `${p.step}: ${text(error?.message, 400)}`, at: new Date(this.now()).toISOString() };
       this.attempt(p, p.step, false, error?.message);
       this.move(p, 'needs-ok');
     } finally {
@@ -575,7 +614,8 @@ export class FaeFlushRunner {
   async copy(client, p) {
     this.move(p, 'copying');
     this.store.save();
-    if (!p.faeProjectId) await this.makeFaeProject(client, p);
+    if (p.faeDeleted) this.freshCopy(p);
+    if (!p.faeProjectId || p.faeConfigured !== true) await this.makeFaeProject(client, p);
     const tried = [];
     for (const source of this.sourcesFor(p)) {
       try {
@@ -596,14 +636,39 @@ export class FaeFlushRunner {
   }
 
   async makeFaeProject(client, p) {
-    const created = await client.request('/api/projects', { method: 'POST', body: { name: `${p.name}${FAE_SUFFIX}`, groups: p.groups, ...(p.criticality ? { criticality: p.criticality } : {}), tags: { [FAE_TAG]: this.job.id } }, retries: 1 });
-    p.faeProjectId = text(created?.id, 80);
-    if (!p.faeProjectId) throw new Error('Checkmarx One did not give the new project an id.');
-    // The project's own SAST settings, and Findings Analysis on.
+    if (!p.faeProjectId) {
+      const created = await client.request('/api/projects', { method: 'POST', body: { name: `${p.name}${FAE_SUFFIX}`, groups: p.groups, ...(p.criticality ? { criticality: p.criticality } : {}), tags: { [FAE_TAG]: this.job.id } }, retries: 1 });
+      p.faeProjectId = text(created?.id, 80);
+      if (!p.faeProjectId) throw new Error('Checkmarx One did not give the new project an id.');
+      p.faeConfigured = false;
+    }
+    // The project's own SAST settings that have a value (Checkmarx One lists every one as the project's, most of
+    // them empty), and Findings Analysis on: in one call; if refused, Findings Analysis alone, then each in turn.
     const settings = await client.request('/api/configuration/project', { query: { 'project-id': p.id }, retries: 1, background: true }).catch(() => []);
-    const own = (Array.isArray(settings) ? settings : []).filter((e) => String(e?.originLevel ?? '').toLowerCase() === 'project' && /^scan\.config\.sast\./.test(String(e?.key ?? '')) && e.key !== 'scan.config.sast.findingsAnalysis');
-    await client.request('/api/configuration/project', { method: 'PATCH', query: { 'project-id': p.faeProjectId }, body: [...own.map((e) => ({ key: e.key, value: String(e.value ?? '') })), { key: 'scan.config.sast.findingsAnalysis', value: 'true' }], retries: 1 });
-    this.attempt(p, 'project made', true, `${p.name}${FAE_SUFFIX} (${own.length} SAST setting(s) copied)`);
+    const own = (Array.isArray(settings) ? settings : []).filter((e) => String(e?.originLevel ?? '').toLowerCase() === 'project' && /^scan\.config\.sast\./.test(String(e?.key ?? '')) && e.key !== FINDINGS_ANALYSIS && String(e?.value ?? '').trim() !== '');
+    const patch = (body) => client.request('/api/configuration/project', { method: 'PATCH', query: { 'project-id': p.faeProjectId }, body, retries: 1 });
+    const setting = (e) => ({ key: e.key, value: String(e.value) });
+    const left = [];
+    try {
+      await patch([...own.map(setting), { key: FINDINGS_ANALYSIS, value: 'true' }]);
+    } catch (error) {
+      if (!refused(error) || !own.length) throw Object.assign(new Error(`Findings Analysis could not be turned on for ${p.name}${FAE_SUFFIX}: ${whyRefused(error)}`), { code: 'copy' });
+      await patch([{ key: FINDINGS_ANALYSIS, value: 'true' }]).catch((again) => Promise.reject(Object.assign(new Error(`Findings Analysis could not be turned on for ${p.name}${FAE_SUFFIX}: ${whyRefused(again)}`), { code: 'copy' })));
+      for (const e of own) {
+        await patch([setting(e)]).catch((one) => {
+          if (!refused(one)) throw one;
+          left.push({ key: e.key, why: whyRefused(one) });
+        });
+      }
+    }
+    const named = (list) => list.map((l) => `${l.key.replace('scan.config.sast.', '')} (${l.why})`).join(', ');
+    this.attempt(p, 'project made', true, `${p.name}${FAE_SUFFIX} (${own.length - left.length} of ${own.length} SAST setting(s) copied${left.length ? `; refused: ${named(left)}` : ''})`);
+    const must = left.filter((l) => MUST_COPY.has(l.key));
+    if (must.length && !p.settingsWaived) {
+      throw Object.assign(new Error(`Checkmarx One would not copy ${must.length === 1 ? 'this setting' : 'these settings'} to ${p.name}${FAE_SUFFIX}: ${named(must)}. Without ${must.length === 1 ? 'it' : 'them'} the FAE scan could report different results, so nothing was scanned. Carry on without ${must.length === 1 ? 'it' : 'them'}, retry, or skip.`), { code: 'settings' });
+    }
+    if (must.length) this.attempt(p, 'carried on without settings', true, named(must));
+    p.faeConfigured = true;
   }
 
   /** The FAE scan, from the code as `source` gives it. */

@@ -269,3 +269,30 @@ test('Not exploitable is for Admins alone: another role that may run FAE Flush i
   assert.ok((await admin('GET', '/api/me')).body.permissions.includes('faeFlush.notExploitable'), 'the Admin role holds it');
   assert.equal((await admin('POST', '/api/iam/roles', { name: 'Sneaky', permissions: ['beta.use', 'faeFlush.notExploitable'] })).status, 400, 'it cannot be given to another role');
 });
+
+test('a setting Checkmarx One will not copy stops a project to ask; skipped, it can be brought back', async () => {
+  await mock('/__refuse-setting?key=scan.config.sast.extendedAnalysis');
+  const started = await admin('POST', '/api/fae-flush/start', { concurrency: 2, deleteFae: true, mode: 'report', projectIds: ['p2'] });
+  assert.equal(started.status, 200, JSON.stringify(started.body));
+  const asked = await until((v) => v.job?.projects?.[0]?.step === 'needs-ok');
+  const p = asked.job.projects[0];
+  assert.equal(p.exception.code, 'settings');
+  assert.match(p.exception.text, /would not copy this setting to Project 2_FAE: extendedAnalysis \(.*403/);
+  assert.ok(p.attempts.some((a) => a.what === 'project made' && /0 of 1 SAST setting\(s\) copied; refused: extendedAnalysis/.test(a.detail)), 'empty settings are not copied');
+  assert.equal((await admin('POST', '/api/fae-flush/bring-back')).status, 409, 'nothing skipped yet');
+  assert.equal((await admin('POST', '/api/fae-flush/decide', { projectId: 'p2', decision: 'skip' })).status, 200);
+  const skipped = await until((v) => v.job?.state === 'done');
+  assert.equal(skipped.job.projects[0].step, 'skipped');
+
+  await mock('/__refuse-setting?key=');
+  const back = await admin('POST', '/api/fae-flush/bring-back', { projectIds: ['p2'] });
+  assert.equal(back.status, 200, JSON.stringify(back.body));
+  assert.equal(back.body.job.state, 'running');
+  assert.match(back.body.job.projects[0].note, /^Brought back by admin@acme\.io$/);
+  const done = await until((v) => v.job?.state === 'done', 60000);
+  // Compared this time (its results were marked by the run before, so none is left to mark).
+  assert.equal(done.job.projects[0].step, 'reported');
+  assert.ok(done.job.projects[0].attempts.some((a) => a.what === 'project made' && /1 of 1 SAST setting\(s\) copied\)$/.test(a.detail)));
+  const reasons = (await admin('GET', '/api/audit?q=FAE%20Flush&limit=50')).body.entries.map((e) => e.reason).join('\n');
+  assert.match(reasons, /FAE Flush: admin@acme\.io brought back 1 skipped project \(Project 2\)\./);
+});

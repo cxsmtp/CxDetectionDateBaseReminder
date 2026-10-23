@@ -2349,42 +2349,41 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
 
             <section class="panel" id="flush-run">
               <h2>Run</h2>
-              <dl class="flush-q">
-                <dt>Projects</dt>
-                <dd><b id="flush-chosen">None yet</b> <span class="hint" id="flush-chosen-sub">Check the projects first, then tick them in the list below: try a few first.</span></dd>
-                <dt>What to do</dt>
-                <dd>
-                  <span class="flush-seg" role="radiogroup" aria-label="What to do">
+              <div class="flush-bar">
+                <div class="flush-field"><span class="flush-label">Projects</span><b id="flush-chosen">None yet</b></div>
+                <div class="flush-field"><span class="flush-label" id="flush-mode-label">What to do</span>
+                  <span class="flush-seg" role="radiogroup" aria-labelledby="flush-mode-label">
                     <label><input type="radio" name="flush-mode" value="mark" checked /><span>Mark false positives</span></label>
-                    <label><input type="radio" name="flush-mode" value="report" /><span>Only show what it would mark</span></label>
+                    <label><input type="radio" name="flush-mode" value="report" /><span>Only show</span></label>
                   </span>
-                  <span class="hint flush-under">Only show: it scans and counts, and changes nothing; you can mark them afterwards.</span>
-                </dd>
-                <dt id="flush-markas-dt" hidden>Mark them as</dt>
-                <dd id="flush-markas-dd" hidden>
-                  <span class="flush-seg" role="radiogroup" aria-label="Mark them as">
+                </div>
+                <div class="flush-field" id="flush-markas-dd" hidden><span class="flush-label" id="flush-markas-dt">Mark them as</span>
+                  <span class="flush-seg" role="radiogroup" aria-labelledby="flush-markas-dt">
                     <label><input type="radio" name="flush-markas" value="pne" checked /><span>Proposed not exploitable</span></label>
                     <label><input type="radio" name="flush-markas" value="ne" /><span>Not exploitable</span></label>
                   </span>
-                  <span class="hint flush-under" id="flush-markas-hint">Proposed: a person confirms each one later (recommended). Not exploitable: final at once; they leave every count, and Undo still puts them back to To verify.</span>
-                  <span class="status error flush-under" id="flush-markas-warn" hidden>Not exploitable is final: these results leave every count and dashboard at once, with no one confirming them. Undo puts them back to To verify.</span>
-                </dd>
-                <dt>Stop and ask me if</dt>
-                <dd>
-                  <span class="flush-seg" role="radiogroup" aria-label="Stop and ask me if">
+                </div>
+                <div class="flush-field"><span class="flush-label" id="flush-sensitivity-label">Stop and ask me if</span>
+                  <span class="flush-seg" role="radiogroup" aria-labelledby="flush-sensitivity-label">
                     <label><input type="radio" name="flush-sensitivity" value="rarely" /><span>Rarely</span></label>
                     <label><input type="radio" name="flush-sensitivity" value="normal" checked /><span>Something looks off</span></label>
                     <label><input type="radio" name="flush-sensitivity" value="often" /><span>Often</span></label>
                   </span>
-                  <span class="hint flush-under">For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.</span>
-                </dd>
-              </dl>
-              <div class="flush-foot">
-                <label class="hint">Scans at once <select id="flush-concurrency"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>12</option></select></label>
+                </div>
+                <label class="flush-field"><span class="flush-label">Scans at once</span><select id="flush-concurrency"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>12</option></select></label>
                 <span class="flush-grow"></span>
-                <button type="button" id="flush-preview" class="sm">Check the projects</button>
-                <button type="button" id="flush-start" class="primary" disabled>Start FAE Flush</button>
+                <div class="flush-go">
+                  <button type="button" id="flush-preview" class="sm">Check the projects</button>
+                  <button type="button" id="flush-start" class="primary" disabled>Start FAE Flush</button>
+                </div>
               </div>
+              <p class="hint flush-hints">
+                <span id="flush-chosen-sub">Check the projects first, then tick them in the list below: try a few first.</span>
+                <span>Only show: it scans and counts, and changes nothing; you can mark them afterwards.</span>
+                <span id="flush-markas-hint" hidden>Proposed: a person confirms each one later (recommended). Not exploitable: final at once; they leave every count, and Undo still puts them back to To verify.</span>
+                <span class="status error" id="flush-markas-warn" hidden>Not exploitable is final: these results leave every count and dashboard at once, with no one confirming them. Undo puts them back to To verify.</span>
+                <span>For example the copy's code looks different, or it would mark nearly every result in a project. The other projects carry on.</span>
+              </p>
               <p class="hint" id="flush-perm-note" hidden>Starting it needs the Checkmarx One integration permission: it creates, scans and deletes projects with the server's own key.</p>
             </section>
 
@@ -2398,6 +2397,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <button type="button" id="flush-mark-now" class="sm primary" hidden>Mark now</button>
                   <button type="button" id="flush-pause" class="sm">Pause</button>
                   <button type="button" id="flush-csv" class="sm">Export CSV</button>
+                  <button type="button" id="flush-back-all" class="sm" hidden>Bring back all skipped</button>
                   <button type="button" id="flush-delete-fae" class="sm">Delete all _FAE projects</button>
                   <button type="button" id="flush-undo" class="sm danger">Undo all marks</button>
                 </div>

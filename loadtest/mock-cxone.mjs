@@ -66,6 +66,7 @@ const VULNS = [['SQL_Injection', 89], ['Reflected_XSS_All_Clients', 79], ['SSRF'
 const lastScanProject = (i) => i % 6 === 4;
 // The tenant's credits left in Checkmarx One (TENANT_CREDITS=n), of 30,000; /__tenant-credits?n= changes them.
 let TENANT_CREDITS = Number(process.env.TENANT_CREDITS || 28854);
+let REFUSE_SETTING = '';
 // One of a project's past scans: every other one ran the AI engine (Fusion, or LAST for a LAST project).
 const histScan = (i, k, n) => ({ id: `hist-p${i}-${k}`, projectId: `p${i}`, status: 'Completed', engines: k % 2 ? ['sast', 'sca'] : ['sast', 'sca', 'ai'], metadata: { configs: k % 2 ? [] : [{ type: 'ai', value: { fusionEnabled: lastScanProject(i) ? 'false' : 'true' } }] }, createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() });
 const risksFor = (pid) => allRisksFor(pid).filter((r) => !fixedByRescan(pid, `alt-${r.groupId.replace(/^sim-/, '')}`, r.id));
@@ -109,6 +110,8 @@ http.createServer((req, res) => {
       if (u.pathname === '/__stats') return send(200, { counts, peak, maxSendsPerResult: Math.max(0, ...sentCount.values()), resultsSent: sentCount.size });
       // A project deleted from Checkmarx One: its risks and the project itself answer 404.
       if (u.pathname === '/__gone') { const id = u.searchParams.get('id'); if (u.searchParams.get('on') === '1') gone.add(id); else gone.delete(id); return send(200, { gone: [...gone] }); }
+      // A SAST setting Checkmarx One refuses to set on a project (403), as a live tenant may: /__refuse-setting?key=…
+      if (u.pathname === '/__refuse-setting') { REFUSE_SETTING = u.searchParams.get('key') ?? ''; return send(200, { key: REFUSE_SETTING }); }
       if (u.pathname === '/__tenant-credits') { TENANT_CREDITS = Number(u.searchParams.get('n') ?? TENANT_CREDITS); return send(200, { available: TENANT_CREDITS }); }
       if (u.pathname === '/__changing') { changing = u.searchParams.get('on') === '1'; return send(200, { changing }); }
       if (u.pathname === '/__rescans') return send(200, Object.fromEntries(rescans));
@@ -161,7 +164,7 @@ http.createServer((req, res) => {
         bump('project-delete');
         return faeProjects.delete(decodeURIComponent(sm0[1])) ? send(204) : send(404, { message: 'project not found' });
       }
-      if (req.method === 'PATCH' && u.pathname === '/api/configuration/project') { bump('configuration-patch'); return faeProjects.has(u.searchParams.get('project-id')) ? send(204) : send(404, {}); }
+      if (req.method === 'PATCH' && u.pathname === '/api/configuration/project') { bump('configuration-patch'); if (REFUSE_SETTING && JSON.parse(b || '[]').some?.((e) => e?.key === REFUSE_SETTING)) return send(403, { code: 403, message: 'Forbidden' }); return faeProjects.has(u.searchParams.get('project-id')) ? send(204) : send(404, {}); }
       if (req.method === 'POST' && u.pathname === '/api/uploads') { bump('uploads'); const path = `/__upload/${uploads.size + 1}-${Date.now()}`; uploads.add(path); return send(200, { url: `http://127.0.0.1:${process.env.PORT || 4101}${path}` }); }
       // A scan's source code, as Checkmarx One keeps it (a zip).
       if ((sm0 = u.pathname.match(/^\/api\/repostore\/(code|scans)\/(?:(?:scan|feat)-)?p(\d+)$/))) {
@@ -358,7 +361,7 @@ http.createServer((req, res) => {
         bump('configuration');
         const i = Number(String(u.searchParams.get('project-id') ?? '').replace(/^p/, ''));
         const value = u.pathname.endsWith('tenant') ? 'opus-5.5' : i % 3 === 1 ? 'opus-5.0' : '';
-        return send(200, [{ key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: 'true' }, { key: 'scan.config.sast.extendedAnalysis', name: 'LLM-based scanning', value: 'true' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', value, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
+        return send(200, [{ key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: 'true' }, { key: 'scan.config.sast.extendedAnalysis', name: 'LLM-based scanning', value: 'true', originLevel: 'Project' }, { key: 'scan.config.sast.presetName', name: 'presetName', value: '', originLevel: 'Project' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', value, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
       }
       // Credits used, by project (as CxCreditGuard reads it): project i used 4i + 6, with i % 3 triage and i % 2 remediation actions.
       if (u.pathname === '/api/credits/consumption') {

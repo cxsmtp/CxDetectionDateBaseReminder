@@ -11,17 +11,26 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-unit-'));
 const original = Array.from({ length: 30 }, (_, k) => ({ similarityID: `s${k}`, state: 'TO_VERIFY', severity: 'HIGH' }));
 
 /** Checkmarx One as FAE Flush uses it; the FAE scan reports only `faeKeeps` of the project's results. */
-function fakeClient({ faeKeeps = 1, scanStatus = 'Completed' } = {}) {
+function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], refuse = [] } = {}) {
   const states = new Map();
   const calls = [];
+  const patches = [];
+  let made = 0;
   return {
     calls,
     states,
+    patches,
     download: async (p, file) => (fs.writeFileSync(file, 'PK'), 2),
     uploadFile: async () => 2,
     request: async (p, { method = 'GET', body, query } = {}) => {
       calls.push(`${method} ${p}`);
-      if (p === '/api/projects' && method === 'POST') return { id: 'fae-1' };
+      if (p === '/api/projects' && method === 'POST') return { id: `fae-${(made += 1)}` };
+      if (p === '/api/configuration/project' && method === 'GET') return settings;
+      if (p === '/api/configuration/project' && method === 'PATCH') {
+        patches.push(body.map((e) => e.key));
+        if (body.some((e) => refuse.includes(e.key))) throw Object.assign(new Error('PATCH /api/configuration/project failed: 403 Forbidden'), { status: 403, body: '{"code":403,"message":"Forbidden"}' });
+        return null;
+      }
       if (p === '/api/uploads') return { url: 'https://storage.example/u1' };
       if (p === '/api/scans' && method === 'POST') return { id: 'scan-fae' };
       if (p.startsWith('/api/scans/')) return { status: scanStatus, statusDetails: [{ name: 'sast', status: scanStatus, loc: 1000 }] };
@@ -55,7 +64,7 @@ test('marking nearly everything stops and asks; "Mark anyway" goes on, and the r
   assert.equal(p.exception.code, 'many');
   assert.equal(client.states.size, 0, 'nothing marked before an answer');
   assert.equal(r.job.state, 'running');
-  assert.throws(() => r.decide('p1', 'later', 'a@acme.io'), /Mark, skip or retry/);
+  assert.throws(() => r.decide('p1', 'later', 'a@acme.io'), /Mark, continue, skip or retry/);
   r.decide('p1', 'mark', 'a@acme.io');
   await turns(r, 4);
   assert.equal(p.step, 'done');
@@ -173,4 +182,111 @@ test('a refused call says why, in Checkmarx One\'s own words when its answer giv
   assert.equal(whyRefused(error('PUT upload failed: 401 with the access token', 'Unauthorized\n')), 'PUT upload failed: 401 with the access token: Unauthorized');
   assert.equal(whyRefused(error('GET x failed: 500', '')), 'GET x failed: 500');
   assert.equal(whyRefused(error('failed: Unauthorized', 'Unauthorized')), 'failed: Unauthorized', 'not said twice');
+});
+
+// Checkmarx One lists every setting as the project's own, most of them empty.
+const SETTINGS = [
+  { key: 'scan.config.sast.presetName', originLevel: 'Project', value: 'ASA Premium' },
+  { key: 'scan.config.sast.filter', originLevel: 'Project', value: '!**/test/**' },
+  { key: 'scan.config.sast.fastScanMode', originLevel: 'Project', value: '' },
+  { key: 'scan.config.sast.engineVerbose', originLevel: 'Project', value: '' },
+  { key: 'scan.config.sast.findingsAnalysis', originLevel: 'Project', value: '' },
+  { key: 'scan.config.sast.languageMode', originLevel: 'Tenant', value: 'multi' },
+  { key: 'scan.config.sca.filter', originLevel: 'Project', value: 'x' },
+];
+
+test('the _FAE project gets only the settings that have a value, and Findings Analysis, in one call', async () => {
+  const client = fakeClient({ faeKeeps: 25, settings: SETTINGS });
+  const r = runner(client, 'settings-ok');
+  await turns(r, 6);
+  const p = r.job.projects[0];
+  assert.deepEqual(client.patches, [['scan.config.sast.presetName', 'scan.config.sast.filter', 'scan.config.sast.findingsAnalysis']]);
+  assert.equal(p.faeConfigured, true);
+  assert.match(p.attempts.find((a) => a.what === 'project made').detail, /2 of 2 SAST setting\(s\) copied\)$/);
+  assert.equal(p.step, 'done');
+});
+
+test('a refused setting that does not change the results is left out and named; the run goes on', async () => {
+  const client = fakeClient({ faeKeeps: 25, settings: SETTINGS, refuse: ['scan.config.sast.filter'] });
+  const r = runner(client, 'settings-filter');
+  await turns(r, 6);
+  const p = r.job.projects[0];
+  // All together, then Findings Analysis alone, then each setting alone.
+  assert.deepEqual(client.patches, [['scan.config.sast.presetName', 'scan.config.sast.filter', 'scan.config.sast.findingsAnalysis'], ['scan.config.sast.findingsAnalysis'], ['scan.config.sast.presetName'], ['scan.config.sast.filter']]);
+  assert.match(p.attempts.find((a) => a.what === 'project made').detail, /1 of 2 SAST setting\(s\) copied; refused: filter \(.*403 Forbidden\)/);
+  assert.equal(p.step, 'done');
+  assert.equal(p.counts.marked, 5);
+});
+
+test('a refused preset stops to ask before any scan; "Carry on without them" scans, Retry tries again', async () => {
+  const client = fakeClient({ faeKeeps: 25, settings: SETTINGS, refuse: ['scan.config.sast.presetName'] });
+  const r = runner(client, 'settings-preset');
+  await turns(r, 2);
+  const p = r.job.projects[0];
+  assert.equal(p.step, 'needs-ok');
+  assert.equal(p.exception.code, 'settings');
+  assert.match(p.exception.text, /would not copy this setting to Payments_FAE: presetName \(.*403 Forbidden\)\. Without it/);
+  assert.ok(!client.calls.includes('POST /api/scans'), 'nothing scanned');
+  assert.throws(() => r.decide('p1', 'mark', 'a@acme.io'), /Nothing to mark/);
+  r.decide('p1', 'retry', 'a@acme.io');
+  await turns(r, 2);
+  assert.equal(p.exception.code, 'settings', 'still refused: asks again');
+  assert.equal(p.faeProjectId, 'fae-1', 'the same _FAE project');
+  r.decide('p1', 'continue', 'a@acme.io');
+  await turns(r, 6);
+  assert.equal(p.step, 'done');
+  assert.ok(p.attempts.some((a) => a.what === 'carried on without settings' && /presetName/.test(a.detail)));
+  assert.throws(() => r.decide('p1', 'continue', 'a@acme.io'), /not waiting/);
+});
+
+test('Findings Analysis refused: the project asks with Checkmarx One\'s reason', async () => {
+  const client = fakeClient({ settings: [], refuse: ['scan.config.sast.findingsAnalysis'] });
+  const r = runner(client, 'settings-fa');
+  await turns(r, 2);
+  const p = r.job.projects[0];
+  assert.equal(p.exception.code, 'copy');
+  assert.match(p.exception.text, /Findings Analysis could not be turned on for Payments_FAE: .*403 Forbidden/);
+  assert.throws(() => r.decide('p1', 'continue', 'a@acme.io'), /Only a project whose settings could not be copied/);
+});
+
+test('skipped projects come back: a finished run carries on for them, with a new _FAE project if it was removed', async () => {
+  const client = fakeClient({ faeKeeps: 25, settings: SETTINGS, refuse: ['scan.config.sast.presetName'] });
+  const r = runner(client, 'bring-back');
+  assert.throws(() => r.bringBack(null, 'a@acme.io'), /Nothing skipped/);
+  await turns(r, 2);
+  const p = r.job.projects[0];
+  r.decide('p1', 'skip', 'a@acme.io');
+  await turns(r, 2);
+  assert.equal(p.step, 'skipped');
+  assert.equal(p.faeDeleted, true, 'its _FAE project removed (deleteFae)');
+  assert.equal(r.job.state, 'done');
+  client.patches.length = 0;
+  // The preset is allowed now.
+  const allowed = fakeClient({ faeKeeps: 25, settings: SETTINGS });
+  r.clientOf = () => allowed;
+  assert.equal(r.bringBack(['p1'], 'b@acme.io'), 1);
+  assert.equal(p.step, 'waiting');
+  assert.equal(p.note, 'Brought back by b@acme.io');
+  assert.equal(r.job.state, 'running');
+  assert.equal(p.faeProjectId, '');
+  await turns(r, 6);
+  assert.equal(p.step, 'done');
+  assert.equal(p.faeProjectId, 'fae-1', 'a new _FAE project');
+  assert.equal(p.counts.marked, 5);
+  assert.equal(r.job.state, 'done');
+});
+
+test('Retry after its _FAE project was removed makes a new one', async () => {
+  const client = fakeClient({ scanStatus: 'Failed' });
+  const r = runner(client, 'retry-removed');
+  await turns(r, 3);
+  const p = r.job.projects[0];
+  assert.equal(p.exception.code, 'scan');
+  await r.deleteAll();
+  assert.equal(p.faeDeleted, true);
+  r.decide('p1', 'retry', 'a@acme.io');
+  assert.equal(p.faeProjectId, '');
+  assert.equal(p.faeDeleted, false);
+  await turns(r, 1);
+  assert.equal(p.faeProjectId, 'fae-2');
 });
