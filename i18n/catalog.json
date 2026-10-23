@@ -29338,5 +29338,467 @@
   "seen": [
    "MZ-01.00.97 › Labs → FAE Flush"
   ]
+ },
+ "Only show": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Delete _FAE projects of earlier runs": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Delete {0} _FAE projects of earlier runs": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Delete {0} _FAE project of earlier runs": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Search the run": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Bring back": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Delete _FAE projects": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Undo marks": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Retry ({0})": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Skip ({0})": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Bring back ({0})": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Delete _FAE projects ({0})": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Undo marks ({0})": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Clear the selection": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Select every project shown": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Not reported → Not exploitable": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Click a project to see what it went through: each step, where its code came from, and any error. Tick projects to act on them; the box in the heading ticks every one shown.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "This tenant groups similar results by Attack Vector ID (Account settings → Grouping similar results). FAE Flush marks them by attack vector there.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Search name or branch; several: separate with commas": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Can be flushed": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Ticked": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Not ticked": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Skipped last run": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Untick all": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Tick every project shown": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Last scanned": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Code from": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "{0} found by the AI engine, left as they are.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "{0} Checkmarx One would not mark (each project's timeline says why).": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "{0} in the tenant · {1} can be flushed · {2} left out.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Repository": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Stored copy": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "{0} ticked": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "of {0}: tick the projects to flush (the box in the heading ticks every one shown)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "of {0} · {1} results To verify · ≈ {2}.{3} h": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "of {0} · {1} results To verify · ≈ {2} h": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "of {0} · {1} results To verify · ≈ {2} min": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Show {0} more ({1} left)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "At work": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "{0} selected": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Carry on without them": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "{0} not marked: Checkmarx One refused them (see the timeline)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Retrying {0}: they go on when a scan slot is free.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "{0} skipped.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Brought back: they start again when a scan slot is free.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "{0} _FAE project deleted; {1} could not be.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Mark {0} results Not exploitable now, in {1} projects?": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Mark {0} results Not exploitable now, in {1} project?": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Mark {0} results Proposed not exploitable now, in {1} projects?": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Mark {0} results Proposed not exploitable now, in {1} project?": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Delete the _FAE projects of {0} projects from Checkmarx One?": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Delete the _FAE projects of {0} project from Checkmarx One?": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Undo FAE Flush for these projects?": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "The {0} results marked Not exploitable in {1} projects go back to To verify, apart from any someone changed since (those stay as they are).": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "The {0} results marked Not exploitable in {1} project go back to To verify, apart from any someone changed since (those stay as they are).": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "The {0} results marked Proposed not exploitable in {1} projects go back to To verify, apart from any someone changed since (those stay as they are).": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "The {0} results marked Proposed not exploitable in {1} project go back to To verify, apart from any someone changed since (those stay as they are).": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Delete {0} _FAE projects of earlier runs from Checkmarx One?": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "The projects FAE Flush made, and their scans. Your own projects are not touched.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "brought back": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "latest scan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "carried on without settings": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "marks by attack vector": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "not marked": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Only a project whose settings could not be copied carries on without them.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "None of those projects is waiting for an answer.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Nothing skipped to bring back.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "Retry or skip.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → FAE Flush"
+  ]
+ },
+ "{0} Fusion": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → Fusion results"
+  ]
+ },
+ "{0} LAST": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → Fusion results"
+  ]
+ },
+ "{0} left out": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → Fusion results"
+  ]
+ },
+ "credits, latest scans": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → Fusion results"
+  ]
+ },
+ "credits left (tenant)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → Fusion results"
+  ]
+ },
+ "Hide details": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → Fusion results"
+  ]
+ },
+ "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.98 › Labs → Fusion results"
+  ]
+ },
+ "found by the AI engine alone": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.98 › Labs → Fusion results"
+  ]
+ },
+ "AI results <small>latest scans</small>": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.00.98 › Labs → Fusion results"
+  ]
  }
 }

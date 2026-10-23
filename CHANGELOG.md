@@ -85,7 +85,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.00.98 — WHEN98 UTC · [#121](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/121)
+## MZ-01.00.98 — 2026-10-23 15:14 UTC · [#121](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/121)
 
 - **FAE Flush copies only the settings that count.** The `_FAE` project takes the project's own SAST settings that have a value, in one call; if Checkmarx One refuses, each is tried alone and the timeline names those refused, and a refused setting that changes the results (such as the preset) stops the project to ask: continue, skip or retry. This fixes the `PATCH /api/configuration/project … 403` seen on a live tenant.
 - **Marks on tenants that group by attack vector.** Where Checkmarx One refuses marks by similarity id (Account settings → Grouping similar results: Attack Vector ID), FAE Flush reads each result's attack vector id and marks by it instead, and Undo does the same; a result still refused stays To verify and is listed as not marked.
