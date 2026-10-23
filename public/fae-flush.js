@@ -225,6 +225,8 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     $('flush-back-all').hidden = !allowed() || !skipped;
     $('flush-back-all').textContent = skipped === 1 ? 'Bring back the skipped project' : `Bring back all ${num(skipped)} skipped`;
 
+    // The column says the state this run marks with.
+    $('flush-col-marked').textContent = ne() ? 'Not reported → Not exploitable' : 'Not reported → Proposed not exploitable';
     // Those that stopped to ask.
     const asks = job.projects.filter((p) => p.step === 'needs-ok');
     $('flush-asks').innerHTML = asks
