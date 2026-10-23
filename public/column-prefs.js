@@ -5,7 +5,7 @@
 //   const shown = shownColumns('fusion', COLUMNS);         // [{ id, label, … }] in the reader's order
 //   columnMenu($('fusion-cols'), 'fusion', COLUMNS, redraw);  // fills a <details class="col-picker">
 //
-// Each column: { id, label, title?, fixed? (always shown, never moved: a tick box, the project name), off? (hidden
+// Each column: { id, label (text, or a function giving it), title?, fixed? (always shown, never moved: a tick box, the project name), off? (hidden
 // until chosen) }.
 
 const KEY = (key) => `mz.columns.${key}`;
@@ -58,7 +58,7 @@ export function columnMenu(details, key, columns, changed) {
   const draw = () => {
     const all = orderedColumns(key, columns).filter((c) => !c.fixed);
     menu.innerHTML = `<ol class="col-order">${all
-      .map((c, i) => `<li data-col="${esc(c.id)}"><label class="check"${c.title ? ` title="${esc(c.title)}"` : ''}><input type="checkbox" data-col-show="${esc(c.id)}"${c.shown ? ' checked' : ''} /> <span>${esc(c.label)}</span></label><span class="col-move"><button type="button" class="icon-btn" data-col-move="-1" aria-label="Move up"${i === 0 ? ' disabled' : ''}>↑</button><button type="button" class="icon-btn" data-col-move="1" aria-label="Move down"${i === all.length - 1 ? ' disabled' : ''}>↓</button></span></li>`)
+      .map((c, i) => `<li data-col="${esc(c.id)}"><label class="check"${c.title ? ` title="${esc(c.title)}"` : ''}><input type="checkbox" data-col-show="${esc(c.id)}"${c.shown ? ' checked' : ''} /> <span>${esc(typeof c.label === 'function' ? c.label() : c.label)}</span></label><span class="col-move"><button type="button" class="icon-btn" data-col-move="-1" aria-label="Move up"${i === 0 ? ' disabled' : ''}>↑</button><button type="button" class="icon-btn" data-col-move="1" aria-label="Move down"${i === all.length - 1 ? ' disabled' : ''}>↓</button></span></li>`)
       .join('')}</ol><div class="col-menu-foot"><button type="button" class="link" data-col-reset>Reset</button><span class="hint">Kept in this browser.</span></div>`;
   };
   const store = (all) => save(key, { order: all.map((c) => c.id), hidden: all.filter((c) => !c.shown).map((c) => c.id) });

@@ -3712,3 +3712,4 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 .fusion-lang-line { display: block; font-size: 12px; line-height: 1.45; white-space: normal; }
 .fusion-lang-line b { font-size: 10.5px; font-weight: 600; letter-spacing: .03em; color: var(--muted); margin-inline-end: 4px; }
 .fusion-lang-line.is-last b { color: color-mix(in srgb, var(--scan-last) 75%, var(--text)); }
+.flush-find .col-picker > summary { min-height: 30px; padding: 0 10px; font-size: 13px; }

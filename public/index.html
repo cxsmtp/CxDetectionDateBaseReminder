@@ -2398,6 +2398,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div class="flush-find">
                 <span class="flush-chips" id="flush-steps" role="group" aria-label="Step"></span>
                 <input type="search" id="flush-run-search" maxlength="300" autocomplete="off" placeholder="Search the run" aria-label="Search the run" />
+                <details class="col-picker" id="flush-run-cols"><summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary><div class="col-menu"></div></details>
               </div>
               <div class="flush-actbar" id="flush-actbar" hidden>
                 <b id="flush-act-count"></b>
@@ -2414,7 +2415,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </div>
               <div class="table-wrap">
                 <table class="flush-table data-table" id="flush-table" data-tt="flush-run">
-                  <thead><tr><th class="flush-tick checkbox"><input type="checkbox" id="flush-run-head" aria-label="Select every project shown" /></th><th>Project</th><th>Step</th><th class="num">To verify</th><th class="num">Reported by FAE</th><th class="num" id="flush-col-marked">Not reported → Proposed not exploitable</th><th>Revalidated</th><th>_FAE project</th></tr></thead>
+                  <thead><tr><th class="flush-tick checkbox"><input type="checkbox" id="flush-run-head" aria-label="Select every project shown" /></th></tr></thead>
                   <tbody></tbody>
                 </table>
               </div>
@@ -2436,11 +2437,12 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <button type="button" class="sm" data-show="left-out">Left out</button>
                   <button type="button" class="sm" data-show="skipped" hidden>Skipped last run</button>
                 </span>
+                <details class="col-picker" id="flush-proj-cols"><summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary><div class="col-menu"></div></details>
               </div>
               <div class="flush-selbar"><b id="flush-sel-count"></b> <span class="hint" id="flush-sel-sub"></span><button type="button" class="link" id="flush-untick-all" hidden>Untick all</button><span class="flush-grow"></span><span class="hint" id="flush-found"></span></div>
               <div class="table-wrap">
                 <table class="flush-table data-table" id="flush-preview-table" data-tt="flush-projects">
-                  <thead><tr><th class="flush-tick checkbox"><input type="checkbox" id="flush-tick-head" aria-label="Tick every project shown" /></th><th>Project</th><th>Branch</th><th>Last scanned</th><th class="num">Lines of code</th><th class="num">To verify</th><th>Code from</th><th>FAE Flush</th></tr></thead>
+                  <thead><tr><th class="flush-tick checkbox"><input type="checkbox" id="flush-tick-head" aria-label="Tick every project shown" /></th></tr></thead>
                   <tbody></tbody>
                 </table>
               </div>

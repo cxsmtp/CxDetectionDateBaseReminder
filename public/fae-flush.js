@@ -6,6 +6,7 @@
  * one project, keeps a debug log and chooses where the code comes from.
  */
 import { sortAndFilter } from './table-tools.js';
+import { columnMenu, shownColumns } from './column-prefs.js';
 
 const STEP_LABEL = {
   waiting: 'Waiting',
@@ -30,6 +31,29 @@ const pct = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : '—');
 const csvText = (rows) => rows.map((r) => r.map((v) => (/[",\n]/.test(String(v ?? '')) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ''))).join(',')).join('\n');
 
 /** Roughly how long: the projects' last SAST scans, so many at once. */
+/**
+ * A table's headings after its tick box, from the columns chosen (column-prefs.js): drawn again only when they
+ * change, so the heading sort and filters keep their place. Returns the key its sort and filters are kept under.
+ */
+function drawHead(table, base, cols) {
+  const label = (c) => (typeof c.label === 'function' ? c.label() : c.label);
+  const sign = cols.map((c) => `${c.id}:${label(c)}`).join('|');
+  const key = `${base}:${cols.map((c) => c.id).join(',')}`;
+  const tr = table.tHead.rows[0];
+  if (tr.dataset.cols === sign) return key;
+  tr.dataset.cols = sign;
+  table.dataset.tt = key;
+  while (tr.cells.length > 1) tr.deleteCell(1);
+  for (const c of cols) {
+    const th = document.createElement('th');
+    if (c.num) th.className = 'num';
+    if (c.title) th.title = c.title;
+    th.textContent = label(c);
+    tr.append(th);
+  }
+  return key;
+}
+
 export function estimate(preview, concurrency, count = preview?.eligible ?? 0) {
   const share = preview?.eligible ? count / preview.eligible : 0;
   const seconds = ((preview?.sastSeconds ?? 0) * share) / Math.max(1, concurrency) + (count * 60) / Math.max(1, concurrency);
@@ -64,6 +88,26 @@ export function valueCsvOf(value) {
 }
 
 export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fmtDateTime, t = (s) => s }) {
+  /** The projects list's columns (after the tick box). */
+  const projectColumns = (codeFrom) => [
+    { id: 'project', label: 'Project', fixed: true, sort: (p) => p.name, cell: (p) => `<td><b translate="no">${esc(p.name)}</b></td>` },
+    { id: 'branch', label: 'Branch', sort: (p) => p.branch ?? '', cell: (p) => `<td>${p.sourceScanId ? `<span translate="no">${esc(p.branch || '')}</span>` : '—'}</td>` },
+    { id: 'scanned', label: 'Last scanned', sort: { value: (p) => (p.scannedAt ? Date.parse(p.scannedAt) : null), text: (p) => (p.scannedAt ? fmtDateTime(p.scannedAt) : '') }, cell: (p) => `<td>${p.scannedAt ? `<time translate="no">${esc(fmtDateTime(p.scannedAt))}</time>` : '—'}</td>` },
+    { id: 'loc', label: 'Lines of code', num: true, sort: (p) => p.loc ?? null, cell: (p) => `<td class="num">${num(p.loc)}</td>` },
+    { id: 'toVerify', label: 'To verify', num: true, sort: (p) => p.toVerify ?? null, cell: (p) => `<td class="num">${num(p.toVerify)}</td>` },
+    { id: 'code', label: 'Code from', sort: codeFrom, cell: (p) => `<td>${p.leftOut ? '—' : esc(codeFrom(p))}</td>` },
+    { id: 'flush', label: 'FAE Flush', sort: (p) => (p.leftOut ? 'Left out' : 'Can be flushed'), cell: (p) => `<td>${p.leftOut ? `<span class="pill muted">Left out</span> <span class="hint">${esc(p.leftOut)}</span>` : '<span class="pill ok">Can be flushed</span>'}</td>` },
+  ];
+  /** The run's columns (after the tick box); the project's cell, with its question, is drawn by the run. */
+  const runColumns = (markedLabel) => [
+    { id: 'project', label: 'Project', fixed: true, sort: (p) => p.name },
+    { id: 'step', label: 'Step', sort: (p) => STEP_LABEL[p.step] ?? p.step, cell: (p) => `<td><span class="pill ${STEP_KIND[p.step] ?? (ACTIVE.has(p.step) ? 'run' : '')}">${esc(STEP_LABEL[p.step] ?? p.step)}</span></td>` },
+    { id: 'toVerify', label: 'To verify', num: true, sort: (p) => p.counts?.toVerify ?? null, cell: (p) => `<td class="num">${num(p.counts?.toVerify)}</td>` },
+    { id: 'reported', label: 'Reported by FAE', num: true, sort: (p) => p.counts?.reported ?? null, cell: (p) => `<td class="num">${num(p.counts?.reported)}</td>` },
+    { id: 'marked', label: () => `Not reported → ${markedLabel}`, num: true, sort: (p) => p.markedCount || p.counts?.notReported || null, cell: (p) => `<td class="num flush-pne" title="${esc(markedLabel)}">${num(p.markedCount || p.counts?.notReported)}</td>` },
+    { id: 'revalidated', label: 'Revalidated', sort: (p) => p.counts?.revalidated ?? null, cell: (p) => `<td>${p.counts?.revalidated !== undefined && p.counts?.revalidated !== null ? `✓ ${num(p.counts.revalidated)} of ${num(p.markedCount)}` : '—'}</td>` },
+    { id: 'fae', label: '_FAE project', sort: (p) => (p.faeProjectId ? (p.faeDeleted ? 'Removed' : `${p.name}_FAE`) : ''), cell: (p) => `<td>${p.faeProjectId ? (p.faeDeleted ? 'Removed' : `<span translate="no">${esc(`${p.name}_FAE`)}</span>`) : '—'}</td>` },
+  ];
   let view = null;
   let value = null;
   let timer = 0;
@@ -238,7 +282,6 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     $('flush-delete-earlier').hidden = !allowed() || !earlier;
     $('flush-delete-earlier').textContent = `Delete ${num(earlier)} _FAE project${earlier === 1 ? '' : 's'} of earlier runs`;
     // The column says the state this run marks with.
-    $('flush-col-marked').textContent = ne() ? 'Not reported → Not exploitable' : 'Not reported → Proposed not exploitable';
     renderRun(job);
   }
 
@@ -251,16 +294,9 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     if (showWhat === 'skipped' && !skipped.size) showWhat = 'all';
     for (const chip of document.querySelectorAll('#flush-show [data-show]')) chip.classList.toggle('primary', chip.dataset.show === showWhat);
     const codeFrom = (p) => (p.leftOut ? '' : p.codeKept === false ? 'Repository' : 'Stored copy');
-    const rows = sortAndFilter('flush-projects', preview.projects.filter(shown), [
-      null,
-      (p) => p.name,
-      (p) => p.branch ?? '',
-      { value: (p) => (p.scannedAt ? Date.parse(p.scannedAt) : null), text: (p) => (p.scannedAt ? fmtDateTime(p.scannedAt) : '') },
-      (p) => p.loc ?? null,
-      (p) => p.toVerify ?? null,
-      codeFrom,
-      (p) => (p.leftOut ? 'Left out' : 'Can be flushed'),
-    ], () => renderProjects(view.preview));
+    const cols = shownColumns('flush-projects', projectColumns(codeFrom));
+    const key = drawHead($('flush-preview-table'), 'flush-projects', cols);
+    const rows = sortAndFilter(key, preview.projects.filter(shown), [null, ...cols.map((c) => c.sort ?? null)], () => renderProjects(view.preview));
     const pickable = rows.filter((p) => !p.leftOut);
     const ticked = pickable.filter((p) => chosen?.has(p.id)).length;
     const head = $('flush-tick-head');
@@ -277,10 +313,9 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
       .slice(0, pageRows)
       .map((p) => {
         const tick = p.leftOut ? '' : `<input type="checkbox" data-flush-pick="${esc(p.id)}"${chosen?.has(p.id) ? ' checked' : ''} aria-label="${esc(p.name)}" />`;
-        const how = p.leftOut ? `<span class="pill muted">Left out</span> <span class="hint">${esc(p.leftOut)}</span>` : '<span class="pill ok">Can be flushed</span>';
-        return `<tr><td class="flush-tick">${tick}</td><td><b translate="no">${esc(p.name)}</b></td><td>${p.sourceScanId ? `<span translate="no">${esc(p.branch || '')}</span>` : '—'}</td><td>${p.scannedAt ? `<time translate="no">${esc(fmtDateTime(p.scannedAt))}</time>` : '—'}</td><td class="num">${num(p.loc)}</td><td class="num">${num(p.toVerify)}</td><td>${p.leftOut ? '—' : esc(codeFrom(p))}</td><td>${how}</td></tr>`;
+        return `<tr><td class="flush-tick">${tick}</td>${cols.map((c) => c.cell(p)).join('')}</tr>`;
       })
-      .join('') || `<tr><td colspan="8" class="hint">${esc('No project matches.')}</td></tr>`;
+      .join('') || `<tr><td colspan="${cols.length + 1}" class="hint">${esc('No project matches.')}</td></tr>`;
     $('flush-more').hidden = rows.length <= pageRows;
     $('flush-more').textContent = `Show ${num(Math.min(PAGE_ROWS, rows.length - pageRows))} more (${num(rows.length - pageRows)} left)`;
     projectsShown = pickable;
@@ -294,16 +329,9 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     const test = TABS.find(([key]) => key === stepTab)[2];
     const words = termsOf('flush-run-search');
     const markedLabel = ne() ? 'Not exploitable' : 'Proposed not exploitable';
-    const rows = sortAndFilter('flush-run', job.projects.filter((p) => test(p) && matches(words, p.name, STEP_LABEL[p.step] ?? p.step, p.exception?.text ?? '', p.note ?? '')), [
-      null,
-      (p) => p.name,
-      (p) => STEP_LABEL[p.step] ?? p.step,
-      (p) => p.counts?.toVerify ?? null,
-      (p) => p.counts?.reported ?? null,
-      (p) => p.markedCount || p.counts?.notReported || null,
-      (p) => p.counts?.revalidated ?? null,
-      (p) => (p.faeProjectId ? (p.faeDeleted ? 'Removed' : `${p.name}_FAE`) : ''),
-    ], () => renderRun(view.job));
+    const cols = shownColumns('flush-run', runColumns(markedLabel));
+    const key = drawHead($('flush-table'), 'flush-run', cols);
+    const rows = sortAndFilter(key, job.projects.filter((p) => test(p) && matches(words, p.name, STEP_LABEL[p.step] ?? p.step, p.exception?.text ?? '', p.note ?? '')), [null, ...cols.map((c) => c.sort ?? null)], () => renderRun(view.job));
     // The selection keeps only projects still in the run.
     const ids = new Set(job.projects.map((p) => p.id));
     selected = new Set([...selected].filter((id) => ids.has(id)));
@@ -323,7 +351,7 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
       button.hidden = !n;
       button.textContent = n ? `${LABEL[button.dataset.bulk]} (${num(n)})` : LABEL[button.dataset.bulk];
     }
-    const timeline = (p) => `<tr class="flush-timeline"><td colspan="8"><ol>${(p.attempts ?? []).map((a) => `<li class="${a.ok ? 'ok' : 'bad'}"><time translate="no">${esc(fmtDateTime(a.at))}</time> <span>${esc(a.what)}</span>${a.detail ? ` <span class="hint" translate="no">${esc(a.detail)}</span>` : ''}</li>`).join('') || `<li>${esc('Nothing yet.')}</li>`}</ol></td></tr>`;
+    const timeline = (p) => `<tr class="flush-timeline"><td colspan="${cols.length + 1}"><ol>${(p.attempts ?? []).map((a) => `<li class="${a.ok ? 'ok' : 'bad'}"><time translate="no">${esc(fmtDateTime(a.at))}</time> <span>${esc(a.what)}</span>${a.detail ? ` <span class="hint" translate="no">${esc(a.detail)}</span>` : ''}</li>`).join('') || `<li>${esc('Nothing yet.')}</li>`}</ol></td></tr>`;
     const question = (p) => {
       const code = p.exception?.code;
       const markable = !['scan', 'error', 'copy', 'settings', 'rescan'].includes(code) && (code === 'revalidation' || (p.counts?.notReported ?? 0) > 0);
@@ -342,13 +370,11 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     $('flush-table').tBodies[0].innerHTML = rows
       .slice(0, runRows)
       .map((p) => {
-        const c = p.counts ?? {};
-        const kind = STEP_KIND[p.step] ?? (ACTIVE.has(p.step) ? 'run' : '');
         const box = allowed() ? `<input type="checkbox" data-flush-sel="${esc(p.id)}"${selected.has(p.id) ? ' checked' : ''} aria-label="${esc(p.name)}" />` : '';
-        const row = `<tr class="flush-row${opened === p.id ? ' is-open' : ''}${p.step === 'needs-ok' ? ' is-asking' : ''}" data-flush-open="${esc(p.id)}" data-id="${esc(p.id)}"><td class="flush-tick">${box}</td><td><b translate="no">${esc(p.name)}</b>${why(p)}</td><td><span class="pill ${kind}">${esc(STEP_LABEL[p.step] ?? p.step)}</span></td><td class="num">${num(c.toVerify)}</td><td class="num">${num(c.reported)}</td><td class="num flush-pne" title="${esc(markedLabel)}">${num(p.markedCount || c.notReported)}</td><td>${c.revalidated !== undefined && c.revalidated !== null ? `✓ ${num(c.revalidated)} of ${num(p.markedCount)}` : '—'}</td><td>${p.faeProjectId ? (p.faeDeleted ? 'Removed' : `<span translate="no">${esc(`${p.name}_FAE`)}</span>`) : '—'}</td></tr>`;
+        const row = `<tr class="flush-row${opened === p.id ? ' is-open' : ''}${p.step === 'needs-ok' ? ' is-asking' : ''}" data-flush-open="${esc(p.id)}" data-id="${esc(p.id)}"><td class="flush-tick">${box}</td>${cols.map((c) => (c.id === 'project' ? `<td><b translate="no">${esc(p.name)}</b>${why(p)}</td>` : c.cell(p))).join('')}</tr>`;
         return opened === p.id ? row + timeline(p) : row;
       })
-      .join('') || `<tr><td colspan="8" class="hint">${esc('No project matches.')}</td></tr>`;
+      .join('') || `<tr><td colspan="${cols.length + 1}" class="hint">${esc('No project matches.')}</td></tr>`;
     $('flush-run-more').hidden = rows.length <= runRows;
     $('flush-run-more').textContent = `Show ${num(Math.min(PAGE_ROWS, rows.length - runRows))} more (${num(rows.length - runRows)} left)`;
     runShown = shownIds;
@@ -505,6 +531,9 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     runRows = PAGE_ROWS;
     render();
   });
+  // Columns: shown or not, and in what order (kept in this browser).
+  columnMenu($('flush-proj-cols'), 'flush-projects', projectColumns(() => ''), () => view?.preview && renderProjects(view.preview));
+  columnMenu($('flush-run-cols'), 'flush-run', runColumns('Proposed not exploitable'), () => view?.job && renderRun(view.job));
   $('flush-run-search').addEventListener('input', () => {
     runRows = PAGE_ROWS;
     if (view) render();
