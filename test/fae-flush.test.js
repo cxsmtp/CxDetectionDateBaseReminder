@@ -11,7 +11,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-unit-'));
 const original = Array.from({ length: 30 }, (_, k) => ({ similarityID: `s${k}`, state: 'TO_VERIFY', severity: 'HIGH' }));
 
 /** Checkmarx One as FAE Flush uses it; the FAE scan reports only `faeKeeps` of the project's results. */
-function fakeClient({ faeExtra = 0, faeKeeps = 1, scanStatus = 'Completed', settings = [], refuse = [], refuseMark = [], results = original, avField = '', latest = null, rescanned = null } = {}) {
+function fakeClient({ gone = new Set(), faeExtra = 0, faeKeeps = 1, scanStatus = 'Completed', settings = [], refuse = [], refuseMark = [], results = original, avField = '', latest = null, rescanned = null } = {}) {
   const states = new Map();
   const calls = [];
   const patches = [];
@@ -35,7 +35,11 @@ function fakeClient({ faeExtra = 0, faeKeeps = 1, scanStatus = 'Completed', sett
         return null;
       }
       if (p === '/api/uploads') return { url: 'https://storage.example/u1' };
-      if (p === '/api/scans' && method === 'POST') return { id: 'scan-fae' };
+      if (p.startsWith('/api/projects/') && gone.has(p.slice('/api/projects/'.length))) throw Object.assign(new Error(`GET ${p} failed: 404 Not Found`), { status: 404, body: '{"code":137,"message":"Project not found"}' });
+      if (p === '/api/scans' && method === 'POST') {
+        if (gone.has(body.project.id)) throw Object.assign(new Error('POST /api/scans failed: 404 Not Found'), { status: 404, body: `{"code":137,"message":"Project not found, ID: ${body.project.id}"}` });
+        return { id: 'scan-fae' };
+      }
       if (p.startsWith('/api/scans/')) return { status: scanStatus, statusDetails: [{ name: 'sast', status: scanStatus, loc: 1000 }] };
       if (p === '/api/sast-results') {
         if (query.offset > 0) return { results: [] };
@@ -318,6 +322,26 @@ test('skipped projects come back: a finished run carries on for them, with a new
   assert.equal(p.faeProjectId, 'fae-1', 'a new _FAE project');
   assert.equal(p.counts.marked, 5);
   assert.equal(r.job.state, 'done');
+});
+
+test('its _FAE project removed in Checkmarx One: Retry makes a new one, and a finished run carries on for it', async () => {
+  const gone = new Set();
+  const client = fakeClient({ gone, scanStatus: 'Failed' });
+  const r = runner(client, 'gone');
+  await turns(r, 4);
+  const p = r.job.projects[0];
+  assert.equal(p.step, 'needs-ok');
+  assert.equal(p.exception.code, 'scan');
+  // Someone deletes Payments_FAE in Checkmarx One; the run is otherwise over.
+  gone.add(p.faeProjectId);
+  r.job.state = 'done';
+  client.calls.length = 0;
+  r.decide('p1', 'retry', 'a@acme.io');
+  assert.equal(r.job.state, 'running', 'an answer puts a finished run back to work');
+  await turns(r, 1);
+  assert.equal(p.faeProjectId, 'fae-2', 'a new _FAE project');
+  assert.ok(p.attempts.some((a) => a.what === 'project removed'));
+  assert.equal(client.calls.filter((c) => c === 'POST /api/projects').length, 1);
 });
 
 test('Retry after its _FAE project was removed makes a new one', async () => {

@@ -25,7 +25,10 @@ export const AI_FILTER = { 'is-ai-generated': 1, 'is-ai-generated-operation': 'E
 export const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
 /** Risk Hub's states: To verify (each new risk's), Confirmed, Proposed not exploitable, Not exploitable, Urgent. */
 export const STATES = ['TO_VERIFY', 'CONFIRMED', 'PROPOSED_NOT_EXPLOITABLE', 'NOT_EXPLOITABLE', 'URGENT'];
-/** LAST: found by the AI engine in a language only it covers; Fusion: every other risk of a Fusion scan. */
+/**
+ * Whose a risk is: its project's latest scan's kind (from MZ-01.00.99), so ticking LAST shows LAST scans only. What
+ * the AI engine found in a language only it covers is still told apart (`coveredAs` empty), as the LAST languages.
+ */
 export const ENGINES = ['FUSION', 'LAST'];
 /** ['fusion', 'LAST', 'x'] → ['FUSION', 'LAST']; none (or nothing known) → both. */
 export const cleanEngines = (v) => {
@@ -142,9 +145,8 @@ export function cleanRisk(raw, project, scanId, ai = null, scanType = 'fusion') 
     ai: found,
     // Set by AI Triage (Risk Hub's stateChangedBy "ai").
     aiTriaged: String(raw?.stateChangedBy ?? '').toLowerCase() === 'ai',
-    // A LAST scan's risks are all LAST's; a Fusion scan's are Fusion's, but for what the AI engine found in a
-    // language only it covers.
-    engine: scanType === 'last' || (found && !covered) ? 'LAST' : 'FUSION',
+    // Its scan's kind: a LAST scan's risks are LAST's, a Fusion scan's Fusion's.
+    engine: scanType === 'last' ? 'LAST' : 'FUSION',
     coveredAs: covered ? text(covered.framework ?? covered.language, 60) : '',
     cwe: Number(r.cweId) > 0 ? Number(r.cweId) : ai?.cwe ?? null,
     location: text(r.location, 400),
@@ -172,7 +174,7 @@ export function riskFromAi(ai, scanType = 'fusion') {
     scanner: 'SAST',
     ai: true,
     aiTriaged: false,
-    engine: scanType === 'last' ? 'LAST' : ai.engine,
+    engine: scanType === 'last' ? 'LAST' : 'FUSION',
     location: ai.sourceFile,
   };
 }

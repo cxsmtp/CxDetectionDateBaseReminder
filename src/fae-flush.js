@@ -330,6 +330,8 @@ export function compareResults(original, fae) {
   const notReported = notReportedList.reduce((n, f) => n + f.results, 0);
   return { toVerify: open.length, toVerifyFindings: findings.size, reported, notReported, notReportedList, extra, faeReported: theirs.size, aiLeft: toVerify.length - open.length };
 }
+/** Checkmarx One no longer has the project (a 404 that says so, or any 404 on the project itself). */
+const projectGone = (error) => error?.status === 404 && /project not found|\/api\/projects\//i.test(`${error?.message ?? ''} ${error?.body ?? ''}`);
 /** The projects named (all of them when none is). */
 const picked = (projects, ids) => {
   const want = Array.isArray(ids) && ids.length ? new Set(ids.map(String)) : null;
@@ -578,6 +580,8 @@ export class FaeFlushRunner {
     else throw Object.assign(new Error('Mark, continue, skip or retry.'), { status: 400 });
     this.attempt(p, `answered: ${decision}`, true, by);
     this.record('decided', { project: p.name, decision, reason: p.exception?.text ?? '', by });
+    // A finished run carries on for it (it never would, left "done": nothing turns a finished run).
+    if (this.job.state === 'done') Object.assign(this.job, { state: 'running', finishedAt: null });
     p.exception = decision === 'retry' ? null : p.exception;
     this.store.save();
     return p;
@@ -631,6 +635,8 @@ export class FaeFlushRunner {
   /** One turn: start what has room, advance what is at work. Never more than one step of a project at a time. */
   async tick() {
     const job = this.job;
+    // A finished run with a project put back to work (answered before MZ-01.00.99, which left it waiting): it carries on.
+    if (job?.state === 'done' && job.projects.some((p) => !FINISHED.has(p.step))) Object.assign(job, { state: 'running', finishedAt: null });
     if (!job || job.state !== 'running') return;
     const client = this.clientOf();
     if (!client) return;
@@ -713,11 +719,26 @@ export class FaeFlushRunner {
     this.store.save();
     if (p.faeDeleted) this.freshCopy(p);
     if (p.latestAgain) await this.latestScan(client, p);
+    // Its _FAE project from an earlier try, removed in Checkmarx One since: a new one.
+    if (p.faeProjectId && p.faeConfigured === true) {
+      await client.request(`/api/projects/${encodeURIComponent(p.faeProjectId)}`, { retries: 1, background: true }).catch((error) => {
+        if (!projectGone(error)) return;
+        this.attempt(p, 'project removed', true, `${p.name}${FAE_SUFFIX} is no longer in Checkmarx One: a new one is made`);
+        this.freshCopy(p);
+      });
+    }
     if (!p.faeProjectId || p.faeConfigured !== true) await this.makeFaeProject(client, p);
     const tried = [];
     for (const source of this.sourcesFor(p)) {
       try {
-        p.faeScanId = await this.startScan(client, p, source);
+        p.faeScanId = await this.startScan(client, p, source).catch(async (error) => {
+          // Removed while this step ran: once more, with a new _FAE project.
+          if (!projectGone(error)) throw error;
+          this.attempt(p, 'project removed', true, `${p.name}${FAE_SUFFIX} is no longer in Checkmarx One: a new one is made`);
+          this.freshCopy(p);
+          await this.makeFaeProject(client, p);
+          return this.startScan(client, p, source);
+        });
         p.codeSource = source;
         p.scanStartedAt = new Date(this.now()).toISOString();
         this.attempt(p, `code: ${SOURCE_LABEL[source]}`, true, `scan ${p.faeScanId}`);

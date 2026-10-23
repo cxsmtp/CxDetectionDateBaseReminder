@@ -10363,7 +10363,8 @@ function faeTick(all = false) {
     // Without its activation code (expired or turned off) nothing more is started; it carries on once unlocked again.
     if (featureLocked(featureById('faeFlush'))) return;
     const runner = faeRunner();
-    if (!runner.job || runner.job.state !== 'running' || faeTicking.has(runner)) return;
+    // A finished run too: one with a project put back to work carries on (the runner checks).
+    if (!runner.job || !['running', 'done'].includes(runner.job.state) || faeTicking.has(runner)) return;
     faeTicking.add(runner);
     runner.tick().catch((error) => console.warn(`! [fae-flush] ${error.message}`)).finally(() => faeTicking.delete(runner));
   };
