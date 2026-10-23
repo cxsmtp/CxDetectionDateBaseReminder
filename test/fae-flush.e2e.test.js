@@ -301,6 +301,10 @@ test('a setting Checkmarx One will not copy stops a project to ask; skipped, it 
 
 test('a tenant that groups similar results by attack vector: marked and undone by attack vector id', async () => {
   await mock('/__triage-by?by=av');
+  // Checking the projects says so first.
+  assert.equal((await admin('POST', '/api/fae-flush/preview')).status, 202);
+  const checked = await until((v) => v.preview && !v.previewing && v.preview.groupsByAttackVector);
+  assert.equal(checked.preview.groupsByAttackVector, true);
   // Their results as the scans found them (an earlier run marked them).
   await mock('/__predicates?clear=p4');
   await mock('/__predicates?clear=p5');

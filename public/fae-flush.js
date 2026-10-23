@@ -178,6 +178,7 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     $('flush-preview-panel').hidden = !preview || Boolean(job && preview.readAt <= job.startedAt);
     if (preview) {
       $('flush-preview-sub').textContent = `${num(preview.eligible)} to flush, ${num(preview.leftOut)} left out.`;
+      $('flush-av-warn').hidden = !preview.groupsByAttackVector;
       const listed = preview.projects.filter(shown);
       const narrowed = listed.length !== preview.projects.length;
       $('flush-found').textContent = narrowed ? `${num(listed.length)} of ${num(preview.projects.length)} shown` : '';

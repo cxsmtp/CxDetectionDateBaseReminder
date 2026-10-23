@@ -366,8 +366,12 @@ export async function previewTenant(client, { listProjects, getLastScans, concur
     }
   }
   const eligible = rows.filter((r) => !r.leftOut);
+  // How the tenant groups similar results: by attack vector, Checkmarx One refuses marks by similarity id.
+  const tenant = await client.request('/api/configuration/tenant', { retries: 1, background: true }).catch(() => null);
+  const grouping = (Array.isArray(tenant) ? tenant : []).find((e) => e?.key === 'scan.config.sast.advancedTriageMode')?.value;
   return {
     readAt: new Date().toISOString(),
+    groupsByAttackVector: /attack/i.test(String(grouping ?? '')),
     projects: rows,
     eligible: eligible.length,
     leftOut: rows.length - eligible.length,
@@ -861,10 +865,10 @@ export class FaeFlushRunner {
         }
       }
     }
-    // A tenant grouping by attack vector, and a latest scan from before that: nobody can change its results until the
-    // project is scanned again (Checkmarx One: "updates are not allowed").
+    // A tenant grouping similar results by attack vector, and results that carry no attack vector id (Checkmarx One's
+    // results API gives none): Checkmarx One takes no mark FAE Flush can send.
     if (notTaken.length && notTaken.length === todo.length && notTaken.every((m) => /no attack vector id/.test(m.why))) {
-      throw Object.assign(new Error(`This tenant groups similar results by attack vector, and ${p.name}'s latest scan has no attack vector ids (it is older than that setting): Checkmarx One lets no one change its results until the project is scanned again. Scan ${p.name} again, then bring it back. Nothing was marked.`), { code: 'rescan' });
+      throw Object.assign(new Error(`This tenant groups similar results by Attack Vector ID (Account settings → Grouping similar results), and Checkmarx One gives no attack vector id with ${p.name}'s results: it takes no mark FAE Flush can send. Nothing was marked. Set the grouping to Similarity ID to mark here, or use Only show and mark in Checkmarx One; if its latest scan is older than that setting, scanning it again may give the ids, then Retry.`), { code: 'rescan' });
     }
     if (notTaken.length) {
       p.notMarked = notTaken.map(({ similarityId, severity, query, results, why }) => ({ similarityId, severity, query, results, why: text(why, 200) }));

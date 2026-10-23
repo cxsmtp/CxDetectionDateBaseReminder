@@ -374,7 +374,7 @@ http.createServer((req, res) => {
         bump('configuration');
         const i = Number(String(u.searchParams.get('project-id') ?? '').replace(/^p/, ''));
         const value = u.pathname.endsWith('tenant') ? 'opus-5.5' : i % 3 === 1 ? 'opus-5.0' : '';
-        return send(200, [{ key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: 'true' }, { key: 'scan.config.sast.extendedAnalysis', name: 'LLM-based scanning', value: 'true', originLevel: 'Project' }, { key: 'scan.config.sast.presetName', name: 'presetName', value: '', originLevel: 'Project' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', value, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
+        return send(200, [...(u.pathname.endsWith('tenant') ? [{ key: 'scan.config.sast.advancedTriageMode', name: 'Grouping Similar Results', value: TRIAGE_BY === 'av' ? 'Attack Vector ID' : 'Similarity ID', originLevel: 'Tenant' }] : []), { key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: 'true' }, { key: 'scan.config.sast.extendedAnalysis', name: 'LLM-based scanning', value: 'true', originLevel: 'Project' }, { key: 'scan.config.sast.presetName', name: 'presetName', value: '', originLevel: 'Project' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', value, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
       }
       // Credits used, by project (as CxCreditGuard reads it): project i used 4i + 6, with i % 3 triage and i % 2 remediation actions.
       if (u.pathname === '/api/credits/consumption') {

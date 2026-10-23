@@ -367,7 +367,7 @@ test('grouped by attack vector, a latest scan with none: it asks to scan again; 
   const p = r.job.projects[0];
   assert.equal(p.step, 'needs-ok');
   assert.equal(p.exception.code, 'rescan');
-  assert.match(p.exception.text, /latest scan has no attack vector ids .* Scan Payments again, then bring it back\. Nothing was marked\./);
+  assert.match(p.exception.text, /groups similar results by Attack Vector ID .* gives no attack vector id with Payments's results: it takes no mark FAE Flush can send\. Nothing was marked\./);
   assert.throws(() => r.decide('p1', 'mark', 'a@acme.io'), /Nothing to mark/);
   scan = 'scan-2';
   r.decide('p1', 'retry', 'a@acme.io');
