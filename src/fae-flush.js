@@ -341,6 +341,8 @@ const resultsIn = (list) => (list ?? []).reduce((n, m) => n + (Number(m.results)
 /** Why a project stops and asks before marking (null when nothing looks off). */
 export function exceptionOf(p, limits = LIMITS) {
   const c = p.counts ?? {};
+  // Nothing it would mark: nothing to ask about; it goes on, and marks none.
+  if (!(c.notReported > 0)) return null;
   if (p.loc && p.faeLoc !== null && p.faeLoc !== undefined && Math.abs(p.faeLoc - p.loc) / p.loc > limits.locDrift) {
     return { code: 'loc', text: `The FAE scan counted ${p.faeLoc} lines of code against ${p.loc} in the project's latest scan: it may not be the same code.` };
   }

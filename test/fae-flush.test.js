@@ -11,7 +11,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-unit-'));
 const original = Array.from({ length: 30 }, (_, k) => ({ similarityID: `s${k}`, state: 'TO_VERIFY', severity: 'HIGH' }));
 
 /** Checkmarx One as FAE Flush uses it; the FAE scan reports only `faeKeeps` of the project's results. */
-function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], refuse = [], refuseMark = [], results = original, avField = '', latest = null, rescanned = null } = {}) {
+function fakeClient({ faeExtra = 0, faeKeeps = 1, scanStatus = 'Completed', settings = [], refuse = [], refuseMark = [], results = original, avField = '', latest = null, rescanned = null } = {}) {
   const states = new Map();
   const calls = [];
   const patches = [];
@@ -39,7 +39,7 @@ function fakeClient({ faeKeeps = 1, scanStatus = 'Completed', settings = [], ref
       if (p.startsWith('/api/scans/')) return { status: scanStatus, statusDetails: [{ name: 'sast', status: scanStatus, loc: 1000 }] };
       if (p === '/api/sast-results') {
         if (query.offset > 0) return { results: [] };
-        if (query['scan-id'] === 'scan-fae') return { results: results.filter((r) => !r.isAiGenerated).slice(0, faeKeeps) };
+        if (query['scan-id'] === 'scan-fae') return { results: [...results.filter((r) => !r.isAiGenerated).slice(0, faeKeeps), ...Array.from({ length: faeExtra }, (_, k) => ({ similarityID: `x${k}`, state: 'TO_VERIFY', severity: 'LOW' }))] };
         if (rescanned && query['scan-id'] === 'scan-2') return { results: rescanned.map((r) => ({ ...r, state: states.get(r.similarityID) ?? r.state })) };
         return { results: results.map((r) => ({ ...r, state: states.get(r.similarityID) ?? r.state })) };
       }
@@ -88,6 +88,34 @@ test('marking nearly everything stops and asks; "Mark anyway" goes on, and the r
   assert.equal(p.counts.revalidated, 29);
   assert.equal(p.faeDeleted, true);
   assert.equal(r.job.state, 'done');
+});
+
+test('nothing to mark: no question, even when the FAE scan reported results the project does not have', async () => {
+  // Every result To verify still reported, and 9 more the project does not have: nothing would be marked.
+  const r = runner(fakeClient({ faeKeeps: 30, faeExtra: 9 }), 'nothing-to-mark');
+  await turns(r, 5);
+  const p = r.job.projects[0];
+  assert.equal(p.counts.notReported, 0);
+  assert.equal(p.counts.extra, 9);
+  assert.equal(p.exception, null);
+  assert.equal(p.step, 'done');
+  assert.equal(p.counts.marked ?? 0, 0);
+});
+
+test('several projects asking: "Mark anyway" for all of them at once; those it does not fit are left, and said why', async () => {
+  const client = fakeClient({ faeKeeps: 1 });
+  const store = new FaeFlushStore({ file: path.join(dir, 'many-at-once.json') });
+  const r = new FaeFlushRunner({ store, clientOf: () => client, tmpDir: dir });
+  r.start({ by: 'a@acme.io', deleteFae: true, preview: { projects: ['p1', 'p2', 'p3'].map((id) => ({ id, name: id, sourceScanId: 'scan-1', loc: 1000, toVerify: 30 })) } });
+  await turns(r, 6);
+  assert.deepEqual(r.job.projects.map((p) => p.step), ['needs-ok', 'needs-ok', 'needs-ok']);
+  // One of them has a question marking cannot answer.
+  r.job.projects[2].exception = { code: 'scan', text: 'The FAE scan failed.' };
+  const out = r.decideMany(['p1', 'p2', 'p3'], 'mark', 'a@acme.io');
+  assert.equal(out.done, 2);
+  assert.deepEqual(out.skipped.map((s) => s.project), ['p3']);
+  await turns(r, 6);
+  assert.deepEqual(r.job.projects.map((p) => p.step), ['done', 'done', 'needs-ok']);
 });
 
 test('a failed FAE scan marks nothing; Skip leaves its _FAE project to look at', async () => {

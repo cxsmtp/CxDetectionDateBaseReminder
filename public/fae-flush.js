@@ -106,6 +106,9 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
   ];
   // What each action on the selected projects applies to.
   const BULK = {
+    // Asking, with an FAE scan's results to mark (not a scan, copy or settings question).
+    anyway: (p) => p.step === 'needs-ok' && !['scan', 'error', 'copy', 'settings', 'rescan'].includes(p.exception?.code) && (p.counts?.notReported ?? 0) > 0,
+    continue: (p) => p.step === 'needs-ok' && p.exception?.code === 'settings',
     retry: (p) => p.step === 'needs-ok',
     skip: (p) => p.step === 'needs-ok',
     back: (p) => p.step === 'skipped',
@@ -313,16 +316,17 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     const chosenRows = job.projects.filter((p) => selected.has(p.id));
     $('flush-actbar').hidden = !allowed() || !chosenRows.length;
     $('flush-act-count').textContent = `${num(chosenRows.length)} selected`;
-    const LABEL = { retry: 'Retry', skip: 'Skip', back: 'Bring back', mark: 'Mark now', delete: 'Delete _FAE projects', undo: 'Undo marks' };
+    const LABEL = { anyway: 'Mark anyway', continue: 'Carry on without them', retry: 'Retry', skip: 'Skip', back: 'Bring back', mark: 'Mark now', delete: 'Delete _FAE projects', undo: 'Undo marks' };
     for (const button of document.querySelectorAll('#flush-actbar [data-bulk]')) {
       const n = chosenRows.filter(BULK[button.dataset.bulk]).length;
-      button.disabled = !n;
+      // Only what fits the projects ticked.
+      button.hidden = !n;
       button.textContent = n ? `${LABEL[button.dataset.bulk]} (${num(n)})` : LABEL[button.dataset.bulk];
     }
     const timeline = (p) => `<tr class="flush-timeline"><td colspan="8"><ol>${(p.attempts ?? []).map((a) => `<li class="${a.ok ? 'ok' : 'bad'}"><time translate="no">${esc(fmtDateTime(a.at))}</time> <span>${esc(a.what)}</span>${a.detail ? ` <span class="hint" translate="no">${esc(a.detail)}</span>` : ''}</li>`).join('') || `<li>${esc('Nothing yet.')}</li>`}</ol></td></tr>`;
     const question = (p) => {
       const code = p.exception?.code;
-      const markable = !['scan', 'error', 'copy', 'settings', 'rescan'].includes(code);
+      const markable = !['scan', 'error', 'copy', 'settings', 'rescan'].includes(code) && (code === 'revalidation' || (p.counts?.notReported ?? 0) > 0);
       const mark = code === 'revalidation' ? 'Accept' : `Mark ${num(p.counts?.notReported ?? 0)} anyway`;
       const reason = ['error', 'copy', 'settings', 'rescan'].includes(code) ? `<span translate="no">${esc(p.exception?.text ?? '')}</span>` : `<span>${esc(p.exception?.text ?? '')}</span>`;
       const detail = p.exception?.detail ? ` <span class="hint" translate="no">${esc(p.exception.detail)}</span>` : '';
@@ -522,7 +526,14 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     const done = () => {
       selected = new Set();
     };
-    if (kind === 'retry' || kind === 'skip') {
+    if (kind === 'anyway') {
+      const results = list.reduce((a, p) => a + (p.counts?.notReported ?? 0), 0);
+      const question = ne() ? `Mark ${num(results)} results Not exploitable anyway, in ${many}?` : `Mark ${num(results)} results Proposed not exploitable anyway, in ${many}?`;
+      if (!confirm(t(`${question}\n\nEach of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.`))) return;
+      act('/api/fae-flush/decide-many', { projectIds, decision: 'mark' }, (v) => `Marking ${num(v.done)}: it runs on the server, you can close this page.`);
+    } else if (kind === 'continue') {
+      act('/api/fae-flush/decide-many', { projectIds, decision: 'continue' }, (v) => `${num(v.done)} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.`);
+    } else if (kind === 'retry' || kind === 'skip') {
       act('/api/fae-flush/decide-many', { projectIds, decision: kind }, (v) => (kind === 'retry' ? `Retrying ${num(v.done)}: they go on when a scan slot is free.` : `${num(v.done)} skipped.`));
     } else if (kind === 'back') {
       act('/api/fae-flush/bring-back', { projectIds }, () => 'Brought back: they start again when a scan slot is free.');

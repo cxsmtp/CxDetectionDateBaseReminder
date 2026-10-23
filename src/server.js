@@ -10272,10 +10272,12 @@ app.post('/api/fae-flush/decide', ...faeGuard, (req, res) => {
   res.json(faeView());
 });
 
-// Several projects that stopped to ask, the same answer (retry or skip; marking goes through Mark now).
+// Several projects that stopped to ask, the same answer: mark anyway, carry on without the settings, retry or skip.
+// Those the answer does not fit are left as they are, and the reply says why.
 app.post('/api/fae-flush/decide-many', ...faeGuard, (req, res) => {
   const decision = String(req.body?.decision ?? '');
-  if (!['retry', 'skip'].includes(decision)) return res.status(400).json({ error: 'Retry or skip.' });
+  if (!['mark', 'continue', 'retry', 'skip'].includes(decision)) return res.status(400).json({ error: 'Mark, continue, skip or retry.' });
+  if (decision === 'mark' && faeMarkRefused(req)) return res.status(403).json({ error: faeMarkRefused(req), permission: 'faeFlush.notExploitable' });
   let result;
   try {
     result = faeRunner().decideMany(Array.isArray(req.body?.projectIds) ? req.body.projectIds : [], decision, req.user?.email ?? '');
