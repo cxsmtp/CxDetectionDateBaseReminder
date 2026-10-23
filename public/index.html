@@ -2544,6 +2544,10 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <select id="fusion-model" aria-label="Model">
                     <option value="">Any model</option>
                   </select>
+                  <details class="col-picker" id="fusion-cols">
+                    <summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary>
+                    <div class="col-menu"></div>
+                  </details>
                   <button type="button" class="sm" id="fusion-proj-csv">Export CSV</button>
                   <button type="button" class="sm" id="fusion-report">HTML report</button>
                 </div>
@@ -2559,9 +2563,9 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div class="fusion-lanes" id="fusion-lanes" hidden></div>
               <p class="status" id="fusion-act-status"></p>
               <div class="table-wrap">
-                <table class="data-table fusion-table">
-                  <thead><tr><th>Project</th><th title="Fusion: its latest scan ran the AI engine with Fusion on. LAST: with Fusion off (LLM-based scanning alone).">Scan</th><th title="The model its latest scan ran with, and where that was set: the scan, the project, the tenant, or Checkmarx One itself">Model</th><th class="num" title="Lines of code its latest scan counted">LOC</th><th title="What the AI engine reported, by severity (no traditional SAST results)">AI results</th><th class="num" title="Open risks still in Risk Hub's default state, To verify">To verify</th><th class="num" title="Open risks confirmed (by people or by AI Triage)">Confirmed</th><th class="num" title="Credits its latest scan used: none for a LAST scan or with Fusion credits disabled; ≈ an estimate from the Fusion credits it used over the last year, per Fusion scan">Credits, latest scan</th><th>Latest scan</th></tr></thead>
-                  <tbody id="fusion-body"><tr><td colspan="9" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
+                <table class="data-table fusion-table" id="fusion-table" data-tt="fusion-projects">
+                  <thead><tr id="fusion-head"></tr></thead>
+                  <tbody id="fusion-body"><tr><td colspan="11" class="hint">Choose applications or projects above (or none, for every project), then Load results.</td></tr></tbody>
                 </table>
               </div>
               <p class="hint" id="fusion-foot"></p>

@@ -3699,3 +3699,16 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 #flush-run .flush-field > b { line-height: 28px; }
 #flush-run .flush-go button { min-height: 30px; padding-block: 4px; }
 #page-flush #flush-progress-title { font-size: 16px; line-height: 1.3; }
+/* Columns menus (column-prefs.js): tick to show, arrows to move; Fusion's languages cell. */
+.col-menu .col-order { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; min-width: 240px; }
+.col-menu .col-order li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 0; }
+.col-menu .col-order .check { flex: 1; min-width: 0; }
+.col-menu .col-move { display: inline-flex; gap: 2px; }
+.col-menu .col-move button { min-height: 24px; min-width: 24px; padding: 0 6px; font-size: 12px; line-height: 1; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; }
+.col-menu .col-move button:disabled { opacity: .35; cursor: default; }
+.col-menu .col-menu-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--border); padding-top: 6px; }
+.fusion-tools .col-picker > summary { min-height: 30px; padding: 0 10px; font-size: 13px; }
+.fusion-langs { min-width: 120px; }
+.fusion-lang-line { display: block; font-size: 12px; line-height: 1.45; white-space: normal; }
+.fusion-lang-line b { font-size: 10.5px; font-weight: 600; letter-spacing: .03em; color: var(--muted); margin-inline-end: 4px; }
+.fusion-lang-line.is-last b { color: color-mix(in srgb, var(--scan-last) 75%, var(--text)); }
