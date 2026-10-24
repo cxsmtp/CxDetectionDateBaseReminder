@@ -327,8 +327,16 @@ export class CxClient {
     // is never sent to any other host.
     const own = this.#isOwn(target);
     const how = (withToken) => (withToken ? 'with the access token' : 'without it');
-    const put = (withToken) =>
-      fetch(target, { method: 'PUT', headers: { 'Content-Type': 'application/zip', 'Content-Length': String(size), ...(withToken && own ? { Authorization: `Bearer ${token}` } : {}) }, body: createReadStream(file), duplex: 'half', signal: AbortSignal.timeout(timeoutMs) });
+    // Each try reads the file afresh; a stream the answer did not read (an early refusal) is closed, never left open.
+    const put = async (withToken) => {
+      const body = createReadStream(file);
+      body.on('error', () => {});
+      try {
+        return await fetch(target, { method: 'PUT', headers: { 'Content-Type': 'application/zip', 'Content-Length': String(size), ...(withToken && own ? { Authorization: `Bearer ${token}` } : {}) }, body, duplex: 'half', signal: AbortSignal.timeout(timeoutMs) });
+      } finally {
+        body.destroy();
+      }
+    };
     return this.#limit.run(async () => {
       let r = await put(own);
       let tried = `${r.status} ${how(own)}`;
