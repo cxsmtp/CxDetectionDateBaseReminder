@@ -178,7 +178,10 @@ export async function checkRoute({ proxy = '', host, port = 443, pathname = '/',
     return { ok: false, host, port, steps };
   }
   const secure = await new Promise((resolve) => {
-    const s = tls.connect({ socket, servername: net.isIP(host) ? undefined : host, rejectUnauthorized: false, timeout: timeoutMs }, () => resolve(s));
+    // Not refused at the handshake, so the step can name who issued an untrusted certificate. Node
+    // still checks the chain and the name asked for (`host`, never the proxy's), and nothing is sent
+    // unless `authorized` says both passed (below).
+    const s = tls.connect({ socket, host, servername: net.isIP(host) ? undefined : host, rejectUnauthorized: false, timeout: timeoutMs }, () => resolve(s));
     s.once('error', (e) => resolve({ failed: e }));
     s.once('timeout', () => resolve({ failed: new Error('no TLS answer') }));
   });

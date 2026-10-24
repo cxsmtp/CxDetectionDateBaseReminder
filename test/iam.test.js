@@ -175,3 +175,31 @@ test('MZ-01.00.63, once, on roles an older version saved: the calculator off for
   fs.writeFileSync(file, JSON.stringify(raw));
   assert.ok(new IamStore({ file }).role('analyst').permissions.includes('projections.use'));
 });
+
+test('refusals name no one: no email address, typed or anyone else\'s, is in an error message', async () => {
+  const { iam, admin, analyst, user, as } = await seeded();
+  const noEmail = () => (error) => {
+    assert.doesNotMatch(error.message, /@|jdoe/, error.message);
+    return true;
+  };
+  await assert.rejects(iam.createUser({ email: 'ANA@acme.io', role: 'user' }, as(admin)), noEmail());
+  await assert.rejects(iam.createUser({ email: 'new@acme.io', role: 'user', cxoneIdentities: ['jdoe'] }, as(admin)), noEmail());
+  assert.throws(() => iam.changeEmail(user.id, 'ana@acme.io', as(admin)), noEmail());
+  assert.throws(() => iam.changeEmail(admin.id, 'x@acme.io', as(analyst)), noEmail());
+  assert.throws(() => iam.updateUser(admin.id, { disabled: true }, as(analyst)), noEmail());
+  assert.throws(() => iam.deleteUser(admin.id, as(analyst)), noEmail());
+  await assert.rejects(iam.setPassword(admin.id, 'a brand new password', { actorPerms: as(analyst).actorPerms }), noEmail());
+});
+
+test('iam.json is replaced through a fresh private file, never through one left in its place', { skip: process.platform === 'win32' }, async () => {
+  const f = file();
+  const iam = new IamStore({ file: f });
+  // The name the store once wrote through, with a link planted on it.
+  const decoy = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'iam-decoy-')), 'decoy');
+  fs.writeFileSync(decoy, 'untouched');
+  fs.symlinkSync(decoy, `${f}.${process.pid}.tmp`);
+  await iam.createUser({ email: 'z@acme.io', role: 'user', password: PW });
+  assert.equal(fs.readFileSync(decoy, 'utf8'), 'untouched');
+  assert.equal(fs.statSync(f).mode & 0o777, 0o600);
+  assert.ok(new IamStore({ file: f }).findByEmail('z@acme.io'));
+});

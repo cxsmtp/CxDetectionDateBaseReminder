@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -86,9 +87,22 @@ const inlined = (css, root) =>
 
 const escapeText = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
 /** Script text that cannot end its own <script> element. */
-const scriptText = (s) => s.replace(/<\/(script)/gi, '<\\/$1').replace(/<!--/g, '<\\!--');
+// Line ends as the HTML parser reads them (CRLF → LF), so a script's hash is the hash of what the browser runs.
+const scriptText = (s) => s.replace(/\r\n?/g, '\n').replace(/<\/(script)/gi, '<\\/$1').replace(/<!--/g, '<\\!--');
 
 const cache = new Map();
+
+/** The CSP source that lets exactly this inline script run ('sha256-…' of its text). */
+const scriptHash = (text) => `'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`;
+
+/**
+ * The page's content security policy. Scripts: only the inline ones this file was built with (by hash,
+ * so no injected script, event handler or javascript: link runs). Styles stay inline (the page and its
+ * modules set style attributes); nothing is loaded from anywhere, and only the launcher's page may call
+ * back to the launcher that served it.
+ */
+export const standaloneCsp = (scripts, { launcher = false } = {}) =>
+  `default-src 'none'; script-src ${scripts.map(scriptHash).join(' ')}; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src ${launcher ? "'self'" : "'none'"}; worker-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
 
 /**
  * The standalone calculator's HTML, built once per server start (the files do not change while it runs).
@@ -101,7 +115,14 @@ export function buildStandaloneCalculator({ version = '', root = PUBLIC, launche
   const index = new Map(MODULES.map((file, i) => [file, i]));
   const bundle = MODULES.map((file) => wrapModule(file, read(file), index)).join('\n\n');
   const samples = Object.fromEntries(SAMPLES.map((name) => [name, fs.readFileSync(path.join(root, 'calculator', 'samples', name)).toString('base64')]));
-  const vendor = ['calculator/vendor/xlsx-lite.js', 'calculator/vendor/parse.js'].map((file) => `<script>\n${scriptText(read(file))}\n</script>`).join('\n');
+  // Every script the page runs, as written into it: the CSP names each by its hash.
+  const gate = `\n${scriptText(licenceGateScript())}\n`;
+  // The launcher writes its token into the JSON below when it serves the page, so the script that reads it never changes.
+  const launcherConfig = "window.CX_LAUNCHER = JSON.parse(document.getElementById('cx-launcher').textContent);";
+  const vendorScripts = ['calculator/vendor/xlsx-lite.js', 'calculator/vendor/parse.js'].map((file) => `\n${scriptText(read(file))}\n`);
+  const vendor = vendorScripts.map((text) => `<script>${text}</script>`).join('\n');
+  const main = `\n${scriptText(`const __m = [];\n${bundle}\n// The product licence (src/licence-gate.js) may hold it back until an activation code is entered.\nlet __started = false;\nwindow.__mzStart = () => {\n  if (__started) return;\n  __started = true;\n  __m[${index.get('calculator/standalone.js')}].startStandalone({ samples: ${JSON.stringify(samples)} });\n};\nif (!window.__mzBlocked) window.__mzStart();`)}\n`;
+  const csp = standaloneCsp([gate, ...(launcher ? [launcherConfig] : []), ...vendorScripts, main], { launcher });
   const css = `${inlined(read('styles.css'), root)}\n${inlined(read('nextgen.css'), root)}\n${STANDALONE_CSS}`;
   const label = version ? `MZ-${version.split('.').map((n) => n.padStart(2, '0')).join('.')}` : '';
   const html = `<!doctype html>
@@ -110,7 +131,7 @@ export function buildStandaloneCalculator({ version = '', root = PUBLIC, launche
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="color-scheme" content="light dark" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src ${launcher ? "'self'" : "'none'"}; object-src 'none'; base-uri 'none'; form-action 'none'" />
+<meta http-equiv="Content-Security-Policy" content="${csp}" />
 <meta name="generator" content="CxMissionZero ${escapeText(label)}" />
 <title>Cx Credits Calculator</title>
 <style>
@@ -144,14 +165,10 @@ ${standaloneMarkup(calculatorMarkup(read('index.html')), { launcher })}
   </div>
 </div>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-<script>
-${scriptText(licenceGateScript())}
-</script>
-${launcher ? '<script>window.CX_LAUNCHER = "__CALCULATOR_LAUNCHER__";</script>' : ''}
+<script>${gate}</script>
+${launcher ? `<script type="application/json" id="cx-launcher">"__CALCULATOR_LAUNCHER__"</script>\n<script>${launcherConfig}</script>` : ''}
 ${vendor}
-<script type="module">
-${scriptText(`const __m = [];\n${bundle}\n// The product licence (src/licence-gate.js) may hold it back until an activation code is entered.\nlet __started = false;\nwindow.__mzStart = () => {\n  if (__started) return;\n  __started = true;\n  __m[${index.get('calculator/standalone.js')}].startStandalone({ samples: ${JSON.stringify(samples)} });\n};\nif (!window.__mzBlocked) window.__mzStart();`)}
-</script>
+<script type="module">${main}</script>
 </body>
 </html>
 <!-- The fonts in this file, Fraunces and IBM Plex, are used under the SIL Open Font License:

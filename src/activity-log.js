@@ -53,7 +53,13 @@ export class ActivityLog {
       for (const line of text.split('\n')) {
         if (!line) continue;
         try {
-          this.entries.push(JSON.parse(line));
+          const e = JSON.parse(line);
+          if (!e || typeof e !== 'object' || Array.isArray(e)) continue;
+          // What `list` relies on, whatever the line held: an ISO time (none that parses is the
+          // distant past, so it is not shown) and a list of field names.
+          e.at = entryTime(e.at, new Date(0));
+          if (!Array.isArray(e.fields)) e.fields = [];
+          this.entries.push(e);
         } catch {}
       }
     }

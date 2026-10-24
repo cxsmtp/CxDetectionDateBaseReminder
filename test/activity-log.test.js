@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ActivityLog, describe, fieldNames, recordsGet, targetOf } from '../src/activity-log.js';
+import { ActivityLog, describe, entryTime, fieldNames, recordsGet, targetOf } from '../src/activity-log.js';
 
 const tmpFile = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'activity-')), 'activity.jsonl');
 
@@ -86,4 +86,49 @@ test('field names (two levels), never values; the item; which reads are recorded
   assert.equal(recordsGet('/api/backup/download'), true);
   assert.equal(recordsGet('/api/audit/export'), true);
   assert.equal(recordsGet('/api/me'), false);
+});
+
+test('an entry\'s time is always a real ISO time: anything else given is "now"', () => {
+  const log = new ActivityLog({ file: tmpFile() });
+  const before = Date.now();
+  for (const at of ['', 'yesterday', '9999-99-99T99:99:99Z', { toString: () => '2026-01-01T00:00:00Z' }, ['2026-01-01T00:00:00Z'], NaN, `2026-01-01T00:00:00Z${' '.repeat(100)}`]) {
+    const row = log.record({ at, user: 'a@acme.io', action: 'x' });
+    assert.ok(Date.parse(row.at) >= before - 1000, `${JSON.stringify(at)} → ${row.at}`);
+    assert.equal(row.at, new Date(row.at).toISOString());
+  }
+  assert.equal(entryTime('2026-03-04T05:06:07.890Z'), '2026-03-04T05:06:07.890Z');
+  assert.equal(entryTime('2026-03-04T07:06:07+02:00'), '2026-03-04T05:06:07.000Z');
+  assert.equal(entryTime(new Date('2026-03-04T05:06:07Z')), '2026-03-04T05:06:07.000Z');
+  assert.equal(entryTime(Date.UTC(2026, 2, 4)), '2026-03-04T00:00:00.000Z');
+  log.flush();
+});
+
+test('a damaged line in the file is skipped or made safe, so the Logs page always lists', () => {
+  const file = tmpFile();
+  fs.writeFileSync(file, ['"just a string"', '[1,2]', JSON.stringify({ at: { $gt: '' }, user: 'x@acme.io', action: 'odd' }), JSON.stringify({ at: new Date().toISOString(), user: 'y@acme.io', action: 'fine', fields: ['a'] })].join('\n'));
+  const log = new ActivityLog({ file });
+  const listed = log.list();
+  assert.deepEqual(listed.entries.map((e) => e.user), ['y@acme.io'], 'an entry with no real time counts as long ago');
+  assert.equal(log.list({ q: 'fine' }).total, 1);
+});
+
+test('the activity log (names, emails, IP addresses) is readable by this server\'s user alone', { skip: process.platform === 'win32' }, () => {
+  const folder = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'activity-')), 'state');
+  const file = path.join(folder, 'activity.jsonl');
+  const log = new ActivityLog({ file, maxBytes: 300 });
+  assert.equal(fs.statSync(folder).mode & 0o777, 0o700);
+  log.record({ user: 'a@acme.io', action: 'x' });
+  log.flush();
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  // An older file made with wider rights is narrowed at the next write; the rotated-in one is private too.
+  fs.chmodSync(file, 0o644);
+  log.record({ user: 'b@acme.io', action: 'y' });
+  log.flush();
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  for (let i = 0; i < 5; i += 1) {
+    log.record({ user: `p${i}@acme.io`, action: 'z'.repeat(80) });
+    log.flush();
+  }
+  assert.ok(fs.existsSync(file.replace(/\.jsonl$/, '.1.jsonl')));
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
 });

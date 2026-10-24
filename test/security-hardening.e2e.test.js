@@ -194,3 +194,15 @@ test('the stored Checkmarx One key is dropped when its endpoints move to another
   status = await as.admin('PUT', '/api/integration/cxone/draft', { apiKey: key, iamUrl: 'https://iam.evil.example' });
   assert.equal(status.body.keyStored, true, 'with the key given again');
 });
+
+test('Checkmarx One addresses typed by an Admin: never a link-local or metadata address, never plain http elsewhere (SSRF)', async () => {
+  const key = mockApiKey({ iss: 'http://127.0.0.1:9/auth/realms/acme' });
+  for (const body of [{ iamUrl: 'https://169.254.169.254' }, { baseUrl: 'https://metadata.google.internal' }, { baseUrl: 'http://ast.example.com' }]) {
+    const draft = await as.admin('PUT', '/api/integration/cxone/draft', body);
+    assert.equal(draft.status, 400, JSON.stringify(body));
+    const connect = await as.admin('POST', '/api/integration/cxone', { apiKey: key, tenant: 'acme', ...body });
+    assert.equal(connect.status, 400, JSON.stringify(body));
+  }
+  const after = await as.admin('GET', '/api/integration');
+  assert.doesNotMatch(JSON.stringify(after.body.overrides), /169\.254|metadata|ast\.example/);
+});

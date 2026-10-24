@@ -182,6 +182,64 @@ function doAttrs(el) {
   }
 }
 
+// What a translated sentence may hold: the inline elements above, with these attributes. Anything
+// else in a translation (a script or image element, an event handler, a javascript: link…) is shown as
+// text or dropped, so a translation file, or a report's words from a server or this browser's
+// storage, can change wording only.
+const SAFE_TAGS = new Set([...INLINE].map((tag) => tag.toLowerCase()));
+const SAFE_ATTR = /^(?:class|title|lang|dir|translate|hidden|tabindex|role|datetime|target|rel|download|style|aria-[a-z-]+|data-[a-z0-9-]+)$/;
+const ESCAPE_ATTR = { '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' };
+const ATTRIBUTE = /\s*([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/y;
+
+/** A link a translation may keep: on this page (#…, /…, a relative path), web or mail. */
+function safeLink(value) {
+  // No character references (they could spell a scheme), but &amp; as innerHTML writes it; no spaces.
+  if (/&(?!amp;)|[\s\u0000-\u001f\u007f\\]/.test(value)) return null;
+  if (/^(?:https?:\/\/|mailto:)/i.test(value)) return value;
+  return /^[^/?#]*:/.test(value) ? null : value;
+}
+
+/** An attribute value, quoted: character references kept, anything that could end it escaped. */
+const attrValue = (value) => value.replace(/[&"<>]/g, (c, i) => (c === '&' && /^&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);/i.test(value.slice(i)) ? c : ESCAPE_ATTR[c]));
+
+/** One start or end tag, rebuilt from what it may keep, or null when it is not an allowed one. */
+function safeTag(tag) {
+  const head = /^<(\/?)([a-zA-Z][a-zA-Z0-9]*)/.exec(tag);
+  if (!head || !SAFE_TAGS.has(head[2].toLowerCase())) return null;
+  const name = head[2].toLowerCase();
+  if (head[1]) return /^<\/[a-zA-Z0-9]+\s*>$/.test(tag) ? `</${name}>` : null;
+  const body = tag.slice(head[0].length, tag.endsWith('/>') ? -2 : -1);
+  const kept = [];
+  for (ATTRIBUTE.lastIndex = 0; ATTRIBUTE.lastIndex < body.length; ) {
+    const at = ATTRIBUTE.lastIndex;
+    const m = ATTRIBUTE.exec(body);
+    if (!m || ATTRIBUTE.lastIndex === at) {
+      if (/^\s*$/.test(body.slice(at))) break;
+      return null;
+    }
+    const attr = m[1].toLowerCase();
+    const value = m[2] ?? m[3] ?? m[4];
+    if (attr === 'href') {
+      const link = name === 'a' ? safeLink(value ?? '') : null;
+      if (link !== null) kept.push(`href="${link}"`);
+    } else if (SAFE_ATTR.test(attr)) {
+      kept.push(value === undefined ? attr : `${attr}="${attrValue(value)}"`);
+    }
+  }
+  return `<${name}${kept.map((a) => ` ${a}`).join('')}>`;
+}
+
+/**
+ * `html` reduced to text and the inline markup a sentence may hold (see SAFE_TAGS, SAFE_ATTR): every
+ * other `<` becomes `&lt;`, so it reads as text. Used for every translation put in as HTML.
+ */
+export function safeMarkup(html) {
+  return String(html ?? '')
+    // Comments go (written -{2} so this file never holds a comment opener inside a script element).
+    .replace(/<!-{2}[\s\S]*?(?:-{2}>|$)/g, '')
+    .replace(/<\/?[a-zA-Z](?:"[^"]*"|'[^']*'|[^"'<>])*>|</g, (tag) => (tag === '<' ? '&lt;' : safeTag(tag) ?? tag.replace(/</g, '&lt;')));
+}
+
 const startTag = (el) => `${el.tagName} ${[...el.attributes].map((a) => `${a.name}=${a.value}`).sort().join(' ')}`;
 
 /**
@@ -190,7 +248,7 @@ const startTag = (el) => `${el.tagName} ${[...el.attributes].map((a) => `${a.nam
  */
 function swapIn(el, html) {
   const template = document.createElement('template');
-  template.innerHTML = html;
+  template.innerHTML = safeMarkup(html);
   const originals = [...el.children];
   for (const fresh of [...template.content.children]) {
     const tag = startTag(fresh);

@@ -8158,7 +8158,9 @@ async function inboxTick() {
       if (!handsOff.on || !handsOff.replies || !isVerified(settings) || !smtp.user) return;
       let messages;
       try {
-        messages = await readReplies({ host: handsOff.imapHost || smtp.host, port: handsOff.imapPort, secure: handsOff.imapPort === 993, user: smtp.user, password: smtp.password, rejectUnauthorized: smtp.rejectUnauthorized });
+        // Turning the certificate check off for the mail server covers that server only, not a separate IMAP host.
+        const sameHost = !handsOff.imapHost || handsOff.imapHost === smtp.host;
+        messages = await readReplies({ host: handsOff.imapHost || smtp.host, port: handsOff.imapPort, secure: handsOff.imapPort === 993, user: smtp.user, password: smtp.password, rejectUnauthorized: sameHost ? smtp.rejectUnauthorized : true });
         inboxFailures.delete(id);
       } catch (error) {
         diagnostics.error('inbox', error);

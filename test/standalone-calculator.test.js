@@ -1,6 +1,7 @@
 // The Cx Credits Calculator on its own (src/standalone-calculator.js): one HTML file, built from the app's own
 // calculator, that runs with no server and calls nowhere.
 import test from 'node:test';
+import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 
@@ -21,7 +22,7 @@ test('the file: the calculator page shown, its own words for the exports, nothin
   const html = buildStandaloneCalculator({ version: '1.0.89' });
   assert.match(html, /^<!doctype html>/);
   assert.match(html, /<div id="page-calculator" class="page calc-page">/, 'shown, not hidden');
-  assert.match(html, /Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'/);
+  assert.match(html, /Content-Security-Policy" content="default-src 'none'; script-src 'sha256-[^"]*; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'/);
   assert.ok(!/(src|href)="(https?:)?\/\//i.test(html), 'no script, style or link from elsewhere');
   assert.deepEqual(html.match(/url\((?!data:)[^)]*\)/g) ?? [], [], 'every font and drawing inside');
   assert.ok(!html.includes('Use the two Checkmarx One exports instead'));
@@ -54,4 +55,22 @@ test('customers and reports follow the same rules here and on the server', () =>
   const r = newReport({ customerId: p.id, customer: p.name, data: { tr: { totals: { credits: 100 } }, fusion: { totals: { credits: 50 } }, summary: { settings: { extraPercent: 10, bundleCredits: 100 } }, evil: { __proto__: { x: 1 } } } });
   assert.equal(r.totalCredits, 165);
   assert.equal(r.bundles, 2);
+});
+
+test('its content security policy runs exactly the scripts the file was built with, by hash, and no other', () => {
+  for (const launcher of [false, true]) {
+    const html = buildStandaloneCalculator({ version: '1.0.89', launcher });
+    const csp = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/)[1];
+    const scriptSrc = csp.split(';').map((d) => d.trim()).find((d) => d.startsWith('script-src '));
+    assert.doesNotMatch(scriptSrc, /unsafe-inline|unsafe-eval|\*|data:|blob:|https?:/, 'no inline script runs unless it is one of these');
+    const allowed = new Set(scriptSrc.split(/\s+/).slice(1));
+    const scripts = [...html.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/g)].filter(([, attrs = '']) => !/type="application\/json"/.test(attrs));
+    assert.equal(scripts.length, launcher ? 5 : 4);
+    assert.equal(allowed.size, scripts.length, 'one hash for each script, nothing more');
+    for (const [, , text] of scripts) assert.ok(allowed.has(`'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`), 'every script in the file is named');
+    assert.ok(!allowed.has(`'sha256-${createHash('sha256').update('alert(1)', 'utf8').digest('base64')}'`));
+    assert.match(csp, /script-src-attr 'none'/, 'no event handler attribute runs');
+    assert.match(csp, /object-src 'none'; base-uri 'none'; form-action 'none'/);
+    assert.match(csp, launcher ? /connect-src 'self'/ : /connect-src 'none'/);
+  }
 });

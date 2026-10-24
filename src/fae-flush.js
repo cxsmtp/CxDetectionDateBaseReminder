@@ -437,8 +437,25 @@ export function cleanOptions(o = {}) {
  */
 export class FaeFlushRunner {
   constructor({ store, clientOf, record = () => {}, history = null, tmpDir = os.tmpdir(), limits = LIMITS, now = () => Date.now() }) {
-    Object.assign(this, { store, clientOf, record, history, tmpDir, limits, now });
+    Object.assign(this, { store, clientOf, record, history, limits, now });
+    this.#tmpRoot = tmpDir;
     this.busy = new Set();
+  }
+
+  #tmpRoot;
+  #tmpOwn = '';
+
+  /**
+   * Where a project's code waits between download and upload: never the shared temp folder itself,
+   * but a folder of this server's own inside it, made with an unpredictable name and readable by
+   * this server's user alone (0700), and made again the same way if something cleared it away.
+   */
+  get tmpDir() {
+    if (!this.#tmpOwn || !fs.existsSync(this.#tmpOwn)) {
+      fs.mkdirSync(this.#tmpRoot, { recursive: true, mode: 0o700 });
+      this.#tmpOwn = fs.mkdtempSync(path.join(this.#tmpRoot, 'mz-fae-'));
+    }
+    return this.#tmpOwn;
   }
 
   get job() {

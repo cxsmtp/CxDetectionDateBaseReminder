@@ -29,6 +29,22 @@ export const BACKUP_EXTENSION = '.mzbackup';
 
 const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 
+/**
+ * Write `data` beside `target` under a name nobody can guess, created only if nothing has that
+ * name yet (never through a link someone left there), readable by this server's user alone, then
+ * renamed over `target` in one step.
+ */
+function writePrivately(target, data) {
+  const tmp = `${target}.${randomBytes(12).toString('hex')}.tmp`;
+  try {
+    fs.writeFileSync(tmp, data, { mode: 0o600, flag: 'wx' });
+    fs.renameSync(tmp, target);
+  } catch (error) {
+    fs.rmSync(tmp, { force: true });
+    throw error;
+  }
+}
+
 function manifestHash(files) {
   const lines = Object.keys(files)
     .sort()
@@ -150,9 +166,14 @@ export function readBackup(buffer, { passphrase = '', maxUnpackedBytes = MAX_UNP
     throw new Error('Not a CxMissionZero backup (or the file is damaged).');
   }
   if (bundle?.format !== BACKUP_FORMAT || typeof bundle.files !== 'object') throw new Error('Not a CxMissionZero backup.');
-  if (bundle.version !== 1) throw new Error(`Backup version ${bundle.version} is newer than this server understands.`);
+  // The messages below name only what has been checked to be harmless: a whole version number, and
+  // a file name that passed safeName(). Nothing else read from the backup is echoed back (or audited).
+  if (bundle.version !== 1) {
+    const known = Number.isSafeInteger(bundle.version) && bundle.version > 1;
+    throw new Error(known ? `Backup version ${bundle.version} is newer than this server understands.` : 'This backup\'s version is not one this server understands.');
+  }
   for (const [name, file] of Object.entries(bundle.files)) {
-    if (!safeName(name)) throw new Error(`Backup contains an unexpected file name: ${name}`);
+    if (!safeName(name)) throw new Error('Backup contains an unexpected file name: a path out of the state folder, or a file no CxMissionZero backup holds.');
     const bytes = Buffer.from(file.data, 'base64');
     if (bytes.length !== file.size || sha256(bytes) !== file.sha256) throw new Error(`Backup file ${name} is damaged (checksum mismatch).`);
   }
@@ -200,6 +221,16 @@ export function describeBackup(bundle) {
  */
 export function restoreBackup(bundle, { dataDir, settingsFile = '', now = new Date() }) {
   const targets = statePaths(dataDir, settingsFile);
+  // Every name is checked before anything is touched — here too, not only in readBackup — so
+  // whatever hands this a bundle, no name leads out of the state folder.
+  const root = path.resolve(dataDir);
+  const plan = Object.entries(bundle.files).map(([name, file]) => {
+    const target = targets[name] ?? path.join(root, name);
+    const rel = path.relative(root, path.resolve(target));
+    const inside = Boolean(targets[name]) || (Boolean(rel) && rel.split(path.sep)[0] !== '..' && !path.isAbsolute(rel));
+    if (!safeName(name) || !inside) throw new Error('Backup contains an unexpected file name.');
+    return { name, target, file };
+  });
   const stamp = now.toISOString().replace(/[:.]/g, '-');
   const replacedDir = path.join(dataDir, `replaced-${stamp}`);
   let movedAny = false;
@@ -225,12 +256,9 @@ export function restoreBackup(bundle, { dataDir, settingsFile = '', now = new Da
   if (fs.existsSync(tenantsDir)) for (const entry of fs.readdirSync(tenantsDir)) moveAside(path.join(tenantsDir, entry), `tenants/${entry}`);
 
   const restored = [];
-  for (const [name, file] of Object.entries(bundle.files)) {
-    const target = targets[name] ?? path.join(dataDir, name);
+  for (const { name, target, file } of plan) {
     fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
-    const tmp = `${target}.restore-${process.pid}`;
-    fs.writeFileSync(tmp, Buffer.from(file.data, 'base64'), { mode: 0o600 });
-    fs.renameSync(tmp, target);
+    writePrivately(target, Buffer.from(file.data, 'base64'));
     restored.push(name);
   }
   return { restored, replacedDir: movedAny ? replacedDir : null };
@@ -259,9 +287,7 @@ export function writeBackupTo(dir, { dataDir, settingsFile = '', passphrase = ''
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const { buffer, summary } = createBackup({ dataDir, settingsFile, passphrase, now });
   const file = path.join(dir, backupFileName(now));
-  const tmp = `${file}.partial`;
-  fs.writeFileSync(tmp, buffer, { mode: 0o600 });
-  fs.renameSync(tmp, file);
+  writePrivately(file, buffer);
   const removed = [];
   for (const old of listBackups(dir).slice(Math.max(1, keep))) {
     fs.rmSync(path.join(dir, old.name), { force: true });

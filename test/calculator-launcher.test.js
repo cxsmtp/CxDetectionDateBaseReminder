@@ -67,7 +67,9 @@ test('the file: the reading code and the page, nothing else; the page may call o
   assert.ok(!files.some((f) => /server|settings|iam|session|audit/.test(f)), 'no part of the server that holds its data');
   const page = buildStandaloneCalculator({ version: '9.9.9', launcher: true });
   assert.match(page, /connect-src 'self'/);
-  assert.match(page, /window\.CX_LAUNCHER = "__CALCULATOR_LAUNCHER__"/);
+  // The token goes into a JSON island the launcher fills; the script that reads it is fixed, so the CSP can name it by hash.
+  assert.match(page, /<script type="application\/json" id="cx-launcher">"__CALCULATOR_LAUNCHER__"<\/script>/);
+  assert.match(page, /window\.CX_LAUNCHER = JSON\.parse\(document\.getElementById\('cx-launcher'\)\.textContent\);/);
   assert.match(page, /id="sa-key"/);
   assert.match(buildStandaloneCalculator({ version: '9.9.9' }), /connect-src 'none'/, 'the plain file still calls nowhere');
 });
@@ -75,7 +77,7 @@ test('the file: the reading code and the page, nothing else; the page may call o
 test('served on this computer only, to the page it served: another name for it, or no secret, is refused', async () => {
   const page = await raw('GET', `http://127.0.0.1:${PORT}/`);
   assert.equal(page.status, 200);
-  token = JSON.parse(page.text.match(/window\.CX_LAUNCHER = (\{[^}]*\});/)[1]).token;
+  token = JSON.parse(page.text.match(/<script type="application\/json" id="cx-launcher">(\{[^}]*\})<\/script>/)[1]).token;
   assert.ok(token.length >= 32);
   assert.equal((await raw('GET', `http://127.0.0.1:${PORT}/`, { host: `evil.example:${PORT}` })).status, 421, 'a name pointed at this computer');
   assert.equal((await raw('GET', `http://127.0.0.1:${PORT}/launcher/status`)).status, 403, 'no secret');

@@ -31,7 +31,11 @@ export function inlineScriptHashes(file) {
     .map((m) => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`);
 }
 
-export function contentSecurityPolicy(scriptHashes = []) {
+/**
+ * `connectSources`: the only places besides this server the page may call — this server's own
+ * HTTPS address and the addresses an administrator set (see securityHeaders). Never "any https site".
+ */
+export function contentSecurityPolicy(scriptHashes = [], connectSources = []) {
   return [
     "default-src 'self'",
     `script-src 'self'${scriptHashes.length ? ` ${scriptHashes.join(' ')}` : ''}`,
@@ -39,8 +43,7 @@ export function contentSecurityPolicy(scriptHashes = []) {
     "style-src 'self' 'unsafe-inline'",
     // Logos may be https URLs or pasted data: images.
     "img-src 'self' data: blob: https:",
-    // "Test" checks the reminder server address readers use, which may be another host.
-    "connect-src 'self' https:",
+    `connect-src 'self'${connectSources.length ? ` ${connectSources.join(' ')}` : ''}`,
     "font-src 'self' data:",
     "frame-src 'self'",
     "object-src 'none'",
@@ -48,6 +51,33 @@ export function contentSecurityPolicy(scriptHashes = []) {
     "form-action 'self'",
     "frame-ancestors 'none'",
   ].join('; ');
+}
+
+/**
+ * "https://mz.acme.io:8443/some/path" → "https://mz.acme.io:8443": an http(s) address as a CSP
+ * source, or '' for anything else (other schemes, user names, characters a policy cannot hold).
+ */
+export function cspOrigin(value) {
+  try {
+    const url = new URL(String(value ?? '').trim().slice(0, 2048));
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) return '';
+    return /^[a-z0-9.\-]+(?::\d{1,5})?$|^\[[0-9a-f:.]+\](?::\d{1,5})?$/i.test(url.host) ? `${url.protocol}//${url.host}` : '';
+  } catch {
+    return '';
+  }
+}
+
+/** This server's own name on HTTPS, any port: its "check this browser trusts HTTPS" call. */
+function ownHttpsSource(req) {
+  let host = String(req.hostname ?? '');
+  if (!host) {
+    try {
+      host = new URL(`http://${String(req.headers?.host ?? '').slice(0, 300)}`).hostname;
+    } catch {
+      host = '';
+    }
+  }
+  return /^[a-z0-9.-]{1,253}$|^\[[0-9a-f:.]{2,45}\]$/i.test(host) ? `https://${host.toLowerCase()}:*` : '';
 }
 
 /**
@@ -99,9 +129,22 @@ const isHttps = (req) => Boolean(req.secure);
  * response ('' for none): the HTTPS settings decide, and never with a self-signed certificate,
  * where pinning browsers to HTTPS would only lock them out if the server goes back to http.
  */
-export function securityHeaders({ scriptHashes = [], hsts = true } = {}) {
-  const csp = contentSecurityPolicy(scriptHashes);
+export function securityHeaders({ scriptHashes = [], hsts = true, connectSources = () => [] } = {}) {
+  // The page may call this server and the addresses an administrator set — the server address
+  // readers use (its "Test" button checks it from the browser) — never any https site at all.
+  // `connectSources`: a list, or a function read on each response so a saved change applies at once.
+  const allowed = (req) => {
+    let listed = [];
+    try {
+      listed = typeof connectSources === 'function' ? connectSources(req) : connectSources;
+    } catch {
+      listed = [];
+    }
+    const sources = [ownHttpsSource(req), ...(Array.isArray(listed) ? listed : [listed]).map(cspOrigin)].filter(Boolean);
+    return [...new Set(sources)];
+  };
   return (req, res, next) => {
+    const csp = contentSecurityPolicy(scriptHashes, allowed(req));
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('X-Frame-Options', 'DENY');
     res.set('Referrer-Policy', 'same-origin');

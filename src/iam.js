@@ -110,6 +110,8 @@ const MAX_FAILED = 5;
 const LOCK_MS = 15 * 60 * 1000;
 const EMAIL = /^(?=[^]{3,254}$)[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 
+// Messages name no one: they reach the browser and the server log, so an email address (the one
+// typed, or anyone else's) is never part of one.
 const fail = (status, message, extra = {}) => Object.assign(new Error(message), { status, ...extra });
 const norm = (value) => String(value ?? '').trim().toLowerCase();
 
@@ -209,8 +211,9 @@ export class IamStore {
 
   #save() {
     fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-    const tmp = `${this.#file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 2), { mode: 0o600 });
+    // An unguessable name, created only if nothing is there (never through a link left in its place).
+    const tmp = `${this.#file}.${randomUUID()}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 2), { mode: 0o600, flag: 'wx' });
     fs.renameSync(tmp, this.#file);
     this.#mtime = fs.statSync(this.#file).mtimeMs;
   }
@@ -305,7 +308,7 @@ export class IamStore {
   async createUser({ email, name = '', role, password = '', cxoneIdentities = [], mustChangePassword = true }, { actorPerms = null, actorId = '' } = {}) {
     const address = norm(email);
     if (!EMAIL.test(address)) throw fail(400, 'Enter a valid email address.');
-    if (this.findByEmail(address)) throw fail(409, `${address} already has access.`);
+    if (this.findByEmail(address)) throw fail(409, 'That email address already has access.');
     if (actorPerms) this.#assertCanGrantRole(actorPerms, role);
     else if (!this.#role(role)) throw fail(400, 'That role does not exist.');
     const aliases = cleanAliases(cxoneIdentities);
@@ -337,7 +340,7 @@ export class IamStore {
   #assertAliasesFree(aliases, userId) {
     for (const alias of aliases) {
       const owner = this.#state.users.find((u) => u.id !== userId && (norm(u.email) === alias || (u.cxoneIdentities ?? []).map(norm).includes(alias)));
-      if (owner) throw fail(409, `The Checkmarx One identity "${alias}" already belongs to ${owner.email}.`);
+      if (owner) throw fail(409, 'One of those Checkmarx One identities already belongs to someone else here.');
     }
   }
 
@@ -346,7 +349,7 @@ export class IamStore {
     const user = this.user(id);
     if (!user) throw fail(404, 'No such user.');
     if (!this.canGrant(actorPerms, this.permissionsOf({ ...user, disabled: false }))) {
-      throw fail(403, `You cannot change ${user.email}: their role holds permissions you do not have.`);
+      throw fail(403, 'You cannot change this person: their role holds permissions you do not have.');
     }
     const before = publicUser(user);
     const next = { ...user };
@@ -384,14 +387,14 @@ export class IamStore {
     const user = this.user(id);
     if (!user) throw fail(404, 'No such user.');
     if (!this.canGrant(actorPerms, this.permissionsOf({ ...user, disabled: false }))) {
-      throw fail(403, `You cannot change ${user.email}: their role holds permissions you do not have.`);
+      throw fail(403, 'You cannot change this person: their role holds permissions you do not have.');
     }
     const address = norm(email);
     if (!EMAIL.test(address)) throw fail(400, 'Enter a valid email address.');
     const before = user.email;
     if (address === norm(before)) return { before, after: before };
     const taken = this.#state.users.find((u) => u.id !== id && (norm(u.email) === address || (u.cxoneIdentities ?? []).map(norm).includes(address)));
-    if (taken) throw fail(409, `${address} already signs in here.`);
+    if (taken) throw fail(409, 'That email address already signs in here.');
     user.email = address;
     this.#save();
     return { before, after: address };
@@ -453,7 +456,7 @@ export class IamStore {
     if (!user) throw fail(404, 'No such user.');
     if (id === actorId) throw fail(400, 'You cannot remove yourself.');
     if (!this.canGrant(actorPerms, this.permissionsOf({ ...user, disabled: false }))) {
-      throw fail(403, `You cannot remove ${user.email}: their role holds permissions you do not have.`);
+      throw fail(403, 'You cannot remove this person: their role holds permissions you do not have.');
     }
     if (user.role === 'admin' && !user.disabled && this.#activeAdmins(id) === 0) {
       throw fail(400, 'There must always be at least one active Admin.');
@@ -487,7 +490,7 @@ export class IamStore {
     const user = this.user(id);
     if (!user) throw fail(404, 'No such user.');
     if (actorPerms && !this.canGrant(actorPerms, this.permissionsOf({ ...user, disabled: false }))) {
-      throw fail(403, `You cannot reset ${user.email}'s password: their role holds permissions you do not have.`);
+      throw fail(403, 'You cannot reset this person\'s password: their role holds permissions you do not have.');
     }
     const problem = passwordProblem(password);
     if (problem) throw fail(400, problem);

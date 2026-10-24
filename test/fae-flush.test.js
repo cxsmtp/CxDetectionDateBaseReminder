@@ -430,3 +430,19 @@ test('grouped by attack vector, a latest scan with none: it asks to scan again; 
   assert.equal(p.step, 'done');
   assert.deepEqual([p.counts.marked, p.counts.revalidated], [5, 5]);
 });
+
+test('code waiting between download and upload sits in a private folder with an unguessable name, never loose in the temp folder', { skip: process.platform === 'win32' }, () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-tmp-'));
+  const a = new FaeFlushRunner({ store: new FaeFlushStore({ file: path.join(root, 'a.json') }), clientOf: () => null, tmpDir: root });
+  const b = new FaeFlushRunner({ store: new FaeFlushStore({ file: path.join(root, 'b.json') }), clientOf: () => null, tmpDir: root });
+  const own = a.tmpDir;
+  assert.equal(path.dirname(own), root);
+  assert.match(path.basename(own), /^mz-fae-[A-Za-z0-9]{6}$/);
+  assert.notEqual(own, b.tmpDir, 'each runner its own');
+  assert.equal(fs.statSync(own).mode & 0o777, 0o700);
+  assert.equal(a.tmpDir, own, 'the same folder while it is there');
+  fs.rmSync(own, { recursive: true });
+  const again = a.tmpDir;
+  assert.notEqual(again, own, 'cleared away: made again, under a new name');
+  assert.equal(fs.statSync(again).mode & 0o777, 0o700);
+});
