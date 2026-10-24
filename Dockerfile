@@ -33,11 +33,10 @@ RUN --mount=type=secret,id=ca,required=false \
 FROM deps AS integrity
 ARG MZ_COMMIT=""
 ARG MZ_REPOSITORY=""
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json LICENSE TERMS.md CHANGELOG.md ./
 COPY src ./src
 COPY public ./public
 COPY scripts ./scripts
-COPY LICENSE TERMS.md CHANGELOG.md ./
 RUN node scripts/integrity.mjs write /app --commit "$MZ_COMMIT" --repository "$MZ_REPOSITORY"
 
 # The file list alone, for the release workflow to sign: docker buildx build --target integrity-out --output type=local,dest=out .
@@ -59,11 +58,10 @@ RUN --mount=type=secret,id=ca,required=false \
 
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json LICENSE TERMS.md CHANGELOG.md ./
 COPY src ./src
 COPY public ./public
 COPY scripts ./scripts
-COPY LICENSE TERMS.md CHANGELOG.md ./
 COPY --from=integrity /app/integrity.json ./
 # The Node.js this image runs (# mz-runtime): an update from Settings that needs another one says so.
 RUN node -p "process.versions.node" > .node-version # mz-runtime

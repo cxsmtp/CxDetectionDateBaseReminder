@@ -38,8 +38,10 @@ docker compose -f compose.yaml logs mission-zero
 ```
 
 Both containers run hardened: CxMissionZero with a read-only file system and no
-Linux capabilities, Caddy with every capability dropped except binding ports 80
-and 443, and both with `no-new-privileges`. `docker compose ps` shows Caddy as
+Linux capabilities, Caddy with every capability dropped (it listens on 8080 and
+8443 inside its container; the public 80 and 443 are mapped to them), and both
+with `no-new-privileges`. To answer on one network interface only, set
+`PUBLIC_ADDRESS` to its address first (`set PUBLIC_ADDRESS=203.0.113.10`). `docker compose ps` shows Caddy as
 healthy once its local admin endpoint answers.
 
 ## Internal-only server (no public DNS)

@@ -6,8 +6,9 @@ import assert from 'node:assert/strict';
 import { checkCxKey, checkEnvFile, explainCxone, explainGit, explainSmtp, networkCode } from '../src/troubleshoot.js';
 import { ENV_SETTINGS, parseEnvText } from '../src/env-import.js';
 import { numberedVariable } from '../src/scm/instances.js';
-import { mockApiKey } from './test-credentials.js';
+import { githubTokenLike, keyIdLike, mockApiKey } from './test-credentials.js';
 
+const GITHUB_TOKEN = githubTokenLike();
 const mailError = (props) => Object.assign(new Error(props.message ?? ''), props);
 const office = { host: 'smtp.office365.com', port: 587, secure: false, requireAuth: true, user: 'alerts@acme.io', password: 'S3cret-pw' };
 const gmail = { host: 'smtp.gmail.com', port: 587, secure: false, requireAuth: true, user: 'alerts@gmail.com', password: 'my real password' };
@@ -66,7 +67,7 @@ test('Checkmarx One: a key that cannot work is named before it is tried', () => 
   assert.equal(checkCxKey('', now), 'cx.no-key');
   assert.equal(checkCxKey(`"${good}"`, now), 'cx.key-quoted');
   assert.equal(checkCxKey(`Bearer ${good}`, now), 'cx.key-prefix');
-  assert.equal(checkCxKey('0f8fad5b-d9cb-469f-a165-70867728950e', now), 'cx.key-is-id');
+  assert.equal(checkCxKey(keyIdLike(), now), 'cx.key-is-id');
   assert.equal(checkCxKey(good.slice(0, 40), now), 'cx.key-format');
   assert.equal(checkCxKey(`${good.slice(0, 50)}\n${good.slice(50)}`, now), 'cx.key-format');
   assert.equal(checkCxKey(mockApiKey({ iss: 'https://eu.iam.checkmarx.net/auth/realms/acme', exp: now / 1000 - 60 }), now), 'cx.key-expired');
@@ -100,7 +101,7 @@ test('Checkmarx One: each refusal and network failure gets its own explanation',
     assert.equal(help.code, code, `${error.message} → ${help.code}`);
   }
   // The key itself is looked at first: the ID instead of the key is said plainly.
-  assert.equal(explainCxone(auth(401, 'invalid_grant'), { apiKey: '0f8fad5b-d9cb-469f-a165-70867728950e' }).code, 'cx.key-is-id');
+  assert.equal(explainCxone(auth(401, 'invalid_grant'), { apiKey: keyIdLike() }).code, 'cx.key-is-id');
   assert.equal(explainCxone(new Error('anything'), { apiKey: undefined }).code, 'cx.unknown');
 });
 
@@ -156,7 +157,7 @@ test('.env files: mistakes are found line by line before anything is applied', (
     'CX_BASE_URL=https://eu.iam.checkmarx.net',
     'CX_TENANT=https://eu.ast.checkmarx.net/acme',
     'GITHUB_API_URL=https://github.com',
-    'GITHUB_TOKEN=Bearer ghp_abcdefghijklmnopqrstuvwxyz0123456789',
+    `GITHUB_TOKEN=Bearer ${GITHUB_TOKEN}`,
     'GITLAB_TOKEN=glpat-abc def',
     'REPORT_SERVER_URL=mz.acme.io',
     'SMTP_HOST=smtp://smtp.office365.com:587',
@@ -183,7 +184,7 @@ test('.env files: mistakes are found line by line before anything is applied', (
   assert.equal(found.find((f) => f.code === 'env.smtp-port').line, 3);
   for (const f of found) {
     assert.ok(f.problem && f.steps.length, f.code);
-    assert.doesNotMatch(JSON.stringify(f), /ghp_abc|glpat-abc|<your password>/, 'values are never repeated back');
+    assert.doesNotMatch(JSON.stringify(f), new RegExp(`${GITHUB_TOKEN}|glpat-abc|<your password>`), 'values are never repeated back');
   }
 });
 
@@ -200,7 +201,7 @@ test('.env files: settings that disagree with each other, and Gmail and Microsof
   assert.deepEqual(codes(envCheck('CX_IAM_URL=https://eu.ast.checkmarx.net')), ['CX_IAM_URL:env.cx-ast-as-iam:error']);
   assert.deepEqual(codes(envCheck('CX_BASE_URL=http://eu.ast.checkmarx.net')), ['CX_BASE_URL:env.http:error']);
   assert.deepEqual(codes(envCheck('REPORT_SERVER_URL=http://mz.acme.io')), ['REPORT_SERVER_URL:env.http:warn']);
-  assert.deepEqual(codes(envCheck('CX_API_KEY=0f8fad5b-d9cb-469f-a165-70867728950e')), ['CX_API_KEY:cx.key-is-id:error']);
+  assert.deepEqual(codes(envCheck(`CX_API_KEY=${keyIdLike()}`)), ['CX_API_KEY:cx.key-is-id:error']);
   assert.deepEqual(codes(envCheck('GITHUB_API_URL=https://github.acme.com')), ['GITHUB_API_URL:env.github-web-url:error']);
   assert.deepEqual(codes(envCheck('GITHUB_TOKEN=abc123')), ['GITHUB_TOKEN:env.github-token:warn']);
   assert.deepEqual(codes(envCheck('AZURE_DEVOPS_ORG_URL=dev azure com/acme')), ['AZURE_DEVOPS_ORG_URL:env.azure-org:error']);

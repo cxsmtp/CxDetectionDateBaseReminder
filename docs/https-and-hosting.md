@@ -117,7 +117,7 @@ Replace `mz.company.com` with your name, in both places. Then open `https://mz.c
 How it fits together:
 - Caddy does HTTPS and speaks plain http to CxMissionZero on their private network, hence `HTTPS=off`. Without it, Caddy would reach a self-signed HTTPS server and fail.
 - Caddy tells CxMissionZero the real client address and that the request was HTTPS.
-- Caddy runs hardened too: every Linux capability dropped except binding ports 80 and 443 (`NET_BIND_SERVICE`), and `no-new-privileges`. The compose file also gives it a health check on its local admin endpoint.
+- Caddy runs hardened too, with `no-new-privileges`. With the compose file (`deploy/caddy`) every Linux capability is dropped: Caddy listens on 8080 and 8443 inside its container and the public 80 and 443 are mapped to them, on the interface in `PUBLIC_ADDRESS` (default: all). The one-line command above keeps only `NET_BIND_SERVICE`, to bind 80 and 443 itself. The compose file also gives Caddy a health check on its local admin endpoint.
 - CxMissionZero believes those headers only from a proxy it is told to trust (`TRUST_PROXY`). Here that is `uniquelocal`: the private container network, which only Caddy can reach because CxMissionZero publishes no port. So cookies are `Secure`, HSTS is on, and the audit log shows real addresses.
 - Updating CxMissionZero works as before: `podman pull`, then the same `podman run` line. Caddy keeps running.
 

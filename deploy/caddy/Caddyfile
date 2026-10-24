@@ -8,10 +8,21 @@
 {
 	# Where Let's Encrypt sends expiry notices. Optional but recommended.
 	email {$ACME_EMAIL}
+	# Caddy listens on ports that need no Linux capability; compose.yaml maps the
+	# public 80 and 443 to them, so the container runs with every capability dropped.
+	http_port 8080
+	https_port 8443
+	# The redirect to https is written below so it points at 443, not 8443.
+	auto_https disable_redirects
 }
 
 {$MZ_DOMAIN} {
 	# Caddy adds X-Forwarded-Proto / -For / -Host, which CxMissionZero reads
 	# (it trusts them because only Caddy can reach it; see TRUST_PROXY in compose).
 	reverse_proxy mission-zero:3000
+}
+
+# Plain http only redirects to https (Let's Encrypt's http check is still answered).
+http://{$MZ_DOMAIN} {
+	redir https://{host}{uri} permanent
 }
