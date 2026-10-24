@@ -7,6 +7,9 @@ A few add-ons are unlocked per installation with an activation code:
 | **Hebrew** | an activation code and a deactivation code | Adds Hebrew (עברית) to the language pickers of the roles that hold the **Hebrew** permission (Admins always do), until the code expires, or removes it. |
 | **Cx Credits Calculator: Impact** | an activation code and a deactivation code | Shows the calculator's **Impact** tab and puts its section back in the projection report and the PDF summary, until the code expires, or hides them again. Off until a code turns it on (from MZ-01.00.91), while it matures; the standalone calculator's downloads never have it. |
 | **FAE Flush** | an activation code and a deactivation code | Shows **Labs → FAE Flush** (from MZ-01.00.95) to the roles with Beta access, until the code expires, or hides it again; a run under way pauses while it is off and carries on once it is back. Not offered, nor listed under Settings → Beta features, until a code turns it on. |
+| **Status board** | an activation code and a deactivation code | Shows **Labs → Status board** to everyone who may load findings, until the code expires, or hides it again. While it is off, the Workbench fetch reads nothing more than before. |
+| **Govern** | an activation code and a deactivation code | Shows **Labs → Govern** (budgets of AI credits, requests, and reversible restrictions for budgets in Enforce) to the roles holding a Govern permission (Admin, Security Champion, Security Analyst, User), until the code expires, or hides it again. Not offered, nor listed under Settings → Beta features, until a code turns it on. While it is off, its cycles stop and CxMissionZero's own spend is no longer checked against its budgets; restrictions it already made in Checkmarx One stay until it is back and someone restores them ([Govern](govern.md#unlock-it)). |
+| **Consolidated view** | an activation code and a deactivation code | Shows **Labs → Consolidated view**, and the Admin's tick under **People & roles** that lets one person see it. No role holds it, not even Admin: only the people ticked see it, and only while the code is in force (the ticks are kept while it is off). |
 | **Several tenants** | an activation code naming the organisation and how many tenants | Unlocks the Super Admin tasks for organisations that run more than one Checkmarx One tenant ([several tenants](multi-tenant.md)). |
 
 Everything else works without a code, until the product licence's end date (below).
@@ -53,6 +56,9 @@ Codes are signed with an Ed25519 key, using `scripts/activation.mjs`.
 | Turn the calculator's Impact tab off | `node scripts/activation.mjs feature issuer-key.pem "Acme Corp" impact off` |
 | Turn FAE Flush on | `node scripts/activation.mjs feature issuer-key.pem "Acme Corp" faeFlush on` |
 | Turn FAE Flush off | `node scripts/activation.mjs feature issuer-key.pem "Acme Corp" faeFlush off` |
+| Turn the Status board on / off | `node scripts/activation.mjs feature issuer-key.pem "Acme Corp" statusBoard on` (or `off`) |
+| Turn the Consolidated view on / off | `node scripts/activation.mjs feature issuer-key.pem "Acme Corp" consolidated on` (or `off`) |
+| Turn Govern on / off | `node scripts/activation.mjs feature issuer-key.pem "Acme Corp" govern on` (or `off`) |
 | Keep CxMissionZero working until the end of a day (UTC) | `node scripts/activation.mjs product issuer-key.pem 2027-12-31` |
 | Keep CxMissionZero working for some months | `node scripts/activation.mjs product issuer-key.pem 12` |
 | See what a code contains | `node scripts/activation.mjs show MZ1.…` |
@@ -69,11 +75,15 @@ Codes are signed with an Ed25519 key, using `scripts/activation.mjs`.
 | Hebrew on / off | `activation-codes.cmd hebrew-on "Acme Corp"` · `activation-codes.cmd hebrew-off "Acme Corp"` |
 | The calculator's Impact tab on / off | `activation-codes.cmd impact-on "Acme Corp"` · `activation-codes.cmd impact-off "Acme Corp"` |
 | FAE Flush on / off (images from MZ-01.00.95) | `activation-codes.cmd fae-on "Acme Corp"` · `activation-codes.cmd fae-off "Acme Corp"` |
+| Govern on / off (images from MZ-01.01.00) | `activation-codes.cmd govern-on "Acme Corp"` · `activation-codes.cmd govern-off "Acme Corp"` |
+| Status board on / off (images from MZ-01.01.00) | `activation-codes.cmd status-on "Acme Corp"` · `activation-codes.cmd status-off "Acme Corp"` |
+| Consolidated view on / off (images from MZ-01.01.00) | `activation-codes.cmd consolidated-on "Acme Corp"` · `activation-codes.cmd consolidated-off "Acme Corp"` |
 | A code for 6 months instead of 12 | add the months last: `activation-codes.cmd fae-on "Acme Corp" 6` |
 | See what a code contains | `activation-codes.cmd show MZ1.…` |
 | A new key pair (only to replace the key; the public key then goes into `ISSUER_KEYS`) | `activation-codes.cmd keygen` |
 
 The same, one line, without the file: `podman run --rm -v "%USERPROFILE%\mz-keys:/keys:ro" ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest node scripts/activation.mjs feature /keys/issuer-key.pem "Acme Corp" faeFlush on`
+
 
 - **Validity:** a code lasts 12 months. Add a number of months as the last argument to change that.
 - **Format:** a code is `MZ1.<payload>.<signature>`. The payload names the organisation, what the code unlocks and when it expires. Anyone can read it with `show`, but only your key can sign one.

@@ -119,7 +119,8 @@ export function initTenantMenu({ api, $, toast, handleAuthLoss, can, isConsolida
     if (el && Number(el.dataset.index) !== active) focusItem(Number(el.dataset.index));
   });
   document.addEventListener('click', (event) => {
-    if (!list.hidden && !wrap.contains(event.target)) close(false);
+    // The path, not the target: opening draws the button's label again, so the element clicked may be gone by now.
+    if (!list.hidden && !event.composedPath().includes(wrap)) close(false);
   });
   window.addEventListener('hashchange', () => render());
 

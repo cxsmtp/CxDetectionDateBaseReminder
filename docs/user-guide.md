@@ -23,10 +23,13 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 13. [Labs: Code authors](#labs-code-authors)
 14. [Labs: Fusion results](#labs-fusion-results)
 15. [Labs: FAE Flush](#labs-fae-flush)
-16. [Logs page](#logs-page)
-17. [Performance and security status](#performance-and-security-status)
-18. [Everyday recipes](#everyday-recipes)
-19. [Troubleshooting](#troubleshooting)
+16. [Labs: Status board](#labs-status-board)
+17. [Labs: Consolidated view](#labs-consolidated-view)
+18. [Labs: Govern](#labs-govern)
+19. [Logs page](#logs-page)
+20. [Performance and security status](#performance-and-security-status)
+21. [Everyday recipes](#everyday-recipes)
+22. [Troubleshooting](#troubleshooting)
 
 The running version is shown at the bottom of the sidebar, as `MZ-xx.xx.xx`. Click it for Settings → About.
 
@@ -43,7 +46,7 @@ The sidebar is grouped by what you came to do:
 | **Prove** | Credit Control, Impact, Audit | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups. |
 | **Plan** | Cx Credits Calculator | The credits a customer needs for triage and remediation of their backlog and for Fusion scans, and projection reports, from the Checkmarx One tenant. Shown to Admins and the roles an Admin gives its permission to. |
 | **Set up** | People & roles, Settings, Logs | People and roles, configuration, troubleshooting. |
-| **Labs** | Code authors, Fusion results, FAE Flush | Early features, set apart at the bottom of the menu, each its own page: who wrote the vulnerable code, and their email; what Checkmarx One's AI engine found in SAST (Fusion and LAST) in the projects you load; Findings Analysis (FAE) on the whole tenant's backlog at once. Shown to roles holding **Beta features**. |
+| **Labs** | Code authors, Fusion results, FAE Flush, Status board, Consolidated, Govern | Early features, set apart at the bottom of the menu, each its own page: who wrote the vulnerable code, and their email; what Checkmarx One's AI engine found in SAST (Fusion and LAST) in the projects you load; Findings Analysis (FAE) on the whole tenant's backlog at once; budgets of AI credits per person, group, project or application (Govern). Shown to roles holding **Beta features**; Govern to the roles holding its own permissions. |
 
 The coloured label next to each page title says which group the page is in.
 
@@ -140,8 +143,9 @@ Everyone signs in and has one role. Tabs and buttons you are not allowed to use 
 | Role | Can |
 | --- | --- |
 | **Admin** | Everything, including the Checkmarx One integration, the email server, the credit pool and backups. |
-| **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, beta. |
-| **User** | Fetch findings, send reminders, follow tracked reports, see credits. Settings are read-only. No Access, Audit or Labs. |
+| **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, beta; in Govern, see everything and ask for credits. |
+| **Security Champion** | Govern (once its activation code is applied): budgets, Enforce, credit requests, restores and attribution, but not Govern's settings; also fetch findings and see tracked reports and credits. No people and roles. |
+| **User** | Fetch findings, send reminders, follow tracked reports, see credits. Settings are read-only. No Access or Audit. In Labs, once their codes are applied, the Status board and Govern (their own AI credits, and asking for more). |
 
 **Cx Credits Calculator** is for Admins; give it to any other role by ticking **Cx Credits Calculator** on People & roles.
 
@@ -483,6 +487,7 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
 | **Fusion results** | Everyone who loads findings sees **Labs → Fusion results**, with its own line to load Fusion's results, and the Workbench's **Fusion** column. |
 | **FAE Flush** | It moves out of Labs to the top of **Act** (FAE Flush, Workbench, Automation); the Workbench stays the home page. Anyone who manages the Checkmarx One integration can run it. |
+| **Govern** | It moves out of Labs to its own menu group, **Govern**, between Prove and Plan. Everyone holding a Govern permission keeps using it as before. |
 
 ### Hands-off (set it up once)
 
@@ -503,6 +508,7 @@ For teams that would rather not sign in to one more tool. **Settings → Hands-o
 Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
 - **Hebrew:** an activation code switches Hebrew on; a deactivation code removes it. Who sees it is a role permission: **Hebrew** on People & roles (listed while Hebrew is on). Admins always have it; tick it for Security Analyst or any other role.
 - **Several tenants:** for organisations that run more than one Checkmarx One tenant (the Super Admin tasks).
+- **Govern:** shows **Labs → Govern** to the roles holding its permissions ([Labs: Govern](#labs-govern)). Turned off, its cycles stop; restrictions it made in Checkmarx One stay until it is back and someone restores them.
 
 Paste the code and select **Apply the code**. What it unlocks is switched on at once. The page lists only what a code has unlocked: until then it says **No add-ons are unlocked yet**, and **Settings → Tenants** is not shown. It shows what is unlocked, for whom and until when, and warns 30 days before a code expires. A code lasts 12 months. It is checked here, against the maintainer's public key, with nothing sent anywhere. Every code applied, or refused, is in the audit log (type **System**). Everything else in CxMissionZero works without a code. Only roles holding **Activation codes** enter codes. Roles with **See the Activation codes page** see the section read-only: what is unlocked, and until when. [How codes are issued](activation-codes.md).
 
@@ -1216,6 +1222,39 @@ It has two tabs, **Run** and **Value**.
 
 **Value** keeps every false positive FAE Flush marked, after each run (kept in `fae-flush-history.json` with the state folder). It leads with the **money saved**, in the currency set under **Settings → AI & credit pool → Impact**: the manual triage time saved (each distinct finding once, at the minutes per triage and hourly cost set there) plus the AI Triage credits not needed (one per result, at the price of one credit set there); with no hourly cost or credit price set, it says which to add, with a link. Then how many results are still marked (those undone taken out), the share of the results To verify they were, the hours, the credits, a line on results against distinct findings and, when an Admin marked Not exploitable, how many of each state; by severity, by run and by project, each with its money saved. **Export CSV** downloads it, with the figures used.
 
+## Labs: Status board
+
+Every project the Workbench loaded, at a glance: its last scan and its results. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)); then for everyone who may load findings. It shows what the Workbench loaded: load findings there first (it says so when nothing is loaded).
+
+- **The figures line**: projects, scanned in the last 30 days, failed scans in the last 7 days, not scanned for 30+ days, open critical + high.
+- **Bar shows**: **Results** (open results by severity from the left, numbers inside, the total and critical + high at the end; gold outline for a Fusion scan, pink for LAST) or **Scan health** (days since the latest scan, up to 60: green under 7, amber under 30, red after, striped when a newer scan failed; the engines it ran, a failed one in red).
+- **Under each name**: application and languages, when the latest scan ran and on which branch, and, when a newer scan failed, when, on which branch and why ("The results shown are from the scan before").
+- **Group by** application, group or scan health; search (several words, separated by commas); sort and filter from each heading; **Columns** (tick to show, arrows to move: Critical, High, Medium, Low, Past SLA, Engines, Latest scan, Application, Branch…).
+- **Click a row** for its last five scans: status, engines, duration, lines of code, results and the change from the scan before, each linked to Checkmarx One.
+- **Export CSV** and **HTML report**: the rows and columns the table shows.
+
+## Labs: Consolidated view
+
+Every connected tenant on one page, read only, for the people an Admin ticks (**People & roles → May see the consolidated view (all connected tenants)**; no role holds it, not even Admin). Held back until its own activation code turns it on. It is **Consolidated** in the menu and the first entry of the tenant switcher.
+
+- **Overview**: a card per tenant (its colour at the top): projects, overdue, open results, AI credits used and available, Fusion and LAST, Govern's budgets, when it last loaded findings, and its health (**Healthy**, **Last fetch failed**, **Not fetched for a day**, or **Not loaded — open it once** for a tenant nobody has loaded findings in since the server started). Then the tenants side by side.
+- **Projects**, **Fusion**, **Credits**, **Status board**: the same across tenants, each row naming its tenant; a tenant filter above every table; search, sort, filter, Columns, CSV and HTML report.
+- **Open** goes into the tenant, as the switcher does. Nothing here changes a tenant or reads Checkmarx One, and each visit is written to each tenant's audit log.
+
+## Labs: Govern
+
+Budgets of AI credits, and what happens at the limit: the credits command center for security champions. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)); then for the roles holding its own permissions, in Beta too. Once an Admin makes it final ([Settings → Beta features](#beta-features-admin)) it has its own menu group, **Govern**, between Prove and Plan. Everything about it is in [Govern](govern.md).
+
+- **Who**: **Admin** everything; **Security Champion** (a built-in role) budgets, Enforce, requests, restores and attribution, not Govern's settings; **Security Analyst** sees it all and asks for credits; **User** sees their own AI credits and asks for more. Each is a permission on People & roles (group *Govern*).
+- **The top**: the last cycle and the next, **Run now**, and the figures line: tenant credits, in the pool, assigned to budgets, used this period, near limit, restricted.
+- **Overview**: the credit pool as one bar, credits over time by action, the top consumers by user, project, group or application, and banners for what Checkmarx One does not report, a poll that did not finish and credits nobody counts.
+- **Budgets**: a budget per user, group, project or application, monthly, quarterly, custom or lifetime, with a warning share. **Monitor** (the default) warns; **Enforce** also takes AI away at the limit. Statuses, exemptions, bulk changes, and **Export CSV** / **Import CSV** (checked first, then applied all or nothing).
+- **Requests**: anyone asks for credits for themselves or a project, group or application; Security Champions and Admins approve (all or part, until a date or for good), deny or ask a question, and the requester is emailed.
+- **Restrictions & alerts**: what Enforce took (a person's AI roles, a project's Auto Triage and PR remediation), **Partial** when Checkmarx One still gives an AI role through a group, **Restore** with a grace; and every alert, with how it was delivered by email and webhook.
+- **Attribution**: names Checkmarx One reports that match nobody, or more than one: map, reject a match for good, or ignore a shared account.
+- **Settings** (Admins): the cycle, the lookback window, the AI roles Enforce removes, AI-only groups, email and a signed webhook, and a permission check of the server's Checkmarx One key.
+- **Safe by default**: nothing changes in Checkmarx One unless a budget is in Enforce; every change is written ahead, checked by reading it again, reversible, and in the audit log. CxMissionZero's own AI Triage and Remediation stop at once for a project or person whose enforced budget is used up.
+
 ## Logs page
 
 Three tabs: **Activity in this browser**, **User activity** (for anyone who may see the audit log) and **Troubleshooting log**.
@@ -1302,7 +1341,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.00.99** | 515/s, 0 failed (main 509, 0) | 7.0 s | 350 ms | 799 pass | 0 vulnerabilities | No new scan: checked in Checkmarx One for this release, there is no scan of this code newer than rescan fe2eb036 (18 October). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
+| **MZ-01.01.00** | 488/s, 0 failed (main 483, 4) | 9.0 s | 659 ms | 951 pass | 0 vulnerabilities | Rescan 55343317 (every engine with Fusion): 74 (13 critical, 37 high, 16 medium, 8 low), down from 120 on the first Fusion scan; about 100 fixed in code; the 72 open all judged not exploitable, to be marked on the owner's confirmation (see [status](status.md#mz-010100-security-review)) |
+| MZ-01.00.99 | 515/s, 0 failed (main 509, 0) | 7.0 s | 350 ms | 799 pass | 0 vulnerabilities | No new scan: checked in Checkmarx One for this release, there is no scan of this code newer than rescan fe2eb036 (18 October). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
 | MZ-01.00.98 | 484/s, 15 failed (main 459, 181; all runs on a busy host, see status) | 10.2 s | 1.5 s | 796 pass | 0 vulnerabilities | No new scan: checked in Checkmarx One for this release, there is no scan of this code newer than rescan fe2eb036 (18 October). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
 | MZ-01.00.97 | 518/s, 0 failed (main 496, 147 in a host pause) | 7.3 s | 826 ms | 783 pass | 0 vulnerabilities | No new scan: the Checkmarx One connector needs signing in again, so this release could not be checked; the latest scan known is rescan fe2eb036 (18 October). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |
 | MZ-01.00.96 | 510/s, 0 failed (main 492, 37 in host pauses) | 6.1 s | 546 ms | 782 pass | 0 vulnerabilities | No new scan: the Checkmarx One connector needs signing in again, so this release could not be checked; the latest scan known is rescan fe2eb036 (18 October). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage |

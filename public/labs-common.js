@@ -64,10 +64,10 @@ export function healthBar(row) {
   if (row.failed) {
     const failedDays = (Date.now() - Date.parse(row.failed.at)) / 86_400_000;
     const width = Math.max(30, Math.min(100, (days / 60) * 100));
-    return `<div class="sb-bar"><div class="sb-age failed" style="width:${width.toFixed(1)}%"><span>Failed</span>&nbsp;<span translate="no">${esc(ageLabel(failedDays))}</span>&nbsp;<span>ago</span></div></div>`;
+    return `<div class="sb-bar"><div class="sb-age failed" style="width:${width.toFixed(1)}%"><span>${esc(`Failed ${ageLabel(failedDays)} ago`)}</span></div></div>`;
   }
   const width = Math.max(6, Math.min(100, (days / 60) * 100));
-  return `<div class="sb-bar"><div class="sb-age ${row.health}" style="width:${width.toFixed(1)}%" translate="no">${esc(ageLabel(days))}</div></div>`;
+  return `<div class="sb-bar"><div class="sb-age ${row.health}" style="width:${width.toFixed(1)}%">${esc(ageLabel(days))}</div></div>`;
 }
 
 const ENGINE_LABEL = { sast: 'SAST', sca: 'SCA', kics: 'KICS', containers: 'Containers', apisec: 'API Security', 'api-security': 'API Security', microengines: 'Secrets', ai: 'AI' };

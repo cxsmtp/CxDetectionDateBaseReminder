@@ -216,14 +216,15 @@ export function initStatusBoard({ api, $, toast, showError, setStatus, fmtDateTi
     lastFocus = document.activeElement;
     $('sb-side-title').textContent = row.name;
     $('sb-side-meta').innerHTML = [row.applications?.length ? `<span translate="no">${esc(row.applications.join(', '))}</span>` : '', row.groups?.length ? `<span translate="no">${esc(row.groups.join(', '))}</span>` : '', row.languages?.length ? `<span translate="no">${esc(row.languages.join(' · '))}</span>` : ''].filter(Boolean).join(' · ');
-    const fact = (label, value) => `<div class="fusion-fact"><span>${esc(label)}</span><b>${value}</b></div>`;
+    // A value in its own words (a scan tag, engine chips) is translated; names, dates and numbers are not.
+    const fact = (label, value, keep = true) => `<div class="fusion-fact"><span>${esc(label)}</span><b${keep ? ' translate="no"' : ''}>${value}</b></div>`;
     $('sb-side-facts').innerHTML = [
-      fact('Latest scan', row.scanAt ? `<time translate="no">${esc(fmtDateTime(row.scanAt))}</time>` : '—'),
-      fact('Branch', `<span class="gv-mono" translate="no">${esc(row.branch || '—')}</span>`),
-      fact('Scan', scanTag(row.scanType)),
-      fact('Open results', `<span translate="no">${num(row.total)}</span>`),
-      fact('Critical + high', `<span translate="no">${num(row.ch)}</span>`),
-      fact('Engines', engineChips(row)),
+      fact('Latest scan', row.scanAt ? esc(fmtDateTime(row.scanAt)) : '—'),
+      fact('Branch', esc(row.branch || '—')),
+      fact('Scan', scanTag(row.scanType), false),
+      fact('Open results', num(row.total)),
+      fact('Critical + high', num(row.ch)),
+      fact('Engines', engineChips(row), false),
     ].join('');
     $('sb-side-open').hidden = !row.url;
     if (row.url) $('sb-side-open').href = row.url;
@@ -245,7 +246,7 @@ export function initStatusBoard({ api, $, toast, showError, setStatus, fmtDateTi
     const dur = (s) => (s === null || s === undefined ? '—' : s < 90 ? `${s} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`);
     const delta = (d) => (d === null || d === undefined ? '' : d === 0 ? ' <small class="hint">±0</small>' : ` <small class="${d > 0 ? 'bad-text' : 'ok-text'}">${d > 0 ? '+' : '−'}${num(Math.abs(d))}</small>`);
     const status = (s) => `<span class="badge ${/fail/i.test(s.status) ? 'bad' : /complet/i.test(s.status) ? 'ok' : 'muted'}">${esc(s.status)}</span>`;
-    return `<h3 class="sb-side-h">${esc('Last scans')}</h3><div class="table-wrap"><table class="data-table sb-scans"><thead><tr><th>${esc('When')}</th><th>${esc('Status')}</th><th>${esc('Engines')}</th><th class="num">${esc('Duration')}</th><th class="num">${esc('Lines of code')}</th><th class="num">${esc('Results')}</th><th></th></tr></thead><tbody>${list
+    return `<h3 class="sb-side-h">${esc('Last scans')}</h3><div class="table-wrap" data-tt-off><table class="data-table sb-scans"><thead><tr><th>${esc('When')}</th><th>${esc('Status')}</th><th>${esc('Engines')}</th><th class="num">${esc('Duration')}</th><th class="num">${esc('Lines of code')}</th><th class="num">${esc('Results')}</th><th></th></tr></thead><tbody>${list
       .map((s) => `<tr><td><time translate="no">${esc(fmtDateTime(s.at))}</time>${s.branch ? `<span class="sb-meta gv-mono" translate="no">${esc(s.branch)}</span>` : ''}${s.reason ? `<span class="sb-fail" translate="no">${esc(s.reason)}</span>` : ''}</td><td>${status(s)}</td><td translate="no">${esc((s.engines ?? []).map(engineLabel).join(' · ') || '—')}</td><td class="num" translate="no">${esc(dur(s.seconds))}</td><td class="num" translate="no">${num(s.loc)}</td><td class="num" translate="no">${num(s.results)}${delta(s.delta)}</td><td>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener" aria-label="${esc('Open in Checkmarx One')}">↗</a>` : ''}</td></tr>`)
       .join('')}</tbody></table></div>`;
   }

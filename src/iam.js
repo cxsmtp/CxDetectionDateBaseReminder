@@ -123,7 +123,7 @@ export const DEFAULT_ROLES = {
   // attribution — but not Govern's settings, and not users and roles.
   champion: {
     name: 'Security Champion',
-    description: 'Complete control of the credits in the pool with Govern: budgets (Enforce too), credit requests, restores and attribution; finds findings and sees reports and credits. Not Govern settings, not users and roles.',
+    description: 'Complete control of the credits in the pool with Govern: budgets (Enforce too), credit requests, restores and attribution; fetches findings and sees reports and credits. Not Govern settings, not users and roles.',
     permissions: ['govern.view', 'govern.request', 'govern.approve', 'govern.budgets', 'govern.enforce', 'govern.restore', 'govern.attribution', 'findings.fetch', 'reports.view', 'credits.view'],
     builtin: true,
   },

@@ -53,7 +53,7 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
   /** "All 241 · acme-eu 112 · …": a tenant filter above a table. */
   function chips(key, countOf) {
     const all = tenants().reduce((n, t) => n + countOf(t), 0);
-    const chip = (id, label, n, extra = '') => `<button type="button" class="fusion-chip sm" data-cv-pick="${esc(key)}" data-tenant="${esc(id)}" aria-pressed="${pick[key] === id}">${extra}${label} <small translate="no">${num(n)}</small></button>`;
+    const chip = (id, label, n, extra = '') => `<button type="button" class="fusion-chip sm${pick[key] === id ? ' primary' : ''}" data-cv-pick="${esc(key)}" data-tenant="${esc(id)}" aria-pressed="${pick[key] === id}">${extra}${label} <small translate="no">${num(n)}</small></button>`;
     return chip('', '<span>All</span>', all) + tenants().map((t) => chip(t.id, `<span translate="no">${esc(t.name)}</span>`, countOf(t), `<i class="key tc-key tc-${t.colour}" aria-hidden="true"></i>`)).join('');
   }
 
@@ -105,7 +105,7 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
         <dt>Budgets</dt><dd>${govern}</dd>
         <dt>Last fetch</dt><dd>${fetch}</dd>
       </dl>
-      <div class="actions"><button type="button" class="sm" data-cv-open="${esc(t.id)}"><span>Open</span> <span translate="no">${esc(t.name)}</span> ↗</button></div>
+      <div class="actions"><button type="button" class="sm" data-cv-open="${esc(t.id)}"><span>Go to</span> <span translate="no">${esc(t.name)}</span> ↗</button></div>
     </section>`;
   }
 
@@ -154,17 +154,19 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
     { id: 'latest', label: 'Latest scan', sort: { value: (r) => (r.scanAt ? Date.parse(r.scanAt) : null), text: (r) => date(r.scanAt) }, cell: (r) => `<td translate="no">${esc(date(r.scanAt))}</td>`, csv: (r) => r.scanAt ?? '', report: (r) => esc(date(r.scanAt)) },
     { id: 'branch', label: 'Branch', off: true, sort: (r) => r.branch, cell: (r) => `<td><span class="gv-mono" translate="no">${esc(r.branch)}</span></td>`, csv: (r) => r.branch, report: (r) => esc(r.branch) },
   ];
-  const projectCols = () => Object.assign(shownColumns('cv-projects', PROJECT_COLUMNS), { extra: '<th><span class="sr-only">Open</span></th>' });
+  const projectCols = () => Object.assign(shownColumns('cv-projects', PROJECT_COLUMNS), { extra: '<th><span class="sr-only">Go to tenant</span></th>' });
   function renderProjects() {
     columnMenu($('cv-proj-cols'), 'cv-projects', PROJECT_COLUMNS, renderProjects);
     $('cv-proj-chips').innerHTML = chips('projects', (t) => t.projects ?? 0);
     const cols = projectCols();
-    const rows = byTenant('projects', data.projects).filter((r) => matches('cv-proj-q', r.name, r.tenantName, ...(r.applications ?? []), ...(r.languages ?? [])));
+    const rows = byTenant('projects', data.projects).filter((r) => matches('cv-proj-q', r.name, r.tenantName, ...(r.applications ?? []), ...(r.languages ?? [])))
+      // Until a heading is chosen: the most open results first, whatever the tenant.
+      .sort((a, b) => b.total - a.total || b.ch - a.ch);
     const sorted = table('cv-proj', 'cv-projects', cols, rows, () => '', renderProjects);
     shown.projects = sorted;
-    $('cv-proj').tBodies[0].innerHTML = sorted.slice(0, limits.projects).map((r) => `<tr class="${rowScanClass(r.scanType)}">${cols.map((c) => c.cell(r)).join('')}<td><button type="button" class="link" data-cv-open="${esc(r.tenantId)}"><span>Open</span> ↗</button></td></tr>`).join('') || `<tr class="empty"><td colspan="${cols.length + 1}" class="hint">${esc(tenants().some((t) => t.loaded) ? 'No project matches.' : 'No tenant has loaded findings yet.')}</td></tr>`;
+    $('cv-proj').tBodies[0].innerHTML = sorted.slice(0, limits.projects).map((r) => `<tr class="${rowScanClass(r.scanType)}">${cols.map((c) => c.cell(r)).join('')}<td><button type="button" class="link" data-cv-open="${esc(r.tenantId)}"><span>Go to tenant</span> ↗</button></td></tr>`).join('') || `<tr class="empty"><td colspan="${cols.length + 1}" class="hint">${esc(tenants().some((t) => t.loaded) ? 'No project matches.' : 'No tenant has loaded findings yet.')}</td></tr>`;
     const left = sorted.length - limits.projects;
-    $('cv-proj-more').innerHTML = `<span>${esc(`${num(Math.min(sorted.length, limits.projects))} of ${num(data.projects.length)} shown. Open takes you to the project in its own tenant.`)}</span>${left > 0 ? ` <button type="button" class="link" data-cv-more="projects">${esc(`Show ${num(Math.min(PAGE_ROWS, left))} more`)}</button>` : ''}`;
+    $('cv-proj-more').innerHTML = `<span>${esc(`${num(Math.min(sorted.length, limits.projects))} of ${num(data.projects.length)} shown. Go to tenant switches to the project's own tenant.`)}</span>${left > 0 ? ` <button type="button" class="link" data-cv-more="projects">${esc(`Show ${num(Math.min(PAGE_ROWS, left))} more`)}</button>` : ''}`;
   }
 
   // ---- Fusion: per tenant, the projects whose latest scan was a Fusion or a LAST scan ----
@@ -187,7 +189,7 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
     { id: 'poolUsed', label: 'Used from the pool', num: true, sort: (t) => t.pool?.used ?? null, cell: (t) => `<td class="num">${num(t.pool?.used)}</td>`, csv: (t) => t.pool?.used ?? '', report: (t) => num(t.pool?.used) },
     { id: 'govern', label: 'Govern', sort: (t) => (!t.govern ? 'Off' : t.govern.on === null ? 'Not started' : 'On'), cell: (t) => `<td>${!t.govern ? '<span class="badge gv-dashed">Off</span>' : t.govern.on === null ? '<span class="badge gv-dashed">Not started</span>' : '<span class="badge gv-info">On</span>'}</td>`, csv: (t) => (!t.govern ? 'Off' : t.govern.on === null ? 'Not started' : 'On'), report: (t) => (!t.govern ? 'Off' : t.govern.on === null ? 'Not started' : 'On') },
     { id: 'budgeted', label: 'In budgets', num: true, sort: (t) => t.govern?.budgeted ?? null, cell: (t) => `<td class="num">${num(t.govern?.budgeted)}</td>`, csv: (t) => t.govern?.budgeted ?? '', report: (t) => num(t.govern?.budgeted) },
-    { id: 'restricted', label: 'Restricted', num: true, sort: (t) => t.govern?.restricted ?? null, cell: (t) => `<td class="num">${t.govern?.restricted ? `<span class="badge gv-restricted" translate="no">${num(t.govern.restricted)}</span>` : num(t.govern?.restricted)}</td>`, csv: (t) => t.govern?.restricted ?? '', report: (t) => num(t.govern?.restricted) },
+    { id: 'restricted', label: 'Restricted budgets', num: true, sort: (t) => t.govern?.restricted ?? null, cell: (t) => `<td class="num">${t.govern?.restricted ? `<span class="badge gv-restricted" translate="no">${num(t.govern.restricted)}</span>` : num(t.govern?.restricted)}</td>`, csv: (t) => t.govern?.restricted ?? '', report: (t) => num(t.govern?.restricted) },
   ];
   function renderCredits() {
     $('cv-credit-chips').innerHTML = chips('credits', () => 1);

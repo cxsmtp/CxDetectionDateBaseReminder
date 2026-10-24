@@ -6,10 +6,11 @@
 - **SLAs and escalation, once final:** everyone who loads findings sees what is past its SLA and due soon. Escalation stays as set under **Settings → SLAs**: off until an Admin names who to escalate to.
 - **Fusion results, once final:** everyone who loads findings sees **Labs → Fusion results** and the Workbench's **Fusion** column.
 - **FAE Flush, once final:** it moves out of Labs to the top of **Act** (FAE Flush, Workbench, Automation), for anyone who manages the Checkmarx One integration; the Workbench stays the home page.
+- **Govern, once final:** it moves out of Labs to its own menu group, **Govern**, between Prove and Plan; everyone holding a Govern permission keeps using it as before.
 
 Every change of stage is in the audit log.
 
-Code authors and username matching live in **Labs**, the section set apart at the bottom of the menu (their page is **Code authors**; until MZ-01.00.82 it was the **Beta** item under Act); **Fusion results** and **FAE Flush** are pages of their own there ([below](#fusion-results), [FAE Flush](#fae-flush)). Code authors and matching read git history and, optionally,
+Code authors and username matching live in **Labs**, the section set apart at the bottom of the menu (their page is **Code authors**; until MZ-01.00.82 it was the **Beta** item under Act); **Fusion results**, **FAE Flush** and **Govern** are pages of their own there ([below](#fusion-results), [FAE Flush](#fae-flush), [Govern](#govern)). Code authors and matching read git history and, optionally,
 the APIs of GitHub, GitLab, Azure DevOps and Bitbucket; check what they find before
 relying on it.
 
@@ -283,3 +284,27 @@ How it works, project by project (`src/fae-flush.js`), with the server's Checkma
 - **Kept on disk** (`fae-flush.json` in the tenant's state folder): the run carries on after a restart. Each result marked is kept, so **Undo** can put it back to To verify, only where it is still in the state the run gave it.
 - **Checked on a live tenant (MZ-01.00.97, with `scripts/fae-probe.mjs`):** the stored copy (302 to signed storage on the same host) and the upload address (`POST /api/uploads`, same host) both answer 401 without the access token and accept it with it; a project made for the run takes `scan.config.sast.findingsAnalysis` true; the upload scan completes (8,491 lines of code against 8,459 in the original scan); a result's state history reads; the in-place scan fails (ErrCode 30020). **Not yet checked:** a repository scan of a private repository (the run then shows Checkmarx One's reason).
 - **Before making it final:** run it on a few of your own projects, check some of the results it marked in Checkmarx One, and that Undo puts them back.
+
+## Status board
+
+Labs → **Status board** (held back until its activation code is applied; then for everyone who may load findings). Every project the Workbench loaded, one row each, with a big bar from the left: its open results by severity (numbers inside, the total and critical + high at the end; outlined in gold or pink when its latest scan was a Fusion or a LAST scan), or, with **Scan health**, how long ago its latest scan ran (green under 7 days, amber under 30, red after, striped when a newer scan failed) and which engines it ran. Under each name: its application, languages, when its latest scan ran and on which branch, and why a newer scan failed. Group by application, group or scan health; search; sort and filter from the headings; the Columns menu; a side panel with its last five scans (status, engines, duration, lines of code, results and the change from the scan before, each linked to Checkmarx One); CSV and an HTML report of what the table shows.
+
+- **From the Workbench's data** (`GET /api/status-board` reads the session's fetch): a page view never calls Checkmarx One. While the board is unlocked, the fetch adds two tenant-wide reads, each kept per Checkmarx One key: the applications (kept 5 minutes) and the scans that failed in the last 7 days (`GET /api/scans?statuses=Failed&from-date=…`, a hundred a call, kept 2 minutes). Each scan's engines come with the scan types the fetch already reads.
+- **The side panel** (`GET /api/status-board/projects/:id/scans`): three calls when it opens (the project's scans, their lines of code, their results), kept 10 minutes per project and latest scan.
+
+## Consolidated view
+
+Labs → **Consolidated view** (held back until its activation code is applied). Every connected tenant on one page, read only: **Overview** (a card per tenant: projects, open results, overdue, credits used and available, Fusion and LAST, Govern's budgets, when it last loaded findings and its health; then the tenants side by side), **Projects** (every tenant's projects in one table), **Fusion**, **Credits** and **Status board** across tenants. Every row names its tenant in the tenant's colour, every table has a tenant filter, and **Open** switches to that tenant as the switcher does.
+
+- **Who**: only the people an Admin ticks, one at a time (**People & roles → May see the consolidated view (all connected tenants)**, audited). No role holds the permission (`consolidated.view`), not even Admin, and Beta access does not open it. They see every tenant they work in (every tenant for a Super Admin).
+- **What it reads** (`GET /api/consolidated`, and `/summary`, `/projects`, `/status-board`): each tenant's own memory: the last Workbench fetch made in it (a row per project, no findings), the Checkmarx One credits it last read, its credit pool, and Govern's view where Govern has started. Never Checkmarx One; nothing written to a tenant but one audit line per call in each tenant's log ("Viewed in the consolidated view by …"). A tenant nobody has loaded findings in since the server started says **Not loaded — open it once**.
+
+## Govern
+
+Labs → **Govern** (held back until its activation code is applied, scope `feature:govern`, [activation codes](activation-codes.md)): budgets of AI credits on users, groups, projects and applications, what Checkmarx One reports each of them used, alerts near and over a budget, credit requests, and, only for budgets set to **Enforce**, reversible restrictions in Checkmarx One (a person's AI roles, a project's Auto Triage and PR remediation). Everything about it is in [Govern](govern.md); for people using it, the [user guide](user-guide.md#labs-govern).
+
+- **Who**: not Beta access but its own permissions (`govern.view`, `govern.request`, `govern.approve`, `govern.budgets`, `govern.enforce`, `govern.restore`, `govern.attribution`, `govern.settings`), in Beta too. Admin holds them all; the built-in **Security Champion** role all but `govern.settings`; Security Analyst `govern.view` and `govern.request`; User `govern.request` ([who can do what](govern.md#who-can-do-what)).
+- **What it reads and changes**: a cycle per tenant, every 15 minutes by default, through its own budget of Checkmarx One calls (at most 4 at once, 5 a second); pages are served from memory. The calls and the permissions the API key needs are in [the cycle](govern.md#the-cycle).
+- **Code off**: its cycles stop and its page is gone; restrictions already made stay until the code is back and someone restores them.
+- **Once final**: it moves out of Labs to its own menu group, **Govern**, between Prove and Plan.
+- **Before making it final:** keep every budget in Monitor until the figures match what Checkmarx One shows for your own users and projects and the Attribution queue is settled; then switch one budget to Enforce and check that Restore puts everything back.

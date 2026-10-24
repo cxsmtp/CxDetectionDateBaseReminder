@@ -4,6 +4,7 @@ import { initFaeFlush } from './fae-flush.js';
 // Labs → Status board and Consolidated view (beta), and the tenant switcher they share.
 import { initStatusBoard } from './status-board.js';
 import { initConsolidated } from './consolidated.js';
+import { initGovern } from './govern.js';
 import { initTenantMenu } from './tenant-menu.js';
 import { SEVERITIES_ALL, creditTiers, tierName } from './credit-tiers.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engines.js';
@@ -647,6 +648,8 @@ const PAGE_PERMS = {
   // only for the people an Admin ticked (People & roles).
   status: 'feature.statusBoard',
   consolidated: 'feature.consolidated',
+  // Govern (Labs): once its activation code is applied, for holders of a govern.* permission.
+  govern: 'feature.govern',
   logs: '',
   help: '', // everyone may ask for help
   calculator: 'projections.use',
@@ -737,10 +740,10 @@ function applyPermissions() {
 
 const ROUTE_ALIASES = { iam: 'access', 'credit-control': 'credits' };
 /** Act → Follow up → Prove, plus Set up: what each page is for. */
-const STAGES = { status: 'labs', consolidated: 'labs', flush: 'labs', dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
-const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', plan: 'Plan', setup: 'Set up', labs: 'Labs' };
+const STAGES = { govern: 'labs', status: 'labs', consolidated: 'labs', flush: 'labs', dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
+const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', govern: 'Govern', plan: 'Plan', setup: 'Set up', labs: 'Labs' };
 /** The tab group on each page (data-ptabs). */
-const PAGE_TABS = { consolidated: 'consolidated', flush: 'flush', dashboard: 'dash', automation: 'automation', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
+const PAGE_TABS = { govern: 'govern', consolidated: 'consolidated', flush: 'flush', dashboard: 'dash', automation: 'automation', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
 const visitedPages = new Set();
 const scrollMemory = new Map();
 
@@ -786,6 +789,19 @@ function renderFeatureStages() {
   STAGES.flush = final ? 'act' : 'labs';
   PAGE_TITLES.flush[1] = final ? 'Findings Analysis on the backlog, for every project at once' : 'Labs: Findings Analysis on the backlog, for every project at once';
   if (state.page === 'flush') setPageTitle('flush');
+  // Govern: in Labs while Beta; once final, its own group "Govern" between Prove and Plan.
+  const governTab = document.getElementById('nav-govern');
+  const governGroup = document.getElementById('nav-group-govern');
+  const governFinal = stages.govern === 'final';
+  if (governTab && governGroup) {
+    if (governFinal) governGroup.after(governTab);
+    else document.getElementById('nav-consolidated')?.after(governTab);
+    governGroup.hidden = !governFinal;
+    governTab.dataset.stage = governFinal ? 'govern' : 'labs';
+  }
+  STAGES.govern = governFinal ? 'govern' : 'labs';
+  PAGE_TITLES.govern[1] = governFinal ? 'Who may use how many AI credits, and what happens at the limit' : 'Labs: who may use how many AI credits, and what happens at the limit';
+  if (state.page === 'govern') setPageTitle('govern');
 }
 
 async function loadFeatures() {
@@ -1283,6 +1299,7 @@ const PAGE_LOADERS = {
   flush: () => faeFlush.load(),
   status: () => statusBoard.load(),
   consolidated: () => consolidatedView.load(),
+  govern: () => governPage.load(),
   audit: () => renderAudit(),
   access: () => loadAccess(),
   help: () => loadHelp(),
@@ -1306,6 +1323,7 @@ const PAGE_RETURN = {
   flush: () => faeFlush.load({ quiet: true }),
   status: () => statusBoard.load({ quiet: true }),
   consolidated: () => consolidatedView.load({ quiet: true }),
+  govern: () => governPage.load({ quiet: true }),
   automation: () => loadAutomation(),
   settings: reloadSettingsPage,
   credits: () => loadUsage(),
@@ -1435,6 +1453,7 @@ function activateTab(group, name, { remember = true, focus = false } = {}) {
 /** Tabs whose content draws on demand. */
 function onTabShown(group, name) {
   if (group === 'dash') renderRailScope();
+  if (group === 'govern' && state.page === 'govern') governPage.tabShown(name);
   if (group === 'logs' && name === 'people' && state.page === 'logs') loadUserActivity({ offset: userActivity.offset });
   if (group === 'automation' && state.automation) {
     if (name === 'email' && can('settings.automation')) renderEmailPreview();
@@ -1665,6 +1684,7 @@ const PAGE_TITLES = {
   flush: ['FAE Flush', 'Labs: Findings Analysis on the backlog, for every project at once'],
   status: ['Status board', 'Labs: every project\'s last scan and results at a glance'],
   consolidated: ['Consolidated view', 'Labs: every connected tenant in one place, read only'],
+  govern: ['Govern', 'Labs: who may use how many AI credits, and what happens at the limit'],
   help: ['Get help', 'Support cases and enhancements'],
   calculator: ['Cx Credits Calculator', 'The credits a customer needs'],
 };
@@ -8596,6 +8616,7 @@ $('help-view').addEventListener('click', async (event) => {
 const faeFlush = initFaeFlush({ api, $, esc: escapeHtml, toast, showError, setStatus, can, fmtDateTime, t });
 const statusBoard = initStatusBoard({ api, $, toast, showError, setStatus, fmtDateTime });
 const consolidatedView = initConsolidated({ api, $, toast, showError, setStatus, fmtDateTime });
+const governPage = initGovern({ api, $, toast, showError, setStatus, fmtDateTime, t, handleAuthLoss, me: () => state.me?.user, active: () => state.page === 'govern' });
 const calculator = initCalculator({ api, $, esc: escapeHtml, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me: () => state.me, can, impactOn: () => Boolean(state.me?.unlocked?.impact) });
 
 /** A page outside the four stages: Get help, or a tool. */

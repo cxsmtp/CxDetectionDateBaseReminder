@@ -33,7 +33,8 @@ To turn **Several tenants** off again, remove the other tenants first.
   The permission is **Super Admin: tenants**. The Admin role holds it.
 - **People who work only in other tenants** keep their role's permissions inside their tenants. They never get the ones that act on the whole server: HTTPS, backups, updates, server metrics, troubleshooting logs, activation codes and Super Admin. So an Admin of *Acme EU* runs Acme EU fully, and nothing else.
 - **People & roles** shows each tenant's admins only the people who can work in their tenant, including the Super Admins. They cannot change Super Admins. Roles are shared by every tenant, so only people who work in the first tenant change them.
-- **People in several tenants** switch between them at the top of the page. Each page then shows the chosen tenant.
+- **People in several tenants** switch between them at the top of the page. Each page then shows the chosen tenant. The switcher is a list: each tenant with its colour (the same everywhere) and when it last loaded findings (or *fetch failed*, or *not loaded*); arrows, Enter and Esc work in it.
+- **The consolidated view** (Labs, behind its own activation code): an Admin ticks, person by person, who may see every tenant they work in on one page, read only (**People & roles → May see the consolidated view (all connected tenants)**). No role holds it, not even Admin. It is the first entry of the switcher for them. It reads what each tenant already holds (its last Workbench fetch, its credits, its credit pool, Govern's budgets), never Checkmarx One, changes nothing, and each visit is written to each tenant's own audit log. See the [user guide](user-guide.md#labs-consolidated-view).
 
 ## What stays separate
 

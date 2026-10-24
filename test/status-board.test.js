@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 
 import { applicationsByProject, attachScanFacts, boardFigures, boardOf, boardRow, engineNames, failedScansSince, failureReason, healthOf, recentScans, summaryTotal } from '../src/status-board.js';
 import { consolidatedFigures, crossProjects, governSummary, tenantHealth, tenantSummary, workbenchSnapshot } from '../src/consolidated.js';
-import { TENANT_COLOURS, tenantColour } from '../public/tenant-colour.js';
+import { TENANT_COLOURS, tenantColour, tenantColours } from '../public/tenant-colour.js';
 import { mayUse } from '../src/features.js';
 import { IamStore, PERSON_GRANTS } from '../src/iam.js';
 
@@ -126,6 +126,11 @@ test('a tenant keeps its colour', () => {
   const seen = new Set(['default', 'acme-eu', 'acme-us', 'globex', 't-1', 't-2', 't-3', 't-4'].map(tenantColour));
   assert.ok([...seen].every((c) => c >= 0 && c < TENANT_COLOURS));
   assert.ok(seen.size >= 4, 'tenants spread over the colours');
+  // Side by side, never two alike (up to eight), and adding a tenant leaves the others' colours.
+  const ids = ['default', 'acme-eu', 'globex', 'acme-us', 't-1', 't-2', 't-3', 't-4'];
+  const all = tenantColours(ids);
+  assert.equal(new Set(Object.values(all)).size, 8);
+  assert.deepEqual(tenantColours(ids.slice(0, 3)), Object.fromEntries(ids.slice(0, 3).map((id) => [id, all[id]])));
 });
 
 test('who may use them: the board for whoever loads findings once unlocked; the consolidated view only with its grant', () => {
