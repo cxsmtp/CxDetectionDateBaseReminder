@@ -153,7 +153,7 @@ export function registerLabsRoutes(app, d) {
       try {
         t.context.audit.record({ type: 'access', outcome: 'info', reason: `Viewed in the consolidated view by ${req.user.email} (${what}).`, actor, details: { consolidated: { view: what, tenants: tenants.length } } });
       } catch (error) {
-        console.warn(`! [consolidated] audit in ${t.id}: ${String(error.message ?? '').slice(0, 200)}`);
+        console.warn(`! [consolidated] audit in ${String(t.id).replace(/[^\w.-]/g, '_')}: ${String(error.message ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').slice(0, 200)}`);
       }
     }
   }

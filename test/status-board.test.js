@@ -147,3 +147,8 @@ test('who may use them: the board for whoever loads findings once unlocked; the 
   assert.equal(iam.canGrant(perms('iam.manage'), perms('consolidated.view')), true);
   assert.equal(iam.canGrant(perms('iam.manage'), perms('integration.cxone')), false);
 });
+
+test('Labs CSV exports defuse spreadsheet formulas and keep numbers as numbers', async () => {
+  const { csvText } = await import('../public/labs-common.js');
+  assert.equal(csvText([['=1+1', '+A1', '-2', -2, '@SUM(A1)', 'a,b', 'ok']]), `'=1+1,'+A1,'-2,-2,'@SUM(A1),"a,b",ok`);
+});

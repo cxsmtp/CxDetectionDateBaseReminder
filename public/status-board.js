@@ -137,7 +137,7 @@ export function initStatusBoard({ api, $, toast, showError, setStatus, fmtDateTi
   let limit = PAGE_ROWS;
   const ctx = { max: 0 };
   let shownRows = [];
-  const mode = () => document.querySelector('input[name="sb-bar"]:checked')?.value ?? 'results';
+  const mode = () => (document.querySelector('input[name="sb-bar"]:checked')?.value === 'health' ? 'health' : 'results');
   const all = () => boardColumns(mode(), { fmtDateTime, ctx });
   const colKey = () => `sb-${mode()}`;
   const cols = () => shownColumns(colKey(), all());

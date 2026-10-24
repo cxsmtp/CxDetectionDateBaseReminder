@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { createHmac } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -21,7 +21,7 @@ const HOOK_PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
 const KEY = mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' });
-const SECRET = `whsec-${Math.random().toString(36).slice(2)}`;
+const SECRET = `whsec-${randomBytes(12).toString('hex')}`;
 const children = [];
 const keyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'govern-key-'));
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'govern-'));

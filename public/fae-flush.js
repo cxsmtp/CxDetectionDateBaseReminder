@@ -28,7 +28,12 @@ const ACTIVE = new Set(['copying', 'scanning', 'comparing', 'marking', 'revalida
 const SEVERITIES = [['CRITICAL', 'Critical'], ['HIGH', 'High'], ['MEDIUM', 'Medium'], ['LOW', 'Low']];
 const num = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString());
 const pct = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : '—');
-const csvText = (rows) => rows.map((r) => r.map((v) => (/[",\n]/.test(String(v ?? '')) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ''))).join(',')).join('\n');
+/** CSV text; text cells a spreadsheet would run as a formula get a leading apostrophe. */
+const csvCell = (v) => {
+  const t = typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? `'${v}` : String(v ?? '');
+  return /[",\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+};
+const csvText = (rows) => rows.map((r) => r.map(csvCell).join(',')).join('\n');
 
 /** Roughly how long: the projects' last SAST scans, so many at once. */
 /**

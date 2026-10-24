@@ -80,7 +80,11 @@ export function engineChips(row) {
   return `<span class="sb-eng" translate="no">${list.map((e) => `<span class="${failed.has(e) ? 'bad' : ran.has(e) ? '' : 'off'}" title="${esc(failed.has(e) ? `${engineLabel(e)}: failed` : ran.has(e) ? `${engineLabel(e)}: ran` : `${engineLabel(e)}: not run`)}">${esc(engineLabel(e))}</span>`).join('')}</span>`;
 }
 
-const csvCell = (v) => (/[",\n]/.test(String(v ?? '')) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ''));
+/** A CSV cell, quoted when needed; text that a spreadsheet would run as a formula gets a leading apostrophe. */
+export const csvCell = (v) => {
+  const t = typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? `'${v}` : String(v ?? '');
+  return /[",\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+};
 export const csvText = (rows) => rows.map((r) => r.map(csvCell).join(',')).join('\n');
 
 export function save(name, text, type) {

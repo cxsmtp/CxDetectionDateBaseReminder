@@ -197,7 +197,7 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
   }
 
   // ---- Status board, across tenants ----
-  const statusMode = () => document.querySelector('input[name="cv-bar"]:checked')?.value ?? 'results';
+  const statusMode = () => (document.querySelector('input[name="cv-bar"]:checked')?.value === 'health' ? 'health' : 'results');
   const statusAll = () => boardColumns(statusMode(), { tenant: true, fmtDateTime, ctx: boardCtx });
   const statusCols = () => shownColumns(`cv-status-${statusMode()}`, statusAll());
   function renderStatus() {

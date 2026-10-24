@@ -599,7 +599,9 @@ export function registerGovernRoutes(app, deps) {
       }
       res.status(400).json({ error: 'Test email or webhook.' });
     } catch (error) {
-      res.status(error.status === 400 ? 400 : 502).json({ ok: false, error: String(error.message).slice(0, 300) });
+      // Only Govern's own texts (they carry a status) reach the page; anything else is logged and summarised.
+      if (error.status === undefined) console.warn(`! [govern] test ${channel === 'email' ? 'email' : 'webhook'}: ${String(error.message ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').slice(0, 200)}`);
+      res.status(error.status === 400 ? 400 : 502).json({ ok: false, error: error.status === undefined ? 'The test could not be sent. The server log has the reason.' : String(error.message).slice(0, 300) });
     }
   }));
 
