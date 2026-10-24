@@ -176,8 +176,9 @@ let restoredFromMailbox = null;
       ]);
       if (found && bundle) {
         const pending = path.join(dataDir, PENDING_RESTORE);
-        fs.writeFileSync(`${pending}.partial`, zlib.gzipSync(Buffer.from(JSON.stringify(bundle))), { mode: 0o600 });
-        fs.renameSync(`${pending}.partial`, pending);
+        const partial = `${pending}.${randomUUID()}.partial`;
+        fs.writeFileSync(partial, zlib.gzipSync(Buffer.from(JSON.stringify(bundle))), { mode: 0o600, flag: 'wx' });
+        fs.renameSync(partial, pending);
         restoredFromMailbox = { name: found.name, date: found.date };
         console.log(`[data] Found ${found.name} in ${backupMailbox.email}: restoring it.`);
       } else {
@@ -722,6 +723,8 @@ app.disable('x-powered-by');
 app.use(securityHeaders({
   scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')),
   hsts: () => httpsManager.hstsHeader(),
+  // The report server address an administrator set (its Test button checks it from the browser).
+  connectSources: () => [settingsStore.get().links?.reportServerUrl, config.reportServerUrl],
 }));
 // Big replies (the page's script, the fetch stream, full results, downloads) shrink
 // 5-10x for a remote office or VPN: brotli or gzip at a quick level, the fetch stream
@@ -1841,7 +1844,7 @@ function managedUser(req) {
   const user = visibleUser(req, req.params.id);
   if (user.id === req.user.id) throw Object.assign(new Error('Change your own profile under Settings → Your profile.'), { status: 400 });
   if (!iam.canGrant(req.permissions, iam.permissionsOf({ ...user, disabled: false }))) {
-    throw Object.assign(new Error(`You cannot change ${user.email}: their role holds permissions you do not have.`), { status: 403 });
+    throw Object.assign(new Error('You cannot change this person: their role holds permissions you do not have.'), { status: 403 });
   }
   return user;
 }
@@ -9582,8 +9585,9 @@ app.post(
     if (req.query.check === '1') return res.json({ backup: info });
     // Staged decrypted: it sits in the state folder (0600) beside the same secrets.
     const pending = path.join(dataDir, PENDING_RESTORE);
-    fs.writeFileSync(`${pending}.partial`, zlib.gzipSync(Buffer.from(JSON.stringify(bundle))), { mode: 0o600 });
-    fs.renameSync(`${pending}.partial`, pending);
+    const partial = `${pending}.${randomUUID()}.partial`;
+    fs.writeFileSync(partial, zlib.gzipSync(Buffer.from(JSON.stringify(bundle))), { mode: 0o600, flag: 'wx' });
+    fs.renameSync(partial, pending);
     audit.record({
       type: 'backup',
       outcome: 'changed',

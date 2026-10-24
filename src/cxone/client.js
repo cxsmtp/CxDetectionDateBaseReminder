@@ -252,7 +252,7 @@ export class CxClient {
       if (!r.ok) throw new CxApiError(`GET ${url.pathname} failed: ${r.status} ${r.statusText}`, { status: r.status, path: url.pathname, body: (await r.text().catch(() => '')).slice(0, 500) });
       let bytes = 0;
       const counted = Readable.fromWeb(r.body).on('data', (chunk) => (bytes += chunk.length));
-      await pipeline(counted, createWriteStream(file));
+      await pipeline(counted, createWriteStream(file, { flags: 'wx', mode: 0o600 }));
       return bytes;
     });
   }
