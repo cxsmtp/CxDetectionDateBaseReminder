@@ -209,19 +209,19 @@ test('Fusion results (Beta): its own fetch, only what each project’s AI engine
   assert.equal(fusion.available, true);
   assert.equal(scope.projects, 2);
   // The mock: both projects' latest scans were Fusion scans; each has four risks in Risk Hub (critical, high, medium,
-  // low; new and recurrent by turns), and the AI engine found r0 (TypeScript: Fusion's) and r3 (Solidity: LAST's):
-  // only those two are shown, the traditional engine's r1 and r2 are not.
+  // low; new and recurrent by turns), and the AI engine found r0 (TypeScript) and r3 (Solidity, a language only it
+  // covers): only those two are shown, the traditional engine's r1 and r2 are not. Both are Fusion's: their scan's kind.
   assert.equal(fusion.source, 'risk-hub');
   assert.deepEqual(
     { total: fusion.totals.total, CRITICAL: fusion.totals.CRITICAL, HIGH: fusion.totals.HIGH, LOW: fusion.totals.LOW, NEW: fusion.totals.NEW, RECURRENT: fusion.totals.RECURRENT, FIXED: fusion.totals.FIXED },
     { total: 4, CRITICAL: 2, HIGH: 0, LOW: 2, NEW: 2, RECURRENT: 2, FIXED: 0 },
   );
   const { FUSION, LAST } = fusion.totals.engines;
-  assert.deepEqual([FUSION.total, FUSION.CRITICAL, LAST.total, LAST.LOW], [2, 2, 2, 2]);
-  assert.deepEqual(fusion.results.filter((r) => r.projectId === 'p1').map((r) => [r.resultId, r.status, r.engine]), [['p1-r0', 'NEW', 'FUSION'], ['p1-r3', 'RECURRENT', 'LAST']]);
+  assert.deepEqual([FUSION.total, FUSION.CRITICAL, FUSION.LOW, LAST.total], [4, 2, 2, 0]);
+  assert.deepEqual(fusion.results.filter((r) => r.projectId === 'p1').map((r) => [r.resultId, r.status, r.engine, r.coveredAs === '']), [['p1-r0', 'NEW', 'FUSION', false], ['p1-r3', 'RECURRENT', 'FUSION', true]]);
   assert.match(fusion.results.find((r) => r.resultId === 'p1-r0').description, /reaches a database query/, 'each with its description');
   assert.equal(fusion.projects.p1.total, 2);
-  assert.deepEqual([fusion.projects.p1.engines.FUSION.total, fusion.projects.p1.engines.LAST.total], [1, 1], 'each project keeps its Fusion and LAST counts beside its scan facts');
+  assert.deepEqual([fusion.projects.p1.engines.FUSION.total, fusion.projects.p1.engines.LAST.total], [2, 0], 'each project keeps its Fusion and LAST counts beside its scan facts');
   // Each result opens in Checkmarx One: its project's Risk Hub, with the result open; each project, its page.
   assert.match(fusion.results.find((r) => r.projectId === 'p1').url, /\/riskhub\/p1\?.*resultId=p1-r0/);
   assert.match(fusion.projects.p1.url, /p1/);
@@ -267,11 +267,12 @@ test('Fusion results: an Admin allocates for and triages the Fusion scans\' risk
   assert.equal(credits.matched, 4, JSON.stringify(credits));
   assert.deepEqual(credits.triage, { CRITICAL: 2, HIGH: 0, MEDIUM: 0, LOW: 2 });
   assert.equal(credits.projects, 2);
-  // What the page shows decides: r0 is TypeScript (Fusion's), r3 Solidity (LAST's); and the projects its filters leave.
+  // What the page shows decides: both projects' latest scans were Fusion scans, so LAST ticked alone acts on nothing;
+  // and the projects its filters leave.
   const last = await admin('POST', '/api/beta/fusion/credits', { engines: ['LAST'], projectIds: null });
-  assert.deepEqual([last.body.credits.matched, last.body.credits.triage], [2, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 2 }]);
+  assert.deepEqual([last.body.credits.matched, last.body.credits.triage], [0, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 }]);
   const one = await admin('POST', '/api/beta/fusion/credits', { engines: ['FUSION'], projectIds: ['p1'] });
-  assert.deepEqual([one.body.credits.matched, one.body.credits.projects, one.body.credits.triage.CRITICAL], [1, 1, 1]);
+  assert.deepEqual([one.body.credits.matched, one.body.credits.projects, one.body.credits.triage.CRITICAL], [2, 1, 1]);
   assert.deepEqual((await admin('GET', '/api/beta/fusion')).body.focus, { engines: ['FUSION'], projectIds: ['p1'] }, 'kept with the session');
   // A project's side panel asks for that project alone, and the page's bar keeps what it acts on.
   const panel = await admin('POST', '/api/beta/fusion/credits', { once: true, engines: ['FUSION', 'LAST'], projectIds: ['p0'] });

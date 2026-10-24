@@ -91,15 +91,17 @@ test('a project whose latest scan was not a Fusion scan is left out, and said; o
   assert.deepEqual([f.scanned, f.notFusion, f.noScan, Object.keys(f.projects)], [1, 1, 1, ['p1']]);
 });
 
-test('LAST: what the AI engine found in a language only it covers; a Checkmarx One that ignores the filter changes nothing', async () => {
+test('a Fusion scan\'s risks are all Fusion\'s; what the AI engine found in a language only it covers is told apart (LAST languages); a Checkmarx One that ignores the filter changes nothing', async () => {
   const sol = { ...AI, resultHash: 'sol1', languageName: 'Solidity', severity: 'HIGH', nodes: [{ fileName: 'contracts/Token.sol', line: 9 }] };
   const risks = [...RISKS, { id: 'sol1', riskName: 'Reentrancy', severity: 'HIGH', status: 'NEW', state: 'TO_VERIFY', engine: 'SAST', fileName: 'contracts/Token.sol' }, { id: 'tf1', riskName: 'Open bucket', severity: 'LOW', status: 'RECURRENT', engine: 'SAST', fileName: 'infra/main.tf', isAiGenerated: true }];
   const f = await readRiskFusion(tenant([AI, sol, ...TRADITIONAL], { ignoreFilter: true }), P1, SCANS, { engines: FUSION_SCAN, riskSource: riskHub({ p1: risks }) });
   const engine = Object.fromEntries(f.results.map((r) => [r.resultId, r.engine]));
-  assert.deepEqual([engine.sol1, engine.tf1, engine[AI.resultHash], engine.sca1], ['LAST', 'LAST', 'FUSION', undefined], 'by the AI result’s language, else the risk’s file');
+  assert.deepEqual([engine.sol1, engine.tf1, engine[AI.resultHash], engine.sca1], ['FUSION', 'FUSION', 'FUSION', undefined], 'its scan\'s kind (MZ-01.00.99): ticking LAST shows LAST scans only');
+  const only = Object.fromEntries(f.results.map((r) => [r.resultId, r.coveredAs]));
+  assert.deepEqual([only.sol1, only.tf1, Boolean(only[AI.resultHash])], ['', '', true], 'by the AI result’s language, else the risk’s file');
   const { FUSION, LAST } = f.projects.p1.engines;
-  assert.deepEqual([FUSION.total, LAST.total, LAST.HIGH, LAST.NEW, LAST.RECURRENT], [1, 2, 1, 1, 1]);
-  assert.deepEqual([f.totals.engines.LAST.total, f.totals.total], [2, 3]);
+  assert.deepEqual([FUSION.total, LAST.total, FUSION.HIGH, FUSION.NEW, FUSION.RECURRENT], [3, 0, 1, 2, 1]);
+  assert.deepEqual([f.totals.engines.LAST.total, f.totals.total], [0, 3]);
   assert.ok(!f.results.some((r) => ['sast2', 'h1', 'h2', 'sca1'].includes(r.resultId)), 'a traditional result the unfiltered answer also gave is not taken for the AI engine’s');
 });
 
@@ -128,17 +130,19 @@ test('the page: figures, project rows, Checkmarx-style result rows and the HTML 
   const t = fusionTiles(f, scope);
   assert.deepEqual([t.found.results, t.found.CRITICAL, t.found.HIGH, t.found.projects, t.found.of, t.change.NEW, t.change.RECURRENT, t.change.FIXED], [2, 1, 1, 1, 3, 1, 1, 0], 'both: the AI engine’s open ones');
   const fusionOnly = fusionTiles(f, scope, ['FUSION']);
-  assert.deepEqual([fusionOnly.found.results, fusionOnly.found.HIGH, fusionOnly.change.FIXED], [1, 0, 0]);
-  assert.deepEqual([fusionTiles(f, scope, ['LAST']).found.results, fusionTiles(f, scope, ['LAST']).found.HIGH], [1, 1]);
+  // A Fusion scan's results are all Fusion's (the Solidity one too): LAST ticked alone shows none of them.
+  assert.deepEqual([fusionOnly.found.results, fusionOnly.found.HIGH, fusionOnly.change.FIXED], [2, 1, 0]);
+  assert.deepEqual([fusionTiles(f, scope, ['LAST']).found.results, fusionTiles(f, scope, ['LAST']).found.HIGH], [0, 0]);
   const [row] = fusionRows(f, scope, ['FUSION']);
-  assert.deepEqual([row.name, row.CRITICAL, row.HIGH, row.total, row.NEW, row.RECURRENT, row.FIXED, row.url], ['Juice Shop', 1, 0, 1, 1, 0, 0, f.projects.p1.url]);
+  assert.deepEqual([row.name, row.CRITICAL, row.HIGH, row.total, row.NEW, row.RECURRENT, row.FIXED, row.url], ['Juice Shop', 1, 1, 2, 1, 1, 0, f.projects.p1.url]);
+  assert.deepEqual(fusionRows(f, scope, ['LAST']), []);
   const rows = fusionResultRows(f, scope, ['FUSION', 'LAST'], 'p1');
-  assert.deepEqual(rows.map((r) => [r.severity, r.scanner, r.engine, r.status]), [['CRITICAL', 'SAST', 'FUSION', 'New'], ['HIGH', 'SAST', 'LAST', 'Recurrent']]);
+  assert.deepEqual(rows.map((r) => [r.severity, r.scanner, r.engine, r.status]), [['CRITICAL', 'SAST', 'FUSION', 'New'], ['HIGH', 'SAST', 'FUSION', 'Recurrent']]);
   assert.equal(rows[0].source, '/juice-shop-20.3.0/routes/nftMint.ts:41');
   assert.equal(rows[0].projectUrl, f.projects.p1.url);
-  assert.deepEqual(fusionResultRows(f, scope, ['LAST']).map((r) => r.id), ['sol']);
+  assert.deepEqual(fusionResultRows(f, scope, ['LAST']).map((r) => r.id), []);
   assert.equal(fusionTotalOf(null, 'p1'), null);
-  assert.deepEqual([fusionTotalOf(f, 'p1'), fusionTotalOf(f, 'p1', ['LAST'])], [2, 1]);
+  assert.deepEqual([fusionTotalOf(f, 'p1'), fusionTotalOf(f, 'p1', ['LAST'])], [2, 0]);
   assert.equal(engineLabel(['LAST', 'FUSION']), 'Fusion and LAST');
   const html = fusionReportHtml(f, scope, { organisation: 'Acme <Bank>', generatedAt: '2026-10-21T10:00:00Z' });
   assert.match(html, /^<!doctype html>/);
@@ -147,9 +151,9 @@ test('the page: figures, project rows, Checkmarx-style result rows and the HTML 
   assert.ok(html.includes('CWE-287') && html.includes('nftMint.ts:41') && !html.includes('lodash'), 'no traditional result in it');
   assert.ok(!/<script|src="http/i.test(html), 'nothing runs, nothing loaded from elsewhere');
   const fusionReport = fusionReportHtml(f, scope, { engines: ['FUSION'] });
-  assert.ok(fusionReport.includes('<title>Fusion results</title>') && !fusionReport.includes('Token.sol'), 'Fusion only: no LAST result');
+  assert.ok(fusionReport.includes('<title>Fusion results</title>') && fusionReport.includes('Token.sol'), 'Fusion only: every result of the Fusion scan');
   const one = fusionReportHtml(f, scope, { engines: ['LAST'], projectId: 'p1' });
-  assert.ok(one.includes('LAST results — Juice Shop') && one.includes('Token.sol') && !one.includes('nftMint.ts'), 'one project, LAST only');
+  assert.ok(!one.includes('Token.sol') && !one.includes('nftMint.ts'), 'one project, LAST only: none from a Fusion scan');
   assert.equal(fusionReportHtml(f, scope, { projectId: 'nope' }).includes('No Fusion and LAST results.'), true);
 });
 
@@ -219,9 +223,13 @@ test('each project’s model (its scan, else what Checkmarx One resolved for the
     '/api/scans/s2/workflow': [{ Source: 'last-worker-frankfurt', Info: 'started' }],
     '/api/sast-metadata': { scans: [{ scanId: 's1', loc: 91970, fileCount: 929 }, { scanId: 's2', loc: 910, fileCount: 5 }] },
     '/api/sast-metadata/engine-version': [{ scanId: 's1', engineVersion: '9.7.7-679962' }],
+    // Its SAST results in all, and their languages; the languages its SAST engine scanned (s2's: not said).
+    '/api/scan-summary': { scansSummaries: [{ scanId: 's1', sastCounters: { totalCounter: 1000, languageCounters: [{ language: 'TypeScript', counter: 900 }, { language: 'Go', counter: 100 }] } }, { scanId: 's2', sastCounters: { totalCounter: 40, languageCounters: [{ language: 'ABAP', counter: 40 }] } }] },
+    '/api/sast-metadata/s1/metrics': { scannedFilesPerLanguage: { TypeScript: { goodFiles: 900 }, JavaScript: { goodFiles: 20 }, Go: { goodFiles: 9 } } },
   });
   const facts = await projectFacts(client, ['p1', 'p2', 'p3'], { p1: { id: 's1' }, p2: { id: 's2' }, p3: { id: 's3' } });
-  assert.deepEqual(facts.p1, { scanType: 'fusion', fusionEnabled: true, model: 'haiku-4.5', modelFrom: 'scan', loc: 177362, files: 929, engineVersion: '9.7.7-679962', scanEngines: ['sast', 'ai'], aiReported: 273, aiDuplicates: 47, aiAdded: 226, fusionCredits: 'off' });
+  assert.deepEqual(facts.p1, { scanType: 'fusion', fusionEnabled: true, model: 'haiku-4.5', modelFrom: 'scan', loc: 177362, files: 929, engineVersion: '9.7.7-679962', scanEngines: ['sast', 'ai'], aiReported: 273, aiDuplicates: 47, aiAdded: 226, fusionCredits: 'off', sastResults: 1000, resultLanguages: ['Go', 'TypeScript'], sastLanguages: ['Go', 'JavaScript', 'TypeScript'] });
+  assert.deepEqual([facts.p2.sastResults, facts.p2.sastLanguages], [40, ['ABAP']], 'no metrics: the languages its results are in');
   assert.deepEqual([facts.p2.scanType, facts.p2.model, facts.p2.modelFrom, facts.p2.loc, facts.p2.files, facts.p2.aiReported], ['last', 'opus-4.7', 'environment', 910, 5, null], 'Fusion off: a LAST scan, the model as Checkmarx One resolved it, and where');
   assert.deepEqual([facts.p3.scanType, facts.p3.model], ['none', ''], 'no AI engine: nothing more read');
   assert.equal(client.calls.filter((c) => c.path === '/api/configuration/scan').length, 1, 'only for a scan that does not say');

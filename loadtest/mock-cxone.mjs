@@ -289,7 +289,8 @@ http.createServer((req, res) => {
           const by = {};
           for (const r of rows) by[r.severity] = (by[r.severity] ?? 0) + 1;
           const severityCounters = Object.entries(by).map(([severity, counter]) => ({ severity, counter }));
-          return { scanId, sastCounters: { severityCounters, stateCounters: [{ state: 'TO_VERIFY', counter: toVerify }, { state: 'PROPOSED_NOT_EXPLOITABLE', counter: rows.length - toVerify }], totalCounter: rows.length } };
+          const languageCounters = [{ language: 'TypeScript', counter: Math.ceil(rows.length / 2) }, { language: 'JavaScript', counter: Math.floor(rows.length / 2) }];
+          return { scanId, sastCounters: { severityCounters, stateCounters: [{ state: 'TO_VERIFY', counter: toVerify }, { state: 'PROPOSED_NOT_EXPLOITABLE', counter: rows.length - toVerify }], languageCounters, totalCounter: rows.length } };
         });
         return send(200, { scansSummaries, totalCount: scansSummaries.length });
       }
@@ -312,6 +313,14 @@ http.createServer((req, res) => {
       let sm;
       // Lines of code a scan counted (Credit projections → Fusion): one project in seven has no SAST
       // scan metadata; half of those still have it in the scan's own SAST details, half have none.
+      if ((sm = u.pathname.match(/^\/api\/sast-metadata\/([^/]+)\/metrics$/))) {
+        bump('sast-metadata');
+        // The languages the SAST engine scanned files in.
+        const i = Number(decodeURIComponent(sm[1]).replace(/^(scan|feat)-p/, ''));
+        const all = ['TypeScript', 'JavaScript', 'Python', 'Java', 'Go'];
+        const scannedFilesPerLanguage = Object.fromEntries(all.slice(0, 1 + ((Number.isInteger(i) ? i : 0) % 3)).map((l) => [l, { goodFiles: 10, partiallyGoodFiles: 0, badFiles: 0 }]));
+        return send(200, { scanId: decodeURIComponent(sm[1]), scannedFilesPerLanguage });
+      }
       if ((sm = u.pathname.match(/^\/api\/sast-metadata\/([^/]+)$/)) && sm[1] !== 'engine-version') {
         bump('sast-metadata');
         const id = decodeURIComponent(sm[1]);

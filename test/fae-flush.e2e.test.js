@@ -100,7 +100,9 @@ test('compare: only results still To verify, matched by similarity id; what FAE 
 
 test('exceptions: other code, nearly everything marked, or many results the project does not have', () => {
   assert.equal(exceptionOf({ loc: 1000, faeLoc: 1010, counts: { toVerify: 10, notReported: 5, faeReported: 5, extra: 0 } }), null);
-  assert.equal(exceptionOf({ loc: 1000, faeLoc: 1100, counts: {} }).code, 'loc');
+  assert.equal(exceptionOf({ loc: 1000, faeLoc: 1100, counts: { toVerify: 10, notReported: 3 } }).code, 'loc');
+  // Nothing it would mark: nothing to ask, whatever else looks off.
+  assert.equal(exceptionOf({ loc: 1000, faeLoc: 1100, counts: { toVerify: 2, notReported: 0, faeReported: 11, extra: 9 } }), null);
   assert.equal(exceptionOf({ counts: { toVerify: 40, notReported: 39, faeReported: 1, extra: 0 } }).code, 'many');
   // Too few to judge by share.
   assert.equal(exceptionOf({ counts: { toVerify: 5, notReported: 5, faeReported: 0, extra: 0 } }), null);

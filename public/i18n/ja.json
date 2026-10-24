@@ -4391,6 +4391,25 @@
   "Hide details": "詳細を非表示",
   "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": "プロジェクト{0}件は対象外です：最新スキャンでAIエンジンが実行されませんでした。プロジェクト{1}件は対象外です：最新スキャンのAIエンジンが何も報告しませんでした。",
   "found by the AI engine alone": "AIエンジンのみが検出",
-  "AI results <small>latest scans</small>": "AI結果 <small>最新スキャン</small>"
+  "AI results <small>latest scans</small>": "AI結果 <small>最新スキャン</small>",
+  "Mark anyway": "それでもマーク",
+  "Mark anyway ({0})": "それでもマーク（{0}）",
+  "Carry on without them ({0})": "設定なしで続行（{0}）",
+  "Mark {0} results Not exploitable anyway, in {1} projects?": "プロジェクト{1}件の結果{0}件を、それでも悪用不可としてマークしますか？",
+  "Mark {0} results Not exploitable anyway, in {1} project?": "プロジェクト{1}件の結果{0}件を、それでも悪用不可としてマークしますか？",
+  "Mark {0} results Proposed not exploitable anyway, in {1} projects?": "プロジェクト{1}件の結果{0}件を、それでも悪用不可（提案）としてマークしますか？",
+  "Mark {0} results Proposed not exploitable anyway, in {1} project?": "プロジェクト{1}件の結果{0}件を、それでも悪用不可（提案）としてマークしますか？",
+  "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": "これらのプロジェクトはいずれも停止して確認を求めています。質問は各行に表示されています。FAEスキャンで報告されなくなった結果をマークし、その後再検証します。「取り消し」で元に戻せます。",
+  "Marking {0}: it runs on the server, you can close this page.": "{0}件のプロジェクトでマーク中：サーバー上で実行されるため、このページを閉じても構いません。",
+  "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": "{0}件のプロジェクトは、Checkmarx Oneがコピーを拒否した設定なしで続行します：スキャン枠が空き次第、処理を再開します。",
+  "project removed": "プロジェクト削除済み",
+  "Move up": "上へ移動",
+  "Move down": "下へ移動",
+  "Languages": "言語",
+  "AI share of SAST": "SASTに占めるAIの割合",
+  "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": "SAST：最新スキャンでSASTエンジンがスキャンした言語。LAST：AIエンジンのみが対応している言語のうち、AIエンジンが検出したものがある言語",
+  "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": "最新スキャンのすべてのSAST結果に占めるAIエンジンの結果の割合：100件中20件なら20%",
+  "{0} of {1} SAST results": "SAST結果{1}件中{0}件",
+  "Checkmarx One did not say how many SAST results its latest scan has": "Checkmarx Oneから、最新スキャンのSAST結果の件数が返されませんでした"
  }
 }

@@ -4391,6 +4391,25 @@
   "Hide details": "إخفاء التفاصيل",
   "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": "استُبعد {0} مشروع: لم يشغّل آخر فحص لها محرك AI. استُبعد {1} مشروع: لم يُبلغ محرك AI في آخر فحص لها عن أي شيء.",
   "found by the AI engine alone": "عثر عليها محرك AI وحده",
-  "AI results <small>latest scans</small>": "نتائج AI <small>آخر الفحوص</small>"
+  "AI results <small>latest scans</small>": "نتائج AI <small>آخر الفحوص</small>",
+  "Mark anyway": "وضع العلامات على أي حال",
+  "Mark anyway ({0})": "وضع العلامات على أي حال ({0})",
+  "Carry on without them ({0})": "المتابعة دون الإعدادات ({0})",
+  "Mark {0} results Not exploitable anyway, in {1} projects?": "هل تريد وضع علامة غير قابلة للاستغلال على {0} نتيجة في {1} مشروع على أي حال؟",
+  "Mark {0} results Not exploitable anyway, in {1} project?": "هل تريد وضع علامة غير قابلة للاستغلال على {0} نتيجة في {1} مشروع على أي حال؟",
+  "Mark {0} results Proposed not exploitable anyway, in {1} projects?": "هل تريد وضع علامة مقترحة كغير قابلة للاستغلال على {0} نتيجة في {1} مشروع على أي حال؟",
+  "Mark {0} results Proposed not exploitable anyway, in {1} project?": "هل تريد وضع علامة مقترحة كغير قابلة للاستغلال على {0} نتيجة في {1} مشروع على أي حال؟",
+  "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": "توقف كل مشروع من هذه المشاريع ليسألك، وسؤاله معروض في صفه. تُوضع العلامات على النتائج التي لم يعد فحص FAE يُبلغ عنها، ثم يُعاد التحقق منها. ويُعيدها التراجع إلى حالتها السابقة.",
+  "Marking {0}: it runs on the server, you can close this page.": "جارٍ وضع العلامات في {0} مشروع: يعمل على الخادم، ويمكنك إغلاق هذه الصفحة.",
+  "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": "يتابع {0} مشروع دون الإعدادات التي رفض Checkmarx One نسخها: تُستأنف عندما تتوفر سعة لفحص جديد.",
+  "project removed": "أُزيل المشروع",
+  "Move up": "نقل لأعلى",
+  "Move down": "نقل لأسفل",
+  "Languages": "اللغات",
+  "AI share of SAST": "حصة AI من SAST",
+  "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": "SAST: اللغات التي فحصها محرك SAST في آخر فحص للمشروع. LAST: اللغات التي لا يغطيها إلا محرك AI وعثر فيها على نتائج",
+  "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": "نتائج محرك AI كنسبة من جميع نتائج SAST في آخر فحص للمشروع: 20 من 100 تعني 20%",
+  "{0} of {1} SAST results": "{0} من {1} نتيجة SAST",
+  "Checkmarx One did not say how many SAST results its latest scan has": "لم يذكر Checkmarx One عدد نتائج SAST في آخر فحص للمشروع"
  }
 }

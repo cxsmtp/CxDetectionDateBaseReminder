@@ -85,6 +85,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.00.99 — WHEN99 UTC · [#122](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/122)
+
+- **FAE Flush, smaller top.** The title and its six steps sit on one line, the Run panel loses its own heading, and the explanations under its choices are now tooltips on their labels.
+- **Answer many projects at once.** The bar over the run offers **Mark anyway** and **Carry on without them** for every project ticked that asks, besides Retry and Skip, and shows only the actions that fit them; a project with nothing to mark no longer asks ("Mark 0 anyway").
+- **Retries that went nowhere, fixed.** A `_FAE` project deleted in Checkmarx One is made again instead of failing with "Project not found", and a retry after the run finished starts it again instead of leaving the project waiting.
+- **Fusion results: LAST means LAST scans.** Ticking LAST shows only projects whose latest scan was a LAST scan; what the AI engine found in a language only it covers in a Fusion scan stays with that Fusion scan.
+- **Languages and AI share.** Two new columns: the languages each latest scan's SAST engine scanned, and the LAST languages; and the AI engine's results as a share of all its SAST results (20 of 100 is 20%).
+- **Choose your columns.** Fusion results and both FAE Flush tables have a **Columns** menu to hide, show and reorder columns, kept in your browser.
+- **Status.** STATUS99
+
 ## MZ-01.00.98 — 2026-10-23 15:14 UTC · [#121](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/121)
 
 - **FAE Flush copies only the settings that count.** The `_FAE` project takes the project's own SAST settings that have a value, in one call; if Checkmarx One refuses, each is tried alone and the timeline names those refused, and a refused setting that changes the results (such as the preset) stops the project to ask: continue, skip or retry. This fixes the `PATCH /api/configuration/project … 403` seen on a live tenant.
