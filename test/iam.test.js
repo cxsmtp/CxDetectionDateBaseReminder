@@ -27,7 +27,8 @@ test('default roles: Admin holds everything; Security Analyst all but the Admin-
   for (const p of ['iam.view', 'iam.manage', 'credits.allocate', 'settings.template', 'audit.view', 'triage.run']) {
     assert.ok(DEFAULT_ROLES.analyst.permissions.includes(p), p);
   }
-  assert.deepEqual(new Set(DEFAULT_ROLES.user.permissions), new Set(['findings.fetch', 'reminders.send', 'initiators.tag', 'reports.view', 'reports.remind', 'reports.manage', 'credits.view', 'settings.view']));
+  // Govern (beta): a User may ask for credits (their own requests and usage only).
+  assert.deepEqual(new Set(DEFAULT_ROLES.user.permissions), new Set(['findings.fetch', 'reminders.send', 'initiators.tag', 'reports.view', 'reports.remind', 'reports.manage', 'credits.view', 'settings.view', 'govern.request']));
   // The Admin's to hand out: the Cx Credits Calculator, Hebrew; and deleting reports, which no other role can hold.
   for (const p of ['projections.use', 'language.he', 'reports.delete']) {
     assert.ok(DEFAULT_ROLES.admin.permissions.includes(p), p);

@@ -6,7 +6,8 @@ import { FEATURES, featureList, isFinal, mayUse, mergeFeatures } from '../src/fe
 import { mergeAutomation, DEFAULT_AUTOMATION } from '../src/automation-config.js';
 
 test('a feature is Beta until made final; only known features and stages are kept', () => {
-  assert.deepEqual(FEATURES.map((f) => f.id), ['codeAuthors', 'sla', 'identityMatching', 'fusionResults', 'faeFlush']);
+  // The first ones in order; features added after Govern (Labs) follow it.
+  assert.deepEqual(FEATURES.map((f) => f.id).slice(0, 6), ['codeAuthors', 'sla', 'identityMatching', 'fusionResults', 'faeFlush', 'govern']);
   assert.equal(isFinal({}, 'codeAuthors'), false);
   const stored = mergeFeatures({}, { codeAuthors: { stage: 'final', by: 'admin@acme.io' }, bogus: { stage: 'final' }, identityMatching: { stage: 'gold' } });
   assert.deepEqual(Object.keys(stored), ['codeAuthors']);
@@ -14,7 +15,7 @@ test('a feature is Beta until made final; only known features and stages are kep
   assert.ok(stored.codeAuthors.at, 'when it changed');
   assert.equal(isFinal({ features: stored }, 'codeAuthors'), true);
   assert.deepEqual(mergeFeatures(stored, { codeAuthors: { stage: 'beta' } }).codeAuthors.stage, 'beta');
-  assert.deepEqual(featureList({ features: stored }).map((f) => f.stage), ['final', 'beta', 'beta', 'beta', 'beta']);
+  assert.deepEqual(featureList({ features: stored }).map((f) => f.stage), ['final', ...FEATURES.slice(1).map(() => 'beta')]);
 });
 
 test('Beta access always works; a final feature is open to its own permission too', () => {

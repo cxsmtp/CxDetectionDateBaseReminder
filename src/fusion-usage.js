@@ -253,12 +253,14 @@ export async function scanLanguages(client, scans, { concurrency = 2, background
  * 'none' }. A scan whose engines say no AI is 'none' without asking; the others are read a hundred at a time
  * (GET /api/scans?scan-ids=…) for their own AI settings. Projects Checkmarx One does not answer for are left out.
  */
-export async function scanTypes(client, scans, { concurrency = 4, background = true, trace = null } = {}) {
+export async function scanTypes(client, scans, { concurrency = 4, background = true, trace = null, engines = null } = {}) {
   const out = {};
   const ask = [];
   for (const [projectId, scan] of Object.entries(scans ?? {})) {
     const id = text(scan?.id ?? scan?.scanId, 80);
     if (!id) continue;
+    // `engines` (optional): each latest scan's engines, as given or as read here (Labs → Status board), at no extra call.
+    if (engines && Array.isArray(scan.engines)) engines[projectId] = scan.engines.map((e) => text(e, 40));
     if (Array.isArray(scan.engines) && scanAiConfig(scan)) out[projectId] = scanTypeOf(scan.engines, flag(scanAiConfig(scan).fusionEnabled));
     else if (Array.isArray(scan.engines) && !scan.engines.some((e) => String(e).toLowerCase() === 'ai')) out[projectId] = 'none';
     else ask.push([id, projectId]);
@@ -271,6 +273,7 @@ export async function scanTypes(client, scans, { concurrency = 4, background = t
     for (const scan of Array.isArray(body?.scans) ? body.scans : []) {
       const projectId = byScan.get(text(scan?.id, 80));
       if (!projectId || !Array.isArray(scan.engines)) continue;
+      if (engines) engines[projectId] = scan.engines.map((e) => text(e, 40));
       out[projectId] = scanTypeOf(scan.engines, flag(scanAiConfig(scan)?.fusionEnabled));
     }
   });

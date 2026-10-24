@@ -44,8 +44,8 @@ export const STATE_FILES = [
 export const TENANT_FILES = ['settings.json', 'audit.key', 'triage-credits.json', 'credit-allocations.json', 'tracked-reports.json', 'known-initiators.json', 'automation-state.json', 'connection-guard.json', 'scan-attribution.json', 'finding-journal.json', 'projections.json'];
 /** A tenant's id: its folder's name. */
 export const TENANT_ID = /^[a-z0-9][a-z0-9-]{1,39}$/;
-/** Folders of state files: the audit log's months, and the calculator's projection reports. */
-export const STATE_DIRS = ['audit', 'projection-reports'];
+/** Folders of state files: the audit log's months, the calculator's projection reports, and Govern's state (beta). */
+export const STATE_DIRS = ['audit', 'projection-reports', 'govern'];
 
 export function resolveDataDir(env = process.env, { cwd = process.cwd(), home = os.homedir() } = {}) {
   const explicit = String(env.DATA_DIR ?? '').trim();

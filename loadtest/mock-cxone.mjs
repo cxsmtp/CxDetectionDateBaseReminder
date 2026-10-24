@@ -65,6 +65,14 @@ const branchOfScan = (id) => {
 const VULNS = [['SQL_Injection', 89], ['Reflected_XSS_All_Clients', 79], ['SSRF', 918], ['Path_Traversal', 22], ['Hardcoded_password_in_Connection_String', 798], ['Stored_XSS', 79], ['Command_Injection', 78], ['Missing_HSTS_Header', 319], ['Blind_SQL_Injections', 89], ['Server_Side_Request_Forgery', 918], ['XML_External_Entity', 611], ['Log_Forging', 117]];
 // LAST scans (the AI engine with Fusion off): project 4, and every sixth project after it.
 const lastScanProject = (i) => i % 6 === 4;
+// FAILED_SCANS=1: project 3, and every seventh after it, has a scan that failed (SAST out of memory) after its latest
+// completed one (Labs → Status board). Asked for with ?statuses=Failed, tenant-wide or for the project.
+const FAILED_SCANS = process.env.FAILED_SCANS === '1';
+const failedProject = (i) => FAILED_SCANS && i % 7 === 3;
+const failedScanOf = (i) => ({ id: `fail-p${i}`, projectId: `p${i}`, status: 'Failed', branch: BRANCHES ? primaryScanBranch(i) : 'main', engines: ['sast', 'sca'], statusDetails: [{ name: 'sast', status: 'Failed', details: 'out of memory' }, { name: 'sca', status: 'Completed', details: '' }], createdAt: day(0.1), updatedAt: day(0.09) });
+// SCAN_AGES=1: latest scans from hours to two months ago (Labs → Status board's scan health), not all a day old.
+const SCAN_AGES = process.env.SCAN_AGES === '1';
+const scanAge = (i, d) => (SCAN_AGES ? [0.2, 1, 3, 9, 15, 40, 55][i % 7] : d);
 // The tenant's credits left in Checkmarx One (TENANT_CREDITS=n), of 30,000; /__tenant-credits?n= changes them.
 let TENANT_CREDITS = Number(process.env.TENANT_CREDITS || 28854);
 let REFUSE_SETTING = '';
@@ -104,6 +112,32 @@ const codeKept = (i) => i % 9 !== 8; // every ninth project: Checkmarx One no lo
 const faeSourceOf = (projectId) => faeProjects.get(projectId)?.source ?? '';
 const issued = new Set();
 const MAX_BODY = 1024 * 1024;
+// Govern: who consumed credits (name, email, credits over 30 days), the IAM users and groups, ast-app role mappings,
+// projects' Auto Triage and PR remediation settings. /__consumption?key=user:<email|name>&add=n adds credits;
+// /__govern-fail?view=user&on=1 makes page 2 of that view fail (a partial poll); /__iam and /__autotriage show the state.
+const GOV_CONSUMERS = [['Ada Admin', 'admin@acme.io', 40], ['uma@acme.io', '', 12], ['julian-chuan', '', 9], ['Sean Casey', '', 7], ['Auto-triage', '', 30], ['dependabot[bot]', '', 2], ['Champ Pion', 'champ@acme.io', 5]];
+const govExtra = new Map();
+const govFail = new Set();
+const GOV_GROUPS = [{ id: 'eng', name: 'Engineering', path: '/Engineering', subGroups: [{ id: 'team-a', name: 'team-a', path: '/Engineering/team-a', subGroups: [] }, { id: 'team-b', name: 'team-b', path: '/Engineering/team-b', subGroups: [] }] }, { id: 'team-c', name: 'team-c', path: '/team-c', subGroups: [] }];
+const GOV_GROUP_LIST = [GOV_GROUPS[0], ...GOV_GROUPS[0].subGroups, GOV_GROUPS[1]];
+const GOV_USERS = [
+  { id: 'u-admin', username: 'admin', email: 'admin@acme.io', firstName: 'Ada', lastName: 'Admin', groups: ['/Engineering'] },
+  { id: 'u-uma', username: 'uma', email: 'uma@acme.io', firstName: 'Uma', lastName: 'User', groups: ['/Engineering/team-a'] },
+  { id: 'u-julian', username: 'cx-julian-chuan', email: 'julian.chuan@acme.io', firstName: 'Julian', lastName: 'Chuan', groups: ['/Engineering/team-b'] },
+  { id: 'u-sean1', username: 'sean.casey', email: 'sean.casey@acme.io', firstName: 'Sean', lastName: 'Casey', groups: [] },
+  { id: 'u-sean2', username: 'scasey', email: 's.casey@acme.io', firstName: 'Sean', lastName: 'Casey', groups: [] },
+  { id: 'u-champ', username: 'champ', email: 'champ@acme.io', firstName: 'Champ', lastName: 'Pion', groups: [] },
+];
+const AI_ROLES = ['view-risk-management', 'view-risk-management-dashboard', 'view-risk-management-tab', 'view-scans'];
+const roleRef = (name) => ({ id: `role-${name}`, name });
+const govDirect = new Map([['u-admin', new Set(['view-risk-management', 'view-risk-management-dashboard', 'view-scans'])], ['u-uma', new Set(['view-risk-management'])], ['u-julian', new Set()], ['u-champ', new Set(['view-risk-management'])]]);
+const govMembers = new Map([['u-uma', new Set(['team-a'])], ['u-julian', new Set(['team-b'])]]);
+const govGroupRoles = new Map([['team-a', ['view-risk-management-tab']], ['team-b', ['view-risk-management']]]);
+const govEffective = (uid) => new Set([...(govDirect.get(uid) ?? []), ...[...(govMembers.get(uid) ?? [])].flatMap((g) => govGroupRoles.get(g) ?? [])]);
+const govAutoTriage = new Map();
+const autoTriageOf = (pid) => govAutoTriage.get(pid) ?? { scope: 'project', projectId: pid, configurations: [{ feature: 'auto_triage', enabled: true, config: { branches: ['main'], scannerTypes: ['SAST'], severityLevels: ['CRITICAL'], riskStatuses: ['NEW'] }, allowOverride: { branches: true } }, { feature: 'auto_remediation', enabled: false, config: {} }] };
+const govPr = new Map();
+const GOVERN = process.env.GOVERN === '1';
 http.createServer((req, res) => {
   // Not a page to show in a frame (only API answers come from here).
   res.setHeader('X-Frame-Options', 'DENY');
@@ -128,6 +162,15 @@ http.createServer((req, res) => {
       if (u.pathname === '/__tenant-credits') { TENANT_CREDITS = Number(u.searchParams.get('n') ?? TENANT_CREDITS); return send(200, { available: TENANT_CREDITS }); }
       if (u.pathname === '/__changing') { changing = u.searchParams.get('on') === '1'; return send(200, { changing }); }
       if (u.pathname === '/__rescans') return send(200, Object.fromEntries(rescans));
+      if (u.pathname === '/__consumption') { const key = u.searchParams.get('key') ?? ''; govExtra.set(key, (govExtra.get(key) ?? 0) + Number(u.searchParams.get('add') ?? 0)); return send(200, Object.fromEntries(govExtra)); }
+      if (u.pathname === '/__govern-fail') { const v = u.searchParams.get('view') ?? ''; if (u.searchParams.get('on') === '1') govFail.add(v); else govFail.delete(v); return send(200, { failing: [...govFail] }); }
+      if (u.pathname === '/__iam') {
+        // ?user=<id>&role=<name>&on=1: give (or take) a direct role, as an admin would in Checkmarx One.
+        const uid = u.searchParams.get('user');
+        if (uid && u.searchParams.get('role')) { const set = govDirect.get(uid) ?? new Set(); if (u.searchParams.get('on') === '1') set.add(u.searchParams.get('role')); else set.delete(u.searchParams.get('role')); govDirect.set(uid, set); }
+        return send(200, { direct: Object.fromEntries([...govDirect].map(([k, v]) => [k, [...v]])), members: Object.fromEntries([...govMembers].map(([k, v]) => [k, [...v]])), effective: Object.fromEntries(GOV_USERS.map((x) => [x.id, [...govEffective(x.id)]])) });
+      }
+      if (u.pathname === '/__autotriage') return send(200, { autoTriage: Object.fromEntries(govAutoTriage), pr: Object.fromEntries(govPr) });
       if (u.pathname === '/__reset') { for (const k of Object.keys(counts)) delete counts[k]; peak = 0; return send(200, {}); }
       // FAE Flush: the states predicates set, and the _FAE projects and scans made.
       if (u.pathname === '/__predicates') {
@@ -195,7 +238,7 @@ http.createServer((req, res) => {
         return res.end();
       }
       // Projects FAE Flush made are listed too (tagged), as in Checkmarx One.
-      if (u.pathname === '/api/projects') { bump('projects'); const all = [...Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800), groups: [`team-${'abc'[i % 3]}`], ...(BRANCHES ? { mainBranch: mainBranchOf(i) } : {}) })), ...[...faeProjects].map(([id, p]) => ({ id, name: p.name, tags: p.tags, groups: p.groups, createdAt: day(0) }))]; const total = all.length; const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: total }); }
+      if (u.pathname === '/api/projects') { bump('projects'); const all = [...Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800), groups: [`team-${'abc'[i % 3]}`], ...(BRANCHES ? { mainBranch: mainBranchOf(i) } : {}), ...(GOVERN && i % 2 === 0 ? { repoId: 228400 + i } : {}) })), ...[...faeProjects].map(([id, p]) => ({ id, name: p.name, tags: p.tags, groups: p.groups, createdAt: day(0) }))]; const total = all.length; const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: total }); }
       if (u.pathname === '/api/applications') {
         bump('applications');
         // Four applications, each grouping every fourth project.
@@ -209,7 +252,7 @@ http.createServer((req, res) => {
           const latest = latestRescan(`p${i}`);
           if (latest) return [`p${i}`, { id: latest[0], updatedAt: new Date(latest[1].at + RESCAN_MS).toISOString(), initiator: 'cxmissionzero', ...(BRANCHES ? { branch: branchOfScan(latest[0]) } : {}) }];
           const id = hasFeature(i) ? `feat-p${i}` : `scan-p${i}`;
-          return [`p${i}`, { id, updatedAt: hasFeature(i) ? day(0.5) : day(1), initiator: `dev${i % INITIATORS}@acme.com`, ...(BRANCHES ? { branch: branchOfScan(id) } : {}) }];
+          return [`p${i}`, { id, updatedAt: day(scanAge(i, hasFeature(i) ? 0.5 : 1)), initiator: `dev${i % INITIATORS}@acme.com`, ...(BRANCHES ? { branch: branchOfScan(id) } : {}) }];
         })));
       }
       if (req.method === 'POST' && u.pathname === '/api/scans') {
@@ -240,12 +283,21 @@ http.createServer((req, res) => {
         // With their engines and their own AI settings, as a scan's details give them.
         if (ids.length) return send(200, { scans: ids.map((id) => { const projectId = rescans.get(id)?.projectId ?? id.replace(/^(feat|scan|old)-/, '').replace(/^hist-(p\d+)-\d+$/, '$1'); const i = Number(projectId.replace(/^p/, '')); const ai = !rescans.has(id) && i % 3 !== 2; return { id, projectId, status: 'Completed', engines: ai ? ['sast', 'sca', 'kics', 'ai'] : ['sast', 'sca', 'kics'], metadata: { configs: ai ? [{ type: 'ai', value: { fusionEnabled: lastScanProject(i) ? 'false' : 'true' } }] : [] }, ...(BRANCHES ? { branch: branchOfScan(id) } : {}) }; }), totalCount: ids.length });
         const pid = u.searchParams.get('project-id');
+        // Only scans in other states (Failed): none unless FAILED_SCANS=1, never the completed ones listed below.
+        const statuses = u.searchParams.getAll('statuses').flatMap((v) => v.split(',')).filter(Boolean);
+        if (statuses.length && !statuses.some((x) => /^completed$/i.test(x))) {
+          const failed = Array.from({ length: PROJECTS }, (_, i) => i).filter((i) => failedProject(i) && (!pid || pid === `p${i}`)).map(failedScanOf).filter((x) => statuses.some((st) => st.toLowerCase() === x.status.toLowerCase()));
+          const lim = Math.min(1000, Number(u.searchParams.get('limit') || 100));
+          return send(200, { scans: failed.slice(offset, offset + lim), totalCount: failed.length, filteredTotalCount: failed.length });
+        }
         if (pid) {
           const i = Number(pid.replace(/^p/, ''));
           const n = perYear[i % 5];
           const own = BRANCHES ? [...(hasFeature(i) ? [{ id: `feat-p${i}`, projectId: pid, status: 'Completed', createdAt: day(0.5) }] : []), { id: `scan-p${i}`, projectId: pid, status: 'Completed', createdAt: day(1) }] : [];
           // Every other scan also ran the AI engine (Labs → Fusion results counts those).
           const all = [...own, ...Array.from({ length: n }, (_, k) => histScan(i, k, n)), { id: `old-p${i}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
+          // Every state asked for (no statuses): the failed scan too.
+          if (failedProject(i) && !statuses.length) all.push(failedScanOf(i));
           const fromDate = Date.parse(u.searchParams.get('from-date') ?? '');
           const toDate = Date.parse(u.searchParams.get('to-date') ?? '');
           if (BRANCHES) for (const x of all) x.branch = branchOfScan(x.id);
@@ -404,7 +456,15 @@ http.createServer((req, res) => {
         bump('credits-consumption');
         if (!/^(last_month|last_30_days|last_90_days|last_180_days|last_year)$/.test(u.searchParams.get('period') ?? '')) return send(400, { error: 'invalid period query parameter' });
         const scale = { last_30_days: 1, last_month: 1, last_90_days: 3, last_180_days: 6, last_year: 12 }[u.searchParams.get('period')];
-        const all = Array.from({ length: PROJECTS }, (_, i) => ({ name: `Project ${i}`, projectId: `p${i}`, creditsUsed: (4 * i + 6) * scale, actionsPerformed: { actions: [{ actionType: 'triage', transactionCount: (i % 3) * scale }, { actionType: 'remediation', transactionCount: (i % 2) * scale }], total: ((i % 3) + (i % 2)) * scale } }));
+        const projectRows = Array.from({ length: PROJECTS }, (_, i) => ({ name: `Project ${i}`, projectId: `p${i}`, creditsUsed: (4 * i + 6) * scale + (govExtra.get(`project:p${i}`) ?? 0), actionsPerformed: { actions: [{ actionType: 'triage', transactionCount: (i % 3) * scale }, { actionType: 'remediation', transactionCount: (i % 2) * scale }], total: ((i % 3) + (i % 2)) * scale } }));
+        // Govern: every dimension. project (or none) as before; user, action and application as Checkmarx One answers them;
+        // anything else (group here, or a probe) silently answers with the user view, as Checkmarx One does.
+        const view = u.searchParams.get('viewBy') || 'project';
+        let all = projectRows;
+        if (view === 'action') all = [['Triage', 1], ['Remediation', 3], ['Auto Triage', 1], ['Fusion', 10]].map(([actionType, per], k) => { const n = (5 - k) * scale + (govExtra.get(`action:${actionType}`) ?? 0); return { actionType, creditsUsed: n * per, transactionCount: n }; });
+        else if (view === 'application') all = ['Payments', 'Mobile', 'Platform', 'Web'].map((name, k) => ({ name, applicationId: `app-${k}`, creditsUsed: projectRows.filter((_, i) => i % 4 === k).reduce((n, r) => n + r.creditsUsed, 0) }));
+        else if (view !== 'project') all = GOV_CONSUMERS.map(([name, email, base]) => ({ name, ...(email ? { userEmail: email } : {}), creditsUsed: base * scale + (govExtra.get(`user:${email || name}`) ?? 0), actionsPerformed: { actions: [{ actionType: 'triage', transactionCount: base * scale }], total: base * scale } }));
+        if (govFail.has(view) && Number(u.searchParams.get('page') || 1) > 1) return send(503, { message: 'Service Unavailable' });
         const size = Number(u.searchParams.get('size') || 100);
         const page = Number(u.searchParams.get('page') || 1);
         return send(200, { items: all.slice((page - 1) * size, page * size), totalItems: all.length, totalPages: Math.ceil(all.length / size), currentPage: page });
@@ -552,6 +612,67 @@ http.createServer((req, res) => {
         return send(200, { results: all.slice(offset, offset + limit), totalCount: all.length });
       }
       bump(`unhandled ${u.pathname}`);
+      // Govern: IAM (users v2 with groups, the group tree), ast-app role mappings, group membership.
+      let gm;
+      if ((gm = u.pathname.match(/^\/auth\/realms\/([^/]+)\/users\/v2$/))) {
+        bump('iam-users-v2');
+        const first = Number(u.searchParams.get('first') || 0);
+        const max = u.searchParams.has('max') ? Number(u.searchParams.get('max')) : 2;
+        return send(200, { users: GOV_USERS.slice(first, first + max).map((x) => ({ ...x, isEnabled: true, roles: [...govEffective(x.id)] })), filteredCount: GOV_USERS.length });
+      }
+      if ((gm = u.pathname.match(/^\/auth\/realms\/([^/]+)\/groups$/))) { bump('iam-groups'); return send(200, GOV_GROUPS); }
+      if ((gm = u.pathname.match(/^\/auth\/admin\/realms\/[^/]+\/clients$/))) { bump('iam-clients'); return send(200, u.searchParams.get('clientId') === 'ast-app' ? [{ id: 'ast-app-uuid', clientId: 'ast-app' }] : []); }
+      if ((gm = u.pathname.match(/^\/auth\/admin\/realms\/[^/]+\/users\/([^/]+)\/role-mappings\/clients\/ast-app-uuid(\/composite)?$/))) {
+        const uid = decodeURIComponent(gm[1]);
+        if (!GOV_USERS.some((x) => x.id === uid)) return send(404, { error: 'User not found' });
+        if (req.method === 'GET') { bump(gm[2] ? 'iam-roles-composite' : 'iam-roles'); return send(200, [...(gm[2] ? govEffective(uid) : govDirect.get(uid) ?? [])].map(roleRef)); }
+        if (gm[2]) return send(405, {});
+        let roles = [];
+        try { roles = JSON.parse(b || '[]'); } catch { return send(400, {}); }
+        if (!Array.isArray(roles) || roles.some((r) => !AI_ROLES.includes(r?.name) || r.id !== `role-${r.name}`)) return send(400, { error: 'unknown role' });
+        const set = govDirect.get(uid) ?? new Set();
+        if (req.method === 'DELETE') { bump('iam-roles-delete'); roles.forEach((r) => set.delete(r.name)); }
+        else if (req.method === 'POST') { bump('iam-roles-post'); roles.forEach((r) => set.add(r.name)); }
+        else return send(405, {});
+        govDirect.set(uid, set);
+        return send(204);
+      }
+      if ((gm = u.pathname.match(/^\/auth\/admin\/realms\/[^/]+\/users\/([^/]+)\/groups(?:\/([^/]+))?$/))) {
+        const uid = decodeURIComponent(gm[1]);
+        const set = govMembers.get(uid) ?? new Set();
+        if (req.method === 'GET' && !gm[2]) { bump('iam-user-groups'); return send(200, GOV_GROUP_LIST.filter((g) => set.has(g.id)).map(({ id, name, path }) => ({ id, name, path }))); }
+        if (req.method === 'DELETE' && gm[2]) { bump('iam-group-leave'); set.delete(gm[2]); govMembers.set(uid, set); return send(204); }
+        if (req.method === 'PUT' && gm[2]) { bump('iam-group-join'); set.add(gm[2]); govMembers.set(uid, set); return send(204); }
+        return send(405, {});
+      }
+      if ((gm = u.pathname.match(/^\/auth\/admin\/realms\/[^/]+\/groups\/([^/]+)\/role-mappings\/clients\/ast-app-uuid(\/composite)?$/))) { bump('iam-group-roles'); return send(200, (govGroupRoles.get(gm[1]) ?? []).map(roleRef)); }
+      // Govern: a project's AI agents configuration (Auto Triage), and its PR remediation severities.
+      if ((gm = u.pathname.match(/^\/api\/ai-agents-coordinator\/projects\/([^/]+)\/configuration$/))) {
+        const pid = decodeURIComponent(gm[1]);
+        if (req.method === 'GET') { bump('autotriage-get'); return send(200, autoTriageOf(pid)); }
+        if (req.method === 'PUT') {
+          bump('autotriage-put');
+          let body;
+          try { body = JSON.parse(b || '{}'); } catch { return send(400, {}); }
+          if (!Array.isArray(body.configurations)) return send(400, { error: 'configurations required' });
+          govAutoTriage.set(pid, { ...autoTriageOf(pid), ...body, projectId: pid });
+          return send(200, govAutoTriage.get(pid));
+        }
+        return send(405, {});
+      }
+      if ((gm = u.pathname.match(/^\/api\/repos-manager\/repo\/([^/]+)$/))) {
+        const key = `${gm[1]}|${u.searchParams.get('projectId')}`;
+        if (req.method === 'GET') { bump('repo-get'); return send(200, { id: gm[1], remediationSeverities: govPr.get(key) ?? ['CRITICAL', 'HIGH'] }); }
+        if (req.method === 'PATCH') {
+          bump('repo-patch');
+          let body;
+          try { body = JSON.parse(b || '{}'); } catch { return send(400, {}); }
+          if (!Array.isArray(body.remediationSeverities)) return send(400, {});
+          govPr.set(key, body.remediationSeverities);
+          return send(200, { id: gm[1], remediationSeverities: body.remediationSeverities });
+        }
+        return send(405, {});
+      }
       send(404, {});
     }, LAT);
   });

@@ -3715,3 +3715,194 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 .flush-find .col-picker > summary { min-height: 30px; padding: 0 10px; font-size: 13px; }
 /* Workbench: the languages a project's latest scan has results in, under its name. */
 #projects td.name .proj-langs { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 400; color: var(--muted); white-space: normal; }
+
+/* ==========================================================================
+   Labs pages (Govern, Status board, Consolidated view): shared pieces.
+   Every rule uses the look's tokens, so it follows each look and theme. Golden buttons are left as they are.
+   ========================================================================== */
+
+/* Tokens: two more chart series (Auto Triage teal; Fusion = the Fusion colour), and a colour per tenant. */
+:root, .viz { --series-3: #2f8f83; --series-4: var(--scan-fusion); }
+:root {
+  --tc-0: #0e8a8a; --tc-1: #5a5fd0; --tc-2: #5f8a2e; --tc-3: #b4541f; --tc-4: #a23b8f; --tc-5: #2f6db3; --tc-6: #8a6d1a; --tc-7: #c2410c;
+}
+:root[data-theme="dark"], :root[data-theme="dark"] .viz { --series-3: #45b3a5; }
+:root[data-theme="dark"] {
+  --tc-0: #3cc3c3; --tc-1: #9a9dff; --tc-2: #9bcf62; --tc-3: #f0915a; --tc-4: #e58ad3; --tc-5: #7fb0f0; --tc-6: #e2c264; --tc-7: #fb9a5c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]), :root:not([data-theme="light"]) .viz { --series-3: #45b3a5; }
+  :root:not([data-theme="light"]) {
+    --tc-0: #3cc3c3; --tc-1: #9a9dff; --tc-2: #9bcf62; --tc-3: #f0915a; --tc-4: #e58ad3; --tc-5: #7fb0f0; --tc-6: #e2c264; --tc-7: #fb9a5c;
+  }
+}
+.key-auto { background: var(--series-3); } .key-fusion { background: var(--series-4); }
+.chart .bar-auto { fill: var(--series-3); } .chart .bar-fusion { fill: var(--series-4); }
+
+/* Nav: a Beta mark on a Labs entry (the label never wraps for it). */
+.nav .tab .nav-beta { position: absolute; top: 3px; inset-inline-end: 6px; padding: 0 4px; font-size: 9px; line-height: 14px; min-width: auto; pointer-events: none; }
+.nav .tab:has(.nav-beta) > span:not(.nav-beta) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-inline-end: 22px; }
+@media (max-width: 1100px) {
+  .nav .tab .nav-beta { top: 2px; inset-inline-end: 2px; }
+  .nav .tab:has(.nav-beta) > span:not(.nav-beta) { padding-inline-end: 0; }
+}
+
+/* The compact top: title, Beta badge, ?, one line saying what the page is, and actions at the end (as FAE Flush's). */
+.gv-top.panel { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; padding: 10px 16px; margin-bottom: 0; }
+.gv-top .panel-head { margin: 0; gap: 8px; }
+.gv-top .panel-head h2 { font-size: 17px; margin: 0; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gv-top .gv-lede { margin: 0; font-size: 12.5px; color: var(--muted); max-width: none; flex: 1 1 320px; min-width: 0; }
+.gv-top .gv-top-acts { display: flex; align-items: center; gap: 10px; margin-inline-start: auto; font-size: 12.5px; color: var(--muted); }
+.gv-top .gv-top-acts:empty { display: none; }
+.gv-top .gv-top-acts b { color: var(--text); font-weight: 600; }
+.gv-top .gv-help { flex: 1 1 100%; margin: 4px 0 0; }
+
+/* The figures line: the page's key numbers in one thin line (as FAE Flush's and Fusion's). */
+.gv-figs { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 24px; padding: 9px 16px; margin: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.gv-figs[hidden], .gv-figs:empty { display: none; }
+.gv-figs > span { display: inline-flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.gv-figs > span b { font-size: 18px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.gv-figs > span small { font-size: 12px; color: var(--muted); }
+.gv-figs > span.is-warn b { color: var(--warn); } .gv-figs > span.is-bad b { color: var(--danger); } .gv-figs > span.is-ok b { color: var(--ok); }
+.gv-figs .gv-end { margin-inline-start: auto; }
+
+/* Banners, as the licence banner, in three tones. */
+.gv-note { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0; padding: 9px 14px; border-radius: var(--radius-sm, 10px); border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border)); background: color-mix(in srgb, var(--warn) 9%, var(--surface)); color: var(--text); font-size: 13px; }
+.gv-note[hidden] { display: none; }
+.gv-note.info { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.gv-note.bad { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); background: color-mix(in srgb, var(--danger) 7%, var(--surface)); }
+.gv-note > strong { font-weight: 600; }
+.gv-note .gv-note-act { margin-inline-start: auto; }
+
+/* A budget's use in a cell: the bar, the warn tick, the per cent. */
+.gv-use { display: grid; grid-template-columns: minmax(90px, 1fr) 42px; align-items: center; gap: 8px; min-width: 150px; }
+.gv-use .gv-track { position: relative; height: 8px; border-radius: 99px; background: var(--track, var(--surface-3)); overflow: visible; }
+.gv-use .gv-fill { position: absolute; inset-block: 0; inset-inline-start: 0; border-radius: 99px; background: var(--series-1, var(--accent)); max-width: 100%; }
+.gv-use .gv-fill.near { background: var(--warn); } .gv-use .gv-fill.over { background: var(--danger); } .gv-use .gv-fill.none { background: var(--border-strong); }
+.gv-use .gv-tick { position: absolute; top: -3px; bottom: -3px; width: 2px; border-radius: 1px; background: var(--text); opacity: 0.45; }
+.gv-use b { font-size: 12px; font-weight: 600; text-align: end; font-variant-numeric: tabular-nums; }
+.gv-use b.over { color: var(--danger); } .gv-use b.near { color: var(--warn); }
+.gv-use.na .gv-track { background: repeating-linear-gradient(135deg, var(--surface-3) 0 4px, transparent 4px 8px); box-shadow: inset 0 0 0 1px var(--border); }
+
+/* Statuses: MZ's badge, plus a filled Restricted, a dashed Not reported / No budget / Not loaded, and an info one. */
+.badge.gv-restricted { background: var(--danger); color: var(--surface); }
+.badge.gv-dashed { background: none; border: 1px dashed var(--border-strong); color: var(--muted); padding-block: 1px; }
+.badge.gv-info { background: var(--accent-soft); color: var(--accent); }
+
+/* Level and mode: small outlined tags (as the scan tag), never filled gold. */
+.gv-tag { display: inline-block; padding: 0 7px; border-radius: 6px; font-size: 11px; font-weight: 600; line-height: 18px; white-space: nowrap; border: 1px solid var(--border-strong); color: var(--muted); background: var(--surface); vertical-align: 1px; }
+.gv-tag.enforce { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.gv-mono { font: 12.5px var(--mono); }
+
+/* Tools above a table: tenant / level chips, search, Columns, exports. */
+.gv-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 10px; }
+.gv-tools input[type="search"] { flex: 1 1 220px; min-width: 0; max-width: 420px; }
+.gv-tools .gv-grow { flex: 1; }
+.gv-tools .col-picker > summary { min-height: 30px; padding: 0 10px; font-size: 13px; }
+.gv-tools select { min-height: 32px; }
+.gv-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.gv-chips .fusion-chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.gv-inline { display: inline-flex; align-items: center; gap: 8px; }
+
+/* ---- Status board: one row per project, a big bar from the left ---- */
+.status-board, .consolidated { display: grid; gap: 12px; align-content: start; }
+.sb-table td { vertical-align: middle; }
+.sb-table tbody tr[data-sb-row] { cursor: pointer; }
+.sb-table tbody tr[data-sb-row]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sb-name { min-width: 210px; max-width: 290px; white-space: normal; }
+.sb-name b { font-weight: 600; overflow-wrap: anywhere; }
+.sb-meta { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; }
+.sb-meta .gv-mono { font-size: 11px; }
+.sb-barcell { width: 100%; min-width: 260px; }
+.sb-bar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sb-stack { display: flex; height: 22px; border-radius: 6px; overflow: hidden; min-width: 4px; flex: none; }
+.sb-stack.sb-empty { width: 4px; background: var(--border); }
+.sb-stack > i { display: flex; align-items: center; justify-content: center; height: 100%; font-style: normal; font-size: 11px; font-weight: 600; color: #fff; min-width: 0; overflow: hidden; }
+.sb-stack .c, .sb-key.c { background: #dc2626; } .sb-stack .h, .sb-key.h { background: #ea580c; } .sb-stack .m, .sb-key.m { background: #d97706; } .sb-stack .l, .sb-key.l { background: #2563eb; }
+.sb-stack.is-fusion { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--scan-fusion); }
+.sb-stack.is-last { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--scan-last); }
+.sb-total { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sb-total small { font-weight: 400; color: var(--muted); font-size: 11.5px; margin-inline-start: 4px; }
+.sb-ch { font-weight: 600; }
+.sb-age { display: flex; align-items: center; justify-content: flex-end; padding: 0 8px; height: 22px; border-radius: 6px; font-size: 11px; font-weight: 600; color: #fff; min-width: 34px; white-space: nowrap; overflow: hidden; }
+.sb-age.fresh, .sb-key.fresh { background: var(--ok); } .sb-age.aging, .sb-key.aging { background: var(--warn); } .sb-age.stale, .sb-key.stale { background: var(--danger); }
+.sb-age.failed, .sb-key.failed { background: repeating-linear-gradient(135deg, var(--danger) 0 6px, color-mix(in srgb, var(--danger) 72%, #000) 6px 12px); }
+.sb-age.never { justify-content: flex-start; color: var(--muted); background: none; border: 1px dashed var(--border-strong); }
+.sb-eng { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.sb-eng span { font: 600 10.5px var(--font); padding: 0 6px; line-height: 17px; border-radius: 5px; border: 1px solid var(--border-strong); color: var(--muted); white-space: nowrap; }
+.sb-eng span.off { border-style: dashed; opacity: .55; text-decoration: line-through; }
+.sb-eng span.bad { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
+tr.sb-group > td { background: var(--surface-2); font-size: 12.5px; font-weight: 600; padding-block: 7px; }
+tr.sb-group > td small { font-weight: 400; color: var(--muted); margin-inline-start: 8px; }
+tr.sb-failed > td { background: color-mix(in srgb, var(--danger) 5%, var(--surface)); }
+tr.sb-failed > td:first-child { box-shadow: inset 4px 0 0 var(--danger); }
+[dir="rtl"] tr.sb-failed > td:first-child { box-shadow: inset -4px 0 0 var(--danger); }
+.sb-fail { display: block; margin-top: 3px; font-size: 11.5px; color: var(--danger); white-space: normal; overflow-wrap: anywhere; }
+.sb-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; font-size: 12.5px; color: var(--muted); margin: 0 0 8px; }
+.sb-legend > span { display: inline-flex; align-items: center; }
+.sb-legend .scan-legend { margin: 0; }
+.sb-key { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-inline-end: 5px; }
+.sb-more { margin: 8px 0 0; }
+.sb-side-pad { padding: 14px 20px; margin: 0; }
+.sb-side-list { overflow: auto; padding: 0 20px 20px; }
+.sb-side-h { margin: 14px 0 8px; font-size: 12px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.sb-scans td { vertical-align: top; }
+.sb-drawer .fusion-facts b .scan-tag, .sb-drawer .fusion-facts b .sb-eng span { font-size: 11px; }
+.sb-drawer[data-scan-type="fusion"] .fusion-side-head { border-top: 5px solid var(--scan-fusion); }
+.sb-drawer[data-scan-type="last"] .fusion-side-head { border-top: 5px solid var(--scan-last); }
+.sb-drawer .fusion-side-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+/* ---- Consolidated view: tenant chips and cards in the tenant's colour ---- */
+.tenant-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 0 8px 0 6px; border-radius: 6px; font-size: 12px; font-weight: 600; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; --c: var(--muted); color: color-mix(in srgb, var(--c) 75%, var(--text)); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 10%, var(--surface)); }
+.tenant-chip::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+.tc-0 { --c: var(--tc-0); } .tc-1 { --c: var(--tc-1); } .tc-2 { --c: var(--tc-2); } .tc-3 { --c: var(--tc-3); }
+.tc-4 { --c: var(--tc-4); } .tc-5 { --c: var(--tc-5); } .tc-6 { --c: var(--tc-6); } .tc-7 { --c: var(--tc-7); }
+.key.tc-key { background: var(--c); }
+.cv-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.cv-card { min-width: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); border-top: 4px solid var(--c); }
+.cv-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; min-width: 0; }
+.cv-card .fusion-kv { margin-top: 10px; }
+.cv-card .actions { margin-top: 12px; }
+.cv-card .actions button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.cv-not-loaded { margin: 4px 0 8px; font-size: 13px; color: var(--muted); }
+.cv-not-loaded strong { color: var(--text); display: block; }
+.cv-note { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.cv-side { margin-top: 12px; }
+.cv-side .panel-head .actions { margin: 0; }
+.cv-fusion-sum { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0 0 10px; font-size: 12.5px; color: var(--muted); }
+.cv-fusion-sum > span { display: inline-flex; align-items: center; gap: 6px; }
+.cv-fusion-sum b { color: var(--text); }
+.gv-tenantbar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: var(--surface-3); margin: 10px 0 6px; }
+.gv-tenantbar > span { height: 100%; }
+.gv-tenantbar .t-pool { background: color-mix(in srgb, var(--c, var(--accent)) 55%, var(--surface)); }
+
+/* The tenant switcher: a button and its list (Consolidated view first, then each tenant with its colour). */
+.tenant-switch { position: relative; flex: 0 0 auto; }
+.tenant-switch[hidden] { display: none; }
+.tenant-switch > .tenant-pick { min-height: 0; height: var(--control-h); padding: 0 9px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.tenant-switch > .tenant-pick::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--tc, var(--muted)); flex: none; }
+.tenant-switch > .tenant-pick > svg:first-of-type { display: none; }
+.tenant-switch > .tenant-pick.is-consolidated { border-color: var(--accent); color: var(--accent); }
+.tenant-switch > .tenant-pick.is-consolidated::before { display: none; }
+.tenant-switch > .tenant-pick.is-consolidated > svg:first-of-type { display: block; }
+.tenant-switch > .tenant-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tenant-switch .tenant-caret { width: 14px; height: 14px; }
+.cv-menu { position: absolute; top: calc(100% + 6px); inset-inline-end: 0; z-index: 90; width: min(300px, calc(100vw - 24px)); max-height: min(420px, 70vh); overflow: auto; padding: 6px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--surface); box-shadow: var(--shadow-pop, 0 12px 32px rgb(0 0 0 / 0.2)); }
+.cv-menu[hidden] { display: none; }
+.cv-menu:focus { outline: none; }
+.cv-menu .cv-item { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; border-radius: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
+.cv-menu .cv-item.is-active { background: var(--surface-2); outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: -2px; }
+.cv-menu .cv-item.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.cv-menu .cv-item small { margin-inline-start: auto; flex: none; color: var(--muted); font-size: 11.5px; font-weight: 400; }
+.cv-menu .cv-item small.bad-text { color: var(--danger); }
+.cv-menu .cv-sep { border-top: 1px solid var(--border); margin: 4px 6px; }
+.cv-menu svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; }
+@media (max-width: 700px) {
+  .tenant-switch > .tenant-pick .tenant-name { max-width: 90px; }
+}
+@media (max-width: 760px) {
+  .sb-barcell { min-width: 0; }
+  .sb-name { min-width: 0; max-width: none; }
+  .gv-top .gv-top-acts { margin-inline-start: 0; }
+  .gv-tools input[type="search"] { flex-basis: 100%; max-width: none; }
+}

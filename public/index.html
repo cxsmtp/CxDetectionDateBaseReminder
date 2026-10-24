@@ -126,7 +126,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>
             <span>Logs</span>
           </a>
-          <p class="nav-group nav-labs" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching feature.fusionResults feature.faeFlush" title="Early features, still being tried out: who wrote the code, what Fusion re-scored, and FAE on the backlog"><i aria-hidden="true"></i>Labs</p>
+          <p class="nav-group nav-labs" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching feature.fusionResults feature.faeFlush feature.statusBoard feature.consolidated" title="Early features, still being tried out: who wrote the code, what Fusion re-scored, and FAE on the backlog"><i aria-hidden="true"></i>Labs</p>
           <a href="#/beta" data-route="beta" class="tab" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.5L4.6 18.2A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.8L14 9.5V3" /><path d="M7.5 15h9" /></svg>
             <span id="nav-beta-label">Code authors</span>
@@ -138,6 +138,14 @@
           <a href="#/flush" data-route="flush" class="tab" id="nav-flush" data-stage="labs" data-perm="feature.faeFlush">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8z" /><path d="M17 15l3 3" /><path d="M20 15l-3 3" /></svg>
             <span>FAE Flush</span>
+          </a>
+          <a href="#/status" data-route="status" class="tab" id="nav-status" data-stage="labs" data-perm="feature.statusBoard">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16" /><path d="M4 12h11" /><path d="M4 18h6" /></svg>
+            <span>Status board</span><span class="badge warn nav-beta" data-beta-badge="statusBoard">Beta</span>
+          </a>
+          <a href="#/consolidated" data-route="consolidated" class="tab" id="nav-consolidated" data-stage="labs" data-perm="feature.consolidated">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z" /><path d="M3 13l9 5 9-5" /></svg>
+            <span>Consolidated</span><span class="badge warn nav-beta" data-beta-badge="consolidated">Beta</span>
           </a>
         </nav>
         <div class="sidebar-tools" id="sidebar-tools" hidden>
@@ -184,11 +192,14 @@
             <button type="button" id="page-reload" class="icon-btn" hidden title="Reload this page's data (keeps your filters and tabs)" aria-label="Reload this page's data">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.4-6.4L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-15.4 6.4L3 16" /><path d="M3 21v-5h5" /></svg>
             </button>
-            <label class="lang-pick tenant-pick" id="tenant-pick" title="The Checkmarx One tenant you are working in" hidden>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
-              <span class="tenant-name" id="tenant-name" translate="no"></span>
-              <select id="tenant-select" aria-label="Tenant" translate="no"></select>
-            </label>
+            <div class="tenant-switch" id="tenant-pick" hidden>
+              <button type="button" class="lang-pick tenant-pick" id="tenant-button" aria-haspopup="listbox" aria-expanded="false" aria-controls="tenant-menu" title="The Checkmarx One tenant you are working in">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
+                <span class="tenant-name" id="tenant-name" translate="no"></span>
+                <svg class="tenant-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5" /></svg>
+              </button>
+              <div class="cv-menu" id="tenant-menu" role="listbox" aria-label="Tenant" tabindex="-1" hidden></div>
+            </div>
             <span class="sub conn-pill" id="connection">Starting…</span>
             <div class="conn-group" id="conn-group" hidden>
               <button type="button" class="conn-chip" data-conn="cxone" aria-haspopup="dialog" aria-label="Checkmarx One connection">
@@ -2606,6 +2617,169 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   </div>
                 </header>
                 <div class="fusion-side-list" id="fusion-side-list"></div>
+              </section>
+            </div>
+          </div>
+
+          <!-- ================= Labs → Status board (Beta): every project's last scan and results at a glance ================= -->
+          <div id="page-status" class="page status-board" hidden>
+            <section class="panel gv-top" id="sb-top">
+              <div class="panel-head"><h2>Status board <span class="badge warn" data-beta-badge="statusBoard">Beta</span> <button type="button" class="help-q" aria-expanded="false" aria-controls="help-sb" aria-label="What is this?" title="What is this?">?</button></h2></div>
+              <p class="gv-lede">Every project's last scan and its results, at a glance. From the Workbench's data: no extra Checkmarx One calls.</p>
+              <div class="gv-top-acts" id="sb-read"></div>
+              <p class="help-text gv-help" id="help-sb">Each row is a project the Workbench loaded. <strong>Results</strong>: its open results by severity, from the left, with the total and critical + high at the end; outlined in gold for a Fusion scan, in pink for a LAST scan. <strong>Scan health</strong>: how long ago its latest scan ran (green under 7 days, amber under 30, red after; striped when a newer scan failed), and the engines it ran. Click a row for its last five scans.</p>
+            </section>
+            <div class="gv-figs" id="sb-figs" hidden></div>
+            <p class="gv-note info" id="sb-note" hidden></p>
+            <p class="status" id="sb-status" role="status"></p>
+            <section class="panel" id="sb-panel" hidden>
+              <div class="gv-tools">
+                <span class="flush-label" id="sb-bar-label">Bar shows</span>
+                <span class="flush-seg" role="radiogroup" aria-labelledby="sb-bar-label">
+                  <label><input type="radio" name="sb-bar" value="results" checked /><span>Results</span></label>
+                  <label><input type="radio" name="sb-bar" value="health" /><span>Scan health</span></label>
+                </span>
+                <label class="gv-inline"><span class="flush-label">Group by</span>
+                  <select id="sb-group" aria-label="Group by">
+                    <option value="">None</option>
+                    <option value="application">Application</option>
+                    <option value="group">Group</option>
+                    <option value="health">Scan health</option>
+                  </select>
+                </label>
+                <input type="search" id="sb-q" placeholder="Search projects" aria-label="Search projects" />
+                <span class="gv-grow"></span>
+                <details class="col-picker" id="sb-cols">
+                  <summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary>
+                  <div class="col-menu"></div>
+                </details>
+                <button type="button" class="sm" id="sb-csv">Export CSV</button>
+                <button type="button" class="sm" id="sb-report">HTML report</button>
+              </div>
+              <div class="sb-legend" id="sb-legend"></div>
+              <div class="table-wrap"><table class="data-table tt sb-table" id="sb-table"><thead><tr></tr></thead><tbody></tbody></table></div>
+              <p class="hint sb-more" id="sb-more"></p>
+            </section>
+            <!-- A project's last scans, beside the board. -->
+            <div class="fusion-drawer sb-drawer" id="sb-drawer" hidden>
+              <div class="fusion-scrim" data-sb-close></div>
+              <section class="fusion-sheet" role="dialog" aria-modal="true" aria-labelledby="sb-side-title">
+                <header class="fusion-side-head">
+                  <div class="fusion-side-top">
+                    <div><h2 id="sb-side-title" translate="no"></h2><p class="hint" id="sb-side-meta"></p></div>
+                    <button type="button" class="icon-btn" data-sb-close aria-label="Close" title="Close (Esc)">✕</button>
+                  </div>
+                  <div class="fusion-facts" id="sb-side-facts"></div>
+                  <div class="fusion-side-acts"><a class="button-like sm" id="sb-side-open" target="_blank" rel="noopener">Open in Checkmarx One ↗</a></div>
+                </header>
+                <div class="fusion-side-list sb-side-list" id="sb-side-list"></div>
+              </section>
+            </div>
+          </div>
+
+          <!-- ================= Labs → Consolidated view (Beta): every connected tenant in one place, read only ================= -->
+          <div id="page-consolidated" class="page consolidated" hidden>
+            <section class="panel gv-top" id="cv-top">
+              <div class="panel-head"><h2>Consolidated view <span class="badge warn" data-beta-badge="consolidated">Beta</span> <button type="button" class="help-q" aria-expanded="false" aria-controls="help-cv" aria-label="What is this?" title="What is this?">?</button></h2></div>
+              <p class="gv-lede">Every connected tenant in one place. Read only: to change anything, open the tenant.</p>
+              <div class="gv-top-acts"><span class="cv-note"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>Read only · each visit is written to that tenant's audit log</span></div>
+              <p class="help-text gv-help" id="help-cv">Each tenant's figures are what it holds now: its last Workbench fetch, the credits it last read and its credit pool (and Govern's budgets where Govern runs). Nothing here reads Checkmarx One or changes a tenant. A tenant nobody has loaded findings in since the server started says "Not loaded — open it once". Open takes you into the tenant, as the tenant switcher does.</p>
+            </section>
+            <div class="gv-figs" id="cv-figs"></div>
+            <p class="status" id="cv-status" role="status"></p>
+            <p class="gv-note info" id="cv-empty" hidden><strong>No tenant has loaded findings yet.</strong> <span>Open each tenant once and load findings on its Workbench: its projects show here from then on.</span></p>
+            <div class="ptabs" role="tablist" aria-label="Consolidated view" data-ptabs="consolidated">
+              <button type="button" role="tab" class="ptab" data-pt="overview">Overview</button>
+              <button type="button" role="tab" class="ptab" data-pt="projects">Projects <em class="ptab-count" id="cv-n-projects"></em></button>
+              <button type="button" role="tab" class="ptab" data-pt="fusion">Fusion</button>
+              <button type="button" role="tab" class="ptab" data-pt="credits">Credits</button>
+              <button type="button" role="tab" class="ptab" data-pt="status">Status board</button>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="consolidated:overview" role="tabpanel">
+              <div class="cv-cards" id="cv-cards"></div>
+              <section class="panel cv-side">
+                <div class="panel-head"><h2>Side by side</h2><div class="actions"><button type="button" class="sm" data-cv-csv="side">Export CSV</button><button type="button" class="sm" data-cv-html="side">HTML report</button></div></div>
+                <div class="gv-tools"><span class="gv-chips" role="group" aria-label="Tenant" id="cv-side-chips"></span></div>
+                <div class="table-wrap"><table class="data-table tt" id="cv-side"><thead><tr></tr></thead><tbody></tbody></table></div>
+              </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="consolidated:projects" role="tabpanel" hidden>
+              <section class="panel">
+                <div class="gv-tools">
+                  <span class="gv-chips" role="group" aria-label="Tenant" id="cv-proj-chips"></span>
+                  <input type="search" id="cv-proj-q" placeholder="Search projects in every tenant" aria-label="Search projects" />
+                  <span class="gv-grow"></span>
+                  <details class="col-picker" id="cv-proj-cols">
+                    <summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary>
+                    <div class="col-menu"></div>
+                  </details>
+                  <button type="button" class="sm" data-cv-csv="projects">Export CSV</button>
+                  <button type="button" class="sm" data-cv-html="projects">HTML report</button>
+                </div>
+                <div class="table-wrap"><table class="data-table tt" id="cv-proj"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <p class="hint" id="cv-proj-more"></p>
+              </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="consolidated:fusion" role="tabpanel" hidden>
+              <section class="panel">
+                <p class="cv-fusion-sum" id="cv-fusion-sum"></p>
+                <div class="gv-tools">
+                  <span class="gv-chips" role="group" aria-label="Tenant" id="cv-fusion-chips"></span>
+                  <input type="search" id="cv-fusion-q" placeholder="Search projects in every tenant" aria-label="Search projects" />
+                  <span class="gv-grow"></span>
+                  <button type="button" class="sm" data-cv-csv="fusion">Export CSV</button>
+                  <button type="button" class="sm" data-cv-html="fusion">HTML report</button>
+                </div>
+                <div class="table-wrap"><table class="data-table tt" id="cv-fusion"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <p class="hint">The projects whose latest scan was a Fusion or a LAST scan, in every tenant. What Fusion re-scored is on each tenant's Fusion results page.</p>
+              </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="consolidated:credits" role="tabpanel" hidden>
+              <section class="panel">
+                <div class="gv-tools">
+                  <span class="gv-chips" role="group" aria-label="Tenant" id="cv-credit-chips"></span>
+                  <span class="gv-grow"></span>
+                  <button type="button" class="sm" data-cv-csv="credits">Export CSV</button>
+                  <button type="button" class="sm" data-cv-html="credits">HTML report</button>
+                </div>
+                <div class="table-wrap"><table class="data-table tt" id="cv-credits"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <p class="hint">AI credits: what each tenant last read from Checkmarx One (on its Credit Control page). Credit pool: what CxMissionZero may spend there. Govern: its budgets, where Govern runs.</p>
+              </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="consolidated:status" role="tabpanel" hidden>
+              <section class="panel">
+                <div class="gv-tools">
+                  <span class="flush-label" id="cv-bar-label">Bar shows</span>
+                  <span class="flush-seg" role="radiogroup" aria-labelledby="cv-bar-label">
+                    <label><input type="radio" name="cv-bar" value="results" checked /><span>Results</span></label>
+                    <label><input type="radio" name="cv-bar" value="health" /><span>Scan health</span></label>
+                  </span>
+                  <label class="gv-inline"><span class="flush-label">Group by</span>
+                    <select id="cv-status-group" aria-label="Group by">
+                      <option value="">None</option>
+                      <option value="application">Application</option>
+                      <option value="group">Group</option>
+                      <option value="health">Scan health</option>
+                    </select>
+                  </label>
+                  <input type="search" id="cv-status-q" placeholder="Search projects in every tenant" aria-label="Search projects" />
+                  <span class="gv-grow"></span>
+                  <details class="col-picker" id="cv-status-cols">
+                    <summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary>
+                    <div class="col-menu"></div>
+                  </details>
+                  <button type="button" class="sm" data-cv-csv="status">Export CSV</button>
+                  <button type="button" class="sm" data-cv-html="status">HTML report</button>
+                </div>
+                <div class="gv-tools"><span class="gv-chips" role="group" aria-label="Tenant" id="cv-status-chips"></span></div>
+                <div class="sb-legend" id="cv-status-legend"></div>
+                <div class="table-wrap"><table class="data-table tt sb-table" id="cv-board"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <p class="hint sb-more" id="cv-status-more"></p>
               </section>
             </div>
           </div>

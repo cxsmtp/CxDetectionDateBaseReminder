@@ -393,6 +393,12 @@
 @media (prefers-color-scheme: dark) {
   :root[data-ui="nextgen"]:not([data-theme="light"]) .viz { --series-1: #8fadd3; --series-2: #dc9068; --given: #6f695f; --track: #2b2f34; }
 }
+/* Two more series (Labs: Govern's Auto Triage in a sage teal; Fusion in the look's Fusion colour), light and dark. */
+:root[data-ui="nextgen"], :root[data-ui="nextgen"] .viz { --series-3: #3f7f76; --series-4: var(--scan-fusion); }
+:root[data-ui="nextgen"][data-theme="dark"], :root[data-ui="nextgen"][data-theme="dark"] .viz { --series-3: #7cc2b6; }
+@media (prefers-color-scheme: dark) {
+  :root[data-ui="nextgen"]:not([data-theme="light"]), :root[data-ui="nextgen"]:not([data-theme="light"]) .viz { --series-3: #7cc2b6; }
+}
 
 /* Labels speak in sentence case: the stage names of Get started and the way to Mission Zero, the page's stage. */
 :root[data-ui="nextgen"] .gs-stage,

@@ -1,6 +1,10 @@
 import { nextSpeedster } from './speedsters.js';
 import { initCalculator } from './calculator/page.js';
 import { initFaeFlush } from './fae-flush.js';
+// Labs → Status board and Consolidated view (beta), and the tenant switcher they share.
+import { initStatusBoard } from './status-board.js';
+import { initConsolidated } from './consolidated.js';
+import { initTenantMenu } from './tenant-menu.js';
 import { SEVERITIES_ALL, creditTiers, tierName } from './credit-tiers.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engines.js';
 import { LANGUAGES, availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
@@ -639,6 +643,10 @@ const PAGE_PERMS = {
   fusion: 'beta.use feature.fusionResults',
   // Only once its activation code has unlocked it: the server then gives feature.faeFlush to whoever may use it.
   flush: 'feature.faeFlush',
+  // Labs, once their activation codes are applied: the board for whoever loads findings; the consolidated view
+  // only for the people an Admin ticked (People & roles).
+  status: 'feature.statusBoard',
+  consolidated: 'feature.consolidated',
   logs: '',
   help: '', // everyone may ask for help
   calculator: 'projections.use',
@@ -729,10 +737,10 @@ function applyPermissions() {
 
 const ROUTE_ALIASES = { iam: 'access', 'credit-control': 'credits' };
 /** Act → Follow up → Prove, plus Set up: what each page is for. */
-const STAGES = { flush: 'labs', dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
+const STAGES = { status: 'labs', consolidated: 'labs', flush: 'labs', dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
 const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', plan: 'Plan', setup: 'Set up', labs: 'Labs' };
 /** The tab group on each page (data-ptabs). */
-const PAGE_TABS = { flush: 'flush', dashboard: 'dash', automation: 'automation', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
+const PAGE_TABS = { consolidated: 'consolidated', flush: 'flush', dashboard: 'dash', automation: 'automation', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
 const visitedPages = new Set();
 const scrollMemory = new Map();
 
@@ -1114,6 +1122,8 @@ function renderActivation(a) {
     ...(he.on || he.expired ? [`<div class="act-row"><strong>Hebrew</strong><span>${he.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(he.expires))}</b>${he.org ? ` · ${escapeHtml(he.org)}` : ''}` : `<span class="badge warn">Expired</span> <b>${escapeHtml(date(he.expires))}</b>`}</span></div>`] : []),
     ...(a.features?.impact ? [`<div class="act-row"><strong>Cx Credits Calculator: Impact</strong><span>${a.features.impact.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(a.features.impact.expires))}</b>` : a.features.impact.expired ? `<span class="badge warn">Expired</span> <b>${escapeHtml(date(a.features.impact.expires))}</b>` : '<span class="badge muted">Off</span>'}</span></div>`] : []),
     ...(a.features?.faeFlush ? [`<div class="act-row"><strong>FAE Flush</strong><span>${a.features.faeFlush.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(a.features.faeFlush.expires))}</b>` : a.features.faeFlush.expired ? `<span class="badge warn">Expired</span> <b>${escapeHtml(date(a.features.faeFlush.expires))}</b>` : '<span class="badge muted">Off</span>'}</span></div>`] : []),
+    ...(a.features?.statusBoard ? [`<div class="act-row"><strong>Status board</strong><span>${a.features.statusBoard.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(a.features.statusBoard.expires))}</b>` : a.features.statusBoard.expired ? `<span class="badge warn">Expired</span> <b>${escapeHtml(date(a.features.statusBoard.expires))}</b>` : '<span class="badge muted">Off</span>'}</span></div>`] : []),
+    ...(a.features?.consolidated ? [`<div class="act-row"><strong>Consolidated view</strong><span>${a.features.consolidated.on ? `<span class="badge ok">On</span> <span>Until</span> <b>${escapeHtml(date(a.features.consolidated.expires))}</b>` : a.features.consolidated.expired ? `<span class="badge warn">Expired</span> <b>${escapeHtml(date(a.features.consolidated.expires))}</b>` : '<span class="badge muted">Off</span>'}</span></div>`] : []),
     ...(t ? [`<div class="act-row"><strong>Several tenants</strong><span>${t.valid ? '<span class="badge ok">Unlocked</span>' : '<span class="badge warn">Expired</span>'} ${escapeHtml(t.org)} · <span>Up to ${t.maxTenants} tenants</span> · <span>Until</span> <b>${escapeHtml(date(t.expires))}</b>${t.warn ? ` <strong class="https-note warn">${t.daysLeft} days left</strong>` : ''}</span></div>`] : []),
   ];
   if (rows.length === (p ? 1 : 0)) rows.push('<p class="hint">No add-ons are unlocked yet.</p>');
@@ -1147,26 +1157,14 @@ $('act-apply').addEventListener('click', async () => {
 
 // ---- Several Checkmarx One tenants: the switcher at the top, and Settings → Tenants -----------
 
-/** The tenant switcher: shown to people who work in more than one tenant. */
+/**
+ * The tenant switcher: shown to people who work in more than one tenant (or may see the consolidated view). A button
+ * and a list (tenant-menu.js): Consolidated view first, then each tenant with its colour and when it last fetched.
+ */
+const tenantMenu = initTenantMenu({ api, $, toast, handleAuthLoss, can, isConsolidatedPage: () => parseRoute().name === 'consolidated' });
 function renderTenantPicker(me) {
-  const t = me?.tenancy;
-  const show = Boolean(t && t.tenants.length > 1);
-  $('tenant-pick').hidden = !show;
-  if (!show) return;
-  $('tenant-name').textContent = t.current.name;
-  $('tenant-select').innerHTML = t.tenants.map((x) => `<option value="${escapeHtml(x.id)}" ${x.id === t.current.id ? 'selected' : ''}>${escapeHtml(x.name)}</option>`).join('');
+  tenantMenu.render(me);
 }
-
-$('tenant-select').addEventListener('change', async (event) => {
-  try {
-    await api('/api/me/tenant', { method: 'POST', body: JSON.stringify({ id: event.target.value }) });
-    // Every page shows the other tenant's data: start the page afresh in it.
-    location.reload();
-  } catch (error) {
-    if (!handleAuthLoss(error)) toast(error.message, 'error');
-    renderTenantPicker(state.me);
-  }
-});
 
 async function loadTenants() {
   if (!can('tenants.manage')) return;
@@ -1283,6 +1281,8 @@ const PAGE_LOADERS = {
   beta: () => renderBeta(),
   fusion: () => loadFusion(),
   flush: () => faeFlush.load(),
+  status: () => statusBoard.load(),
+  consolidated: () => consolidatedView.load(),
   audit: () => renderAudit(),
   access: () => loadAccess(),
   help: () => loadHelp(),
@@ -1304,6 +1304,8 @@ const reloaderOf = (page) => PAGE_RELOAD[page] ?? PAGE_LOADERS[page];
 
 const PAGE_RETURN = {
   flush: () => faeFlush.load({ quiet: true }),
+  status: () => statusBoard.load({ quiet: true }),
+  consolidated: () => consolidatedView.load({ quiet: true }),
   automation: () => loadAutomation(),
   settings: reloadSettingsPage,
   credits: () => loadUsage(),
@@ -1661,6 +1663,8 @@ const PAGE_TITLES = {
   beta: ['Code authors', 'Labs: who wrote the code, and their email'],
   fusion: ['Fusion results', 'Labs: only what the AI engine reported, Fusion and LAST'],
   flush: ['FAE Flush', 'Labs: Findings Analysis on the backlog, for every project at once'],
+  status: ['Status board', 'Labs: every project\'s last scan and results at a glance'],
+  consolidated: ['Consolidated view', 'Labs: every connected tenant in one place, read only'],
   help: ['Get help', 'Support cases and enhancements'],
   calculator: ['Cx Credits Calculator', 'The credits a customer needs'],
 };
@@ -8590,6 +8594,8 @@ $('help-view').addEventListener('click', async (event) => {
 
 // ---- Cx Credits Calculator (public/calculator/page.js) ----
 const faeFlush = initFaeFlush({ api, $, esc: escapeHtml, toast, showError, setStatus, can, fmtDateTime, t });
+const statusBoard = initStatusBoard({ api, $, toast, showError, setStatus, fmtDateTime });
+const consolidatedView = initConsolidated({ api, $, toast, showError, setStatus, fmtDateTime });
 const calculator = initCalculator({ api, $, esc: escapeHtml, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me: () => state.me, can, impactOn: () => Boolean(state.me?.unlocked?.impact) });
 
 /** A page outside the four stages: Get help, or a tool. */
@@ -10769,7 +10775,7 @@ function renderAccess() {
         <td class="small-text">${methods}</td>
         <td>${status}</td>
         <td class="when">${u.lastLoginAt ? escapeHtml(formatTime(u.lastLoginAt)) : '<span class="hint">never</span>'}</td>
-        <td><div class="row-actions">${actions}${tenantPick}</div></td>
+        <td><div class="row-actions">${actions}${tenantPick}${consolidatedTick(u, me)}</div></td>
       </tr>`;
     })
     .join('');
@@ -10777,6 +10783,25 @@ function renderAccess() {
 }
 
 const IAM_PAGE = 20;
+
+/**
+ * Labs → Consolidated view: the Admin's tick, one person at a time (never through a role). Shown once its activation
+ * code is applied; others see who has it.
+ */
+function consolidatedTick(u, me) {
+  if (access.data.consolidatedGrant && (u.canManage || me)) {
+    return `<label class="check cv-grant" title="Labs → Consolidated view: every tenant they work in, read only. Each visit is written to each tenant's audit log."><input type="checkbox" data-iam-consolidated="${escapeHtml(u.id)}" ${u.consolidated ? 'checked' : ''} /> <span>May see the consolidated view (all connected tenants)</span></label>`;
+  }
+  return u.consolidated ? '<span class="badge gv-info" title="May see the consolidated view (all connected tenants)">Consolidated view</span>' : '';
+}
+
+$('iam-users').addEventListener('change', (event) => {
+  const box = event.target.closest('[data-iam-consolidated]');
+  if (!box) return;
+  const user = access.data.users.find((u) => u.id === box.dataset.iamConsolidated);
+  if (!user) return;
+  iamCall(`/api/iam/users/${encodeURIComponent(user.id)}/consolidated`, { method: 'PUT', body: JSON.stringify({ on: box.checked }) }, box.checked ? `${user.email} may now see the consolidated view.` : `${user.email} may no longer see the consolidated view.`);
+});
 
 function iamUserMatches(u) {
   const q = $('iam-search').value.trim().toLowerCase();
