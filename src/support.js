@@ -11,6 +11,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { safeUrl } from './template.js';
+
 export const KINDS = {
   case: { prefix: 'SUP', label: 'Support case' },
   enhancement: { prefix: 'ENH', label: 'Enhancement' },
@@ -138,7 +140,8 @@ export class SupportDesk {
 export function supportEmail(ticket, { event, to, appName = 'CxMissionZero', url = '', message = null }) {
   const kind = KINDS[ticket.kind].label;
   const status = STATUSES[ticket.status];
-  const link = url ? `${url.replace(/\/$/, '')}/#/help/${ticket.id}` : '';
+  // Only a web address becomes the link (never javascript: or data:).
+  const link = safeUrl(url ? `${String(url).replace(/\/$/, '')}/#/help/${encodeURIComponent(ticket.id)}` : '');
   const forTeam = to === 'team';
   const lines = {
     created: forTeam

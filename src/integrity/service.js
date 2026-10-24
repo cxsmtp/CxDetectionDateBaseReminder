@@ -18,6 +18,7 @@ import path from 'node:path';
 
 import { MANIFEST_FILE, TOP_FILES, TREES, compareFilesAsync, readManifest, sha256 } from './manifest.js';
 import { verifyBundle } from './sigstore.js';
+import { outboundUrlProblem } from '../outbound-url.js';
 
 export const SOURCE_REPOSITORY = 'cxsmtp/CxDetectionDateBaseReminder';
 const TRUSTED_ROOT = JSON.parse(fs.readFileSync(new URL('./trusted-root.json', import.meta.url), 'utf8'));
@@ -107,6 +108,8 @@ export class IntegrityService {
   }
 
   async #download(url) {
+    // The address comes from GitHub's answer: https (a local mock only in tests), never a link-local or metadata address.
+    if (typeof url !== 'string' || outboundUrlProblem(url, { allowLoopbackHttp: TESTING })) return null;
     try {
       const response = await this.fetch(url, { headers: { 'User-Agent': 'cxmissionzero-integrity' }, signal: AbortSignal.timeout(this.timeoutMs) });
       return response.ok ? await response.json() : null;

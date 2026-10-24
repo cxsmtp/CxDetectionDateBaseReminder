@@ -1,4 +1,5 @@
 import { extractItems } from './client.js';
+import { checkServiceUrl } from './endpoints.js';
 
 /**
  * Turning a Checkmarx username into an email address.
@@ -76,13 +77,22 @@ export async function fetchDirectory(client, connection, { max = 50_000, retries
     return { users: [], note: 'No IAM URL for this connection, so the user directory was not read.' };
   }
 
-  const key = `${connection.iamUrl}|${connection.tenant}`;
+  // The access token goes with this request: only to a checked IAM address (https, a real host, never a
+  // metadata or link-local one), which the client also keeps to this connection's own hosts.
+  let iamUrl;
+  try {
+    iamUrl = checkServiceUrl(connection.iamUrl, 'IAM URL');
+  } catch (error) {
+    return { users: [], note: `${error.message} The user directory was not read, so usernames were matched by pattern instead.` };
+  }
+
+  const key = `${iamUrl}|${connection.tenant}`;
   if (!directoryCache.has(client)) directoryCache.set(client, new Map());
   const cache = directoryCache.get(client);
   const cached = cache.get(key);
   if (cached && now - cached.at < cacheMs) return { users: cached.users, note: null };
 
-  const base = `${connection.iamUrl}/auth/admin/realms/${encodeURIComponent(connection.tenant)}/users`;
+  const base = `${iamUrl}/auth/admin/realms/${encodeURIComponent(connection.tenant)}/users`;
   const users = [];
   const pageSize = 200;
 

@@ -31,7 +31,12 @@ async function body(req) {
     if (size > 64 * 1024) throw Object.assign(new Error('Too large.'), { status: 413 });
     parts.push(chunk);
   }
-  return parts.length ? JSON.parse(Buffer.concat(parts).toString('utf8')) : {};
+  if (!parts.length) return {};
+  try {
+    return JSON.parse(Buffer.concat(parts).toString('utf8'));
+  } catch {
+    throw Object.assign(new Error('That request is not JSON.'), { status: 400 });
+  }
 }
 
 /** Open the page in this computer's browser; when that does not work, the address printed is enough. */
@@ -43,6 +48,8 @@ function openBrowser(url) {
 }
 
 export async function startLauncher({ html, port = 0, host = '127.0.0.1', open = true, log = console.log, connect = (connection) => new CxClient(connection) } = {}) {
+  // Plain http, so this computer only: the page's secret and the API key never cross a network.
+  if (!['127.0.0.1', 'localhost', '::1'].includes(String(host))) throw new Error(`The calculator only serves this computer (127.0.0.1), not ${host}.`);
   const secret = randomBytes(24).toString('base64url');
   const page = html.replace('"__CALCULATOR_LAUNCHER__"', JSON.stringify({ token: secret }));
   const state = { client: null, connection: null, job: null, read: new TenantReadStore({ file: null }) };
@@ -116,7 +123,10 @@ export async function startLauncher({ html, port = 0, host = '127.0.0.1', open =
     try {
       json(res, 200, await route(req.method === 'POST' ? await body(req) : null));
     } catch (error) {
-      json(res, error.status ?? 500, { error: error.status ? error.message : `Something went wrong: ${error.message}` });
+      if (error.status) return json(res, error.status, { error: error.message });
+      // Unexpected: the details (paths, internals) go to the launcher's own window, not to the page.
+      log(`Something went wrong (${req.method} ${url.pathname}): ${error.stack ?? error.message}`);
+      json(res, 500, { error: 'Something went wrong: the window the calculator was started from says what.' });
     }
   });
 

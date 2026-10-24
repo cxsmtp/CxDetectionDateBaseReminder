@@ -30,6 +30,34 @@ const L = (text, ...values) => {
   return values.length ? out.replace(/\{(\d+)\}/g, (all, i) => (i < values.length ? String(values[i]) : all)) : out;
 };
 
+/** An http(s) address without user name, query or fragment (as a reminder server's), else ''. */
+function webAddress(value) {
+  try {
+    const url = new URL(String(value ?? ''));
+    if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username || url.password) return '';
+    return `${url.origin}${url.pathname}`.replace(/\/+$/, '');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * The fix link that goes into "Copy git command" (curl "<link>" …), or '' when it is not one. The
+ * command is pasted into cmd, PowerShell or a shell by the reader, so the link may hold only characters
+ * that mean nothing to any of them inside double quotes: an http(s) address of letters, digits and
+ * - . _ ~ / ? = & : (no $ ` % ! ^ ( ) [ ] ; quotes, spaces or user names), as the server's links are.
+ */
+function gitCommandUrl(value) {
+  let url;
+  try {
+    url = new URL(String(value ?? ''));
+  } catch {
+    return '';
+  }
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username || url.password || url.hash) return '';
+  return /^https?:\/\/[A-Za-z0-9.-]+(?::\d{1,5})?(?:\/[A-Za-z0-9\-._~/]*)?(?:\?[A-Za-z0-9\-._~=&]*)?$/.test(url.href) ? url.href : '';
+}
+
 function reportMain() {
   const DATA = JSON.parse(document.getElementById('report-data').textContent);
   const config = DATA.config;
@@ -55,7 +83,8 @@ function reportMain() {
   const ORIGINAL_SERVER = String(config.relayUrl || '').replace(/\/+$/, '');
   const SERVER_STORE = `cxReportServer:${ORIGINAL_SERVER}`;
   try {
-    const override = localStorage.getItem(SERVER_STORE);
+    // Kept by switchServer (an http or https address); anything else in this browser's storage is ignored.
+    const override = webAddress(localStorage.getItem(SERVER_STORE));
     if (override) config.relayUrl = override;
   } catch {}
   const POLL_MS = 6000;
@@ -2357,8 +2386,8 @@ function reportMain() {
   async function copyGitCommand(f, button) {
     button.disabled = true;
     try {
-      const { url } = await backend.patchLink(f);
-      if (!safeHref(url) || !/^https?:/i.test(url) || /["\s]/.test(url)) throw new Error(L('The server sent an address that is not a web link.'));
+      const url = gitCommandUrl((await backend.patchLink(f))?.url);
+      if (!url) throw new Error(L('The server sent an address that is not a web link.'));
       const command = `curl -fsSL "${url}" -o mz-fix.patch && git apply --recount mz-fix.patch`;
       const copied = await copyText(command);
       const box = row(f)?.querySelector('.ws-actions');

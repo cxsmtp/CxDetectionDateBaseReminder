@@ -12,8 +12,65 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { redactSecrets, verifiesCertificate, warnUnverified } from './mailer.js';
+
 const MAX_TEXT = 64 * 1024;
 const MAX_MESSAGES = 25;
+/**
+ * The largest backup attachment read from the mailbox. Backups are emailed only up to 15 MB
+ * (MAX_ATTACHMENT_BYTES in server.js) and mail servers rarely carry more than 25 MB; anyone can
+ * send mail to the mailbox, so nothing bigger is held in memory.
+ */
+export const MAX_BACKUP_BYTES = 25 * 1024 * 1024;
+
+/**
+ * The IMAP client's options. Certificates are checked: for replies, unless an Admin turned the
+ * check off for the email server (the same account, the same choice, said in the server log);
+ * for backups, always, as nothing lets an Admin turn it off there.
+ */
+export function imapOptions(account, { allowUnverified = false } = {}) {
+  const verify = allowUnverified ? verifiesCertificate(account) : true;
+  if (!verify) warnUnverified('mailbox (IMAP)', account);
+  return {
+    host: account.host,
+    port: account.port,
+    secure: account.secure !== false,
+    auth: { user: account.user, pass: account.password },
+    tls: { rejectUnauthorized: verify },
+    logger: false,
+    socketTimeout: 60_000,
+  };
+}
+
+/** A part's content, at most `max` bytes: a Buffer, or null when the part is larger (nothing more is fetched). */
+export async function downloadCapped(client, uid, part, max) {
+  const { content } = (await client.download(String(uid), part, { uid: true, maxBytes: max + 1 })) ?? {};
+  if (!content) return null;
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of content) {
+    size += chunk.length;
+    if (size > max) {
+      content.destroy?.();
+      return null;
+    }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+/** An IMAP failure, never with the password in it (servers and libraries can echo commands). */
+function safeError(error, account) {
+  const message = redactSecrets(String(error?.message ?? error), { user: account.user, password: account.password });
+  if (error && typeof error === 'object' && message !== error.message) {
+    try {
+      error.message = message;
+    } catch {
+      return Object.assign(new Error(message), { code: error.code });
+    }
+  }
+  return error;
+}
 
 /** The plain-text part of a message's structure (or its HTML one): { part, type }. */
 function textPart(node) {
@@ -53,15 +110,15 @@ export async function readReplies(account) {
   const testDir = process.env.NODE_TEST_CONTEXT && process.env.MZ_TEST_INBOX_DIR;
   if (testDir) return readTestInbox(testDir);
   const { ImapFlow } = await import('imapflow');
-  const client = new ImapFlow({
-    host: account.host,
-    port: account.port,
-    secure: account.secure !== false,
-    auth: { user: account.user, pass: account.password },
-    tls: { rejectUnauthorized: account.rejectUnauthorized !== false },
-    logger: false,
-    socketTimeout: 60_000,
-  });
+  const client = new ImapFlow(imapOptions(account, { allowUnverified: true }));
+  try {
+    return await readUnread(client);
+  } catch (error) {
+    throw safeError(error, account);
+  }
+}
+
+async function readUnread(client) {
   await client.connect();
   const lock = await client.getMailboxLock('INBOX');
   try {
@@ -75,8 +132,8 @@ export async function readReplies(account) {
       const part = textPart(message.bodyStructure);
       let text = '';
       if (part) {
-        const { content } = await client.download(String(message.uid), part.part, { uid: true });
-        text = await readStream(content);
+        const { content } = await client.download(String(message.uid), part.part, { uid: true, maxBytes: MAX_TEXT });
+        text = content ? await readStream(content) : '';
         if (part.type === 'text/html') text = htmlToText(text);
       }
       out.push({ from: String(message.envelope?.from?.[0]?.address ?? '').toLowerCase(), subject: String(message.envelope?.subject ?? ''), text });
@@ -111,7 +168,7 @@ function backupParts(node, out = []) {
   if (!node) return out;
   for (const child of node.childNodes ?? []) backupParts(child, out);
   const name = node.dispositionParameters?.filename || node.parameters?.name || '';
-  if (/\.mzbackup$/i.test(name)) out.push({ part: node.part || '1', name });
+  if (/\.mzbackup$/i.test(name)) out.push({ part: node.part || '1', name, size: node.size ?? 0 });
   return out;
 }
 
@@ -132,15 +189,15 @@ export async function findBackupInMailbox(account, accept) {
     return null;
   }
   const { ImapFlow } = await import('imapflow');
-  const client = new ImapFlow({
-    host: account.host,
-    port: account.port,
-    secure: account.secure !== false,
-    auth: { user: account.user, pass: account.password },
-    tls: { rejectUnauthorized: account.rejectUnauthorized !== false },
-    logger: false,
-    socketTimeout: 60_000,
-  });
+  const client = new ImapFlow(imapOptions(account));
+  try {
+    return await searchBackups(client, accept);
+  } catch (error) {
+    throw safeError(error, account);
+  }
+}
+
+async function searchBackups(client, accept) {
   await client.connect();
   const lock = await client.getMailboxLock('INBOX', { readOnly: true });
   try {
@@ -150,11 +207,9 @@ export async function findBackupInMailbox(account, accept) {
     messages.sort((a, b) => new Date(b.envelope?.date ?? 0) - new Date(a.envelope?.date ?? 0));
     for (const message of messages) {
       for (const part of backupParts(message.bodyStructure)) {
-        const { content } = await client.download(String(message.uid), part.part, { uid: true });
-        const chunks = [];
-        for await (const chunk of content) chunks.push(chunk);
-        const buffer = Buffer.concat(chunks);
-        if (accept(buffer)) return { buffer, name: part.name, date: message.envelope?.date ? new Date(message.envelope.date).toISOString() : '' };
+        if (Number(part.size) > MAX_BACKUP_BYTES * 1.4) continue; // base64 grows it by a third: too large before it is fetched
+        const buffer = await downloadCapped(client, message.uid, part.part, MAX_BACKUP_BYTES);
+        if (buffer && accept(buffer)) return { buffer, name: part.name, date: message.envelope?.date ? new Date(message.envelope.date).toISOString() : '' };
       }
     }
     return null;

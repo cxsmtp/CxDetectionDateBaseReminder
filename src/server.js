@@ -64,7 +64,7 @@ import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
 import { buildBrandedReminder, effectiveBranding, personName, REMINDER_PLACEHOLDERS } from './reminder-email.js';
 import { focusProjects, nextRunAfter } from './automation-config.js';
-import { deriveConnection, publicConnection } from './cxone/endpoints.js';
+import { checkServiceUrl, deriveConnection, publicConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
 import { checkCxKey, checkEnvFile, explainCxone, explainGit, explainSmtp, refusedByCheck } from './troubleshoot.js';
 import { TrustStore, isUntrustedCode } from './trust.js';
@@ -2265,6 +2265,9 @@ app.post(
       return res.status(400).json({ error: help.problem, help });
     }
     const overrides = { baseUrl: String(baseUrl).trim().replace(/\/+$/, ''), iamUrl: String(iamUrl).trim().replace(/\/+$/, ''), tenant: String(tenant).trim() };
+    // Typed addresses are checked before the key goes anywhere: https, never a link-local or metadata address.
+    if (overrides.baseUrl) overrides.baseUrl = checkServiceUrl(overrides.baseUrl, 'API URL');
+    if (overrides.iamUrl) overrides.iamUrl = checkServiceUrl(overrides.iamUrl, 'IAM URL');
     const session = await connectCheckmarxOne(key, {
       baseUrl: overrides.baseUrl || config.overrides.baseUrl,
       iamUrl: overrides.iamUrl || config.overrides.iamUrl,
@@ -2501,6 +2504,8 @@ app.put(
     const clean = (v) => String(v ?? '').trim().replace(/\/+$/, '');
     const overrides = { ...(current.integrationOverrides ?? { baseUrl: '', iamUrl: '', tenant: '' }) };
     for (const field of ['baseUrl', 'iamUrl', 'tenant']) if (field in body) overrides[field] = clean(body[field]);
+    // Saved as typed, but never an address the key must not go to (https, no link-local or metadata address).
+    for (const [field, label] of [['baseUrl', 'API URL'], ['iamUrl', 'IAM URL']]) if (field in body && overrides[field]) overrides[field] = checkServiceUrl(overrides[field], label);
     const key = String(body.apiKey ?? '').trim();
     const before = cxoneFingerprint(current.automationApiKey, current.integrationOverrides ?? {});
     // The stored key is never sent to another host: new IAM or API hosts need the key pasted again.
@@ -3852,8 +3857,10 @@ app.post(
 const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|0\.0\.0\.0)$/i;
 
 function requestOrigin(req) {
+  // Only a plain host[:port] (requestHost's rule): never a path, user name or other site smuggled into a header.
   const forwardedHost = viaTrustedProxy(req) ? String(req.get('x-forwarded-host') ?? '').split(',')[0].trim() : '';
-  return `${req.protocol}://${forwardedHost || req.get('host')}`;
+  const host = /^([\w.-]+|\[[0-9a-f:.]+\])(:\d{1,5})?$/i.test(forwardedHost) ? forwardedHost : requestHost(req);
+  return host ? `${req.protocol}://${host}` : '';
 }
 
 /**

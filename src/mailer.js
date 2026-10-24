@@ -22,8 +22,57 @@ export class MailError extends Error {
   }
 }
 
-/** A failed connection or send, with its explanation. */
-const failed = (prefix, error, smtp, status) => new MailError(`${prefix}: ${friendly(error, smtp)}`, status, explainSmtp(error, smtp));
+/**
+ * The forms the mail password can take on the wire: as typed, as sent (Google's spaces taken
+ * out), and base64 as AUTH LOGIN and AUTH PLAIN carry it. Shortest last, so a longer form is
+ * never left half-replaced.
+ */
+function secretForms(smtp = {}) {
+  const forms = new Set();
+  const user = String(smtp.user ?? '');
+  for (const pass of [String(smtp.password ?? ''), normalizePassword(smtp)]) {
+    if (!pass) continue;
+    forms.add(pass);
+    forms.add(Buffer.from(pass).toString('base64'));
+    forms.add(Buffer.from(`\u0000${user}\u0000${pass}`).toString('base64'));
+  }
+  return [...forms].filter((f) => f.length >= 3).sort((a, b) => b.length - a.length);
+}
+
+/** `value` with every form of the mail password replaced by "[hidden]" (strings, arrays and plain objects). */
+export function redactSecrets(value, smtp = {}, forms = secretForms(smtp)) {
+  if (!forms.length) return value;
+  if (typeof value === 'string') return forms.reduce((text, form) => text.split(form).join('[hidden]'), value);
+  if (Array.isArray(value)) return value.map((v) => redactSecrets(v, smtp, forms));
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, redactSecrets(v, smtp, forms)]));
+  }
+  return value;
+}
+
+/**
+ * A failed connection or send, with its explanation. The server's own answer is part of it,
+ * so the password is taken out of both, whatever the server echoed back.
+ */
+const failed = (prefix, error, smtp, status) =>
+  new MailError(redactSecrets(`${prefix}: ${friendly(error, smtp)}`, smtp), status, redactSecrets(explainSmtp(error, smtp), smtp));
+
+/**
+ * Certificate checks for the mail server are on unless an Admin turned them off ("Check the
+ * mail server's certificate", SMTP_REJECT_UNAUTHORIZED=false): only an explicit `false` does.
+ * The choice applies to this one connection, never to the rest of the server, and is said in
+ * the server log once per mail server, so it is never silent.
+ */
+export const verifiesCertificate = (account = {}) => account.rejectUnauthorized !== false;
+
+const warned = new Set();
+export function warnUnverified(kind, account = {}, log = console.warn) {
+  if (verifiesCertificate(account)) return;
+  const where = `${String(account.host ?? '').replace(/[^\w.:[\]-]/g, '')}:${Number(account.port) || ''}`;
+  if (warned.has(`${kind}|${where}`)) return;
+  warned.add(`${kind}|${where}`);
+  log(`! [mail] Certificate checks are off for the ${kind} ${where} (an Admin's choice: Settings → Email server → "Check the mail server's certificate"). Its identity is not verified; add its certificate authority under Trusted certificates and turn the check back on.`);
+}
 
 /**
  * Google shows an App Password as four space-separated groups ("abcd efgh ijkl
@@ -42,13 +91,14 @@ export function normalizePassword(smtp) {
 
 export function buildTransport(smtp) {
   if (!smtp.host) throw new MailError('No SMTP host is configured. Set one on the Settings page.', 400, explainSmtp(new Error('no host'), smtp));
+  warnUnverified('mail server', smtp);
 
   return nodemailer.createTransport({
     host: smtp.host,
     port: smtp.port,
     secure: Boolean(smtp.secure),
     auth: smtp.requireAuth && smtp.user ? { user: smtp.user, pass: normalizePassword(smtp) } : undefined,
-    tls: { rejectUnauthorized: smtp.rejectUnauthorized !== false },
+    tls: { rejectUnauthorized: verifiesCertificate(smtp) },
     connectionTimeout: 15_000,
     greetingTimeout: 15_000,
     socketTimeout: 20_000,

@@ -4,12 +4,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
 import { fakeCheckmarx, testProxy } from './fake-proxy.js';
 import { activeProxy, bypasses, checkRoute, cleanProxy, openTunnel, proxyEnvironment, proxyWithAuth, requirements, requirementsText, saveNetwork } from '../src/network.js';
+
+// The test proxies' passwords: made afresh on every run, never written in the code.
+const fresh = (label) => `${label}-${randomBytes(12).toString('base64url')}`;
+const PROXY_PASSWORD = fresh('proxy');
 
 test('a proxy address is cleaned up, and anything else is refused with a reason', () => {
   assert.deepEqual(cleanProxy({ url: 'proxy.acme.local:8080', username: ' ana ', password: 'p w', noProxy: '.acme.local, 10.0.0.5;smtp.acme.local .acme.local' }), {
@@ -43,24 +48,24 @@ test('the server is started with the saved proxy, else the container\'s; nothing
   assert.equal(fromContainer.NO_PROXY, 'localhost,127.0.0.1,::1,.acme.local');
   assert.equal(activeProxy(dir, { https_proxy: 'http://u:p@corp-proxy:3128' }).url, 'http://corp-proxy:3128', 'no password shown');
 
-  saveNetwork(dir, { proxy: cleanProxy({ url: 'proxy.acme.local:8080', username: 'svc', password: 's3cret', noProxy: '.acme.local' }) });
+  saveNetwork(dir, { proxy: cleanProxy({ url: 'proxy.acme.local:8080', username: 'svc', password: PROXY_PASSWORD, noProxy: '.acme.local' }) });
   assert.equal(fs.statSync(path.join(dir, 'network.json')).mode & 0o777, 0o600);
   const saved = proxyEnvironment(dir, { HTTPS_PROXY: 'http://corp-proxy:3128' });
-  assert.equal(saved.HTTPS_PROXY, 'http://svc:s3cret@proxy.acme.local:8080', 'Settings win');
+  assert.equal(saved.HTTPS_PROXY, `http://svc:${PROXY_PASSWORD}@proxy.acme.local:8080`, 'Settings win');
   assert.equal(saved.https_proxy, saved.HTTPS_PROXY, 'git, which reads the lower-case one, too');
   const shown = activeProxy(dir, {});
   assert.deepEqual([shown.url, shown.username, shown.source, shown.running], ['http://proxy.acme.local:8080', 'svc', 'settings', false]);
-  assert.ok(!JSON.stringify(shown).includes('s3cret'));
+  assert.ok(!JSON.stringify(shown).includes(PROXY_PASSWORD));
   saveNetwork(dir, null);
   assert.deepEqual(proxyEnvironment(dir, {}), {});
 });
 
 test('the check says where the way to Checkmarx One stops: proxy, tunnel, certificate, answer', async () => {
   const cx = await fakeCheckmarx();
-  const open = await testProxy({ user: 'svc', pass: 's3cret', refuse: ['blocked.checkmarx.test'] });
+  const open = await testProxy({ user: 'svc', pass: PROXY_PASSWORD, refuse: ['blocked.checkmarx.test'] });
   try {
     const host = 'iam.checkmarx.test';
-    const ok = await checkRoute({ proxy: `http://svc:s3cret@127.0.0.1:${open.port}`, host, port: cx.port });
+    const ok = await checkRoute({ proxy: `http://svc:${PROXY_PASSWORD}@127.0.0.1:${open.port}`, host, port: cx.port });
     assert.deepEqual(ok.steps.map((s) => [s.step, s.ok]), [['proxy', true], ['tunnel', true], ['certificate', false]], 'reached, but the certificate is not trusted here');
     assert.match(ok.steps[2].detail, /not trusted here \(DEPTH_ZERO_SELF_SIGNED_CERT\)/);
     assert.equal(open.seen.at(-1).target, `${host}:${cx.port}`);
@@ -68,7 +73,7 @@ test('the check says where the way to Checkmarx One stops: proxy, tunnel, certif
     const noAuth = await checkRoute({ proxy: open.url, host, port: cx.port });
     assert.deepEqual(noAuth.steps.map((s) => [s.step, s.ok, s.status ?? 0]), [['proxy', true, 0], ['tunnel', false, 407]]);
 
-    const refused = await checkRoute({ proxy: `http://svc:s3cret@127.0.0.1:${open.port}`, host: 'blocked.checkmarx.test', port: cx.port });
+    const refused = await checkRoute({ proxy: `http://svc:${PROXY_PASSWORD}@127.0.0.1:${open.port}`, host: 'blocked.checkmarx.test', port: cx.port });
     assert.deepEqual(refused.steps.map((s) => [s.step, s.ok, s.status ?? 0]), [['proxy', true, 0], ['tunnel', false, 403]]);
 
     const closed = await checkRoute({ proxy: 'http://127.0.0.1:1', host, port: cx.port, timeoutMs: 2000 });
@@ -78,7 +83,7 @@ test('the check says where the way to Checkmarx One stops: proxy, tunnel, certif
     const direct = await checkRoute({ host: '127.0.0.1', port: cx.port });
     assert.deepEqual(direct.steps.map((s) => s.step), ['tunnel', 'certificate'], 'without a proxy: straight to the host');
 
-    const tunnel = await openTunnel(`http://svc:s3cret@127.0.0.1:${open.port}`, host, cx.port);
+    const tunnel = await openTunnel(`http://svc:${PROXY_PASSWORD}@127.0.0.1:${open.port}`, host, cx.port);
     tunnel.destroy();
   } finally {
     cx.close();
@@ -93,11 +98,14 @@ test('started with that environment, fetch and https go through the proxy, with 
   saveNetwork(dir, { proxy: cleanProxy({ url: `127.0.0.1:${proxy.port}`, username: 'svc', password: 'p@ss' }) });
   // Only the environment the launcher builds (the test machine's own proxy variables left out).
   const base = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/_proxy$/i.test(k)));
+  // The child trusts the stand-in's own certificate (and checks it, name included), nothing more.
+  const caFile = path.join(dir, 'fake-checkmarx.pem');
+  fs.writeFileSync(caFile, cx.cert);
   const url = `https://iam.checkmarx.test:${cx.port}/auth`;
   const code = `fetch('${url}').then((r) => r.text()).then((t) => console.log('fetch', t), (e) => console.log('fetch failed', e.cause?.code || e.message));`;
   try {
     const out = await new Promise((resolve) => {
-      const child = spawn(process.execPath, ['--no-warnings', '-e', code], { env: { ...base, ...proxyEnvironment(dir, base), NODE_TLS_REJECT_UNAUTHORIZED: '0' } });
+      const child = spawn(process.execPath, ['--no-warnings', '-e', code], { env: { ...base, ...proxyEnvironment(dir, base), NODE_EXTRA_CA_CERTS: caFile } });
       let text = '';
       child.stdout.on('data', (d) => (text += d));
       child.stderr.on('data', (d) => (text += d));

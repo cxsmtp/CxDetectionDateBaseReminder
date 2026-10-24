@@ -105,6 +105,9 @@ const faeSourceOf = (projectId) => faeProjects.get(projectId)?.source ?? '';
 const issued = new Set();
 const MAX_BODY = 1024 * 1024;
 http.createServer((req, res) => {
+  // Not a page to show in a frame (only API answers come from here).
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
   let b = '';
   req.on('data', (c) => {
     b += c;

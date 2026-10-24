@@ -10,7 +10,9 @@
 // - A company proxy inspects HTTPS and signs with its own root. Its root is found (in what the
 //   proxy presents, or through the same links) and shown to an Admin, who trusts it with a click,
 //   or uploads it. Never trusted without that.
+import dns from 'node:dns';
 import fs from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
 import tls from 'node:tls';
 import http from 'node:http';
@@ -116,18 +118,77 @@ export function caIssuersUrls(cert) {
     .filter((u) => /^https?:\/\//i.test(u));
 }
 
-// A link comes from a certificate someone else presents: never to a cloud's instance metadata.
+// A link comes from a certificate someone else presents: never to a cloud's instance metadata,
+// nor to this server itself. Checked on the address the name resolves to (so a public DNS name
+// for 169.254.169.254, or 127.0.0.1 written as ::ffff:7f00:1, is refused too), and again at
+// connect time on a direct connection. Company networks' own addresses (10.x, 192.168.x…) stay
+// allowed: a company CA publishes its certificates there.
 const METADATA = /^(169\.254\.\d+\.\d+|\[?fd00:ec2::254\]?|metadata\.google\.internal|metadata)$/i;
+const NEVER = new net.BlockList();
+for (const [address, prefix] of [['0.0.0.0', 8], ['127.0.0.0', 8], ['169.254.0.0', 16], ['100.100.100.200', 32], ['224.0.0.0', 4], ['240.0.0.0', 4]]) {
+  NEVER.addSubnet(address, prefix, 'ipv4');
+  NEVER.addSubnet(`::ffff:${address}`, 96 + prefix, 'ipv6');
+}
+for (const [address, prefix] of [['::', 128], ['::1', 128], ['fe80::', 10], ['fd00:ec2::254', 128], ['ff00::', 8]]) NEVER.addSubnet(address, prefix, 'ipv6');
+const LOOPBACK = new net.BlockList();
+LOOPBACK.addSubnet('127.0.0.0', 8, 'ipv4');
+LOOPBACK.addSubnet('::ffff:127.0.0.0', 104, 'ipv6');
+LOOPBACK.addAddress('::1', 'ipv6');
 
-/** A certificate from a "CA Issuers" link: at most 64 KB, a few seconds, two redirects. */
-function download(url, { timeoutMs = 8000, redirects = 2 } = {}) {
+/** Whether an issuer link may be followed to this IP address (`allowLoopback`: tests' own local servers only). */
+export function followableAddress(address, { allowLoopback = false } = {}) {
+  const family = net.isIP(String(address ?? ''));
+  if (!family) return false;
+  const type = family === 6 ? 'ipv6' : 'ipv4';
+  if (allowLoopback && LOOPBACK.check(address, type)) return true;
+  return !NEVER.check(address, type);
+}
+
+const refused = (url, why) => Object.assign(new Error(`${url} is not followed (${why})`), { code: 'EADDRNOTAVAIL' });
+
+/** A DNS lookup that only answers with addresses an issuer link may be followed to. */
+const safeLookup = (allowLoopback) => (hostname, options, callback) => {
+  dns.lookup(hostname, { ...options, all: true }, (error, addresses) => {
+    if (error) return callback(error);
+    const bad = addresses.find((a) => !followableAddress(a.address, { allowLoopback }));
+    if (bad || !addresses.length) return callback(refused(hostname, bad ? `it is ${bad.address}` : 'no address'));
+    if (options?.all) return callback(null, addresses);
+    return callback(null, addresses[0].address, addresses[0].family);
+  });
+};
+
+/**
+ * A certificate from a "CA Issuers" link: http(s) only, never to this server or instance
+ * metadata, at most 64 KB, a few seconds, two redirects (each checked the same way).
+ */
+export async function fetchIssuer(url, { timeoutMs = 8000, redirects = 2, allowLoopback = false } = {}) {
+  let target;
+  try {
+    target = new URL(url);
+  } catch {
+    throw refused(url, 'not an address');
+  }
+  if (!['http:', 'https:'].includes(target.protocol)) throw refused(url, 'only http and https');
+  const host = target.hostname.replace(/^\[|\]$/g, '');
+  if (METADATA.test(host)) throw refused(url, 'instance metadata');
+  const addresses = net.isIP(host) ? [{ address: host }] : await dns.promises.lookup(host, { all: true }).catch(() => []);
+  if (!addresses.length) throw refused(url, 'its name does not resolve');
+  const bad = addresses.find((a) => !followableAddress(a.address, { allowLoopback }));
+  if (bad) throw refused(url, `it is ${bad.address}`);
+  // Through the company proxy, the proxy resolves the name; directly, the connection uses only checked addresses.
+  const direct = !proxyFor(host);
   return new Promise((resolve, reject) => {
-    if (METADATA.test(new URL(url).hostname)) return reject(new Error(`${url} is not followed`));
-    const get = url.startsWith('https:') ? https.get : http.get;
-    const req = get(url, { timeout: timeoutMs, headers: { Accept: 'application/pkix-cert, application/x-x509-ca-cert, */*' } }, (res) => {
+    const get = target.protocol === 'https:' ? https.get : http.get;
+    const req = get(target, { timeout: timeoutMs, headers: { Accept: 'application/pkix-cert, application/x-x509-ca-cert, */*' }, ...(direct ? { lookup: safeLookup(allowLoopback) } : {}) }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
         res.resume();
-        return download(new URL(res.headers.location, url).href, { timeoutMs, redirects: redirects - 1 }).then(resolve, reject);
+        let next;
+        try {
+          next = new URL(res.headers.location, target).href;
+        } catch {
+          return reject(refused(url, 'a broken redirect'));
+        }
+        return fetchIssuer(next, { timeoutMs, redirects: redirects - 1, allowLoopback }).then(resolve, reject);
       }
       if (res.statusCode !== 200) {
         res.resume();
@@ -150,6 +211,7 @@ function download(url, { timeoutMs = 8000, redirects = 2 } = {}) {
     req.on('error', reject);
   });
 }
+const download = (url) => fetchIssuer(url);
 
 /**
  * Connect to host:port and read the certificates it presents, without trusting them; whether
@@ -160,7 +222,10 @@ export async function inspect(host, port = 443, { timeoutMs = 10_000, proxy = pr
   const tunnel = proxy ? await openTunnel(proxy, host, port, { timeoutMs }) : null;
   return new Promise((resolve, reject) => {
     const servername = /^[\d.]+$|:/.test(host) ? undefined : host;
-    const socket = tls.connect({ ...(tunnel ? { socket: tunnel } : { host, port }), servername, rejectUnauthorized: false, timeout: timeoutMs }, () => {
+    // Reads what is presented without refusing it: this is the look at an untrusted chain an Admin
+    // asked for. Nothing but the handshake is sent, and Node still checks the chain and the name
+    // (`host`, also through a tunnel) into `authorized`, which every caller goes by.
+    const socket = tls.connect({ ...(tunnel ? { socket: tunnel } : { port }), host, servername, rejectUnauthorized: false, timeout: timeoutMs }, () => {
       const chain = [];
       const seen = new Set();
       for (let peer = socket.getPeerCertificate(true); peer?.raw && !seen.has(peer.fingerprint256); peer = peer.issuerCertificate) {

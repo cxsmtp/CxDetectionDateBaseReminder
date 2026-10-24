@@ -22,6 +22,7 @@ import { promisify } from 'node:util';
 
 import { mapWithConcurrency } from '../cxone/client.js';
 import { ensureClone } from './identity.js';
+import { blockedHost } from '../outbound-url.js';
 import { apiBlamer, cloneAuthFor, commitUrl, providerOf } from '../scm/providers.js';
 
 const run = promisify(execFile);
@@ -33,6 +34,8 @@ export function parseRepoUrl(url) {
   if (!m) m = /^(?:ssh:\/\/)?git@([^:/]+)[:/](.+?)(?:\.git)?\/?$/i.exec(value);
   if (!m) return null;
   const host = m[1].toLowerCase();
+  // A repository address comes from scan data: never one on a link-local or cloud metadata address.
+  if (blockedHost(host.replace(/:\d+$/, ''))) return null;
   const parts = m[2].split('/').filter(Boolean);
   if (parts.length < 2) return null;
   // Azure DevOps: org/project/_git/repo

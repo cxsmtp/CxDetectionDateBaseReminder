@@ -5,7 +5,14 @@
  * credentials anywhere but its own base address.
  */
 
+import { blockedHost } from '../outbound-url.js';
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Credentials travel in the Authorization header only: a query parameter by one of these names is refused,
+// so a secret never lands in an address (proxy and server logs, error messages). Paging cursors such as
+// Azure DevOps' continuationToken are not credentials and are not matched.
+const CREDENTIAL_PARAM = /^(?:private[_-]?token|access[_-]?token|refresh[_-]?token|id[_-]?token|token|password|passwd|secret|client[_-]?secret|api[_-]?key|apikey|auth|authorization|sig|signature)$/i;
 
 export class ScmError extends Error {
   constructor(message, status = 0, body = null) {
@@ -45,7 +52,12 @@ export class ScmClient {
     const base = new URL(this.baseUrl);
     const url = /^https?:\/\//.test(path) ? new URL(path) : new URL(this.baseUrl + path);
     if (url.host !== base.host) throw new ScmError(`Refusing to send ${this.name} credentials to ${url.host}.`);
-    for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '') url.searchParams.set(key, String(value));
+    if (blockedHost(base.hostname)) throw new ScmError(`Refusing to call ${this.name} at ${base.hostname}: a link-local or cloud metadata address.`, 400);
+    for (const [key, value] of Object.entries(query)) {
+      if (value === undefined || value === '') continue;
+      if (CREDENTIAL_PARAM.test(key)) throw new ScmError(`Refusing to put a credential (${key}) in a ${this.name} address: credentials go in the Authorization header.`, 400);
+      url.searchParams.set(key, String(value));
+    }
     return url;
   }
 

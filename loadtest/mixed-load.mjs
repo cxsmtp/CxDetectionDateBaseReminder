@@ -148,19 +148,20 @@ async function call(op, method, url, { body, cookie, stream = false, timeout = 6
 // ---------------------------------------------------------------------------
 // Set-up: the administrator, mail, analysts with their own sessions, a tracked report
 // ---------------------------------------------------------------------------
-async function signIn(email, password, next) {
+// Errors name the account by its role and number (`who`), never its address, password or the server's answer.
+async function signIn(email, password, next, who) {
   const r = await fetch(`${BASE}/api/session/password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-  if (!r.ok) throw new Error(`sign-in ${email}: ${r.status} ${await r.text()}`);
+  if (!r.ok) throw new Error(`sign-in (${who}): HTTP ${r.status}`);
   const cookie = r.headers.get('set-cookie').split(';')[0];
   if (next) {
     const c = await fetch(`${BASE}/api/me/password`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify({ current: password, next }) });
-    if (!c.ok) throw new Error(`password change ${email}: ${c.status} ${await c.text()}`);
+    if (!c.ok) throw new Error(`password change (${who}): HTTP ${c.status}`);
   }
   return cookie;
 }
 
 const setupStarted = performance.now();
-const admin = await signIn(ADMIN.email, ADMIN.password, ADMIN.next);
+const admin = await signIn(ADMIN.email, ADMIN.password, ADMIN.next, 'administrator');
 const put = await call('setup:settings', 'PUT', '/api/settings', {
   cookie: admin,
   body: {
@@ -180,7 +181,7 @@ for (const p of people) {
   if (r.status !== 201) throw new Error(`add user: ${r.status} ${JSON.stringify(r.json)}`);
 }
 const sessions = [];
-for (const p of people) sessions.push(await signIn(p.email, p.password, p.next));
+for (const [i, p] of people.entries()) sessions.push(await signIn(p.email, p.password, p.next, `analyst ${i}`));
 const analystSessions = sessions.slice(0, ANALYST_SESSIONS);
 const fetcherSessions = sessions.slice(ANALYST_SESSIONS);
 

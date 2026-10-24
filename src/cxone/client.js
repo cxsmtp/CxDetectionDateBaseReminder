@@ -1,16 +1,20 @@
 import { Semaphore } from '../ttl-cache.js';
 import { TokenProvider } from './auth.js';
+import { redactSecrets } from './endpoints.js';
+
+export { redactSecrets };
 
 /** Calls to Checkmarx One in flight at once, per connection; the rest queue. */
 const MAX_CONCURRENT = Math.max(1, Number(process.env.CX_MAX_CONCURRENCY) || 24);
 
 export class CxApiError extends Error {
+  /** Message, path and the answer's body pass through redactSecrets(): no token, key or signature ever reaches a log or the browser. */
   constructor(message, { status = 0, path = '', body = '' } = {}) {
-    super(message);
+    super(redactSecrets(message));
     this.name = 'CxApiError';
-    this.status = status;
-    this.path = path;
-    this.body = body;
+    this.status = Number(status) || 0;
+    this.path = redactSecrets(path);
+    this.body = redactSecrets(body);
   }
 }
 
@@ -97,6 +101,39 @@ export class CxClient {
     return this.#connection.baseUrl;
   }
 
+  #originsKey = null;
+  #origins = new Set();
+
+  /**
+   * The address of an API path, which carries the access token: only ever on this connection's own Checkmarx One
+   * hosts (its API, or its IAM for the user directory). An absolute address elsewhere, or a path that would move
+   * the host (`@evil.example/…`), is refused before anything is sent.
+   */
+  #target(path) {
+    const raw = String(path ?? '');
+    let url;
+    try {
+      url = new URL(/^https?:\/\//i.test(raw) ? raw : `${this.baseUrl}${raw}`);
+    } catch {
+      throw new CxApiError('That is not a Checkmarx One API address.', { status: 400 });
+    }
+    const { baseUrl, iamUrl, tokenUrl } = this.#connection;
+    const key = `${baseUrl}|${iamUrl ?? ''}|${tokenUrl ?? ''}`;
+    if (key !== this.#originsKey) {
+      this.#origins = new Set();
+      for (const address of [baseUrl, iamUrl, tokenUrl]) {
+        try {
+          if (address) this.#origins.add(new URL(address).origin);
+        } catch {}
+      }
+      this.#originsKey = key;
+    }
+    if (!this.#origins.has(url.origin) || url.username || url.password) {
+      throw new CxApiError(`Refused to send the access token to ${url.host}, which is not this connection's Checkmarx One host.`, { status: 400, path: url.pathname });
+    }
+    return url;
+  }
+
   /**
    * @param {string} path  API path, optionally with a query string.
    * @param {object} [options]
@@ -111,7 +148,7 @@ export class CxClient {
   async request(path, { method = 'GET', query, body, accept = ACCEPT, retries = 3, background = false, trace = null } = {}) {
     if (!this.baseUrl) throw new CxApiError('Checkmarx One API URL is not configured.', { path });
 
-    const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
+    const url = this.#target(path);
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value === undefined || value === null || value === '') continue;
       if (Array.isArray(value)) value.forEach((entry) => url.searchParams.append(key, String(entry)));
@@ -124,8 +161,8 @@ export class CxClient {
       if (!trace) return;
       try {
         trace({
-          at: new Date(started).toISOString(), attempt: attempt + 1, method, url: url.href, request: { headers: sent, body: body === undefined ? undefined : JSON.stringify(body).slice(0, TRACE_BODY) },
-          ...(response ? { status: response.status, statusText: response.statusText, headers: Object.fromEntries([...response.headers].filter(([k]) => k !== 'set-cookie')), body: text.slice(0, TRACE_BODY), truncated: text.length > TRACE_BODY } : { error: error?.message ?? String(error) }),
+          at: new Date(started).toISOString(), attempt: attempt + 1, method, url: redactSecrets(url.href), request: { headers: sent, body: body === undefined ? undefined : redactSecrets(JSON.stringify(body).slice(0, TRACE_BODY)) },
+          ...(response ? { status: response.status, statusText: response.statusText, headers: Object.fromEntries([...response.headers].filter(([k]) => k !== 'set-cookie')), body: redactSecrets(text.slice(0, TRACE_BODY)), truncated: text.length > TRACE_BODY } : { error: redactSecrets(error?.message ?? String(error)) }),
           ms: Date.now() - started,
         });
       } catch {}
@@ -189,7 +226,7 @@ export class CxClient {
       await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 2 ** attempt * 500);
     }
 
-    throw lastError ?? new CxApiError(`${method} ${path} failed.`, { path });
+    throw lastError ?? new CxApiError(`${method} ${url.pathname} failed.`, { path: url.pathname });
   }
 
   /**
@@ -200,7 +237,7 @@ export class CxClient {
     const { createWriteStream } = await import('node:fs');
     const { pipeline } = await import('node:stream/promises');
     const { Readable } = await import('node:stream');
-    const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
+    const url = this.#target(path);
     const token = await this.#tokens.getToken();
     return this.#limit.run(async () => {
       let r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/zip, application/octet-stream, */*' }, redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) });
@@ -225,7 +262,7 @@ export class CxClient {
    * storage address): { status, location, ms }. The location is made absolute against the API's address.
    */
   async redirectOf(path, { timeoutMs = 60_000 } = {}) {
-    const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
+    const url = this.#target(path);
     const token = await this.#tokens.getToken();
     const started = Date.now();
     return this.#limit.run(async () => {

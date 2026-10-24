@@ -6,6 +6,7 @@
 
 import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../public/look.js';
 import { formatMoney } from './money.js';
+import { safeUrl } from './template.js';
 
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const num = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString('en-US', { maximumFractionDigits: 1 }));
@@ -65,6 +66,8 @@ export function debtChartSvg(series, { width = 680, height = 200 } = {}) {
  * clients drop SVG), and a link to the Impact page when `pageUrl` is given.
  */
 export function impactSummary(impact, { appName = 'CxMissionZero', periodLabel = '', email = false, pageUrl = '', generatedAt = new Date(), personal = null, look = null } = {}) {
+  // Only a web address becomes the link (never javascript: or data:).
+  pageUrl = safeUrl(pageUrl);
   C = summaryColours(look);
   const m = impact.money;
   const debt = impact.debt;
