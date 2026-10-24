@@ -14,6 +14,9 @@ export function tenantColour(id) {
   return h % TENANT_COLOURS;
 }
 
+/** A colour index as the page uses it: always one of 0–7, whatever arrives. */
+export const colourIndex = (c) => (((Math.trunc(Number(c)) || 0) % TENANT_COLOURS) + TENANT_COLOURS) % TENANT_COLOURS;
+
 /** The same colours as plain hex, for files made from the page (CSV has none; the HTML report does). */
 export const TENANT_HEX = ['#0e8a8a', '#5a5fd0', '#5f8a2e', '#b4541f', '#a23b8f', '#2f6db3', '#8a6d1a', '#c2410c'];
 

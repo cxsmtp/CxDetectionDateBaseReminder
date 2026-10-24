@@ -9,6 +9,7 @@ import { sortAndFilter } from './table-tools.js';
 import { columnMenu, shownColumns } from './column-prefs.js';
 import { PAGE_ROWS, boardColumns, boardCsv, boardReport, legendHtml, renderBoard } from './status-board.js';
 import { SCAN_TYPE, ago, csvText, esc, num, reportHtml, reportScanTag, reportTenant, rowScanClass, save, scanTag, sevChips, stamp, tenantChip } from './labs-common.js';
+import { colourIndex } from './tenant-colour.js';
 
 const HEALTH = {
   healthy: ['Healthy', ''],
@@ -54,7 +55,7 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
   function chips(key, countOf) {
     const all = tenants().reduce((n, t) => n + countOf(t), 0);
     const chip = (id, label, n, extra = '') => `<button type="button" class="fusion-chip sm${pick[key] === id ? ' primary' : ''}" data-cv-pick="${esc(key)}" data-tenant="${esc(id)}" aria-pressed="${pick[key] === id}">${extra}${label} <small translate="no">${num(n)}</small></button>`;
-    return chip('', '<span>All</span>', all) + tenants().map((t) => chip(t.id, `<span translate="no">${esc(t.name)}</span>`, countOf(t), `<i class="key tc-key tc-${t.colour}" aria-hidden="true"></i>`)).join('');
+    return chip('', '<span>All</span>', all) + tenants().map((t) => chip(t.id, `<span translate="no">${esc(t.name)}</span>`, countOf(t), `<i class="key tc-key tc-${colourIndex(t.colour)}" aria-hidden="true"></i>`)).join('');
   }
 
   function figures() {
@@ -95,7 +96,7 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
     const figuresHtml = t.loaded
       ? `<div class="fusion-big"><div><b translate="no">${num(t.projects)}</b><span>projects</span></div><div><b translate="no">${num(t.overdue)}</b><span>overdue</span></div><div><b translate="no">${num(t.total)}</b><span>open results</span></div></div>${sevChips(t.sev)}`
       : `<p class="cv-not-loaded"><strong>Not loaded — open it once.</strong> <span>Load findings on its Workbench: its projects show here from then on.</span></p>`;
-    return `<section class="cv-card tc-${t.colour}" aria-label="${esc(t.name)}">
+    return `<section class="cv-card tc-${colourIndex(t.colour)}" aria-label="${esc(t.name)}">
       <div class="cv-card-head">${tenantChip(t.id, t.name, t.colour)}${healthBadge(t.health)}</div>
       ${figuresHtml}
       <div class="gv-tenantbar" role="img" aria-label="${esc(t.credits ? `${num(t.credits.used)} of ${num(total)} credits used` : 'Credits not read yet')}"><span class="t-pool" style="width:${pct.toFixed(1)}%"></span></div>

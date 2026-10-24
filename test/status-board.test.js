@@ -152,3 +152,8 @@ test('Labs CSV exports defuse spreadsheet formulas and keep numbers as numbers',
   const { csvText } = await import('../public/labs-common.js');
   assert.equal(csvText([['=1+1', '+A1', '-2', -2, '@SUM(A1)', 'a,b', 'ok']]), `'=1+1,'+A1,'-2,-2,'@SUM(A1),"a,b",ok`);
 });
+
+test('a tenant colour reaching the page is always one of the eight', async () => {
+  const { colourIndex } = await import('../public/tenant-colour.js');
+  assert.deepEqual([0, 7, 8, -1, '3', 'x" onmouseover="alert(1)', null, 2.9].map(colourIndex), [0, 7, 0, 7, 3, 0, 0, 2]);
+});

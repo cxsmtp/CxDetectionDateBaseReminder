@@ -1,6 +1,6 @@
 // What Labs → Status board and Labs → Consolidated view share: how long ago, the severity chips, the scan tag, the
 // tenant chip, a project's bar, CSV and the standalone HTML report of what a table shows.
-import { TENANT_HEX, tenantColour } from './tenant-colour.js';
+import { TENANT_HEX, colourIndex, tenantColour } from './tenant-colour.js';
 
 export const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 export const num = (n) => (n === null || n === undefined || n === '' ? '—' : Number(n).toLocaleString());
@@ -36,7 +36,7 @@ export const scanTag = (type) => `<span class="scan-tag scan-tag-${type === 'fus
 export const rowScanClass = (type) => (type === 'fusion' || type === 'last' ? `scan-row-${type}` : '');
 
 /** A tenant's chip, in its own colour. */
-export const tenantChip = (id, name, colour = tenantColour(id)) => `<span class="tenant-chip tc-${colour}" translate="no">${esc(name || id)}</span>`;
+export const tenantChip = (id, name, colour = tenantColour(id)) => `<span class="tenant-chip tc-${colourIndex(colour)}" translate="no">${esc(name || id)}</span>`;
 
 /**
  * A project's results bar, from the left: critical, high, medium, low, each segment as wide as its share of the
@@ -144,5 +144,5 @@ export function reportBar(row, max) {
   return `<div class="bar" style="width:${w.toFixed(1)}%">${['critical', 'high', 'medium', 'low'].map((k) => (row.sev[k] ? `<i style="flex:${row.sev[k]};background:${SEVERITY_HEX[k]}"></i>` : '')).join('')}</div>`;
 }
 
-export const reportTenant = (id, name, colour = tenantColour(id)) => `<span class="tenant" style="color:${TENANT_HEX[colour] ?? TENANT_HEX[0]}">${esc(name || id)}</span>`;
+export const reportTenant = (id, name, colour = tenantColour(id)) => `<span class="tenant" style="color:${TENANT_HEX[colourIndex(colour)]}">${esc(name || id)}</span>`;
 export const reportScanTag = (type) => `<span class="tag ${type === 'fusion' || type === 'last' ? type : ''}">${SCAN_TYPE[type] ?? 'Standard'}</span>`;

@@ -5,7 +5,7 @@
  * Choosing another tenant works as before: POST /api/me/tenant, then the page starts afresh in it.
  */
 import { ago, esc, tenantChip } from './labs-common.js';
-import { tenantColour } from './tenant-colour.js';
+import { colourIndex, tenantColour } from './tenant-colour.js';
 
 export function initTenantMenu({ api, $, toast, handleAuthLoss, can, isConsolidatedPage }) {
   const wrap = $('tenant-pick');
@@ -27,7 +27,7 @@ export function initTenantMenu({ api, $, toast, handleAuthLoss, can, isConsolida
     button.classList.toggle('is-consolidated', onConsolidated);
     $('tenant-name').innerHTML = onConsolidated ? '<span>Consolidated view</span>' : esc(t.current.name);
     $('tenant-name').setAttribute('translate', onConsolidated ? 'yes' : 'no');
-    button.style.setProperty('--tc', `var(--tc-${t.tenants.find((x) => x.id === t.current.id)?.colour ?? tenantColour(t.current.id)})`);
+    button.style.setProperty('--tc', `var(--tc-${colourIndex(t.tenants.find((x) => x.id === t.current.id)?.colour ?? tenantColour(t.current.id))})`);
     items = [
       ...(consolidatedAllowed() ? [{ id: '#consolidated', selected: onConsolidated }] : []),
       ...t.tenants.map((x) => ({ id: x.id, selected: !onConsolidated && x.id === t.current.id, tenant: x })),
