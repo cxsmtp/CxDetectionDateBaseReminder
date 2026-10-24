@@ -74,13 +74,18 @@
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = controller && setTimeout(() => controller.abort(), 5000);
     try {
-      const response = await fetch(`${server()}/api/relay/report-words/${encodeURIComponent(code)}`, { signal: controller?.signal });
+      // Asked of the reminder server only, at an http(s) address, without cookies; an answer from
+      // anywhere else (a redirect to another origin) is not read.
+      const target = new URL(`${server()}/api/relay/report-words/${encodeURIComponent(code)}`);
+      if (target.protocol !== 'https:' && target.protocol !== 'http:') throw new Error(`${code}: the reminder server address is not a web address`);
+      const response = await fetch(target.href, { signal: controller?.signal, credentials: 'omit', referrerPolicy: 'no-referrer' });
+      if (response.url && new URL(response.url).origin !== target.origin) throw new Error(`${code}: answered from another address`);
       const body = await response.json();
-      if (!response.ok || !body?.strings) throw new Error(body?.error || String(response.status));
-      try {
-        localStorage.setItem(kept(code), JSON.stringify(body.strings));
-      } catch {}
+      if (!response.ok || !body?.strings || typeof body.strings !== 'object') throw new Error(body?.error || String(response.status));
       const got = safe(body.strings);
+      try {
+        localStorage.setItem(kept(code), JSON.stringify(got));
+      } catch {}
       fetched.set(code, got);
       return got;
     } finally {

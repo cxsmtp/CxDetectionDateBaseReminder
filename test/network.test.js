@@ -15,6 +15,8 @@ import { activeProxy, bypasses, checkRoute, cleanProxy, openTunnel, proxyEnviron
 // The test proxies' passwords: made afresh on every run, never written in the code.
 const fresh = (label) => `${label}-${randomBytes(12).toString('base64url')}`;
 const PROXY_PASSWORD = fresh('proxy');
+// One with characters a proxy URL must escape (@ : /), to check they reach the proxy intact.
+const ESCAPED_PASSWORD = `p@ss:${fresh('w/rd')}`;
 
 test('a proxy address is cleaned up, and anything else is refused with a reason', () => {
   assert.deepEqual(cleanProxy({ url: 'proxy.acme.local:8080', username: ' ana ', password: 'p w', noProxy: '.acme.local, 10.0.0.5;smtp.acme.local .acme.local' }), {
@@ -93,9 +95,9 @@ test('the check says where the way to Checkmarx One stops: proxy, tunnel, certif
 
 test('started with that environment, fetch and https go through the proxy, with its sign-in', async () => {
   const cx = await fakeCheckmarx();
-  const proxy = await testProxy({ user: 'svc', pass: 'p@ss' });
+  const proxy = await testProxy({ user: 'svc', pass: ESCAPED_PASSWORD });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'net-'));
-  saveNetwork(dir, { proxy: cleanProxy({ url: `127.0.0.1:${proxy.port}`, username: 'svc', password: 'p@ss' }) });
+  saveNetwork(dir, { proxy: cleanProxy({ url: `127.0.0.1:${proxy.port}`, username: 'svc', password: ESCAPED_PASSWORD }) });
   // Only the environment the launcher builds (the test machine's own proxy variables left out).
   const base = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/_proxy$/i.test(k)));
   // The child trusts the stand-in's own certificate (and checks it, name included), nothing more.

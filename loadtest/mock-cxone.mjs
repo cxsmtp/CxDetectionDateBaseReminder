@@ -90,7 +90,7 @@ const allRisksFor = (pid) => Array.from({ length: BRANCHES && Number(String(pid)
   // Risk Hub's status: new and recurrent by turns.
   return { id, riskName: named ? named[0] : SHARED ? `Finding ${twin}` : `Finding ${id}`, ...(named ? { cweId: named[1] } : {}), severity: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'][i % 4], engine: MIXED_ENGINES ? MOCK_ENGINES[k % MOCK_ENGINES.length] : 'SAST', state, stateChangedBy: t && Date.now() - t > FLIP_MS ? 'ai' : 'unchanged', status: i % 2 ? 'RECURRENT' : 'NEW', firstDetectionDate: day(40), groupId: `sim-${twin}`, fileName: `src/routes/file${i % 4}.js`, subAssetName: `handler${i}`, ...(BRANCHES ? { scanId: hasFeature(Number(pid.slice(1))) && i % 5 === 4 ? `feat-${pid}` : `scan-${pid}` } : {}) };
 });
-// Access tokens are only the ones this mock handed out; request bodies are small.
+// Access tokens are only the ones this mock handed out (checked on every API, storage and upload request); request bodies are small.
 // FAE Flush: "<name>_FAE" projects made here, their upload scans (FAE on), and states set by predicates.
 const FAE_SCAN_MS = Number(process.env.FAE_SCAN_MS || RESCAN_MS);
 const FAE_LINK_REFUSED = process.env.FAE_LINK_REFUSED === '1'; // POST /api/scans refuses Checkmarx One's signed storage address
@@ -141,7 +141,7 @@ http.createServer((req, res) => {
       // its gateway, which wants the access token as well as the signature (as on a real tenant), a Range answered.
       if (u.pathname.startsWith('/storage/repostore.mock/')) {
         bump('storage-get');
-        if (!/^Bearer \S/.test(req.headers.authorization ?? '')) { res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Unauthorized\n'); }
+        if (!issued.has(String(req.headers.authorization || '').replace(/^Bearer /, ''))) { res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Unauthorized\n'); }
         if (!u.searchParams.get('X-Amz-Signature')) return send(403, { message: 'AccessDenied' });
         const zip = Buffer.from('PK\x05\x06' + '\0'.repeat(18), 'binary');
         if (req.headers.range) { res.writeHead(206, { 'Content-Type': 'application/octet-stream', 'Content-Range': `bytes 0-0/${zip.length}` }); return res.end(zip.subarray(0, 1)); }
@@ -152,7 +152,7 @@ http.createServer((req, res) => {
       // token (as on a real tenant).
       if (req.method === 'PUT' && u.pathname.startsWith('/__upload/')) {
         bump('upload-put');
-        if (!/^Bearer \S/.test(req.headers.authorization ?? '')) { res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Unauthorized\n'); }
+        if (!issued.has(String(req.headers.authorization || '').replace(/^Bearer /, ''))) { res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Unauthorized\n'); }
         return uploads.has(u.pathname) ? (uploads.delete(u.pathname), send(200, {})) : send(404, {});
       }
       if (u.pathname.endsWith('/openid-connect/token')) {

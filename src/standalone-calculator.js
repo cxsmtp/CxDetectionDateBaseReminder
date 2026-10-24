@@ -92,17 +92,20 @@ const scriptText = (s) => s.replace(/\r\n?/g, '\n').replace(/<\/(script)/gi, '<\
 
 const cache = new Map();
 
-/** The CSP source that lets exactly this inline script run ('sha256-…' of its text). */
-const scriptHash = (text) => `'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`;
+/** The CSP source that lets exactly this inline script or style element apply ('sha256-…' of its text). */
+const contentHash = (text) => `'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`;
 
 /**
  * The page's content security policy. Scripts: only the inline ones this file was built with (by hash,
- * so no injected script, event handler or javascript: link runs). Styles stay inline (the page and its
- * modules set style attributes); nothing is loaded from anywhere, and only the launcher's page may call
- * back to the launcher that served it.
+ * so no injected script, event handler or javascript: link runs). Stylesheets: only the file's own
+ * <style> (by hash; no injected <style> or stylesheet applies). Style attributes stay allowed: the
+ * calculator's charts and bars colour and size themselves with style="…" from their data
+ * (public/calculator/charts.js, page.js) and the licence notice is styled inline (src/licence-gate.js);
+ * a browser without style-src-elem/-attr reads style-src. Nothing is loaded from anywhere, and only the
+ * launcher's page may call back to the launcher that served it.
  */
-export const standaloneCsp = (scripts, { launcher = false } = {}) =>
-  `default-src 'none'; script-src ${scripts.map(scriptHash).join(' ')}; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src ${launcher ? "'self'" : "'none'"}; worker-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
+export const standaloneCsp = (scripts, { launcher = false, styles = [] } = {}) =>
+  `default-src 'none'; script-src ${scripts.map(contentHash).join(' ')}; script-src-attr 'none'; style-src 'unsafe-inline'; style-src-elem ${styles.length ? styles.map(contentHash).join(' ') : "'none'"}; style-src-attr 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src ${launcher ? "'self'" : "'none'"}; worker-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
 
 /**
  * The standalone calculator's HTML, built once per server start (the files do not change while it runs).
@@ -122,8 +125,8 @@ export function buildStandaloneCalculator({ version = '', root = PUBLIC, launche
   const vendorScripts = ['calculator/vendor/xlsx-lite.js', 'calculator/vendor/parse.js'].map((file) => `\n${scriptText(read(file))}\n`);
   const vendor = vendorScripts.map((text) => `<script>${text}</script>`).join('\n');
   const main = `\n${scriptText(`const __m = [];\n${bundle}\n// The product licence (src/licence-gate.js) may hold it back until an activation code is entered.\nlet __started = false;\nwindow.__mzStart = () => {\n  if (__started) return;\n  __started = true;\n  __m[${index.get('calculator/standalone.js')}].startStandalone({ samples: ${JSON.stringify(samples)} });\n};\nif (!window.__mzBlocked) window.__mzStart();`)}\n`;
-  const csp = standaloneCsp([gate, ...(launcher ? [launcherConfig] : []), ...vendorScripts, main], { launcher });
-  const css = `${inlined(read('styles.css'), root)}\n${inlined(read('nextgen.css'), root)}\n${STANDALONE_CSS}`;
+  const css = `\n${`${inlined(read('styles.css'), root)}\n${inlined(read('nextgen.css'), root)}\n${STANDALONE_CSS}`.replace(/\r\n?/g, '\n')}\n`;
+  const csp = standaloneCsp([gate, ...(launcher ? [launcherConfig] : []), ...vendorScripts, main], { launcher, styles: [css] });
   const label = version ? `MZ-${version.split('.').map((n) => n.padStart(2, '0')).join('.')}` : '';
   const html = `<!doctype html>
 <html lang="en" data-ui="nextgen">
@@ -134,9 +137,7 @@ export function buildStandaloneCalculator({ version = '', root = PUBLIC, launche
 <meta http-equiv="Content-Security-Policy" content="${csp}" />
 <meta name="generator" content="CxMissionZero ${escapeText(label)}" />
 <title>Cx Credits Calculator</title>
-<style>
-${css}
-</style>
+<style>${css}</style>
 </head>
 <body>
 <div class="shell standalone">

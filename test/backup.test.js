@@ -192,3 +192,12 @@ test('a backup file is written under an unguessable name, never through a file o
   assert.ok(readBackup(fs.readFileSync(file)).files['settings.json']);
   assert.deepEqual(fs.readdirSync(folder).filter((f) => f.endsWith('.tmp')), []);
 });
+
+test('a damaged file is named in the refusal exactly as the backup lists it', async () => {
+  const source = tmpDir();
+  await seed(source);
+  const plain = JSON.parse(zlib.gunzipSync(createBackup({ dataDir: source }).buffer));
+  const month = Object.keys(plain.files).find((n) => n.startsWith('audit/'));
+  plain.files[month].size += 1;
+  assert.throws(() => readBackup(zlib.gzipSync(JSON.stringify(plain))), { message: `Backup file ${month} is damaged (checksum mismatch).` });
+});

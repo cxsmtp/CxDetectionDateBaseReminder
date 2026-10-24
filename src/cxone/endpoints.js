@@ -153,14 +153,14 @@ export function checkServiceUrl(value, label = 'address') {
  * tokens, JWTs (access tokens and API keys alike), signed-address signatures and other
  * secret query parameters, and passwords in URLs.
  */
-const SECRET_PARAMS = /([?&;](?:x-amz-signature|x-amz-credential|x-amz-security-token|sig|signature|token|access_token|refresh_token|id_token|api_?key|apikey|client_secret|password|code)=)[^&\s"'<>]+/gi;
-export function redactSecrets(text) {
+const MASKED_PARAMS = /([?&;](?:x-amz-signature|x-amz-credential|x-amz-security-token|sig|signature|token|access_token|refresh_token|id_token|api_?key|apikey|client_secret|password|code)=)[^&\s"'<>]+/gi;
+export function scrubText(text) {
   if (text === undefined || text === null) return text;
   return String(text)
     .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, '$1 [hidden]')
     .replace(/\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g, '[hidden token]')
     .replace(/("(?:access_token|refresh_token|id_token|apiKey|api_key|client_secret|password)"\s*:\s*")[^"]*"/gi, '$1[hidden]"')
-    .replace(SECRET_PARAMS, '$1[hidden]')
+    .replace(MASKED_PARAMS, '$1[hidden]')
     .replace(/(\b[a-z][a-z0-9+.-]*:\/\/)[^/\s@:]+:[^/\s@]+@/gi, '$1[hidden]@');
 }
 

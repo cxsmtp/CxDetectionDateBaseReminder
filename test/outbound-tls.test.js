@@ -11,7 +11,12 @@ import { generateKeyPairSync } from 'node:crypto';
 
 import { buildTransport, redactSecrets, testConnection, verifiesCertificate } from '../src/mailer.js';
 import { MAX_BACKUP_BYTES, downloadCapped, imapOptions } from '../src/mail-inbox.js';
-import { checkRoute } from '../src/network.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+import { checkRoute, readNetwork, saveNetwork } from '../src/network.js';
+import { fetchIssuer } from '../src/trust.js';
 import { makeCertificate } from '../src/tls.js';
 import { testProxy } from './fake-proxy.js';
 
@@ -149,4 +154,42 @@ test('the network check verifies the name asked for, not the proxy\'s, before it
     server.close();
     proxy.close();
   }
+});
+
+test('mail errors name neither the mail server nor the account (they reach logs and audit entries)', async () => {
+  const closed = await new Promise((resolve) => {
+    const probe = net.createServer().listen(0, '127.0.0.1', () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+  });
+  const settings = { host: '127.0.0.1', port: closed, secure: false, requireAuth: true, user: 'mailer@acme.io', password: PASSWORD };
+  const refused = await testConnection(settings).then(() => null, (e) => e);
+  assert.match(refused.message, new RegExp(`Nothing is listening on port ${closed} of the mail server`));
+  assert.ok(!refused.message.includes('127.0.0.1'));
+  const smtp = await echoingSmtp();
+  try {
+    const rejected = await testConnection({ ...settings, port: smtp.port }).then(() => null, (e) => e);
+    assert.ok(!rejected.message.includes('mailer@acme.io'), rejected.message);
+  } finally {
+    smtp.close();
+  }
+});
+
+test('a refused issuer link does not repeat the address it resolved to', async () => {
+  const error = await fetchIssuer('http://localhost:9/issuing.crt').then(() => null, (e) => e);
+  assert.match(error.message, /is not followed \(a local, link-local or metadata address\)/);
+  assert.ok(!/127\.0\.0\.1|::1/.test(error.message));
+});
+
+test('the proxy settings are written through a fresh private file, never one already there', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'net-save-'));
+  const value = { proxy: { url: 'http://proxy.acme.local:8080', username: 'svc', password: PASSWORD, noProxy: '' } };
+  saveNetwork(dir, value);
+  saveNetwork(dir, value);
+  assert.deepEqual(readNetwork(dir), value);
+  assert.deepEqual(fs.readdirSync(dir), ['network.json'], 'no temporary file left behind');
+  if (process.platform !== 'win32') assert.equal(fs.statSync(path.join(dir, 'network.json')).mode & 0o777, 0o600);
+  saveNetwork(dir, null);
+  assert.deepEqual(fs.readdirSync(dir), []);
 });

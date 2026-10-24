@@ -1,20 +1,20 @@
 import { Semaphore } from '../ttl-cache.js';
 import { TokenProvider } from './auth.js';
-import { redactSecrets } from './endpoints.js';
+import { scrubText } from './endpoints.js';
 
-export { redactSecrets };
+export { scrubText };
 
 /** Calls to Checkmarx One in flight at once, per connection; the rest queue. */
 const MAX_CONCURRENT = Math.max(1, Number(process.env.CX_MAX_CONCURRENCY) || 24);
 
 export class CxApiError extends Error {
-  /** Message, path and the answer's body pass through redactSecrets(): no token, key or signature ever reaches a log or the browser. */
+  /** Message, path and the answer's body pass through scrubText(): no token, key or signature ever reaches a log or the browser. */
   constructor(message, { status = 0, path = '', body = '' } = {}) {
-    super(redactSecrets(message));
+    super(scrubText(message));
     this.name = 'CxApiError';
     this.status = Number(status) || 0;
-    this.path = redactSecrets(path);
-    this.body = redactSecrets(body);
+    this.path = scrubText(path);
+    this.body = scrubText(body);
   }
 }
 
@@ -104,6 +104,22 @@ export class CxClient {
   #originsKey = null;
   #origins = new Set();
 
+  /** Whether `url` is on this connection's own Checkmarx One hosts (API, IAM, token URL): the only places the access token goes. */
+  #isOwn(url) {
+    const { baseUrl, iamUrl, tokenUrl } = this.#connection;
+    const key = `${baseUrl}|${iamUrl ?? ''}|${tokenUrl ?? ''}`;
+    if (key !== this.#originsKey) {
+      this.#origins = new Set();
+      for (const address of [baseUrl, iamUrl, tokenUrl]) {
+        try {
+          if (address) this.#origins.add(new URL(address).origin);
+        } catch {}
+      }
+      this.#originsKey = key;
+    }
+    return this.#origins.has(url.origin) && !url.username && !url.password;
+  }
+
   /**
    * The address of an API path, which carries the access token: only ever on this connection's own Checkmarx One
    * hosts (its API, or its IAM for the user directory). An absolute address elsewhere, or a path that would move
@@ -117,18 +133,7 @@ export class CxClient {
     } catch {
       throw new CxApiError('That is not a Checkmarx One API address.', { status: 400 });
     }
-    const { baseUrl, iamUrl, tokenUrl } = this.#connection;
-    const key = `${baseUrl}|${iamUrl ?? ''}|${tokenUrl ?? ''}`;
-    if (key !== this.#originsKey) {
-      this.#origins = new Set();
-      for (const address of [baseUrl, iamUrl, tokenUrl]) {
-        try {
-          if (address) this.#origins.add(new URL(address).origin);
-        } catch {}
-      }
-      this.#originsKey = key;
-    }
-    if (!this.#origins.has(url.origin) || url.username || url.password) {
+    if (!this.#isOwn(url)) {
       throw new CxApiError(`Refused to send the access token to ${url.host}, which is not this connection's Checkmarx One host.`, { status: 400, path: url.pathname });
     }
     return url;
@@ -161,8 +166,8 @@ export class CxClient {
       if (!trace) return;
       try {
         trace({
-          at: new Date(started).toISOString(), attempt: attempt + 1, method, url: redactSecrets(url.href), request: { headers: sent, body: body === undefined ? undefined : redactSecrets(JSON.stringify(body).slice(0, TRACE_BODY)) },
-          ...(response ? { status: response.status, statusText: response.statusText, headers: Object.fromEntries([...response.headers].filter(([k]) => k !== 'set-cookie')), body: redactSecrets(text.slice(0, TRACE_BODY)), truncated: text.length > TRACE_BODY } : { error: redactSecrets(error?.message ?? String(error)) }),
+          at: new Date(started).toISOString(), attempt: attempt + 1, method, url: scrubText(url.href), request: { headers: sent, body: body === undefined ? undefined : scrubText(JSON.stringify(body).slice(0, TRACE_BODY)) },
+          ...(response ? { status: response.status, statusText: response.statusText, headers: Object.fromEntries([...response.headers].filter(([k]) => k !== 'set-cookie')), body: scrubText(text.slice(0, TRACE_BODY)), truncated: text.length > TRACE_BODY } : { error: scrubText(error?.message ?? String(error)) }),
           ms: Date.now() - started,
         });
       } catch {}
@@ -293,18 +298,19 @@ export class CxClient {
   /**
    * GET a storage address as a browser follows a redirect to it: with the access token on Checkmarx One's own host
    * (some tenants' gateway refuses it without), without it elsewhere (plain signed storage refuses a second
-   * credential). Refused (401, 403 or 400), it is tried once the other way.
-   * { response, auth: 'token' | 'none', tried: '401 with the access token, 403 without' }.
+   * credential). Refused (401, 403 or 400) on Checkmarx One's own host, it is tried once without the token; the token
+   * is never sent to any other host.
+   * { response, auth: 'token' | 'none', tried: '401 with the access token, 403 without it' }.
    */
   async #storage(target, token, headers, timeoutMs) {
-    const own = target.host === new URL(this.baseUrl).host;
-    const get = (withToken) => fetch(target, { headers: { ...headers, ...(withToken ? { Authorization: `Bearer ${token}` } : {}) }, signal: AbortSignal.timeout(timeoutMs) });
+    const own = this.#isOwn(target);
+    const get = (withToken) => fetch(target, { headers: { ...headers, ...(withToken && own ? { Authorization: `Bearer ${token}` } : {}) }, signal: AbortSignal.timeout(timeoutMs) });
     const how = (withToken) => (withToken ? 'with the access token' : 'without it');
     const first = await get(own);
-    if (![400, 401, 403].includes(first.status)) return { response: first, auth: own ? 'token' : 'none', tried: `${first.status} ${how(own)}` };
+    if (!own || ![400, 401, 403].includes(first.status)) return { response: first, auth: own ? 'token' : 'none', tried: `${first.status} ${how(own)}` };
     await first.body?.cancel().catch(() => {});
-    const second = await get(!own);
-    return { response: second, auth: own ? 'none' : 'token', tried: `${first.status} ${how(own)}, ${second.status} ${how(!own)}` };
+    const second = await get(false);
+    return { response: second, auth: 'none', tried: `${first.status} ${how(true)}, ${second.status} ${how(false)}` };
   }
 
   /**
@@ -317,18 +323,19 @@ export class CxClient {
     const size = statSync(file).size;
     const token = await this.#tokens.getToken();
     // As the stored copy is read: with the access token on Checkmarx One's own host (its gateway refuses the upload
-    // without it), without it elsewhere (plain signed storage); refused, once the other way.
-    const own = target.host === new URL(this.baseUrl).host;
+    // without it), without it elsewhere (plain signed storage); refused on the own host, once without it. The token
+    // is never sent to any other host.
+    const own = this.#isOwn(target);
     const how = (withToken) => (withToken ? 'with the access token' : 'without it');
     const put = (withToken) =>
-      fetch(target, { method: 'PUT', headers: { 'Content-Type': 'application/zip', 'Content-Length': String(size), ...(withToken ? { Authorization: `Bearer ${token}` } : {}) }, body: createReadStream(file), duplex: 'half', signal: AbortSignal.timeout(timeoutMs) });
+      fetch(target, { method: 'PUT', headers: { 'Content-Type': 'application/zip', 'Content-Length': String(size), ...(withToken && own ? { Authorization: `Bearer ${token}` } : {}) }, body: createReadStream(file), duplex: 'half', signal: AbortSignal.timeout(timeoutMs) });
     return this.#limit.run(async () => {
       let r = await put(own);
       let tried = `${r.status} ${how(own)}`;
-      if ([400, 401, 403].includes(r.status)) {
+      if (own && [400, 401, 403].includes(r.status)) {
         await r.body?.cancel().catch(() => {});
-        r = await put(!own);
-        tried += `, ${r.status} ${how(!own)}`;
+        r = await put(false);
+        tried += `, ${r.status} ${how(false)}`;
       }
       if (!r.ok) throw new CxApiError(`PUT upload failed: ${tried}`, { status: r.status, path: target.pathname, body: (await r.text().catch(() => '')).slice(0, 500) });
       return size;

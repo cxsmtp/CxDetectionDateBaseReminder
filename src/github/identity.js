@@ -421,7 +421,7 @@ export function setCloneHostCheck(check) {
 }
 
 async function cloneOnce(url, { cacheDir, authHeader = '', blobs = false } = {}) {
-  if (!/^https:\/\/[\w.-]+(:\d+)?\/[\w.\-/]+$/.test(url)) throw new Error(`Not an https repository address: ${url}`);
+  if (!/^https:\/\/[\w.-]+(:\d+)?\/[\w.\-/]+$/.test(url)) throw new Error(`Not an https repository address: ${String(url).replace(/\/\/[^/@]*@/, '//')}`); // never a login it may carry
   // Never a request to an arbitrary host (an internal service, say) because a project named it.
   const host = new URL(url).hostname.toLowerCase();
   // Not even a connected or allowed host may be a link-local or cloud metadata address.

@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 import { safeMarkup } from '../public/i18n.js';
+import { proxyWithLogin } from './test-credentials.js';
 import { nextSpeedster, shuffled, SPEEDSTERS } from '../public/speedsters.js';
 
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
@@ -34,7 +35,8 @@ test('the git command takes the fix link only when nothing in it means anything 
     'https://mz.example/api/relay/patch/a^&calc',
     'https://mz.example/x" & calc & "',
     'https://mz.example/x;calc',
-    'https://user:pw@mz.example/x',
+    // An address with a user name and password in it (built here, so no credential is written in the code).
+    `${proxyWithLogin('https://mz.example', 'user')}/x`,
     'https://mz.example/x#frag',
     'javascript:alert(1)',
     'file:///etc/passwd',
@@ -46,7 +48,7 @@ test('the git command takes the fix link only when nothing in it means anything 
 test("the report's server, as corrected in this browser, is an http(s) address or nothing", () => {
   const { webAddress } = reportClient;
   assert.equal(webAddress('https://mz.example/base/'), 'https://mz.example/base');
-  for (const bad of ['javascript:alert(1)', 'data:text/html,x', 'https://u:p@mz.example', 'mz.example', '', null]) assert.equal(webAddress(bad), '', String(bad));
+  for (const bad of ['javascript:alert(1)', 'data:text/html,x', proxyWithLogin('https://mz.example'), 'mz.example', '', null]) assert.equal(webAddress(bad), '', String(bad));
 });
 
 // ---------------------------------------------------------------------------
@@ -54,7 +56,7 @@ test("the report's server, as corrected in this browser, is an http(s) address o
 // ---------------------------------------------------------------------------
 
 /** Run the report's language start-up with this island, storage and server; returns its word loader and the addresses it fetched. */
-async function bootWords({ island, stored = {}, serverWords = {} }) {
+async function bootWords({ island, stored = {}, serverWords = {}, answeredFrom = null }) {
   let loader = null;
   const fetched = [];
   const storage = new Map(Object.entries(stored));
@@ -76,7 +78,7 @@ async function bootWords({ island, stored = {}, serverWords = {} }) {
     localStorage: { getItem: (k) => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, String(v)) },
     fetch: async (url) => {
       fetched.push(url);
-      return { ok: true, status: 200, json: async () => ({ strings: serverWords }) };
+      return { ok: true, status: 200, url: answeredFrom ?? url, json: async () => ({ strings: serverWords }) };
     },
     window: {},
     URL,
@@ -87,7 +89,7 @@ async function bootWords({ island, stored = {}, serverWords = {} }) {
   });
   vm.runInContext(read('src/report/i18n-boot.client.js'), context);
   await new Promise((resolve) => setImmediate(resolve));
-  return { loader, fetched };
+  return { loader, fetched, storage };
 }
 
 const ISLAND = { default: '', version: '1', fetch: true, languages: [['en', 'English'], ['ja', '日本語'], ['de', 'Deutsch']], strings: { ja: JSON.parse('{"Triage":"トリアージ","__proto__":{"polluted":true},"constructor":"x"}') } };
@@ -114,6 +116,9 @@ test('words from the server or storage keep exactly the markup of their English,
   const moved = await bootWords({ island: ISLAND, serverWords, stored: { 'cxReportServer:https://mz.example': 'https://mz2.example/' } });
   await moved.loader('de');
   assert.deepEqual(moved.fetched, ['https://mz2.example/api/relay/report-words/de'], "the reader's correction is used when it is a web address");
+  const redirected = await bootWords({ island: ISLAND, serverWords, answeredFrom: 'https://elsewhere.example/words.json' });
+  await assert.rejects(redirected.loader('de'), /answered from another address/, 'an answer from another origin is not read');
+  assert.deepEqual(Object.keys(JSON.parse(corrected.storage.get('mz-report-words:1:de'))).sort(), ['<b>Bold</b> text', 'Triage'], 'only the checked words are kept in this browser');
 });
 
 // ---------------------------------------------------------------------------

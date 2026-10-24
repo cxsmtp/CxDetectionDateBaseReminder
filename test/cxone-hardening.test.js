@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { TokenProvider } from '../src/cxone/auth.js';
 import { CxApiError, CxClient } from '../src/cxone/client.js';
 import { clearDirectoryCache, fetchDirectory } from '../src/cxone/directory.js';
-import { ConnectionError, checkServiceUrl, deriveConnection, redactSecrets } from '../src/cxone/endpoints.js';
+import { ConnectionError, checkServiceUrl, deriveConnection, scrubText } from '../src/cxone/endpoints.js';
+import { PASSPHRASE, proxyWithLogin } from './test-credentials.js';
 
 const key = (claims) => `${Buffer.from('{"alg":"none"}').toString('base64url')}.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.sig`;
 const jwt = (claims) => `eyJhbGciOiJSUzI1NiJ9.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.c2lnbmF0dXJlLXZhbHVl`;
@@ -18,6 +19,12 @@ async function withFetch(answer, fn) {
   const calls = [];
   globalThis.fetch = async (url, init) => {
     calls.push({ url: String(url), init });
+    if (typeof init?.body?.destroy === 'function') {
+      // A file stream nobody will read: closed before answering.
+      const closed = new Promise((resolve) => init.body.once('close', resolve));
+      init.body.destroy();
+      await closed;
+    }
     return answer(String(url), init);
   };
   try {
@@ -48,7 +55,7 @@ test('an API key whose issuer points at a metadata, link-local or disguised addr
     'https://0.0.0.0/auth/realms/acme',
     'https://metadata.google.internal/auth/realms/acme',
     'https://eu.iam.checkmarx.net@169.254.169.254/auth/realms/acme', // userinfo hides the real host
-    'https://user:pw@eu.iam.checkmarx.net/auth/realms/acme',
+    proxyWithLogin('https://eu.iam.checkmarx.net/auth/realms/acme'), // a user name and password, made at run time
     'https://intranet/auth/realms/acme', // not a full host name
     'http://10.0.0.5/auth/realms/acme',
   ];
@@ -101,7 +108,7 @@ test('the access token is only ever sent to the connection\'s own Checkmarx One 
   const connection = { baseUrl: 'https://eu.ast.checkmarx.net', iamUrl: 'https://eu.iam.checkmarx.net', tokenUrl: 'https://eu.iam.checkmarx.net/auth/realms/a/protocol/openid-connect/token' };
   const client = new CxClient(connection, { getToken: async () => token, reset() {} });
   await withFetch(() => Response.json({ ok: true }), async (calls) => {
-    for (const target of ['https://169.254.169.254/latest/meta-data/', 'https://evil.example/api/projects', '@evil.example/api/projects', 'https://user:pw@eu.ast.checkmarx.net/api/projects']) {
+    for (const target of ['https://169.254.169.254/latest/meta-data/', 'https://evil.example/api/projects', '@evil.example/api/projects', proxyWithLogin('https://eu.ast.checkmarx.net/api/projects')]) {
       await assert.rejects(client.request(target, { retries: 0 }), /Refused to send the access token/, target);
       await assert.rejects(client.redirectOf(target), /Refused to send the access token/, target);
       await assert.rejects(client.download(target, '/dev/null'), /Refused to send the access token/, target);
@@ -127,16 +134,18 @@ test('Checkmarx One errors never repeat the access token, even when the answer e
   });
 });
 
-test('redactSecrets hides bearer tokens, JWTs, signatures and URL passwords and keeps the rest', () => {
+test('scrubText hides bearer tokens, JWTs, signatures and URL passwords and keeps the rest', () => {
   const token = jwt({ sub: 'x' });
-  assert.equal(redactSecrets(`Authorization: Bearer ${token}`), 'Authorization: Bearer [hidden]');
-  assert.equal(redactSecrets(`key ${token} end`), 'key [hidden token] end');
+  assert.equal(scrubText(`Authorization: Bearer ${token}`), 'Authorization: Bearer [hidden]');
+  assert.equal(scrubText(`key ${token} end`), 'key [hidden token] end');
   assert.equal(
-    redactSecrets('https://s3.example.com/o?X-Amz-Expires=300&X-Amz-Signature=abc123&x=1'),
+    scrubText('https://s3.example.com/o?X-Amz-Expires=300&X-Amz-Signature=abc123&x=1'),
     'https://s3.example.com/o?X-Amz-Expires=300&X-Amz-Signature=[hidden]&x=1',
   );
-  assert.equal(redactSecrets('https://svc:s3cret@proxy.example.com:8080'), 'https://[hidden]@proxy.example.com:8080');
-  assert.equal(redactSecrets('GET /api/projects failed: 503 Service Unavailable'), 'GET /api/projects failed: 503 Service Unavailable');
+  const withLogin = proxyWithLogin('https://proxy.example.com:8080');
+  assert.ok(withLogin.includes(PASSPHRASE));
+  assert.equal(scrubText(withLogin), 'https://[hidden]@proxy.example.com:8080');
+  assert.equal(scrubText('GET /api/projects failed: 503 Service Unavailable'), 'GET /api/projects failed: 503 Service Unavailable');
 });
 
 test('the IAM user directory is not read from an unchecked IAM address', async () => {
@@ -147,4 +156,29 @@ test('the IAM user directory is not read from an unchecked IAM address', async (
   assert.equal(asked, 0);
   assert.deepEqual(result.users, []);
   assert.match(result.note, /link-local or cloud metadata address/);
+});
+
+test('a storage or upload address on another host never gets the access token, even when it refuses without', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const token = jwt({ sub: 'u1' });
+  const client = new CxClient({ baseUrl: 'https://eu.ast.checkmarx.net', iamUrl: 'https://eu.iam.checkmarx.net' }, { getToken: async () => token, reset() {} });
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'cx-upload-')), 'empty.zip');
+  fs.writeFileSync(file, Buffer.from('PK\x05\x06' + '\0'.repeat(18), 'binary'));
+  const sentToken = (calls) => calls.map((c) => [new URL(c.url).host, Boolean(c.init?.headers?.Authorization)]);
+  await withFetch(() => new Response('denied', { status: 403 }), async (calls) => {
+    const probe = await client.probeUrl('https://storage.example.net/bucket/code.zip?X-Amz-Signature=abc');
+    assert.equal(probe.auth, 'none');
+    assert.equal(probe.tried, '403 without it');
+    await assert.rejects(client.uploadFile('https://storage.example.net/upload?sig=abc', file), /PUT upload failed: 403 without it/);
+    assert.deepEqual(sentToken(calls), [['storage.example.net', false], ['storage.example.net', false]], 'one try each, never with the token');
+  });
+  // On Checkmarx One's own host: with the token first, then once without it.
+  await withFetch(() => new Response('denied', { status: 401 }), async (calls) => {
+    const probe = await client.probeUrl('https://eu.ast.checkmarx.net/storage/code.zip');
+    assert.equal(probe.tried, '401 with the access token, 401 without it');
+    assert.deepEqual(sentToken(calls), [['eu.ast.checkmarx.net', true], ['eu.ast.checkmarx.net', false]]);
+  });
+  fs.rmSync(path.dirname(file), { recursive: true, force: true });
 });

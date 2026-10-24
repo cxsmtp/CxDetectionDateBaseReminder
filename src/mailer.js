@@ -153,11 +153,13 @@ const friendly = (error, smtp = {}) => {
         'Password belongs to.'
       );
     }
-    return `The server rejected those credentials for ${smtp.user || '(no username)'}.`;
+    // Neither the user name nor the host is repeated here: this text reaches logs and audit entries;
+    // the troubleshooting card (explainSmtp) shows the settings to the Admin who is looking at them.
+    return 'The server rejected that username and password.';
   }
 
   if (code === 'ECONNREFUSED' || networkCode(error) === 'ECONNREFUSED') {
-    return `Nothing is listening on ${smtp.host}:${smtp.port}.`;
+    return `Nothing is listening on port ${Number(smtp.port) || ''} of the mail server.`;
   }
 
   if (code === 'ETIMEDOUT' || code === 'ESOCKET' || /timed? ?out/i.test(error.message)) {
@@ -168,7 +170,7 @@ const friendly = (error, smtp = {}) => {
   }
 
   if (code === 'EDNS' || /getaddrinfo|ENOTFOUND/i.test(error.message)) {
-    return `That hostname did not resolve: ${smtp.host}`;
+    return 'The mail server name did not resolve: check the spelling and the DNS.';
   }
 
   if (/wrong version number|packet length too long|SSL routines/i.test(error.message)) {

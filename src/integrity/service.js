@@ -25,7 +25,8 @@ const TRUSTED_ROOT = JSON.parse(fs.readFileSync(new URL('./trusted-root.json', i
 // Tests only (never in the image, which runs with NODE_ENV=production): another attestations API and trust root.
 const TESTING = process.env.NODE_ENV !== 'production';
 const API = (TESTING && process.env.MZ_INTEGRITY_API) || 'https://api.github.com';
-const testRoot = () => (TESTING && process.env.MZ_INTEGRITY_TRUST_ROOT ? JSON.parse(fs.readFileSync(process.env.MZ_INTEGRITY_TRUST_ROOT, 'utf8')) : null);
+// MZ_INTEGRITY_TRUST_ROOT holds the test trust root itself (JSON), never a file name: nothing is read from a path it names.
+const testRoot = () => (TESTING && process.env.MZ_INTEGRITY_TRUST_ROOT ? JSON.parse(process.env.MZ_INTEGRITY_TRUST_ROOT) : null);
 const FIRST = 20;
 
 const trim = (r) => ({ ok: r.ok, checked: r.checked, changed: r.changed.slice(0, FIRST), missing: r.missing.slice(0, FIRST), extra: r.extra.slice(0, FIRST), counts: { changed: r.changed.length, missing: r.missing.length, extra: r.extra.length } });

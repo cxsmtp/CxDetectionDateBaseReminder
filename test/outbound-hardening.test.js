@@ -16,7 +16,7 @@ import { ImageRegistry, isImageRef } from '../src/updates/registry.js';
 import { UpdateService } from '../src/updates/service.js';
 import { IntegrityService } from '../src/integrity/service.js';
 import { startLauncher } from '../src/calculator-launcher.js';
-import { mockApiKey } from './test-credentials.js';
+import { PASSPHRASE, mockApiKey, proxyWithLogin } from './test-credentials.js';
 
 const listen = (handler) => new Promise((resolve) => {
   const server = http.createServer(handler);
@@ -35,8 +35,10 @@ test('outbound addresses: https (http only to this machine), never link-local or
   assert.equal(outboundUrlProblem('http://127.0.0.1:8080/api'), '');
   assert.match(outboundUrlProblem('http://127.0.0.1:8080/api', { allowLoopbackHttp: false }), /https/);
   assert.match(outboundUrlProblem('http://example.com/'), /https/);
-  assert.match(outboundUrlProblem('https://user:pass@example.com/'), /user name or password/);
-  assert.throws(() => checkOutboundUrl('https://user:pa55@example.com/', { label: 'GitHub API URL' }), (e) => e.status === 400 && !e.message.includes('pa55'));
+  // Built at run time, so no address with a login is written in the code.
+  const withLogin = proxyWithLogin('https://example.com/');
+  assert.match(outboundUrlProblem(withLogin), /user name or password/);
+  assert.throws(() => checkOutboundUrl(withLogin, { label: 'GitHub API URL' }), (e) => e.status === 400 && !e.message.includes(PASSPHRASE));
   assert.equal(checkOutboundUrl(' https://api.github.com '), 'https://api.github.com');
 });
 

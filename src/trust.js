@@ -151,7 +151,7 @@ const safeLookup = (allowLoopback) => (hostname, options, callback) => {
   dns.lookup(hostname, { ...options, all: true }, (error, addresses) => {
     if (error) return callback(error);
     const bad = addresses.find((a) => !followableAddress(a.address, { allowLoopback }));
-    if (bad || !addresses.length) return callback(refused(hostname, bad ? `it is ${bad.address}` : 'no address'));
+    if (bad || !addresses.length) return callback(refused(hostname, bad ? 'a local, link-local or metadata address' : 'no address'));
     if (options?.all) return callback(null, addresses);
     return callback(null, addresses[0].address, addresses[0].family);
   });
@@ -174,7 +174,7 @@ export async function fetchIssuer(url, { timeoutMs = 8000, redirects = 2, allowL
   const addresses = net.isIP(host) ? [{ address: host }] : await dns.promises.lookup(host, { all: true }).catch(() => []);
   if (!addresses.length) throw refused(url, 'its name does not resolve');
   const bad = addresses.find((a) => !followableAddress(a.address, { allowLoopback }));
-  if (bad) throw refused(url, `it is ${bad.address}`);
+  if (bad) throw refused(url, 'a local, link-local or metadata address');
   // Through the company proxy, the proxy resolves the name; directly, the connection uses only checked addresses.
   const direct = !proxyFor(host);
   return new Promise((resolve, reject) => {

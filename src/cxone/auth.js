@@ -1,5 +1,5 @@
 import { networkReason } from './client.js';
-import { checkServiceUrl, redactSecrets } from './endpoints.js';
+import { checkServiceUrl, scrubText } from './endpoints.js';
 /**
  * Checkmarx One authentication.
  *
@@ -15,7 +15,7 @@ const EXPIRY_SKEW_MS = 30_000;
 export class AuthError extends Error {
   constructor(message, status = 401) {
     // Whatever the IAM host answered, no token or key ever reaches a message or a log.
-    super(redactSecrets(message));
+    super(scrubText(message));
     this.name = 'AuthError';
     this.status = status;
   }
@@ -79,7 +79,7 @@ export class TokenProvider {
     }
 
     if (!response.ok) {
-      const detail = redactSecrets((await response.text().catch(() => '')).slice(0, 300));
+      const detail = scrubText((await response.text().catch(() => '')).slice(0, 300));
       const hint =
         response.status === 400 || response.status === 401
           ? 'The API key is invalid, revoked or expired.'

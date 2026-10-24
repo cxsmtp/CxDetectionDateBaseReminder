@@ -26,8 +26,6 @@ const temp = (name) => fs.mkdtempSync(path.join(os.tmpdir(), `mz-${name}-`));
 // A test Sigstore: its trust root is given to the server instead of the real one (NODE_ENV is not production).
 const world = makeWorld({ repository: 'acme/mission' });
 const signed = new Map(); // digest of a file list → its attestation
-const trustRootFile = path.join(temp('trust'), 'trusted-root.json');
-fs.writeFileSync(trustRootFile, JSON.stringify(world.trustedRoot));
 
 /** One layer holding this checkout's app as `version` (broken: its server stops at once). */
 function appLayer(version, { broken = false } = {}) {
@@ -108,7 +106,7 @@ test.before(async () => {
     env: {
       ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: temp('data'), ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
       ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, UPDATE_IMAGE: `127.0.0.1:${reg.address().port}/acme/mz`, UPDATE_START_TIMEOUT_SECONDS: '60',
-      MZ_INTEGRITY_API: `http://127.0.0.1:${reg.address().port}`, MZ_INTEGRITY_TRUST_ROOT: trustRootFile, MZ_SOURCE_REPOSITORY: 'acme/mission',
+      MZ_INTEGRITY_API: `http://127.0.0.1:${reg.address().port}`, MZ_INTEGRITY_TRUST_ROOT: JSON.stringify(world.trustedRoot), MZ_SOURCE_REPOSITORY: 'acme/mission',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

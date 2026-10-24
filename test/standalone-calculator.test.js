@@ -22,7 +22,7 @@ test('the file: the calculator page shown, its own words for the exports, nothin
   const html = buildStandaloneCalculator({ version: '1.0.89' });
   assert.match(html, /^<!doctype html>/);
   assert.match(html, /<div id="page-calculator" class="page calc-page">/, 'shown, not hidden');
-  assert.match(html, /Content-Security-Policy" content="default-src 'none'; script-src 'sha256-[^"]*; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'/);
+  assert.match(html, /Content-Security-Policy" content="default-src 'none'; script-src 'sha256-[^"]*; script-src-attr 'none'; style-src 'unsafe-inline'; style-src-elem 'sha256-[^']+'; style-src-attr 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'/);
   assert.ok(!/(src|href)="(https?:)?\/\//i.test(html), 'no script, style or link from elsewhere');
   assert.deepEqual(html.match(/url\((?!data:)[^)]*\)/g) ?? [], [], 'every font and drawing inside');
   assert.ok(!html.includes('Use the two Checkmarx One exports instead'));
@@ -70,6 +70,9 @@ test('its content security policy runs exactly the scripts the file was built wi
     for (const [, , text] of scripts) assert.ok(allowed.has(`'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`), 'every script in the file is named');
     assert.ok(!allowed.has(`'sha256-${createHash('sha256').update('alert(1)', 'utf8').digest('base64')}'`));
     assert.match(csp, /script-src-attr 'none'/, 'no event handler attribute runs');
+    const styles = [...html.slice(0, html.indexOf('</head>')).matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
+    assert.equal(styles.length, 1);
+    assert.match(csp, new RegExp(`style-src-elem 'sha256-${createHash('sha256').update(styles[0], 'utf8').digest('base64').replace(/[+/]/g, '\\$&')}';`), 'only its own stylesheet applies');
     assert.match(csp, /object-src 'none'; base-uri 'none'; form-action 'none'/);
     assert.match(csp, launcher ? /connect-src 'self'/ : /connect-src 'none'/);
   }

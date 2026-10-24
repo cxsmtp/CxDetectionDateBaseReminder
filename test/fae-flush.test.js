@@ -446,3 +446,20 @@ test('code waiting between download and upload sits in a private folder with an 
   assert.notEqual(again, own, 'cleared away: made again, under a new name');
   assert.equal(fs.statSync(again).mode & 0o777, 0o700);
 });
+
+test('the private code folder goes away with the process that made it', { skip: process.platform === 'win32' }, async () => {
+  const { execFileSync } = await import('node:child_process');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-exit-'));
+  const script = `
+    import { FaeFlushRunner, FaeFlushStore } from ${JSON.stringify(new URL('../src/fae-flush.js', import.meta.url).href)};
+    import fs from 'node:fs';
+    import path from 'node:path';
+    const r = new FaeFlushRunner({ store: new FaeFlushStore({ file: ${JSON.stringify(path.join(root, 's.json'))} }), clientOf: () => null, tmpDir: ${JSON.stringify(root)} });
+    fs.writeFileSync(path.join(r.tmpDir, 'left-behind.zip'), 'PK');
+    console.log(r.tmpDir);
+  `;
+  const made = execFileSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8' }).trim();
+  assert.match(path.basename(made), /^mz-fae-/);
+  assert.equal(fs.existsSync(made), false, 'removed, with what was left in it');
+  assert.deepEqual(fs.readdirSync(root).filter((f) => f.startsWith('mz-fae-')), []);
+});

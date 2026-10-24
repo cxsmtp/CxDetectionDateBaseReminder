@@ -151,11 +151,11 @@ async function call(op, method, url, { body, cookie, stream = false, timeout = 6
 // Errors name the account by its role and number (`who`), never its address, password or the server's answer.
 async function signIn(email, password, next, who) {
   const r = await fetch(`${BASE}/api/session/password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-  if (!r.ok) throw new Error(`sign-in (${who}): HTTP ${r.status}`);
+  if (!r.ok) throw new Error(`sign-in (${who}): HTTP ${Number(r.status)}`);
   const cookie = r.headers.get('set-cookie').split(';')[0];
   if (next) {
     const c = await fetch(`${BASE}/api/me/password`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify({ current: password, next }) });
-    if (!c.ok) throw new Error(`password change (${who}): HTTP ${c.status}`);
+    if (!c.ok) throw new Error(`password change (${who}): HTTP ${Number(c.status)}`);
   }
   return cookie;
 }
@@ -171,14 +171,16 @@ const put = await call('setup:settings', 'PUT', '/api/settings', {
     links: { reportServerUrl: 'https://mz.bench.io' },
   },
 });
-if (put.status !== 200) throw new Error(`settings: ${put.status} ${JSON.stringify(put.json)}`);
+// Set-up errors say only which step failed and its HTTP status (Number(): a code, or "no answer" for a timeout or
+// network error), never what was sent or answered; the server's log has the details.
+if (put.status !== 200) throw new Error(`settings: HTTP ${Number(put.status) || 'no answer'}`);
 const check = await call('setup:smtp-check', 'POST', '/api/settings/connections/check', { cookie: admin, body: { rollback: false } });
-if (!check.json?.smtp?.ok) throw new Error(`smtp check: ${JSON.stringify(check.json)}`);
+if (!check.json?.smtp?.ok) throw new Error(`smtp check: the benchmark's mail server was not reached (HTTP ${Number(check.status) || 'no answer'}); see the server log`);
 
 const people = Array.from({ length: ANALYST_SESSIONS + FETCHER_SESSIONS }, (_, i) => ({ email: `analyst${i}@bench.io`, password: runPassword(), next: runPassword() }));
 for (const p of people) {
   const r = await call('setup:add-user', 'POST', '/api/iam/users', { cookie: admin, body: { email: p.email, name: `Analyst ${p.email}`, role: 'analyst', password: p.password } });
-  if (r.status !== 201) throw new Error(`add user: ${r.status} ${JSON.stringify(r.json)}`);
+  if (r.status !== 201) throw new Error(`add user (analyst ${people.indexOf(p)}): HTTP ${Number(r.status) || 'no answer'}`);
 }
 const sessions = [];
 for (const [i, p] of people.entries()) sessions.push(await signIn(p.email, p.password, p.next, `analyst ${i}`));
@@ -189,7 +191,7 @@ const fetcherSessions = sessions.slice(ANALYST_SESSIONS);
 const firstFetch = performance.now();
 const fetched = await Promise.all([admin, ...sessions].map((cookie) => call('setup:first-fetch', 'GET', '/api/scan', { cookie, timeout: 300_000 })));
 const firstFetchMs = performance.now() - firstFetch;
-if (fetched.some((f) => f.status !== 200)) throw new Error(`first fetch: ${fetched.map((f) => f.status).join(',')}`);
+if (fetched.some((f) => f.status !== 200)) throw new Error(`first fetch: HTTP ${fetched.map((f) => Number(f.status) || 'no answer').join(',')}`);
 const projectIds = fetched[0].json.projects.map((p) => p.projectId);
 const tracked = await call('setup:tracked-report', 'POST', '/api/tracked-reports', { cookie: admin, body: { name: 'Benchmark', projectIds: projectIds.slice(0, 20) } });
 const trackedId = tracked.json?.id;

@@ -175,7 +175,9 @@ export function readBackup(buffer, { passphrase = '', maxUnpackedBytes = MAX_UNP
   for (const [name, file] of Object.entries(bundle.files)) {
     if (!safeName(name)) throw new Error('Backup contains an unexpected file name: a path out of the state folder, or a file no CxMissionZero backup holds.');
     const bytes = Buffer.from(file.data, 'base64');
-    if (bytes.length !== file.size || sha256(bytes) !== file.sha256) throw new Error(`Backup file ${name} is damaged (checksum mismatch).`);
+    // `name` passed safeName() just above ([\w.-] parts), so encoding each part changes nothing it
+    // can hold; it is there so the message can never carry more than a plain file name.
+    if (bytes.length !== file.size || sha256(bytes) !== file.sha256) throw new Error(`Backup file ${name.split('/').map((part) => encodeURIComponent(part)).join('/')} is damaged (checksum mismatch).`);
   }
   if (manifestHash(bundle.files) !== bundle.sha256) throw new Error('Backup contents do not match its checksum.');
   return bundle;
