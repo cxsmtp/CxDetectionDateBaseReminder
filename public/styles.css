@@ -3713,3 +3713,5 @@ tr.scan-row-last > td:first-child { box-shadow: inset 4px 0 0 var(--scan-last); 
 .fusion-lang-line b { font-size: 10.5px; font-weight: 600; letter-spacing: .03em; color: var(--muted); margin-inline-end: 4px; }
 .fusion-lang-line.is-last b { color: color-mix(in srgb, var(--scan-last) 75%, var(--text)); }
 .flush-find .col-picker > summary { min-height: 30px; padding: 0 10px; font-size: 13px; }
+/* Workbench: the languages a project's latest scan has results in, under its name. */
+#projects td.name .proj-langs { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 400; color: var(--muted); white-space: normal; }

@@ -4862,7 +4862,7 @@ function renderProjects() {
             p.url
               ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.projectName)}</a>`
               : escapeHtml(p.projectName)
-          }${p.error ? `<span class="err">${escapeHtml(p.error)}</span>` : ''}</td>
+          }${Array.isArray(p.languages) && p.languages.length ? `<span class="proj-langs" title="Languages its latest scan has results in">${escapeHtml(p.languages.join(' · '))}</span>` : ''}${p.error ? `<span class="err">${escapeHtml(p.error)}</span>` : ''}</td>
           <td class="num c-count" data-label="Open findings">${p.totalRisks}</td>
           ${activeColumns().map((c) => {
             const v = c.value(p);

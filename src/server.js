@@ -95,7 +95,7 @@ import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
 import { PROBE_DEFAULTS, probeFusion } from './fusion.js';
 import { aiFindings, cleanEngines as cleanFusionEngines, readRiskFusion } from './fusion-ai.js';
-import { DEFAULT_PERIOD as FUSION_PERIOD, USAGE_PERIODS, fusionUsage, projectFacts, scanTypeOf, scanTypes, tenantAi, tenantCredits } from './fusion-usage.js';
+import { DEFAULT_PERIOD as FUSION_PERIOD, USAGE_PERIODS, fusionUsage, projectFacts, scanLanguages, scanTypeOf, scanTypes, tenantAi, tenantCredits } from './fusion-usage.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
@@ -3321,7 +3321,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
 
   // Who ran each project's *latest* scan (so a rescan moves the reminder to
   // whoever ran it most recently), and the findings: independent, so both at once.
-  const [initiators, result, types] = await Promise.all([
+  const [initiators, result, types, languages] = await Promise.all([
     collectInitiators(client, req.session.connection, projects, {
       rules: settings.initiators,
       useDirectory: settings.initiators.useDirectory,
@@ -3346,6 +3346,8 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     // Whether each project's latest scan was a Fusion scan, a LAST scan or neither: the Workbench colours its row.
     // Part of the fetch being waited for (a call per 100 projects), so not queued behind background work.
     scanTypes(client, Object.fromEntries(projects.map((p) => [p.id, lastScans?.[p.id]]).filter(([, scan]) => scan)), { concurrency: 2, background: false }).catch(() => ({})),
+    // The languages each latest scan has results in, for the line under its name (a call per 50 projects).
+    scanLanguages(client, Object.fromEntries(projects.map((p) => [p.id, lastScans?.[p.id]]).filter(([, scan]) => scan)), { concurrency: 2, background: false }).catch(() => ({})),
   ]);
   // Stopped part-way, or projects left out: what was read is the data, and only its projects keep their initiators.
   if (result.notRead || result.leftOut) {
@@ -3361,6 +3363,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     summary.initiatorConfidence = info.confidence ?? 'none';
     summary.lastScanDate = info.scanDate ?? null;
     summary.scanType = types[summary.projectId] ?? '';
+    summary.languages = languages[summary.projectId] ?? [];
     summary.url = projectUrl(summary, req.session.connection, settings.links);
   }
   result.initiators = initiators.byProject;

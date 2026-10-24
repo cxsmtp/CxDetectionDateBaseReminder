@@ -223,6 +223,32 @@ export async function projectFacts(client, projectIds, scans, { concurrency = 4,
 }
 
 /**
+ * The languages each project's latest scan has results in ({ projectId: [language…] }), from its scan summary
+ * (GET /api/scan-summary?scan-ids=…, fifty scans a call: `sastCounters.languageCounters`). For the Workbench's line
+ * under each project's name; a scan Checkmarx One does not answer for is left out.
+ */
+export async function scanLanguages(client, scans, { concurrency = 2, background = true, trace = null } = {}) {
+  const byScan = new Map();
+  for (const [projectId, scan] of Object.entries(scans ?? {})) {
+    const id = text(scan?.id ?? scan?.scanId, 80);
+    if (id) byScan.set(id, projectId);
+  }
+  const ids = [...byScan.keys()];
+  const batches = [];
+  for (let i = 0; i < ids.length; i += 50) batches.push(ids.slice(i, i + 50));
+  const out = {};
+  await mapWithConcurrency(batches, concurrency, async (batch) => {
+    const body = await quiet(() => client.request('/api/scan-summary', { query: { 'scan-ids': batch }, retries: 1, background, trace }));
+    for (const sum of Array.isArray(body?.scansSummaries) ? body.scansSummaries : []) {
+      const projectId = byScan.get(text(sum?.scanId, 80));
+      const list = languagesOf((sum?.sastCounters?.languageCounters ?? []).filter((l) => Number(l?.counter) > 0).map((l) => l?.language));
+      if (projectId && list.length) out[projectId] = list;
+    }
+  });
+  return out;
+}
+
+/**
  * What kind of scan each project's latest scan was (`scans`: { projectId: scan }): { projectId: 'fusion' | 'last' |
  * 'none' }. A scan whose engines say no AI is 'none' without asking; the others are read a hundred at a time
  * (GET /api/scans?scan-ids=…) for their own AI settings. Projects Checkmarx One does not answer for are left out.
