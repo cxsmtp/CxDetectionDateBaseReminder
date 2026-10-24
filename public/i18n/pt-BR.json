@@ -4391,6 +4391,25 @@
   "Hide details": "Ocultar detalhes",
   "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": "Projetos excluídos porque a varredura mais recente não executou o mecanismo de AI: {0}. Projetos excluídos porque o mecanismo de AI da varredura mais recente não informou nada: {1}.",
   "found by the AI engine alone": "encontrados apenas pelo mecanismo de AI",
-  "AI results <small>latest scans</small>": "Resultados de AI <small>varreduras mais recentes</small>"
+  "AI results <small>latest scans</small>": "Resultados de AI <small>varreduras mais recentes</small>",
+  "Mark anyway": "Marcar mesmo assim",
+  "Mark anyway ({0})": "Marcar mesmo assim ({0})",
+  "Carry on without them ({0})": "Continuar sem essas configurações ({0})",
+  "Mark {0} results Not exploitable anyway, in {1} projects?": "Marcar mesmo assim {0} resultados de {1} projetos como “Não exploráveis”?",
+  "Mark {0} results Not exploitable anyway, in {1} project?": "Marcar mesmo assim {0} resultados de {1} projeto como “Não exploráveis”?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} projects?": "Marcar mesmo assim {0} resultados de {1} projetos como “Propostos como não exploráveis”?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} project?": "Marcar mesmo assim {0} resultados de {1} projeto como “Propostos como não exploráveis”?",
+  "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": "Cada um destes projetos parou para perguntar; a pergunta está na linha dele. Os resultados que a varredura FAE não relata mais são marcados e depois revalidados. “Desfazer marcações” os traz de volta.",
+  "Marking {0}: it runs on the server, you can close this page.": "Marcando {0}: é executado no servidor, você pode fechar esta página.",
+  "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": "{0} seguem sem as configurações que o Checkmarx One se recusou a copiar: eles continuam assim que houver uma vaga de varredura livre.",
+  "project removed": "projeto removido",
+  "Move up": "Mover para cima",
+  "Move down": "Mover para baixo",
+  "Languages": "Linguagens",
+  "AI share of SAST": "Parcela de AI no SAST",
+  "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": "SAST: as linguagens que o mecanismo SAST da varredura mais recente analisou. LAST: as linguagens, cobertas apenas pelo mecanismo de AI, em que ele encontrou resultados",
+  "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": "Os resultados do mecanismo de AI como parcela de todos os resultados de SAST da varredura mais recente: 20 de 100 equivale a 20%",
+  "{0} of {1} SAST results": "{0} de {1} resultados de SAST",
+  "Checkmarx One did not say how many SAST results its latest scan has": "O Checkmarx One não informou quantos resultados de SAST a varredura mais recente tem"
  }
 }

@@ -29,6 +29,8 @@ const TRIAGE_CREDITS = 1;
 const REMEDIATION_CREDITS = 3;
 
 const text = (v, max = 120) => (v === null || v === undefined ? '' : String(v).trim().slice(0, max));
+/** Language names, each once, as given (at most 20, each at most 40 long). */
+const languagesOf = (list) => [...new Set((Array.isArray(list) ? list : []).map((l) => text(l, 40).trim()).filter(Boolean))].sort((x, y) => x.localeCompare(y)).slice(0, 20);
 const whole = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Math.round(Number(v)) : null);
 const norm = (v) => text(v, 300).toLowerCase();
 
@@ -186,10 +188,18 @@ export async function projectFacts(client, projectIds, scans, { concurrency = 4,
     const byScan = new Map(batch.map((id) => [text(scans[id]?.id ?? scans[id]?.scanId, 80), id]));
     const ids = [...byScan.keys()].filter(Boolean);
     if (!ids.length) continue;
-    const [meta, versions] = await Promise.all([
+    const [meta, versions, summary] = await Promise.all([
       quiet(() => client.request('/api/sast-metadata', { query: { 'scan-ids': ids }, retries: 1, background: true, trace })),
       quiet(() => client.request('/api/sast-metadata/engine-version', { query: { 'scan-ids': ids }, retries: 1, background: true, trace })),
+      quiet(() => client.request('/api/scan-summary', { query: { 'scan-ids': ids }, retries: 1, background: true, trace })),
     ]);
+    // Its SAST results in all (the AI engine's among them), for the AI share; and the languages they are in.
+    for (const sum of Array.isArray(summary?.scansSummaries) ? summary.scansSummaries : []) {
+      const f = out[byScan.get(text(sum?.scanId, 80))];
+      if (!f) continue;
+      f.sastResults = whole(sum?.sastCounters?.totalCounter);
+      f.resultLanguages = languagesOf((sum?.sastCounters?.languageCounters ?? []).map((l) => l?.language));
+    }
     for (const m of Array.isArray(meta?.scans) ? meta.scans : []) {
       const f = out[byScan.get(text(m?.scanId, 80))];
       if (!f) continue;
@@ -201,6 +211,14 @@ export async function projectFacts(client, projectIds, scans, { concurrency = 4,
       if (f) f.engineVersion = text(v.engineVersion, 40);
     }
   }
+  // The languages the SAST engine scanned files in (GET /api/sast-metadata/{scanId}/metrics), else those its results
+  // are in; a LAST scan, without the SAST engine, has none.
+  await mapWithConcurrency(ai, concurrency, async (id) => {
+    const scanId = text(scans[id]?.id ?? scans[id]?.scanId, 80);
+    const metrics = scanId ? await quiet(() => client.request(`/api/sast-metadata/${encodeURIComponent(scanId)}/metrics`, { retries: 1, background: true, trace })) : null;
+    const scanned = metrics?.scannedFilesPerLanguage && typeof metrics.scannedFilesPerLanguage === 'object' ? languagesOf(Object.keys(metrics.scannedFilesPerLanguage)) : [];
+    out[id].sastLanguages = scanned.length ? scanned : out[id].resultLanguages ?? [];
+  });
   return out;
 }
 

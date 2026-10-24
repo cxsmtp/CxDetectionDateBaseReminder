@@ -4391,6 +4391,25 @@
   "Hide details": "Ocultar detalles",
   "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": "Proyectos excluidos porque su último escaneo no ejecutó el motor de AI: {0}. Proyectos excluidos porque el motor de AI de su último escaneo no notificó nada: {1}.",
   "found by the AI engine alone": "encontrados solo por el motor de AI",
-  "AI results <small>latest scans</small>": "Resultados de AI <small>últimos escaneos</small>"
+  "AI results <small>latest scans</small>": "Resultados de AI <small>últimos escaneos</small>",
+  "Mark anyway": "Marcar de todos modos",
+  "Mark anyway ({0})": "Marcar de todos modos ({0})",
+  "Carry on without them ({0})": "Continuar sin esa configuración ({0})",
+  "Mark {0} results Not exploitable anyway, in {1} projects?": "¿Marcar de todos modos {0} resultados de {1} proyectos como “No explotables”?",
+  "Mark {0} results Not exploitable anyway, in {1} project?": "¿Marcar de todos modos {0} resultados de {1} proyecto como “No explotables”?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} projects?": "¿Marcar de todos modos {0} resultados de {1} proyectos como “Propuestos como no explotables”?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} project?": "¿Marcar de todos modos {0} resultados de {1} proyecto como “Propuestos como no explotables”?",
+  "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": "Cada uno de estos proyectos se detuvo para hacerle una consulta; la pregunta figura en su fila. Los resultados que el escaneo FAE ya no notifica se marcan y después se revalidan. Deshacer los restablece.",
+  "Marking {0}: it runs on the server, you can close this page.": "Marcando {0}: se ejecuta en el servidor, puede cerrar esta página.",
+  "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": "{0} siguen adelante sin la configuración que Checkmarx One se negó a copiar: continúan en cuanto haya un espacio de escaneo libre.",
+  "project removed": "proyecto eliminado",
+  "Move up": "Subir",
+  "Move down": "Bajar",
+  "Languages": "Lenguajes",
+  "AI share of SAST": "Proporción de AI en SAST",
+  "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": "SAST: los lenguajes que escaneó el motor SAST en su último escaneo. LAST: los lenguajes, cubiertos solo por el motor de AI, en los que este encontró resultados",
+  "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": "Los resultados del motor de AI como proporción de todos los resultados de SAST de su último escaneo: 20 de 100 es el 20 %",
+  "{0} of {1} SAST results": "{0} de {1} resultados de SAST",
+  "Checkmarx One did not say how many SAST results its latest scan has": "Checkmarx One no indicó cuántos resultados de SAST tiene su último escaneo"
  }
 }

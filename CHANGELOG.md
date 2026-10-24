@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.00.99 | 515/s, 0 (main 509, 0) | 7.0 s | 350 ms | 799 | 0 vulnerabilities | No new scan (checked); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.98 | 484/s, 15 (main 459, 181; three pairs on a busy host) | 10.2 s | 1.5 s | 796 | 0 vulnerabilities | No new scan (checked); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.97 | 518/s, 0 (main 496, 147 in a host pause) | 7.3 s | 826 ms | 783 | 0 vulnerabilities | No new scan (connector needs signing in again); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.96 | 510/s, 0 (main 492, 37 in host pauses) | 6.1 s | 546 ms | 782 | 0 vulnerabilities | No new scan (connector needs signing in again); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -84,6 +85,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.00.99 — 2026-10-24 18:01 UTC · [#122](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/122)
+
+- **FAE Flush, smaller top.** The title and its six steps sit on one line, the Run panel loses its own heading, and the explanations under its choices are now tooltips on their labels.
+- **Answer many projects at once.** The bar over the run offers **Mark anyway** and **Carry on without them** for every project ticked that asks, besides Retry and Skip, and shows only the actions that fit them; a project with nothing to mark no longer asks ("Mark 0 anyway").
+- **Retries that went nowhere, fixed.** A `_FAE` project deleted in Checkmarx One is made again instead of failing with "Project not found", and a retry after the run finished starts it again instead of leaving the project waiting.
+- **Fusion results: LAST means LAST scans.** Ticking LAST shows only projects whose latest scan was a LAST scan; what the AI engine found in a language only it covers in a Fusion scan stays with that Fusion scan.
+- **Languages and AI share.** Two new columns: the languages each latest scan's SAST engine scanned, and the LAST languages; and the AI engine's results as a share of all its SAST results (20 of 100 is 20%).
+- **Choose your columns.** Fusion results and both FAE Flush tables have a **Columns** menu to hide, show and reorder columns, kept in your browser.
+- **Security fixes in dependencies.** body-parser 1.20.9 and nodemailer 10.2.1, for advisories published this week (a denial of service through a compressed request body; address parsing in emails).
+- **Status.** 515 requests a second for 3000 people at once on 2 vCPU, none failed (main 509, none failed, on the same host), report opens 7.0 s and triage polls 350 ms at p95, both shorter than main's; earlier pairs on a busier host are explained in [performance](docs/performance.md); 799 tests pass; `npm audit` finds 0 vulnerabilities; checked in Checkmarx One, no scan of this code newer than rescan fe2eb036 ([status](docs/status.md)).
 
 ## MZ-01.00.98 — 2026-10-23 15:14 UTC · [#121](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/121)
 

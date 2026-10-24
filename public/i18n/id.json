@@ -4391,6 +4391,25 @@
   "Hide details": "Sembunyikan detail",
   "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": "{0} proyek dikecualikan: pemindaian terbarunya tidak menjalankan engine AI. {1} proyek dikecualikan: engine AI pada pemindaian terbarunya tidak melaporkan apa pun.",
   "found by the AI engine alone": "hanya ditemukan oleh engine AI",
-  "AI results <small>latest scans</small>": "Hasil AI <small>pemindaian terbaru</small>"
+  "AI results <small>latest scans</small>": "Hasil AI <small>pemindaian terbaru</small>",
+  "Mark anyway": "Tetap tandai",
+  "Mark anyway ({0})": "Tetap tandai ({0})",
+  "Carry on without them ({0})": "Lanjutkan tanpa pengaturan ({0})",
+  "Mark {0} results Not exploitable anyway, in {1} projects?": "Tetap tandai {0} hasil di {1} proyek sebagai Tidak dapat dieksploitasi?",
+  "Mark {0} results Not exploitable anyway, in {1} project?": "Tetap tandai {0} hasil di {1} proyek sebagai Tidak dapat dieksploitasi?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} projects?": "Tetap tandai {0} hasil di {1} proyek sebagai Diusulkan tidak dapat dieksploitasi?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} project?": "Tetap tandai {0} hasil di {1} proyek sebagai Diusulkan tidak dapat dieksploitasi?",
+  "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": "Setiap proyek ini berhenti untuk bertanya kepada Anda; pertanyaannya ada di barisnya. Hasil yang tidak lagi dilaporkan oleh pemindaian FAE ditandai, lalu divalidasi ulang. Urungkan akan mengembalikannya.",
+  "Marking {0}: it runs on the server, you can close this page.": "Menandai {0}: proses berjalan di server, Anda dapat menutup halaman ini.",
+  "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": "{0} tetap berjalan tanpa pengaturan yang ditolak Checkmarx One untuk disalin: proyek akan dilanjutkan saat ada slot pemindaian yang kosong.",
+  "project removed": "proyek dihapus",
+  "Move up": "Pindahkan ke atas",
+  "Move down": "Pindahkan ke bawah",
+  "Languages": "Bahasa",
+  "AI share of SAST": "Porsi AI dalam SAST",
+  "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": "SAST: bahasa yang dipindai engine SAST pada pemindaian terbarunya. LAST: bahasa yang hanya dicakup engine AI, dan engine tersebut menemukan hasil dalam bahasa itu",
+  "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": "Hasil engine AI sebagai porsi dari semua hasil SAST pemindaian terbarunya: 20 dari 100 adalah 20%",
+  "{0} of {1} SAST results": "{0} dari {1} hasil SAST",
+  "Checkmarx One did not say how many SAST results its latest scan has": "Checkmarx One tidak menyebutkan jumlah hasil SAST pada pemindaian terbarunya"
  }
 }

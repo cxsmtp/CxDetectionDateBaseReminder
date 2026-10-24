@@ -4391,6 +4391,25 @@
   "Hide details": "Masquer les détails",
   "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": "Projets exclus dont la dernière analyse n'a pas exécuté le moteur AI : {0}. Projets exclus dont le moteur AI n'a rien signalé lors de la dernière analyse : {1}.",
   "found by the AI engine alone": "trouvés par le seul moteur AI",
-  "AI results <small>latest scans</small>": "Résultats AI <small>dernières analyses</small>"
+  "AI results <small>latest scans</small>": "Résultats AI <small>dernières analyses</small>",
+  "Mark anyway": "Marquer quand même",
+  "Mark anyway ({0})": "Marquer quand même ({0})",
+  "Carry on without them ({0})": "Continuer sans ces paramètres ({0})",
+  "Mark {0} results Not exploitable anyway, in {1} projects?": "Marquer quand même {0} résultats dans {1} projets comme « Non exploitables » ?",
+  "Mark {0} results Not exploitable anyway, in {1} project?": "Marquer quand même {0} résultats dans {1} projet comme « Non exploitables » ?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} projects?": "Marquer quand même {0} résultats dans {1} projets comme « Proposées non exploitables » ?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} project?": "Marquer quand même {0} résultats dans {1} projet comme « Proposées non exploitables » ?",
+  "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": "Chacun de ces projets s'est arrêté pour vous poser une question ; elle figure dans sa ligne. Les résultats que l'analyse FAE ne signale plus sont marqués, puis revalidés. Annuler les rétablit.",
+  "Marking {0}: it runs on the server, you can close this page.": "Marquage en cours pour {0} : il s'exécute sur le serveur, vous pouvez fermer cette page.",
+  "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": "Poursuite pour {0} sans les paramètres que Checkmarx One a refusé de copier : ils reprennent dès qu'un créneau d'analyse se libère.",
+  "project removed": "projet supprimé",
+  "Move up": "Monter",
+  "Move down": "Descendre",
+  "Languages": "Langages",
+  "AI share of SAST": "Part AI dans SAST",
+  "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": "SAST : les langages analysés par le moteur SAST lors de sa dernière analyse. LAST : les langages, couverts uniquement par le moteur AI, dans lesquels celui-ci a trouvé des résultats",
+  "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": "Part des résultats du moteur AI dans l'ensemble des résultats SAST de sa dernière analyse : 20 sur 100 représentent 20 %",
+  "{0} of {1} SAST results": "{0} sur {1} résultats SAST",
+  "Checkmarx One did not say how many SAST results its latest scan has": "Checkmarx One n'a pas indiqué combien de résultats SAST compte sa dernière analyse"
  }
 }

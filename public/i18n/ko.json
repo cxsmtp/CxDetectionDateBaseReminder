@@ -4391,6 +4391,25 @@
   "Hide details": "세부 정보 숨기기",
   "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": "최근 스캔에서 AI 엔진이 실행되지 않은 프로젝트 {0}개는 제외되었습니다. 최근 스캔의 AI 엔진이 아무것도 보고하지 않은 프로젝트 {1}개는 제외되었습니다.",
   "found by the AI engine alone": "AI 엔진만 탐지",
-  "AI results <small>latest scans</small>": "AI 결과 <small>최근 스캔</small>"
+  "AI results <small>latest scans</small>": "AI 결과 <small>최근 스캔</small>",
+  "Mark anyway": "그래도 지정",
+  "Mark anyway ({0})": "그래도 지정({0})",
+  "Carry on without them ({0})": "해당 설정 없이 계속({0})",
+  "Mark {0} results Not exploitable anyway, in {1} projects?": "그래도 프로젝트 {1}개의 결과 {0}건을 악용 불가로 지정하시겠습니까?",
+  "Mark {0} results Not exploitable anyway, in {1} project?": "그래도 프로젝트 {1}개의 결과 {0}건을 악용 불가로 지정하시겠습니까?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} projects?": "그래도 프로젝트 {1}개의 결과 {0}건을 악용 불가 제안으로 지정하시겠습니까?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} project?": "그래도 프로젝트 {1}개의 결과 {0}건을 악용 불가 제안으로 지정하시겠습니까?",
+  "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": "이 프로젝트들은 각각 중지되어 확인을 요청했습니다. 질문은 해당 행에 표시됩니다. FAE 스캔이 더 이상 보고하지 않는 결과의 상태를 지정한 후 재검증합니다. 되돌리기를 사용하면 원래 상태로 돌아갑니다.",
+  "Marking {0}: it runs on the server, you can close this page.": "프로젝트 {0}개 상태 지정 중: 서버에서 실행되므로 이 페이지를 닫아도 됩니다.",
+  "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": "프로젝트 {0}개는 Checkmarx One이 복사를 거부한 설정 없이 계속합니다. 스캔 슬롯이 비면 진행됩니다.",
+  "project removed": "프로젝트 제거됨",
+  "Move up": "위로 이동",
+  "Move down": "아래로 이동",
+  "Languages": "언어",
+  "AI share of SAST": "SAST 중 AI 비율",
+  "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": "SAST: 최근 스캔에서 SAST 엔진이 스캔한 언어. LAST: AI 엔진만 지원하는 언어 중 AI 엔진이 결과를 찾은 언어",
+  "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": "최근 스캔의 전체 SAST 결과 중 AI 엔진 결과가 차지하는 비율: 100건 중 20건이면 20%",
+  "{0} of {1} SAST results": "SAST 결과 {1}건 중 {0}건",
+  "Checkmarx One did not say how many SAST results its latest scan has": "Checkmarx One이 최근 스캔의 SAST 결과 수를 알려 주지 않았습니다"
  }
 }

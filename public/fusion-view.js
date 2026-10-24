@@ -129,6 +129,13 @@ export function fusionRows(fusion, scope, engines, filter = null) {
       byProject.get(r.projectId).push(r);
     }
   }
+  // The languages of what the AI engine found that the SAST engine does not cover (a LAST scan's: all of them).
+  const lastLanguages = new Map();
+  for (const r of fusion?.results ?? []) {
+    if (!r.language || (r.coveredAs && fusion?.projects?.[r.projectId]?.scanType !== 'last')) continue;
+    if (!lastLanguages.has(r.projectId)) lastLanguages.set(r.projectId, new Set());
+    lastLanguages.get(r.projectId).add(r.language);
+  }
   return Object.entries(fusion?.projects ?? {})
     .map(([projectId, all]) => {
       const c = narrowed ? countsFromResults(byProject.get(projectId) ?? []) : countsFor(all, shown);
@@ -160,6 +167,12 @@ export function fusionRows(fusion, scope, engines, filter = null) {
         modelFrom: all.modelFrom ?? '',
         loc: all.loc ?? null,
         files: all.files ?? null,
+        // The languages its SAST engine scanned, and those only the AI engine covered.
+        sastLanguages: Array.isArray(all.sastLanguages) ? all.sastLanguages : [],
+        lastLanguages: [...(lastLanguages.get(projectId) ?? [])].sort((x, y) => x.localeCompare(y)),
+        // Its latest scan's SAST results in all, and the AI engine's share of them (whole per cent; null not known).
+        sastResults: all.sastResults ?? null,
+        aiShare: Number(all.sastResults) > 0 ? Math.min(100, Math.round(((all.total ?? c.total ?? 0) / all.sastResults) * 100)) : null,
         engineVersion: all.engineVersion ?? '',
         fusionCreditsCharged: all.fusionCredits ?? '',
         scans: used?.scans ?? null,

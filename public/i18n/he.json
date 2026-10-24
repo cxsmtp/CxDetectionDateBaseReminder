@@ -4391,6 +4391,25 @@
   "Hide details": "הסתרת הפרטים",
   "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": "פרויקטים שהושמטו כי הסריקה האחרונה שלהם לא הריצה את מנוע ה-AI: {0}. פרויקטים שהושמטו כי מנוע ה-AI בסריקה האחרונה שלהם לא דיווח על דבר: {1}.",
   "found by the AI engine alone": "נמצאו על ידי מנוע ה-AI בלבד",
-  "AI results <small>latest scans</small>": "תוצאות AI <small>סריקות אחרונות</small>"
+  "AI results <small>latest scans</small>": "תוצאות AI <small>סריקות אחרונות</small>",
+  "Mark anyway": "סימון בכל זאת",
+  "Mark anyway ({0})": "סימון בכל זאת ({0})",
+  "Carry on without them ({0})": "המשך ללא ההגדרות ({0})",
+  "Mark {0} results Not exploitable anyway, in {1} projects?": "לסמן בכל זאת {0} תוצאות במצב \"לא ניתנים לניצול\", ב-{1} פרויקטים?",
+  "Mark {0} results Not exploitable anyway, in {1} project?": "לסמן בכל זאת {0} תוצאות במצב \"לא ניתנים לניצול\", ב-{1} פרויקט?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} projects?": "לסמן בכל זאת {0} תוצאות במצב \"הוצעו כלא ניתנים לניצול\", ב-{1} פרויקטים?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} project?": "לסמן בכל זאת {0} תוצאות במצב \"הוצעו כלא ניתנים לניצול\", ב-{1} פרויקט?",
+  "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": "כל אחד מהפרויקטים האלה עצר כדי לשאול; השאלה שלו מופיעה בשורה שלו. התוצאות שסריקת FAE כבר אינה מדווחת עליהן מסומנות, ולאחר מכן מאומתות מחדש. ביטול הסימונים מחזיר אותן למצבן הקודם.",
+  "Marking {0}: it runs on the server, you can close this page.": "סימון בפרויקטים ({0}): התהליך פועל בשרת, ואפשר לסגור את הדף.",
+  "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": "פרויקטים ({0}) יתקדמו ללא ההגדרות ש-Checkmarx One סירב להעתיק: הם ימשיכו כשיתפנה מקום לסריקה.",
+  "project removed": "הפרויקט הוסר",
+  "Move up": "הזזה למעלה",
+  "Move down": "הזזה למטה",
+  "Languages": "שפות",
+  "AI share of SAST": "חלק ה-AI מתוך SAST",
+  "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": "SAST: השפות שמנוע ה-SAST סרק בסריקה האחרונה של הפרויקט. LAST: שפות שרק מנוע ה-AI מכסה ושבהן הוא מצא תוצאות",
+  "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": "תוצאות מנוע ה-AI כחלק מכל תוצאות ה-SAST בסריקה האחרונה של הפרויקט: 20 מתוך 100 הן 20%",
+  "{0} of {1} SAST results": "{0} מתוך {1} תוצאות SAST",
+  "Checkmarx One did not say how many SAST results its latest scan has": "Checkmarx One לא ציין כמה תוצאות SAST יש בסריקה האחרונה של הפרויקט"
  }
 }

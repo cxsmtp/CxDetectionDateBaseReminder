@@ -4391,6 +4391,25 @@
   "Hide details": "Ẩn chi tiết",
   "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": "Đã loại {0} dự án: lần quét gần nhất của các dự án này không chạy công cụ AI. Đã loại {1} dự án: công cụ AI trong lần quét gần nhất của các dự án này không báo cáo gì.",
   "found by the AI engine alone": "chỉ do công cụ AI tìm thấy",
-  "AI results <small>latest scans</small>": "Kết quả AI <small>các lần quét gần nhất</small>"
+  "AI results <small>latest scans</small>": "Kết quả AI <small>các lần quét gần nhất</small>",
+  "Mark anyway": "Vẫn đánh dấu",
+  "Mark anyway ({0})": "Vẫn đánh dấu ({0})",
+  "Carry on without them ({0})": "Tiếp tục không có cài đặt ({0})",
+  "Mark {0} results Not exploitable anyway, in {1} projects?": "Vẫn đánh dấu {0} kết quả trong {1} dự án là Không thể khai thác?",
+  "Mark {0} results Not exploitable anyway, in {1} project?": "Vẫn đánh dấu {0} kết quả trong {1} dự án là Không thể khai thác?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} projects?": "Vẫn đánh dấu {0} kết quả trong {1} dự án là Đề xuất không thể khai thác?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} project?": "Vẫn đánh dấu {0} kết quả trong {1} dự án là Đề xuất không thể khai thác?",
+  "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": "Mỗi dự án trong số này đã dừng lại để hỏi ý kiến bạn; câu hỏi nằm trong dòng của dự án đó. Các kết quả mà lần quét FAE không còn báo cáo sẽ được đánh dấu, sau đó được xác thực lại. Hoàn tác sẽ đưa chúng về như cũ.",
+  "Marking {0}: it runs on the server, you can close this page.": "Đang đánh dấu {0} dự án: tác vụ chạy trên máy chủ, bạn có thể đóng trang này.",
+  "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": "{0} dự án tiếp tục mà không có các cài đặt mà Checkmarx One từ chối sao chép: các dự án này sẽ chạy tiếp khi có lượt quét trống.",
+  "project removed": "đã xóa dự án",
+  "Move up": "Di chuyển lên",
+  "Move down": "Di chuyển xuống",
+  "Languages": "Ngôn ngữ",
+  "AI share of SAST": "Tỷ lệ AI trong SAST",
+  "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": "SAST: các ngôn ngữ mà công cụ SAST đã quét trong lần quét gần nhất. LAST: các ngôn ngữ chỉ công cụ AI hỗ trợ, trong đó công cụ này đã tìm thấy kết quả",
+  "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": "Kết quả của công cụ AI tính theo tỷ lệ trên tất cả kết quả SAST của lần quét gần nhất: 20 trên 100 là 20%",
+  "{0} of {1} SAST results": "{0} trên {1} kết quả SAST",
+  "Checkmarx One did not say how many SAST results its latest scan has": "Checkmarx One không cho biết lần quét gần nhất có bao nhiêu kết quả SAST"
  }
 }
