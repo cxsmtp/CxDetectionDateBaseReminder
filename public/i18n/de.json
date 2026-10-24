@@ -4391,6 +4391,25 @@
   "Hide details": "Details ausblenden",
   "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": "Ausgelassene Projekte, deren letzter Scan die AI-Engine nicht ausgeführt hat: {0}. Ausgelassene Projekte, bei deren letztem Scan die AI-Engine nichts gemeldet hat: {1}.",
   "found by the AI engine alone": "nur von der AI-Engine gefunden",
-  "AI results <small>latest scans</small>": "AI-Ergebnisse <small>letzte Scans</small>"
+  "AI results <small>latest scans</small>": "AI-Ergebnisse <small>letzte Scans</small>",
+  "Mark anyway": "Trotzdem markieren",
+  "Mark anyway ({0})": "Trotzdem markieren ({0})",
+  "Carry on without them ({0})": "Ohne diese Einstellungen fortfahren ({0})",
+  "Mark {0} results Not exploitable anyway, in {1} projects?": "{0} Ergebnisse in {1} Projekten trotzdem mit „Nicht ausnutzbar“ markieren?",
+  "Mark {0} results Not exploitable anyway, in {1} project?": "{0} Ergebnisse in {1} Projekt trotzdem mit „Nicht ausnutzbar“ markieren?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} projects?": "{0} Ergebnisse in {1} Projekten trotzdem mit „Als nicht ausnutzbar vorgeschlagen“ markieren?",
+  "Mark {0} results Proposed not exploitable anyway, in {1} project?": "{0} Ergebnisse in {1} Projekt trotzdem mit „Als nicht ausnutzbar vorgeschlagen“ markieren?",
+  "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": "Jedes dieser Projekte hat für eine Rückfrage angehalten; die Frage steht in seiner Zeile. Die Ergebnisse, die der FAE-Scan nicht mehr meldet, werden markiert und danach erneut validiert. Mit „Markierungen rückgängig machen“ werden sie wiederhergestellt.",
+  "Marking {0}: it runs on the server, you can close this page.": "Wird markiert ({0}): Es läuft auf dem Server, Sie können diese Seite schließen.",
+  "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": "{0} werden ohne die Einstellungen fortgesetzt, deren Übernahme Checkmarx One abgelehnt hat: Sie laufen weiter, sobald ein Scan-Platz frei ist.",
+  "project removed": "Projekt entfernt",
+  "Move up": "Nach oben",
+  "Move down": "Nach unten",
+  "Languages": "Sprachen",
+  "AI share of SAST": "AI-Anteil an SAST",
+  "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": "SAST: die Sprachen, die die SAST-Engine im letzten Scan gescannt hat. LAST: die Sprachen, die nur die AI-Engine abdeckt und in denen sie Ergebnisse gefunden hat",
+  "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": "Die Ergebnisse der AI-Engine als Anteil an allen SAST-Ergebnissen des letzten Scans: 20 von 100 sind 20 %",
+  "{0} of {1} SAST results": "{0} von {1} SAST-Ergebnissen",
+  "Checkmarx One did not say how many SAST results its latest scan has": "Checkmarx One hat nicht angegeben, wie viele SAST-Ergebnisse der letzte Scan hat"
  }
 }

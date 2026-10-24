@@ -4391,6 +4391,25 @@
   "Hide details": "隐藏详情",
   "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": "已排除 {0} 个项目：其最近一次扫描未运行 AI 引擎。已排除 {1} 个项目：其最近一次扫描的 AI 引擎未报告任何内容。",
   "found by the AI engine alone": "仅由 AI 引擎发现",
-  "AI results <small>latest scans</small>": "AI 结果 <small>最近的扫描</small>"
+  "AI results <small>latest scans</small>": "AI 结果 <small>最近的扫描</small>",
+  "Mark anyway": "仍要标记",
+  "Mark anyway ({0})": "仍要标记（{0}）",
+  "Carry on without them ({0})": "不使用这些设置继续（{0}）",
+  "Mark {0} results Not exploitable anyway, in {1} projects?": "仍要将 {1} 个项目中的 {0} 个结果标记为“不可利用”吗？",
+  "Mark {0} results Not exploitable anyway, in {1} project?": "仍要将 {1} 个项目中的 {0} 个结果标记为“不可利用”吗？",
+  "Mark {0} results Proposed not exploitable anyway, in {1} projects?": "仍要将 {1} 个项目中的 {0} 个结果标记为“建议为不可利用”吗？",
+  "Mark {0} results Proposed not exploitable anyway, in {1} project?": "仍要将 {1} 个项目中的 {0} 个结果标记为“建议为不可利用”吗？",
+  "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": "这些项目都已停止并询问您；各项目的问题显示在其所在行中。FAE 扫描不再报告的结果将被标记，然后重新验证。使用“撤销”可将其恢复。",
+  "Marking {0}: it runs on the server, you can close this page.": "正在为 {0} 个项目标记：它在服务器上运行，您可以关闭此页面。",
+  "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": "{0} 个项目将不使用 Checkmarx One 拒绝复制的设置继续：有空闲的扫描名额时即会进行。",
+  "project removed": "项目已移除",
+  "Move up": "上移",
+  "Move down": "下移",
+  "Languages": "语言",
+  "AI share of SAST": "AI 占 SAST 比例",
+  "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": "SAST：其最近一次扫描中 SAST 引擎所扫描的语言。LAST：只有 AI 引擎覆盖、且 AI 引擎在其中发现结果的语言",
+  "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": "AI 引擎的结果占其最近一次扫描所有 SAST 结果的比例：100 个中有 20 个即为 20%",
+  "{0} of {1} SAST results": "{1} 个 SAST 结果中的 {0} 个",
+  "Checkmarx One did not say how many SAST results its latest scan has": "Checkmarx One 未说明其最近一次扫描有多少个 SAST 结果"
  }
 }

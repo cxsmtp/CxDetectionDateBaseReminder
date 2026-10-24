@@ -29800,5 +29800,119 @@
   "seen": [
    "MZ-01.00.98 › Labs → Fusion results"
   ]
+ },
+ "Mark anyway": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "Mark anyway ({0})": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "Carry on without them ({0})": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "Mark {0} results Not exploitable anyway, in {1} projects?": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "Mark {0} results Not exploitable anyway, in {1} project?": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "Mark {0} results Proposed not exploitable anyway, in {1} projects?": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "Mark {0} results Proposed not exploitable anyway, in {1} project?": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "Marking {0}: it runs on the server, you can close this page.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "project removed": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "Move up": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "Move down": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.00.99 › Labs → FAE Flush"
+  ]
+ },
+ "Languages": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.99 › Labs → Fusion results"
+  ]
+ },
+ "AI share of SAST": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.00.99 › Labs → Fusion results"
+  ]
+ },
+ "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.99 › Labs → Fusion results"
+  ]
+ },
+ "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.99 › Labs → Fusion results"
+  ]
+ },
+ "{0} of {1} SAST results": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.99 › Labs → Fusion results"
+  ]
+ },
+ "Checkmarx One did not say how many SAST results its latest scan has": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.00.99 › Labs → Fusion results"
+  ]
  }
 }

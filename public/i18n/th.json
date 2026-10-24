@@ -4391,6 +4391,25 @@
   "Hide details": "ซ่อนรายละเอียด",
   "{0} project(s) left out: their latest scan did not run the AI engine. {1} project(s) left out: their latest scan's AI engine reported nothing.": "ไม่รวมโปรเจกต์ {0} รายการ เนื่องจากการสแกนล่าสุดของโปรเจกต์เหล่านั้นไม่ได้เรียกใช้เอนจิน AI ไม่รวมโปรเจกต์ {1} รายการ เนื่องจากเอนจิน AI ในการสแกนล่าสุดของโปรเจกต์เหล่านั้นไม่ได้รายงานสิ่งใด",
   "found by the AI engine alone": "พบโดยเอนจิน AI เท่านั้น",
-  "AI results <small>latest scans</small>": "ผลลัพธ์ AI <small>การสแกนล่าสุด</small>"
+  "AI results <small>latest scans</small>": "ผลลัพธ์ AI <small>การสแกนล่าสุด</small>",
+  "Mark anyway": "ยืนยันทำเครื่องหมาย",
+  "Mark anyway ({0})": "ยืนยันทำเครื่องหมาย ({0})",
+  "Carry on without them ({0})": "ทำต่อโดยไม่ใช้การตั้งค่านั้น ({0})",
+  "Mark {0} results Not exploitable anyway, in {1} projects?": "ยืนยันทำเครื่องหมายผลลัพธ์ {0} รายการใน {1} โปรเจกต์เป็น “ไม่สามารถใช้ประโยชน์ได้” หรือไม่",
+  "Mark {0} results Not exploitable anyway, in {1} project?": "ยืนยันทำเครื่องหมายผลลัพธ์ {0} รายการใน {1} โปรเจกต์เป็น “ไม่สามารถใช้ประโยชน์ได้” หรือไม่",
+  "Mark {0} results Proposed not exploitable anyway, in {1} projects?": "ยืนยันทำเครื่องหมายผลลัพธ์ {0} รายการใน {1} โปรเจกต์เป็น “เสนอว่าไม่สามารถใช้ประโยชน์ได้” หรือไม่",
+  "Mark {0} results Proposed not exploitable anyway, in {1} project?": "ยืนยันทำเครื่องหมายผลลัพธ์ {0} รายการใน {1} โปรเจกต์เป็น “เสนอว่าไม่สามารถใช้ประโยชน์ได้” หรือไม่",
+  "Each of these projects stopped to ask; its question is in its row. The results the FAE scan no longer reports are marked, then revalidated. Undo puts them back.": "โปรเจกต์เหล่านี้แต่ละรายการหยุดเพื่อถามคุณ โดยคำถามแสดงอยู่ในแถวของโปรเจกต์นั้น ผลลัพธ์ที่การสแกน FAE ไม่รายงานอีกต่อไปจะถูกทำเครื่องหมาย แล้วตรวจสอบซ้ำ กด “เลิกทำ” เพื่อคืนสถานะเดิมได้",
+  "Marking {0}: it runs on the server, you can close this page.": "กำลังทำเครื่องหมายใน {0} โปรเจกต์: ทำงานบนเซิร์ฟเวอร์ คุณปิดหน้านี้ได้",
+  "{0} carry on without the settings Checkmarx One would not copy: they go on when a scan slot is free.": "{0} โปรเจกต์จะทำต่อโดยไม่ใช้การตั้งค่าที่ Checkmarx One ไม่ยอมคัดลอก: จะดำเนินการต่อเมื่อมีช่องสแกนว่าง",
+  "project removed": "โปรเจกต์ถูกลบแล้ว",
+  "Move up": "ย้ายขึ้น",
+  "Move down": "ย้ายลง",
+  "Languages": "ภาษา",
+  "AI share of SAST": "สัดส่วน AI ใน SAST",
+  "SAST: the languages its latest scan's SAST engine scanned. LAST: those of what the AI engine found in a language only it covers": "SAST: ภาษาที่เอนจิน SAST สแกนในการสแกนล่าสุด LAST: ภาษาที่มีเพียงเอนจิน AI ครอบคลุม และเอนจิน AI พบผลลัพธ์ในภาษานั้น",
+  "The AI engine's results as a share of all its latest scan's SAST results: 20 of 100 is 20%": "สัดส่วนของผลลัพธ์จากเอนจิน AI เทียบกับผลลัพธ์ SAST ทั้งหมดของการสแกนล่าสุด: 20 จาก 100 คือ 20%",
+  "{0} of {1} SAST results": "ผลลัพธ์ SAST {0} จาก {1} รายการ",
+  "Checkmarx One did not say how many SAST results its latest scan has": "Checkmarx One ไม่ได้ระบุว่าการสแกนล่าสุดมีผลลัพธ์ SAST กี่รายการ"
  }
 }
