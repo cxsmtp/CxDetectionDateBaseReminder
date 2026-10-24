@@ -17,7 +17,7 @@ What each release was measured at, and what was known about its security when it
 
 | Version | Merged (UTC) | Sustained: requests / failed | Requests/s | Report opens p50 / p95 | Triage polls p50 / p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **MZ-01.01.00** | 2026-10-24 22:40 | 61,697 / **0** | 488 | 73 / 8,990 ms | 16 / 659 ms | 951 | 0 vulnerabilities (qs 6.16.1, for CVE-2026-110816) | Rescan 55343317 of commit 73bf05d, every engine with Fusion: 13 / 37 / 16 / 8 (74), down from 120 on the first Fusion scan 7a769856 (13 / 44 / 27 / 32 plus 4 info). About 100 fixed in code over two rounds; the 72 open are all judged not exploitable with a reason each, to be marked on the owner's confirmation ([security review](#mz-010100-security-review)). One pair with main on one host, main first: main 483 requests a second with 4 failed, the release 488 with 0; Govern, the Status board and the Consolidated view under load (a quarter of the Dashboard viewers) |
+| **MZ-01.01.00** | 2026-10-24 22:40 | 61,697 / **0** | 488 | 73 / 8,990 ms | 16 / 659 ms | 954 | 0 vulnerabilities (qs 6.16.1, for CVE-2026-110816) | Rescan 89468da6 of commit d5274e0, every engine with Fusion: 16 / 42 / 16 / 12 (86), down from 120 on the first Fusion scan 7a769856 (13 / 44 / 27 / 32 plus 4 info). About 110 fixed in code over five rounds; the 86 open are all judged not exploitable with a reason each, to be marked on the owner's confirmation ([security review](#mz-010100-security-review)). One pair with main on one host, main first: main 483 requests a second with 4 failed, the release 488 with 0; Govern, the Status board and the Consolidated view under load (a quarter of the Dashboard viewers) |
 | MZ-01.00.99 | 2026-10-24 18:01 | 63,264 / **0** | 515 | 64 / 7,013 ms | 12 / 350 ms | 799 | 0 vulnerabilities (body-parser 1.20.9 and nodemailer 10.2.1, for advisories GHSA-27r3-jxmh-p828, GHSA-8c8m-p3m8-cjg8, GHSA-m943-m63m-w62w and GHSA-85x2-q946-cp5h) | No new scan: checked in Checkmarx One for this release, there is no scan of this code newer than rescan fe2eb036 (18 October). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage. Four pairs with main on one host: in the last, on a quiet host, the release served 515 requests a second against main's 509, none failed on either, with a shorter tail; the others, on a busier host or with tests running alongside, are explained in [performance](performance.md); no finding sent twice |
 | MZ-01.00.98 | 2026-10-23 15:14 | 61,758 / **15** | 484 | 69 / 10,212 ms | 32 / 1,491 ms | 796 | 0 vulnerabilities | No new scan: checked in Checkmarx One for this release, there is no scan of this code newer than rescan fe2eb036 (18 October). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage. Three pairs with main on a busier host than usual, every run (main's too) with the health check waiting 20–30 s at least once: main lost 62, 24 and 181 requests, the release 402, 216 and 15, connection timeouts spread over every call in those pauses; in the third pair the release served 484 requests a second against main's 459, with a shorter tail. Nothing the release changes is on the measured paths; no finding sent twice ([performance](performance.md)) |
 | MZ-01.00.97 | 2026-10-22 20:35 | 62,689 / **0** | 518 | 76 / 7,326 ms | 16 / 826 ms | 783 | 0 vulnerabilities | No new scan: the Checkmarx One connector needs signing in again, so this release could not be checked; the latest scan known is rescan fe2eb036 (18 October). Its 3 critical secret findings (an example GUID in tests) are marked not exploitable; the critical SAST hit on the load-test mock (not shipped) and the rest are still to triage. One pair with main on the same host: main served 496 requests a second and lost 147 while the host paused (its health check waited 30 s); the release 518 with none failed and a shorter tail; no finding sent twice ([performance](performance.md)) |
@@ -108,7 +108,7 @@ Rows for MZ-01.00.25 to .30 are the run on main listed in [the version table](pe
 
 ## MZ-01.01.00 security review
 
-Every engine (SAST with Fusion on, SCA, KICS, containers, secret detection, API security) on the release branch, then triage, fixes and a rescan, three times.
+Every engine (SAST with Fusion on, SCA, KICS, containers, secret detection, API security) on the release branch, then triage, fixes and a rescan, five times.
 
 | Scan | Commit | Critical / high / medium / low | What changed before it |
 | --- | --- | --- | --- |
@@ -116,8 +116,11 @@ Every engine (SAST with Fusion on, SCA, KICS, containers, secret detection, API 
 | 7a769856 | e3bf02a | 13 / 44 / 27 / 32 (120 with 4 info) | Fusion on (the owner's choice of model) |
 | 974e4ef8 | 495cf33 | 16 / 33 / 17 / 20 (86) | Round 1: fixes in code, below |
 | 55343317 | 73bf05d | 13 / 37 / 16 / 8 (74) | Round 2: more fixes and hardening |
+| b6ec5007 | 2a94691 | 16 / 42 / 18 / 12 (89 with 1 info) | The release commit, Govern, the Status board and the Consolidated view included: 18 new |
+| 6f6c9dbc | 0340217 | 16 / 44 / 16 / 12 (88) | Round 4: Labs CSV exports defuse formulas, the instance lock's heartbeat, the Govern webhook test |
+| 89468da6 | d5274e0 | 16 / 42 / 16 / 12 (86) | Round 5: tenant colours limited to the eight; nothing new |
 
-**Fixed in code (about 100 results):**
+**Fixed in code (about 110 results):**
 - **Server-side request forgery (one confirmed).** Every address the server calls is checked where it is called: Checkmarx One's addresses need https and a real host name, and nothing reaches link-local or cloud-metadata addresses (169.254/16, fe80::/10, metadata host names, IPv4 wrapped in IPv6), including GitHub, repository clones, other git hosts, the update registry's sign-in address, integrity bundles and certificate issuer links.
 - **The Checkmarx One token stays home.** It is sent only to the connection's own Checkmarx One addresses, never to a storage host, even when a host refuses without it.
 - **Nothing secret in errors and logs.** Bearer tokens, JWTs, signed-address parameters, URL passwords, the mail password (as typed, base64 and in AUTH PLAIN) and email addresses are kept out of error messages, the audit log and the Debug trace.
@@ -127,15 +130,18 @@ Every engine (SAST with Fusion on, SCA, KICS, containers, secret detection, API 
 - **Smaller.** Regular expressions without nested repeats (no ReDoS); counting in Maps (no prototype pollution); sign-in errors that say nothing about the account; the session cookie marked Secure behind any TLS proxy; the mail-server certificate check, when an Admin turns it off, applies to that server only and is logged.
 - **Dependencies and containers.** qs 6.16.1 (CVE-2026-110816); Caddy listens on 8080/8443 inside its container with every Linux capability dropped, the public 80/443 mapped to them on `PUBLIC_ADDRESS`.
 - **Test code.** Every made-up key, token and `user:password` address in tests is built at run time.
+- **New pages (rounds 4 and 5).** CSV exports from the Status board, the Consolidated view, Govern and FAE Flush put an apostrophe before text a spreadsheet would run as a formula; the Govern webhook test shows only Govern's own error texts; a tenant's colour reaching the page is always one of the eight; the bar-mode switch accepts only its two values.
+- **One server per data folder.** The lock's heartbeat now runs at least three times per stale window: with `INSTANCE_LOCK_STALE_SECONDS` under 10, a running server's lock used to look dead between beats, and a second server could take over its data folder.
 
-**Judged not exploitable (72), each with its reason and the line of the check that blocks it** — [the full list](security/mz-01.01.00-not-exploitable.md):
+**Judged not exploitable (86), each with its reason and the line of the check that blocks it** — [the full list](security/mz-01.01.00-not-exploitable.md):
 - **28 secrets in old commits of test files** (made-up keys and addresses, removed from the code; test files are not in the image).
-- **11 in the load test's stand-in for Checkmarx One** (runs on this machine only during tests; not in the image).
-- **10 server-side request forgery paths** whose sink is guarded by MZ's own checks, which the scanner does not recognise as sanitisers.
-- **11 error-message results** whose text is scrubbed before it is built.
+- **14 in the load test's stand-in for Checkmarx One** (runs on this machine only during tests; not in the image).
+- **14 error-message results** whose text is scrubbed before it is built, or is a number or one of the server's own sentences.
+- **9 server-side request forgery paths** whose sink is guarded by MZ's own checks, which the scanner does not recognise as sanitisers. One of them (the API key's sign-in address, `src/cxone/endpoints.js:180`) is marked Confirmed in Checkmarx One; it is an Admin's own setting, checked by `checkServiceUrl`, and its state is left for the owner to decide.
+- **6 cross-site scripting results:** five Govern replies that are JSON only (sent with `nosniff` and a strict Content Security Policy, and shown with `textContent`), and same-server content in the HTML report.
+- **4 stored secrets** that must stay readable (the mail password, the .pfx passphrase, an unencrypted backup when no passphrase is set, Govern's webhook signing secret), all 0600 in a 0700 folder and never sent to the browser.
 - **3 certificate results:** a diagnostic that refuses before sending anything, and a documented, logged Admin opt-out.
-- **4 stored secrets** that must stay readable (the mail password, the .pfx passphrase, an unencrypted backup when no passphrase is set, the empty "not configured" mail login), all 0600 in a 0700 folder.
-- **5 more:** two sign-in answers that need the right password, same-server content in the HTML report, a launcher that listens on this computer only, and Caddy's public ports 80 and 443.
+- **8 more:** the API key read for its address only (Checkmarx One verifies it), the empty "not configured" mail login, two sign-in answers that need the right password, a launcher that listens on this computer only, a test on this computer, a log line whose variable parts are cleaned, and Caddy's public ports 80 and 443.
 
 Known limits, for a later release: addresses are checked as written, not after a DNS lookup; the standalone calculator still allows inline style attributes (its charts set them from data).
 
