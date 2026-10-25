@@ -12,7 +12,7 @@
 // Checks as well as timings: no request may fail outright (5xx other than the
 // relay's "busy, retry", network errors, timeouts), and no finding may be sent
 // to Checkmarx One for triage more than once, however many people ask at once.
-import { randomBytes } from 'node:crypto';
+import { createPrivateKey, randomBytes, sign } from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
 import { ReportGrants } from '../src/report-grants.js';
@@ -148,19 +148,20 @@ async function call(op, method, url, { body, cookie, stream = false, timeout = 6
 // ---------------------------------------------------------------------------
 // Set-up: the administrator, mail, analysts with their own sessions, a tracked report
 // ---------------------------------------------------------------------------
-async function signIn(email, password, next) {
+// Errors name the account by its role and number (`who`), never its address, password or the server's answer.
+async function signIn(email, password, next, who) {
   const r = await fetch(`${BASE}/api/session/password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-  if (!r.ok) throw new Error(`sign-in ${email}: ${r.status} ${await r.text()}`);
+  if (!r.ok) throw new Error(`sign-in (${who}): HTTP ${Number(r.status)}`);
   const cookie = r.headers.get('set-cookie').split(';')[0];
   if (next) {
     const c = await fetch(`${BASE}/api/me/password`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify({ current: password, next }) });
-    if (!c.ok) throw new Error(`password change ${email}: ${c.status} ${await c.text()}`);
+    if (!c.ok) throw new Error(`password change (${who}): HTTP ${Number(c.status)}`);
   }
   return cookie;
 }
 
 const setupStarted = performance.now();
-const admin = await signIn(ADMIN.email, ADMIN.password, ADMIN.next);
+const admin = await signIn(ADMIN.email, ADMIN.password, ADMIN.next, 'administrator');
 const put = await call('setup:settings', 'PUT', '/api/settings', {
   cookie: admin,
   body: {
@@ -170,17 +171,19 @@ const put = await call('setup:settings', 'PUT', '/api/settings', {
     links: { reportServerUrl: 'https://mz.bench.io' },
   },
 });
-if (put.status !== 200) throw new Error(`settings: ${put.status} ${JSON.stringify(put.json)}`);
+// Set-up errors say only which step failed and its HTTP status (Number(): a code, or "no answer" for a timeout or
+// network error), never what was sent or answered; the server's log has the details.
+if (put.status !== 200) throw new Error(`settings: HTTP ${Number(put.status) || 'no answer'}`);
 const check = await call('setup:smtp-check', 'POST', '/api/settings/connections/check', { cookie: admin, body: { rollback: false } });
-if (!check.json?.smtp?.ok) throw new Error(`smtp check: ${JSON.stringify(check.json)}`);
+if (!check.json?.smtp?.ok) throw new Error(`smtp check: the benchmark's mail server was not reached (HTTP ${Number(check.status) || 'no answer'}); see the server log`);
 
 const people = Array.from({ length: ANALYST_SESSIONS + FETCHER_SESSIONS }, (_, i) => ({ email: `analyst${i}@bench.io`, password: runPassword(), next: runPassword() }));
 for (const p of people) {
   const r = await call('setup:add-user', 'POST', '/api/iam/users', { cookie: admin, body: { email: p.email, name: `Analyst ${p.email}`, role: 'analyst', password: p.password } });
-  if (r.status !== 201) throw new Error(`add user: ${r.status} ${JSON.stringify(r.json)}`);
+  if (r.status !== 201) throw new Error(`add user (analyst ${people.indexOf(p)}): HTTP ${Number(r.status) || 'no answer'}`);
 }
 const sessions = [];
-for (const p of people) sessions.push(await signIn(p.email, p.password, p.next));
+for (const [i, p] of people.entries()) sessions.push(await signIn(p.email, p.password, p.next, `analyst ${i}`));
 const analystSessions = sessions.slice(0, ANALYST_SESSIONS);
 const fetcherSessions = sessions.slice(ANALYST_SESSIONS);
 
@@ -188,10 +191,39 @@ const fetcherSessions = sessions.slice(ANALYST_SESSIONS);
 const firstFetch = performance.now();
 const fetched = await Promise.all([admin, ...sessions].map((cookie) => call('setup:first-fetch', 'GET', '/api/scan', { cookie, timeout: 300_000 })));
 const firstFetchMs = performance.now() - firstFetch;
-if (fetched.some((f) => f.status !== 200)) throw new Error(`first fetch: ${fetched.map((f) => f.status).join(',')}`);
+if (fetched.some((f) => f.status !== 200)) throw new Error(`first fetch: HTTP ${fetched.map((f) => Number(f.status) || 'no answer').join(',')}`);
 const projectIds = fetched[0].json.projects.map((p) => p.projectId);
 const tracked = await call('setup:tracked-report', 'POST', '/api/tracked-reports', { cookie: admin, body: { name: 'Benchmark', projectIds: projectIds.slice(0, 20) } });
 const trackedId = tracked.json?.id;
+
+// The Labs features under test (Govern, Status board, Consolidated view), unlocked with this run's throwaway
+// activation key (benchmark.sh). A server without them refuses the code; those roles then stay out of the mix.
+const labs = { govern: false, statusBoard: false, consolidated: false };
+if (process.env.BENCH_ACTIVATION_KEY) {
+  const key = createPrivateKey(Buffer.from(process.env.BENCH_ACTIVATION_KEY, 'base64').toString('utf8'));
+  const b64 = (v) => Buffer.from(v).toString('base64url');
+  for (const name of Object.keys(labs)) {
+    const now = new Date();
+    const head = `MZ1.${b64(JSON.stringify({ v: 1, id: randomBytes(6).toString('hex'), issued: now.toISOString(), expires: new Date(now.getTime() + 30 * 86_400_000).toISOString(), org: 'Benchmark', scope: `feature:${name}`, action: 'activate' }))}`;
+    const r = await call('setup:activate', 'POST', '/api/activation', { cookie: admin, body: { code: `${head}.${b64(sign(null, Buffer.from(head), key))}` } });
+    labs[name] = r.status === 200;
+  }
+}
+if (labs.govern) {
+  // Budgets on a quarter of the projects, monitored, and one cycle so Govern has read the usage.
+  for (const id of projectIds.slice(0, Math.ceil(projectIds.length / 4))) {
+    const r = await call('setup:govern-budget', 'POST', '/api/govern/budgets', { cookie: admin, body: { entityType: 'project', entityId: id, amount: 500, period: 'monthly', warnPct: 80, mode: 'monitor' } });
+    if (r.status !== 201) throw new Error(`govern budget: HTTP ${Number(r.status) || 'no answer'}`);
+  }
+  await call('setup:govern-run', 'POST', '/api/govern/run', { cookie: admin, body: {} });
+}
+if (labs.consolidated) {
+  const me = await call('setup:me', 'GET', '/api/me', { cookie: admin });
+  const id = me.json?.user?.id ?? me.json?.id;
+  const r = await call('setup:consolidated-grant', 'PUT', `/api/iam/users/${encodeURIComponent(id)}/consolidated`, { cookie: admin, body: { on: true } });
+  if (r.status !== 200) throw new Error(`consolidated grant: HTTP ${Number(r.status) || 'no answer'}`);
+}
+console.log(`Labs under load: ${Object.entries(labs).filter(([, on]) => on).map(([n]) => n).join(', ') || 'none (this server has none of them)'}.`);
 const setupMs = performance.now() - setupStarted;
 
 // ---------------------------------------------------------------------------
@@ -234,6 +266,17 @@ const OPS = {
   'admin: audit integrity': (cookie) => call('admin: audit integrity', 'GET', '/api/audit/verify', { cookie }),
   'admin: troubleshooting log': (cookie) => call('admin: troubleshooting log', 'GET', '/api/diagnostics/download', { cookie }),
   'admin: backups': (cookie) => call('admin: backups', 'GET', '/api/backup', { cookie }),
+  // Labs (only when unlocked above)
+  'govern: overview': (cookie) => call('govern: overview', 'GET', '/api/govern/overview', { cookie }),
+  'govern: budgets': (cookie) => call('govern: budgets', 'GET', '/api/govern/budgets?limit=100', { cookie }),
+  'govern: alerts': (cookie) => call('govern: alerts', 'GET', '/api/govern/alerts?limit=50', { cookie }),
+  'govern: requests': (cookie) => call('govern: requests', 'GET', '/api/govern/requests', { cookie }),
+  'govern: restrictions': (cookie) => call('govern: restrictions', 'GET', '/api/govern/restrictions', { cookie }),
+  'govern: attribution': (cookie) => call('govern: attribution', 'GET', '/api/govern/attribution?tab=disputes', { cookie }),
+  'govern: run a cycle': (cookie) => call('govern: run a cycle', 'POST', '/api/govern/run', { cookie, body: {} }),
+  'status board: page': (cookie) => call('status board: page', 'GET', '/api/status-board', { cookie }),
+  'consolidated: summary': (cookie) => call('consolidated: summary', 'GET', '/api/consolidated/summary', { cookie }),
+  'consolidated: projects': (cookie) => call('consolidated: projects', 'GET', '/api/consolidated/projects', { cookie }),
 };
 
 // ---------------------------------------------------------------------------
@@ -280,6 +323,12 @@ const BURST_MIX = [
   ['audit: browse', 0.01], ['dashboard: build HTML report', 0.01], ['reminder: email initiators', 0.007], ['credits: verify (2 reads)', 0.005],
   ['fetch: data (streamed)', 0.003], ['dashboard: triage now', 0.003], ['admin: metrics', 0.002],
 ];
+// With the Labs pages on, part of the Credits share opens them instead (same burst size).
+if (labs.govern || labs.statusBoard) {
+  const credits = BURST_MIX.find(([op]) => op === 'credits: balances');
+  credits[1] -= 0.02;
+  BURST_MIX.push(...(labs.govern ? [['govern: overview', 0.01]] : []), ...(labs.statusBoard ? [['status board: page', labs.govern ? 0.01 : 0.02]] : []), ...(labs.govern && !labs.statusBoard ? [['govern: budgets', 0.01]] : []));
+}
 await fetch(`${MOCK}/__reset`);
 phase = 'burst';
 const burstPlan = BURST_MIX.flatMap(([op, share]) => Array(Math.max(1, Math.round(share * BURST))).fill(op)).slice(0, BURST);
@@ -290,6 +339,7 @@ await Promise.all(
     if (op.startsWith('report:')) return OPS[op](i % PROJECTS);
     if (op.startsWith('fetch')) return OPS[op](fetcherSessions[i % fetcherSessions.length]);
     if (op.startsWith('admin')) return OPS[op](admin);
+    if (op.startsWith('status board')) return OPS[op](fetcherSessions[i % fetcherSessions.length]);
     return OPS[op](analystSessions[i % analystSessions.length]);
   }),
 );
@@ -371,15 +421,31 @@ const ROLES = {
       await nap(jitter(30_000));
     });
   },
+  // A security champion or analyst on the Labs pages: Govern's figures, budgets and alerts, the Status board.
+  async labs(n) {
+    const cookie = analystSessions[n % analystSessions.length];
+    const board = fetcherSessions[n % fetcherSessions.length];
+    await nap(Math.random() * 10_000);
+    await until(async () => {
+      const page = pick([
+        ...(labs.govern ? [['govern: overview'], ['govern: budgets', 'govern: overview'], ['govern: alerts'], ['govern: requests']] : []),
+        ...(labs.statusBoard ? [['status board: page']] : []),
+      ]);
+      await Promise.all(page.map((op) => OPS[op](op.startsWith('status') ? board : cookie)));
+      await nap(jitter(10_000));
+    });
+  },
   // An administrator watching the server.
   async admin() {
     await nap(Math.random() * 15_000);
     await until(async () => {
-      await OPS[pick(['admin: metrics', 'admin: audit integrity', 'admin: troubleshooting log', 'admin: backups', 'audit: browse'])](admin);
+      await OPS[pick(['admin: metrics', 'admin: audit integrity', 'admin: troubleshooting log', 'admin: backups', 'audit: browse', ...(labs.govern ? ['govern: restrictions', 'govern: attribution', 'govern: run a cycle'] : []), ...(labs.consolidated ? ['consolidated: summary', 'consolidated: projects'] : [])])](admin);
       await nap(jitter(15_000));
     });
   },
 };
+// When the Labs pages are on, a quarter of the viewers use them instead (same number of people in total).
+if (labs.govern || labs.statusBoard) Object.assign(MIX, { viewer: MIX.viewer * 0.75, labs: MIX.viewer * 0.25 });
 const plan = [];
 for (const [role, share] of Object.entries(MIX)) for (let i = 0; i < Math.round(share * VUS); i++) plan.push([role, i]);
 const sustainedStarted = performance.now();

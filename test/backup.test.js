@@ -136,3 +136,68 @@ test('emailed reports are kept for download, expire after their lifetime, and id
   assert.ok(files.purge({ force: true, now: Date.now() + 31 * 86400000 }) >= 1);
   assert.equal(files.get(id), null);
 });
+
+test('restore writes only inside the state folder, whoever hands it the bundle, and touches nothing when a name is wrong', async () => {
+  const source = tmpDir();
+  await seed(source);
+  const bundle = readBackup(createBackup({ dataDir: source }).buffer);
+  const target = tmpDir();
+  fs.writeFileSync(path.join(target, 'settings.json'), '{"before":1}');
+  const outside = path.join(path.dirname(target), `escaped-${path.basename(target)}`);
+  for (const name of ['../escaped', `../${path.basename(outside)}`, 'audit/../../escaped', '/etc/escaped', 'tenants/x/../../escaped', 'audit/.hidden']) {
+    const bad = { ...bundle, files: { ...bundle.files, [name]: bundle.files['settings.json'] } };
+    assert.throws(() => restoreBackup(bad, { dataDir: target }), /unexpected file name/, name);
+  }
+  assert.equal(fs.existsSync(outside), false);
+  assert.equal(fs.readFileSync(path.join(target, 'settings.json'), 'utf8'), '{"before":1}', 'nothing was moved aside or replaced');
+  assert.deepEqual(fs.readdirSync(target), ['settings.json']);
+
+  // A good bundle still restores, with every file private and no temporary file left behind.
+  const { restored } = restoreBackup(bundle, { dataDir: target });
+  assert.ok(restored.includes('settings.json'));
+  const leftovers = fs.readdirSync(target, { recursive: true }).filter((f) => /\.tmp$|restore-|\.partial$/.test(String(f)));
+  assert.deepEqual(leftovers, []);
+  if (process.platform !== 'win32') assert.equal(fs.statSync(path.join(target, 'settings.json')).mode & 0o777, 0o600);
+});
+
+test('a refused backup\'s message names nothing read from it but a checked version number', async () => {
+  const source = tmpDir();
+  await seed(source);
+  const plain = () => JSON.parse(zlib.gunzipSync(createBackup({ dataDir: source }).buffer));
+  const secret = 'smtp-password-Hunter2-sudha@acme.io';
+  const withName = plain();
+  withName.files[`../${secret}`] = withName.files['settings.json'];
+  assert.throws(() => readBackup(zlib.gzipSync(JSON.stringify(withName))), (error) => /unexpected file name/.test(error.message) && !error.message.includes(secret));
+  const withVersion = plain();
+  withVersion.version = secret;
+  assert.throws(() => readBackup(zlib.gzipSync(JSON.stringify(withVersion))), (error) => /version/.test(error.message) && !error.message.includes(secret));
+  const newer = plain();
+  newer.version = 2;
+  assert.throws(() => readBackup(zlib.gzipSync(JSON.stringify(newer))), /Backup version 2 is newer/);
+});
+
+test('a backup file is written under an unguessable name, never through a file or link already there', { skip: process.platform === 'win32' }, async () => {
+  const source = tmpDir();
+  await seed(source);
+  const folder = path.join(tmpDir(), 'backups');
+  const now = new Date('2026-09-01T02:00:00Z');
+  fs.mkdirSync(folder, { recursive: true });
+  // The names an older version wrote through: a link planted there now leads nowhere.
+  const decoy = path.join(tmpDir(), 'decoy');
+  fs.writeFileSync(decoy, 'untouched');
+  fs.symlinkSync(decoy, path.join(folder, `mission-zero-2026-09-01T02-00-00.mzbackup.partial`));
+  const { file } = writeBackupTo(folder, { dataDir: source, now });
+  assert.equal(fs.readFileSync(decoy, 'utf8'), 'untouched');
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  assert.ok(readBackup(fs.readFileSync(file)).files['settings.json']);
+  assert.deepEqual(fs.readdirSync(folder).filter((f) => f.endsWith('.tmp')), []);
+});
+
+test('a damaged file is named in the refusal exactly as the backup lists it', async () => {
+  const source = tmpDir();
+  await seed(source);
+  const plain = JSON.parse(zlib.gunzipSync(createBackup({ dataDir: source }).buffer));
+  const month = Object.keys(plain.files).find((n) => n.startsWith('audit/'));
+  plain.files[month].size += 1;
+  assert.throws(() => readBackup(zlib.gzipSync(JSON.stringify(plain))), { message: `Backup file ${month} is damaged (checksum mismatch).` });
+});

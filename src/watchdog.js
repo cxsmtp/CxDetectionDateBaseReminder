@@ -13,6 +13,7 @@
  *  - A problem that clears is "recovered": whoever was told hears so.
  *  - A version that came in less than a day ago and broke what worked before is
  *    put back to the previous version (once), when the launcher runs the server.
+ *    An outage on the far side (5xx, timeouts, unreachable) is not blamed on it.
  */
 
 import fs from 'node:fs';
@@ -103,9 +104,10 @@ export class Watchdog {
         open.checks += 1;
         open.lastAt = at;
         open.detail = p.detail ?? open.detail;
+        open.outside = Boolean(p.outside);
         continuing.push({ key, ...open });
       } else {
-        this.#state.problems[key] = { title: p.title, detail: p.detail ?? '', tenant: p.tenant ?? '', since: at, lastAt: at, checks: 1, version, tried: [], notifiedAt: '', caseId: '' };
+        this.#state.problems[key] = { title: p.title, detail: p.detail ?? '', tenant: p.tenant ?? '', outside: Boolean(p.outside), since: at, lastAt: at, checks: 1, version, tried: [], notifiedAt: '', caseId: '' };
         started.push({ key, ...this.#state.problems[key] });
         this.#state.events.unshift({ at, kind: 'problem', key, message: `${p.title}: ${p.detail ?? ''}`.trim(), tenant: p.tenant ?? '' });
       }
@@ -170,6 +172,19 @@ export class Watchdog {
   }
 }
 
+const OUTSIDE_CODES = new Set(['ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'EAI_AGAIN', 'ETIMEDOUT', 'EHOSTUNREACH', 'ENETUNREACH', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET']);
+
+/**
+ * Is this error the far side's, whatever version of MissionZero runs? An answer of 5xx or 429, a timeout, or a host
+ * that cannot be reached. A 401, 403 or 404 is not: a new version could have broken how it signs in or what it asks.
+ */
+export function outsideFault(error) {
+  if (!error) return false;
+  const status = Number(error.httpStatus ?? error.status ?? error.statusCode) || 0; // httpStatus: what the far side answered (an AuthError's own status is 401)
+  const code = error.code ?? error.cause?.code ?? '';
+  return status >= 500 || status === 429 || error.timedOut === true || OUTSIDE_CODES.has(code);
+}
+
 /** Tell the administrators about this problem now? */
 export const shouldNotify = (p) => p.checks >= NOTIFY_AFTER && !p.notifiedAt;
 
@@ -179,11 +194,13 @@ export const shouldRaiseCase = (p, { autoUpdate, online }) => p.checks >= CASE_A
 /**
  * The version to go back to, or '': the running version came in less than a day
  * ago, a problem started after it did, the previous version passed a whole check,
- * and this version was not rolled back from before.
+ * and this version was not rolled back from before. A problem on the far side
+ * (Checkmarx One or the mail server answering 5xx, timing out or out of reach)
+ * never counts: going back a version cannot fix it.
  */
 export function rollbackTarget({ problems, running, previous, switchedAt, wasHealthy, hasRolledBack, now = Date.now() }) {
   if (!previous || !switchedAt || previous === running || hasRolledBack(running)) return '';
   if (now - Date.parse(switchedAt) > DAY_MS) return '';
-  const after = problems.filter((p) => p.checks >= NOTIFY_AFTER && Date.parse(p.since) >= Date.parse(switchedAt));
+  const after = problems.filter((p) => p.checks >= NOTIFY_AFTER && !p.outside && Date.parse(p.since) >= Date.parse(switchedAt));
   return after.length && wasHealthy(previous) ? previous : '';
 }

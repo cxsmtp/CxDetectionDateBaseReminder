@@ -7,7 +7,7 @@ import path from 'node:path';
 
 import { findReferences, peekTenant, readAction, replyReference, signAction } from '../src/action-links.js';
 import { mergeHandsOff, parseCommand, statusDue, systemEmail } from '../src/hands-off.js';
-import { Watchdog, rollbackTarget, shouldNotify, shouldRaiseCase } from '../src/watchdog.js';
+import { Watchdog, outsideFault, rollbackTarget, shouldNotify, shouldRaiseCase } from '../src/watchdog.js';
 
 const mac = (text) => createHmac('sha256', 'test-key').update(text).digest('base64url');
 
@@ -101,4 +101,32 @@ test('going back to the previous version: only for a day, only once, only to a v
   assert.equal(rollbackTarget({ ...base, problems: [{ ...problem, checks: 1 }] }), '', 'not yet confirmed');
   assert.equal(rollbackTarget({ ...base, wasHealthy: () => false }), '', 'the previous one never passed a check');
   assert.equal(rollbackTarget({ ...base, hasRolledBack: () => true }), '', 'once');
+});
+
+test('an outage on the far side is never blamed on a new version', () => {
+  const now = Date.parse('2026-10-25T06:45:00Z');
+  // SUP-0002: Checkmarx One answered 503 an hour after MZ-01.00.99 came in; going back to .98 could not help.
+  const cxone = { key: 'cxone:default', checks: 3, since: '2026-10-25T06:38:25Z', outside: true };
+  const base = { problems: [cxone], running: '1.0.99', previous: '1.0.98', switchedAt: '2026-10-25T05:30:00Z', wasHealthy: () => true, hasRolledBack: () => false, now };
+  assert.equal(rollbackTarget(base), '', 'Checkmarx One down: stay on the new version');
+  assert.equal(rollbackTarget({ ...base, problems: [{ ...cxone, outside: false }] }), '1.0.98', 'a refused key after the update still goes back');
+  assert.equal(rollbackTarget({ ...base, problems: [cxone, { key: 'errors', checks: 2, since: '2026-10-25T06:00:00Z' }] }), '1.0.98', 'a problem of its own still counts');
+
+  assert.equal(outsideFault(Object.assign(new Error('GET /api/projects failed: 503 Service Temporarily Unavailable'), { status: 503 })), true);
+  assert.equal(outsideFault(Object.assign(new Error('rejected the API key (503)'), { status: 401, httpStatus: 503 })), true, "a sign-in error's own 401 is not what the far side said");
+  assert.equal(outsideFault(Object.assign(new Error('rejected the API key (401)'), { status: 401, httpStatus: 401 })), false);
+  assert.equal(outsideFault(Object.assign(new Error('timed out'), { status: 504, timedOut: true })), true);
+  assert.equal(outsideFault(Object.assign(new Error('refused'), { code: 'ECONNREFUSED' })), true);
+  assert.equal(outsideFault(Object.assign(new Error('fetch failed'), { cause: { code: 'ENOTFOUND' } })), true);
+  assert.equal(outsideFault(Object.assign(new Error('Forbidden'), { status: 403 })), false);
+  assert.equal(outsideFault(Object.assign(new Error('Too many'), { status: 429 })), true);
+  assert.equal(outsideFault(null), false);
+
+  // The flag follows the latest check: an outage that turns into a refused key counts again.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'watchdog-'));
+  const w = new Watchdog({ file: path.join(dir, 'w.json') });
+  w.record([{ key: 'cxone:default', title: 'Checkmarx One connection', detail: '503', outside: true }], { version: '1.0.99' });
+  assert.equal(w.problem('cxone:default').outside, true);
+  w.record([{ key: 'cxone:default', title: 'Checkmarx One connection', detail: '401' }], { version: '1.0.99' });
+  assert.equal(w.problem('cxone:default').outside, false);
 });

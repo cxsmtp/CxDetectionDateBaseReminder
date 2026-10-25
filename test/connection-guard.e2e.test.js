@@ -11,7 +11,7 @@ import path from 'node:path';
 
 import { freePort } from './free-port.js';
 import { fakeSmtp } from './fake-smtp.js';
-import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, keyIdLike, mockApiKey } from './test-credentials.js';
 
 const MOCK_PORT = await freePort();
 const PORT = await freePort();
@@ -154,7 +154,7 @@ test('a Checkmarx One key saved as typed is not used until it works, and a bad o
   assert.equal(leaving.cxone.rolledBack, true, JSON.stringify(leaving));
   assert.equal(leaving.cxone.help.code, 'cx.key-format', 'a key that is not a key is said plainly');
   assert.doesNotMatch(JSON.stringify(leaving.cxone.help), /not-a-real-key/, 'the key is never repeated back');
-  const connect = await admin('POST', '/api/integration/cxone', { apiKey: '0f8fad5b-d9cb-469f-a165-70867728950e' });
+  const connect = await admin('POST', '/api/integration/cxone', { apiKey: keyIdLike() });
   assert.equal(connect.status, 400);
   assert.equal(connect.body.help.code, 'cx.key-is-id', 'the key ID pasted instead of the key');
   assert.equal(leaving.notice.parts[0].restored.tenant, 'acme');

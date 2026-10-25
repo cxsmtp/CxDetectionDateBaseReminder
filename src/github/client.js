@@ -7,6 +7,8 @@
  * be compared on cost as well as results.
  */
 
+import { outboundUrlProblem } from '../outbound-url.js';
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class GitHubError extends Error {
@@ -27,6 +29,10 @@ export class GitHubClient {
     this.apiUrl = String(apiUrl || 'https://api.github.com').replace(/\/+$/, '');
     // github.com: api.github.com/graphql; Enterprise: https://host/api/graphql next to /api/v3.
     this.graphqlUrl = graphqlUrl || (this.apiUrl.endsWith('/api/v3') ? this.apiUrl.replace(/\/v3$/, '/graphql') : `${this.apiUrl}/graphql`);
+    // https only (plain http just for a mock on this machine), never a link-local or metadata address:
+    // the token goes wherever these point. Said on the first request, so a bad setting cannot stop the server.
+    const problem = outboundUrlProblem(this.apiUrl) || outboundUrlProblem(this.graphqlUrl);
+    this.urlProblem = problem ? `The GitHub API URL ${problem}.` : '';
     this.fetch = fetchImpl;
     this.requests = { rest: 0, graphql: 0, search: 0 };
     this.rateLimit = {};
@@ -66,6 +72,7 @@ export class GitHubClient {
   }
 
   async #send(url, init, bucket, attempt = 0) {
+    if (this.urlProblem) throw new GitHubError(this.urlProblem, 400);
     this.requests[bucket] += 1;
     let response;
     try {

@@ -6,6 +6,7 @@
 //
 // The check opens the same tunnel by hand, step by step, so it can say where it stopped:
 // the proxy, the tunnel to the host, the certificate, or the host's answer.
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
@@ -29,9 +30,15 @@ export function readNetwork(dataDir) {
 export function saveNetwork(dataDir, value) {
   const file = path.join(dataDir, NETWORK_FILE);
   if (!value) return fs.rmSync(file, { force: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(value, null, 1), { mode: 0o600 });
-  fs.renameSync(tmp, file);
+  // A fresh, unguessable name created exclusively ('wx'): never an existing file or a link planted there.
+  const tmp = `${file}.${randomBytes(8).toString('hex')}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(value, null, 1), { mode: 0o600, flag: 'wx' });
+    fs.renameSync(tmp, file);
+  } catch (error) {
+    if (error.code !== 'EEXIST') fs.rmSync(tmp, { force: true });
+    throw error;
+  }
 }
 
 /** A proxy address as typed: http(s)://host:port, no path. Throws with a reason. */
@@ -178,7 +185,10 @@ export async function checkRoute({ proxy = '', host, port = 443, pathname = '/',
     return { ok: false, host, port, steps };
   }
   const secure = await new Promise((resolve) => {
-    const s = tls.connect({ socket, servername: net.isIP(host) ? undefined : host, rejectUnauthorized: false, timeout: timeoutMs }, () => resolve(s));
+    // Not refused at the handshake, so the step can name who issued an untrusted certificate. Node
+    // still checks the chain and the name asked for (`host`, never the proxy's), and nothing is sent
+    // unless `authorized` says both passed (below).
+    const s = tls.connect({ socket, host, servername: net.isIP(host) ? undefined : host, rejectUnauthorized: false, timeout: timeoutMs }, () => resolve(s));
     s.once('error', (e) => resolve({ failed: e }));
     s.once('timeout', () => resolve({ failed: new Error('no TLS answer') }));
   });

@@ -82,6 +82,15 @@ test('instance lock: a live server keeps others out; a dead one is taken over; a
   third.release();
 });
 
+test('instance lock: a short stale time still keeps a live server\'s lock fresh', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lock-'));
+  // Beats come at least three times per stale window, whatever the default beat is.
+  const first = await new InstanceLock(dir, { staleMs: 900 }).acquire();
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await assert.rejects(new InstanceLock(dir, { staleMs: 900 }).acquire({ waitMs: 0 }), /Another CxMissionZero server/);
+  first.release();
+});
+
 test('a server update keeps people signed in with their fetched data, and keeps every credit', async (t) => {
   const MOCK_PORT = await freePort();
   const PORT = await freePort();

@@ -11,6 +11,9 @@ rem   tenants "<org>" <max> [months]   several Checkmarx One tenants, up to <max
 rem   hebrew-on "<org>" [months]     Hebrew on          hebrew-off "<org>"   Hebrew off
 rem   impact-on "<org>" [months]     calculator Impact tab on   impact-off "<org>"   off
 rem   fae-on "<org>" [months]        FAE Flush (Labs) on (MZ-01.00.95 or later)   fae-off "<org>"   off
+rem   govern-on "<org>" [months]     Govern (Labs) on (MZ-01.01.00 or later)   govern-off "<org>"   off
+rem   status-on "<org>" [months]     Status board (Labs) on (MZ-01.01.00 or later)   status-off "<org>"   off
+rem   consolidated-on "<org>" [months]   Consolidated view (Labs) on (MZ-01.01.00 or later)   consolidated-off "<org>"   off
 rem   show <code>                    what a code contains
 rem Codes last 12 months unless a number of months is given. Example:  activation-codes.cmd fae-on "Acme Corp" 6
 
@@ -32,6 +35,12 @@ if /i "%~1"=="impact-on" %RUN% feature /keys/issuer-key.pem "%~2" impact on %MON
 if /i "%~1"=="impact-off" %RUN% feature /keys/issuer-key.pem "%~2" impact off & goto end
 if /i "%~1"=="fae-on" %RUN% feature /keys/issuer-key.pem "%~2" faeFlush on %MONTHS% & goto end
 if /i "%~1"=="fae-off" %RUN% feature /keys/issuer-key.pem "%~2" faeFlush off & goto end
+if /i "%~1"=="govern-on" %RUN% feature /keys/issuer-key.pem "%~2" govern on %MONTHS% & goto end
+if /i "%~1"=="govern-off" %RUN% feature /keys/issuer-key.pem "%~2" govern off & goto end
+if /i "%~1"=="status-on" %RUN% feature /keys/issuer-key.pem "%~2" statusBoard on %MONTHS% & goto end
+if /i "%~1"=="status-off" %RUN% feature /keys/issuer-key.pem "%~2" statusBoard off & goto end
+if /i "%~1"=="consolidated-on" %RUN% feature /keys/issuer-key.pem "%~2" consolidated on %MONTHS% & goto end
+if /i "%~1"=="consolidated-off" %RUN% feature /keys/issuer-key.pem "%~2" consolidated off & goto end
 if /i "%~1"=="show" podman run --rm %IMAGE% node scripts/activation.mjs show %2 & goto end
 echo Unknown: "%~1". Open this file for the list. & exit /b 2
 

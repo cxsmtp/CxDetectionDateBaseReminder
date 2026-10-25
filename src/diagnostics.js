@@ -20,19 +20,25 @@ const MAX_TEXT = 300;
 // Text is cut to this before scrubbing, so a huge message cannot make the patterns crawl.
 const MAX_INPUT = 2000;
 
-/** Remove anything that could identify a person, a system or a secret. */
+/**
+ * Remove anything that could identify a person, a system or a secret.
+ *
+ * Every pattern is linear: no quantified group holds another unbounded quantifier, and
+ * neighbouring repeats never match the same characters in two ways, so no text can make
+ * them backtrack without end. The text is cut to MAX_INPUT first as well.
+ */
 export function scrub(value) {
   return String(value ?? '')
     .slice(0, MAX_INPUT)
     .replace(/[\u0000-\u001f\u007f]+/g, ' ')
-    .replace(/[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+/g, '<email>')
+    .replace(/[^\s@<>"']+@[^\s@<>"'.]+\.[^\s@<>"']+/g, '<email>')
     .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi, '<url>')
-    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b/g, '<ip>')
+    .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?::\d{1,5})?\b/g, '<ip>')
     .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '<id>')
-    .replace(/\b(?:eyJ[\w-]+\.){1,2}[\w-]+\b/g, '<token>')
+    .replace(/\beyJ[\w-]+\.[\w.-]+/g, '<token>')
     .replace(/\b[A-Za-z0-9_\-+/=]{24,}\b/g, '<token>')
-    .replace(/(?:[A-Za-z]:)?(?:[\\/][\w.-]+){2,}/g, '<path>')
-    .replace(/\b(?:[a-z0-9-]+\.)+(?:com|net|org|io|dev|local|internal|cloud|ai|co|uk|ae|in|eu|de)\b/gi, '<host>')
+    .replace(/(?:[A-Za-z]:)?[\\/][\w.-]+[\\/][\w.-][\w.\\/-]*/g, '<path>')
+    .replace(/\b[a-z0-9][a-z0-9.-]*\.(?:com|net|org|io|dev|local|internal|cloud|ai|co|uk|ae|in|eu|de)\b/gi, '<host>')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, MAX_TEXT);
@@ -161,19 +167,23 @@ export class Diagnostics {
   /** The download: environment, what is used, what fails, what disagrees, and what to do about it. */
   report({ extra = {} } = {}) {
     const entries = this.entries();
+    // Counted in Maps, not plain objects: a name read back from the log file is only ever a key,
+    // so one such as "__proto__" or "constructor" can never reach Object.prototype.
     const tally = (list, key) => {
-      const out = {};
-      for (const e of list) out[e[key]] = (out[e[key]] ?? 0) + 1;
-      return Object.fromEntries(Object.entries(out).sort((a, b) => b[1] - a[1]));
+      const out = new Map();
+      for (const e of list) out.set(String(e[key]), (out.get(String(e[key])) ?? 0) + 1);
+      return Object.fromEntries([...out].sort((a, b) => b[1] - a[1]));
     };
     const usage = entries.filter((e) => e.kind === 'usage');
     const errors = entries.filter((e) => e.kind === 'error' || e.kind === 'client-error');
     const discrepancies = entries.filter((e) => e.kind === 'discrepancy');
 
     // Request timings per feature: how often, how slow, how often it failed.
-    const features = {};
+    const byFeature = new Map();
     for (const e of usage) {
-      const f = (features[e.event] ??= { uses: 0, failures: 0, totalMs: 0, slowestMs: 0 });
+      const name = String(e.event);
+      if (!byFeature.has(name)) byFeature.set(name, { uses: 0, failures: 0, totalMs: 0, slowestMs: 0 });
+      const f = byFeature.get(name);
       f.uses += 1;
       if (Number(e.status) >= 500) f.failures += 1;
       if (typeof e.ms === 'number') {
@@ -181,11 +191,13 @@ export class Diagnostics {
         f.slowestMs = Math.max(f.slowestMs, e.ms);
       }
     }
-    for (const f of Object.values(features)) {
+    for (const f of byFeature.values()) {
       f.averageMs = f.uses ? Math.round(f.totalMs / f.uses) : 0;
       delete f.totalMs;
     }
-    const ranked = Object.fromEntries(Object.entries(features).sort((a, b) => b[1].uses - a[1].uses));
+    // Object.fromEntries defines own properties, so even a "__proto__" name stays a plain key.
+    const ranked = Object.fromEntries([...byFeature].sort((a, b) => b[1].uses - a[1].uses));
+    const features = ranked;
 
     return {
       about: 'CxMissionZero troubleshooting log. Holds no names, email addresses, hosts, URLs, keys, passwords, findings or code: only feature names, counts, timings, status codes and scrubbed error types. Project ids are one-way hashes.',

@@ -217,9 +217,26 @@ export function readSessionCookie(req) {
   return null;
 }
 
+/**
+ * Whether the browser reached this server over HTTPS, so the session cookie must be Secure.
+ * HTTPS here, or at a trusted proxy (TRUST_PROXY): Express sets req.secure from either. Beyond
+ * that, Secure is added whenever anything says the browser is on HTTPS — an https Origin or
+ * Referer, or X-Forwarded-Proto: https from any proxy (one not named in TRUST_PROXY included).
+ * Adding Secure can only make the cookie stricter: a client that claims HTTPS falsely only keeps
+ * its own browser from storing the cookie. Plain http (a local network with no TLS) keeps working.
+ */
+export function cookieShouldBeSecure(req) {
+  if (req.secure || req.protocol === 'https') return true;
+  const headers = req.headers ?? {};
+  const first = (value) => String(value ?? '').split(',')[0].trim().toLowerCase();
+  if (first(headers['x-forwarded-proto']) === 'https') return true;
+  // The page the request came from: its Origin, or (only when there is none) its Referer.
+  const from = headers.origin && headers.origin !== 'null' ? headers.origin : headers.referer;
+  return /^https:\/\//i.test(String(from ?? ''));
+}
+
 export function setSessionCookie(req, res, id) {
-  // HTTPS here, or at a trusted proxy (TRUST_PROXY): Express sets req.secure from either.
-  const secure = Boolean(req.secure);
+  const secure = cookieShouldBeSecure(req);
   res.append(
     'Set-Cookie',
     [

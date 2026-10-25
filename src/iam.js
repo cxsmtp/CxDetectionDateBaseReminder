@@ -3,7 +3,7 @@
  *
  * Users sign in with their email and a password, or with a Checkmarx One API
  * key whose identity (email, username or client id) is mapped to them. Each
- * user has one role; a role is a set of permissions from PERMISSIONS. Three
+ * user has one role; a role is a set of permissions from PERMISSIONS. Four
  * roles are built in:
  *
  *   Admin             everything, including the special permissions: the
@@ -12,6 +12,7 @@
  *                     which carry those secrets)
  *   Security Analyst  everything else, including users and roles
  *   User              fetch findings, send reminders, follow and manage tracked reports
+ *   Security Champion Govern (beta): budgets, enforcement, requests, restores, attribution
  *
  * Nobody can hand out more than they hold: a user may only assign roles, and
  * build roles, whose permissions are all their own, and may only change users
@@ -74,8 +75,23 @@ export const PERMISSIONS = [
   { id: 'system.metrics', group: 'Access', label: 'Server load', description: 'See the server’s load and cache figures.' },
   { id: 'system.update', group: 'Audit & data', label: 'Update & recovery', description: 'Install new versions, roll back, turn on auto-update, restart and troubleshoot the server from Settings.', special: true },
   { id: 'diagnostics.export', group: 'Audit & data', label: 'Download troubleshooting logs', description: 'Download the usage and troubleshooting log (no personal data, keys or findings).' },
+  // Govern (beta, behind its activation code): credit governance (src/govern/).
+  { id: 'govern.view', group: 'Govern', label: 'See Govern', description: 'See Govern: the tenant\u2019s credits, every budget, what each user, group, project and application used, restrictions, alerts and attribution.' },
+  { id: 'govern.request', group: 'Govern', label: 'Ask for credits', description: 'Ask for credits for themselves, or for a project, group or application. Without “See Govern” they see only their own requests and their own usage.' },
+  { id: 'govern.approve', group: 'Govern', label: 'Approve credit requests', description: 'Approve credit requests (all or part of what was asked, for a while or for good), deny them with a reason, or ask a question.' },
+  { id: 'govern.budgets', group: 'Govern', label: 'Manage budgets', description: 'Create, change, import and delete budgets and exemptions (in Monitor: nothing is restricted).' },
+  { id: 'govern.enforce', group: 'Govern', label: 'Enforce budgets', description: 'Switch a budget to Enforce: when it is used up, Govern restricts in Checkmarx One (AI roles, Auto Triage, PR remediation), reversibly.', special: true },
+  { id: 'govern.restore', group: 'Govern', label: 'Restore restrictions', description: 'Lift a restriction Govern made in Checkmarx One at once, with a grace until usage grows again or the period ends.' },
+  { id: 'govern.attribution', group: 'Govern', label: 'Decide attribution', description: 'Decide who consumption counts towards: map it to someone, reject a match for good, or ignore a shared account.' },
+  { id: 'govern.settings', group: 'Govern', label: 'Govern settings', description: 'Govern\u2019s cycle, the AI roles a restriction removes, AI-only groups, notifications (email recipients, webhook and its secret) and the permission check.', special: true },
 ];
 export const PERMISSION_IDS = PERMISSIONS.map((p) => p.id);
+/**
+ * Granted to one person at a time by an Admin, never by a role (not even Admin's): the consolidated view of every
+ * tenant they work in (Labs, behind its activation code). Held as a flag on the user; src/server.js adds it to what they may do.
+ */
+export const PERSON_GRANTS = [{ id: 'consolidated.view', group: 'Labs', label: 'May see the consolidated view (all connected tenants)', description: 'Labs → Consolidated view: every tenant they work in, read only. Given to one person at a time by an Admin, never through a role.' }];
+const PERSON_GRANT_IDS = new Set(PERSON_GRANTS.map((p) => p.id));
 const ADMIN_ONLY = PERMISSIONS.filter((p) => p.special).map((p) => p.id);
 /** Held by the Admin role alone: never by any other role, whoever builds it. */
 export const ADMIN_ROLE_ONLY = PERMISSIONS.filter((p) => p.adminOnly).map((p) => p.id);
@@ -93,14 +109,22 @@ export const DEFAULT_ROLES = {
   analyst: {
     name: 'Security Analyst',
     description: 'Everything except the Admin-only integrations, credit budget and backups — including users and roles.',
-    // Seeing the Activation codes page, the Cx Credits Calculator and Hebrew are the Admin's to hand out.
-    permissions: PERMISSION_IDS.filter((id) => !ADMIN_ONLY.includes(id) && !['activation.view', 'projections.use', 'language.he'].includes(id)),
+    // Seeing the Activation codes page, the Cx Credits Calculator and Hebrew are the Admin's to hand out; of Govern, seeing it and asking for credits.
+    permissions: PERMISSION_IDS.filter((id) => !ADMIN_ONLY.includes(id) && !['activation.view', 'projections.use', 'language.he'].includes(id) && (!id.startsWith('govern.') || ['govern.view', 'govern.request'].includes(id))),
     builtin: true,
   },
   user: {
     name: 'User',
     description: 'Fetch findings, send reminders and follow tracked reports. Settings are read-only; users and roles are hidden.',
-    permissions: ['findings.fetch', 'reminders.send', 'initiators.tag', 'reports.view', 'reports.remind', 'reports.manage', 'credits.view', 'settings.view'],
+    permissions: ['findings.fetch', 'reminders.send', 'initiators.tag', 'reports.view', 'reports.remind', 'reports.manage', 'credits.view', 'settings.view', 'govern.request'],
+    builtin: true,
+  },
+  // Govern (beta): complete control of the credits in the pool — budgets, enforcement, requests, restores and
+  // attribution — but not Govern's settings, and not users and roles.
+  champion: {
+    name: 'Security Champion',
+    description: 'Complete control of the credits in the pool with Govern: budgets (Enforce too), credit requests, restores and attribution; fetches findings and sees reports and credits. Not Govern settings, not users and roles.',
+    permissions: ['govern.view', 'govern.request', 'govern.approve', 'govern.budgets', 'govern.enforce', 'govern.restore', 'govern.attribution', 'findings.fetch', 'reports.view', 'credits.view'],
     builtin: true,
   },
 };
@@ -110,6 +134,8 @@ const MAX_FAILED = 5;
 const LOCK_MS = 15 * 60 * 1000;
 const EMAIL = /^(?=[^]{3,254}$)[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 
+// Messages name no one: they reach the browser and the server log, so an email address (the one
+// typed, or anyone else's) is never part of one.
 const fail = (status, message, extra = {}) => Object.assign(new Error(message), { status, ...extra });
 const norm = (value) => String(value ?? '').trim().toLowerCase();
 
@@ -204,13 +230,19 @@ export class IamStore {
       this.#migrated = true;
     }
     if (!state.migrations.includes(ROLES_1_0_63)) state.migrations.push(ROLES_1_0_63);
+    if (Object.keys(raw).length && !migrations.includes(ROLES_GOVERN)) {
+      migrateRolesGovern(state);
+      this.#migrated = true;
+    }
+    if (!state.migrations.includes(ROLES_GOVERN)) state.migrations.push(ROLES_GOVERN);
     return state;
   }
 
   #save() {
     fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-    const tmp = `${this.#file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 2), { mode: 0o600 });
+    // An unguessable name, created only if nothing is there (never through a link left in its place).
+    const tmp = `${this.#file}.${randomUUID()}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 2), { mode: 0o600, flag: 'wx' });
     fs.renameSync(tmp, this.#file);
     this.#mtime = fs.statSync(this.#file).mtimeMs;
   }
@@ -283,7 +315,8 @@ export class IamStore {
 
   /** May someone holding `actorPerms` hand out this role (or build one like it)? */
   canGrant(actorPerms, permissions) {
-    return [...permissions].every((p) => actorPerms.has(p));
+    // A per-person grant (the consolidated view) is not a role's: it never stops someone being managed.
+    return [...permissions].every((p) => actorPerms.has(p) || PERSON_GRANT_IDS.has(p));
   }
 
   #assertCanGrantRole(actorPerms, roleId) {
@@ -305,7 +338,7 @@ export class IamStore {
   async createUser({ email, name = '', role, password = '', cxoneIdentities = [], mustChangePassword = true }, { actorPerms = null, actorId = '' } = {}) {
     const address = norm(email);
     if (!EMAIL.test(address)) throw fail(400, 'Enter a valid email address.');
-    if (this.findByEmail(address)) throw fail(409, `${address} already has access.`);
+    if (this.findByEmail(address)) throw fail(409, 'That email address already has access.');
     if (actorPerms) this.#assertCanGrantRole(actorPerms, role);
     else if (!this.#role(role)) throw fail(400, 'That role does not exist.');
     const aliases = cleanAliases(cxoneIdentities);
@@ -337,7 +370,7 @@ export class IamStore {
   #assertAliasesFree(aliases, userId) {
     for (const alias of aliases) {
       const owner = this.#state.users.find((u) => u.id !== userId && (norm(u.email) === alias || (u.cxoneIdentities ?? []).map(norm).includes(alias)));
-      if (owner) throw fail(409, `The Checkmarx One identity "${alias}" already belongs to ${owner.email}.`);
+      if (owner) throw fail(409, 'One of those Checkmarx One identities already belongs to someone else here.');
     }
   }
 
@@ -346,7 +379,7 @@ export class IamStore {
     const user = this.user(id);
     if (!user) throw fail(404, 'No such user.');
     if (!this.canGrant(actorPerms, this.permissionsOf({ ...user, disabled: false }))) {
-      throw fail(403, `You cannot change ${user.email}: their role holds permissions you do not have.`);
+      throw fail(403, 'You cannot change this person: their role holds permissions you do not have.');
     }
     const before = publicUser(user);
     const next = { ...user };
@@ -384,14 +417,14 @@ export class IamStore {
     const user = this.user(id);
     if (!user) throw fail(404, 'No such user.');
     if (!this.canGrant(actorPerms, this.permissionsOf({ ...user, disabled: false }))) {
-      throw fail(403, `You cannot change ${user.email}: their role holds permissions you do not have.`);
+      throw fail(403, 'You cannot change this person: their role holds permissions you do not have.');
     }
     const address = norm(email);
     if (!EMAIL.test(address)) throw fail(400, 'Enter a valid email address.');
     const before = user.email;
     if (address === norm(before)) return { before, after: before };
     const taken = this.#state.users.find((u) => u.id !== id && (norm(u.email) === address || (u.cxoneIdentities ?? []).map(norm).includes(address)));
-    if (taken) throw fail(409, `${address} already signs in here.`);
+    if (taken) throw fail(409, 'That email address already signs in here.');
     user.email = address;
     this.#save();
     return { before, after: address };
@@ -401,6 +434,16 @@ export class IamStore {
    * The Checkmarx One tenants a person works in (several tenants: src/tenancy.js). Empty means
    * the first tenant only. Super Admins (tenants.manage) work in every tenant whatever this says.
    */
+  /** An Admin lets this person see the consolidated view (a per-person grant, never a role's). Returns {before, after}. */
+  setConsolidated(id, on) {
+    const user = this.user(id);
+    if (!user) throw fail(404, 'No such user.');
+    const before = publicUser(user);
+    user.consolidated = on === true;
+    this.#save();
+    return { before, after: publicUser(user) };
+  }
+
   setTenants(id, tenantIds) {
     const user = this.user(id);
     if (!user) throw fail(404, 'No such user.');
@@ -453,7 +496,7 @@ export class IamStore {
     if (!user) throw fail(404, 'No such user.');
     if (id === actorId) throw fail(400, 'You cannot remove yourself.');
     if (!this.canGrant(actorPerms, this.permissionsOf({ ...user, disabled: false }))) {
-      throw fail(403, `You cannot remove ${user.email}: their role holds permissions you do not have.`);
+      throw fail(403, 'You cannot remove this person: their role holds permissions you do not have.');
     }
     if (user.role === 'admin' && !user.disabled && this.#activeAdmins(id) === 0) {
       throw fail(400, 'There must always be at least one active Admin.');
@@ -487,7 +530,7 @@ export class IamStore {
     const user = this.user(id);
     if (!user) throw fail(404, 'No such user.');
     if (actorPerms && !this.canGrant(actorPerms, this.permissionsOf({ ...user, disabled: false }))) {
-      throw fail(403, `You cannot reset ${user.email}'s password: their role holds permissions you do not have.`);
+      throw fail(403, 'You cannot reset this person\'s password: their role holds permissions you do not have.');
     }
     const problem = passwordProblem(password);
     if (problem) throw fail(400, problem);
@@ -604,6 +647,18 @@ function migrateRoles1063(state) {
   }
 }
 
+/**
+ * Govern (beta), once, on roles an older version saved: the built-in Security Analyst sees Govern and may ask for
+ * credits, the built-in User may ask for credits (their own requests and usage only). Roles made by people are
+ * left as they are; the new Security Champion role comes with its defaults.
+ */
+const ROLES_GOVERN = 'roles-govern';
+function migrateRolesGovern(state) {
+  const add = (role, perms) => role && !role.locked && (role.permissions = [...new Set([...role.permissions, ...perms])]);
+  add(state.roles.analyst, ['govern.view', 'govern.request']);
+  add(state.roles.user, ['govern.request']);
+}
+
 function cleanAliases(list) {
   const values = Array.isArray(list) ? list : String(list ?? '').split(/[\n,]+/);
   return [...new Set(values.map(norm).filter(Boolean))].slice(0, 20);
@@ -713,6 +768,7 @@ export function publicUser(user) {
     role: user.role,
     cxoneIdentities: user.cxoneIdentities ?? [],
     tenants: user.tenants ?? [],
+    consolidated: Boolean(user.consolidated),
     hasPassword: Boolean(user.passwordHash),
     mustChangePassword: Boolean(user.mustChangePassword),
     disabled: Boolean(user.disabled),

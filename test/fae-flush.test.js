@@ -430,3 +430,36 @@ test('grouped by attack vector, a latest scan with none: it asks to scan again; 
   assert.equal(p.step, 'done');
   assert.deepEqual([p.counts.marked, p.counts.revalidated], [5, 5]);
 });
+
+test('code waiting between download and upload sits in a private folder with an unguessable name, never loose in the temp folder', { skip: process.platform === 'win32' }, () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-tmp-'));
+  const a = new FaeFlushRunner({ store: new FaeFlushStore({ file: path.join(root, 'a.json') }), clientOf: () => null, tmpDir: root });
+  const b = new FaeFlushRunner({ store: new FaeFlushStore({ file: path.join(root, 'b.json') }), clientOf: () => null, tmpDir: root });
+  const own = a.tmpDir;
+  assert.equal(path.dirname(own), root);
+  assert.match(path.basename(own), /^mz-fae-[A-Za-z0-9]{6}$/);
+  assert.notEqual(own, b.tmpDir, 'each runner its own');
+  assert.equal(fs.statSync(own).mode & 0o777, 0o700);
+  assert.equal(a.tmpDir, own, 'the same folder while it is there');
+  fs.rmSync(own, { recursive: true });
+  const again = a.tmpDir;
+  assert.notEqual(again, own, 'cleared away: made again, under a new name');
+  assert.equal(fs.statSync(again).mode & 0o777, 0o700);
+});
+
+test('the private code folder goes away with the process that made it', { skip: process.platform === 'win32' }, async () => {
+  const { execFileSync } = await import('node:child_process');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-exit-'));
+  const script = `
+    import { FaeFlushRunner, FaeFlushStore } from ${JSON.stringify(new URL('../src/fae-flush.js', import.meta.url).href)};
+    import fs from 'node:fs';
+    import path from 'node:path';
+    const r = new FaeFlushRunner({ store: new FaeFlushStore({ file: ${JSON.stringify(path.join(root, 's.json'))} }), clientOf: () => null, tmpDir: ${JSON.stringify(root)} });
+    fs.writeFileSync(path.join(r.tmpDir, 'left-behind.zip'), 'PK');
+    console.log(r.tmpDir);
+  `;
+  const made = execFileSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8' }).trim();
+  assert.match(path.basename(made), /^mz-fae-/);
+  assert.equal(fs.existsSync(made), false, 'removed, with what was left in it');
+  assert.deepEqual(fs.readdirSync(root).filter((f) => f.startsWith('mz-fae-')), []);
+});

@@ -96,11 +96,11 @@ These are the same sentences the page shows.
 
 **The mail server's certificate is for a different name than the one entered.**
 1. Enter the server name exactly as it is on its certificate (for example smtp.office365.com, not an IP address or an alias).
-2. For an internal relay addressed by IP, ask for its certificate name, or turn off "Check the mail server's certificate" for that relay only.
+2. For an internal relay addressed by IP, ask for its certificate name. Turning off "Check the mail server's certificate" for that relay is the last resort: the server log then says, once per mail server, that its certificate is not checked.
 
 **The mail server's certificate is not trusted.**
 1. If your company inspects TLS traffic or uses its own certificate authority, upload that root certificate under Settings → Checkmarx One → Trusted certificates. It is used at once, with no restart.
-2. For an internal relay with a self-signed certificate, turn off "Check the mail server's certificate" (SMTP_REJECT_UNAUTHORIZED=false).
+2. For an internal relay with a self-signed certificate, upload that certificate under Trusted certificates too. Only if that is not possible, turn off "Check the mail server's certificate" (SMTP_REJECT_UNAUTHORIZED=false); the server log then says so, once per mail server. The backup mailbox is always checked.
 
 **Something answered on this port, but not a mail server.**
 1. Check the port: 587 or 465 for most providers. Ports such as 993 (IMAP) or 443 (web) are not for sending mail.

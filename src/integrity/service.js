@@ -18,13 +18,15 @@ import path from 'node:path';
 
 import { MANIFEST_FILE, TOP_FILES, TREES, compareFilesAsync, readManifest, sha256 } from './manifest.js';
 import { verifyBundle } from './sigstore.js';
+import { outboundUrlProblem } from '../outbound-url.js';
 
 export const SOURCE_REPOSITORY = 'cxsmtp/CxDetectionDateBaseReminder';
 const TRUSTED_ROOT = JSON.parse(fs.readFileSync(new URL('./trusted-root.json', import.meta.url), 'utf8'));
 // Tests only (never in the image, which runs with NODE_ENV=production): another attestations API and trust root.
 const TESTING = process.env.NODE_ENV !== 'production';
 const API = (TESTING && process.env.MZ_INTEGRITY_API) || 'https://api.github.com';
-const testRoot = () => (TESTING && process.env.MZ_INTEGRITY_TRUST_ROOT ? JSON.parse(fs.readFileSync(process.env.MZ_INTEGRITY_TRUST_ROOT, 'utf8')) : null);
+// MZ_INTEGRITY_TRUST_ROOT holds the test trust root itself (JSON), never a file name: nothing is read from a path it names.
+const testRoot = () => (TESTING && process.env.MZ_INTEGRITY_TRUST_ROOT ? JSON.parse(process.env.MZ_INTEGRITY_TRUST_ROOT) : null);
 const FIRST = 20;
 
 const trim = (r) => ({ ok: r.ok, checked: r.checked, changed: r.changed.slice(0, FIRST), missing: r.missing.slice(0, FIRST), extra: r.extra.slice(0, FIRST), counts: { changed: r.changed.length, missing: r.missing.length, extra: r.extra.length } });
@@ -107,6 +109,8 @@ export class IntegrityService {
   }
 
   async #download(url) {
+    // The address comes from GitHub's answer: https (a local mock only in tests), never a link-local or metadata address.
+    if (typeof url !== 'string' || outboundUrlProblem(url, { allowLoopbackHttp: TESTING })) return null;
     try {
       const response = await this.fetch(url, { headers: { 'User-Agent': 'cxmissionzero-integrity' }, signal: AbortSignal.timeout(this.timeoutMs) });
       return response.ok ? await response.json() : null;

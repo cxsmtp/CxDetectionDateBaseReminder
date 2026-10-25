@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 
-import { contentSecurityPolicy, inlineScriptHashes, sameOriginGuard, securityHeaders } from '../src/security.js';
+import { contentSecurityPolicy, cspOrigin, inlineScriptHashes, sameOriginGuard, securityHeaders } from '../src/security.js';
 import { parseAddressList, parseOverrides } from '../src/settings.js';
 
 function run(middleware, req) {
@@ -68,4 +68,24 @@ test('email checks stay fast on hostile input (no catastrophic backtracking)', (
   const started = Date.now();
   assert.deepEqual(parseAddressList([hostile, `${'a'.repeat(300)}@acme.io`, 'ok@acme.io']), ['ok@acme.io'], 'over 254 characters is not an address');
   assert.ok(Date.now() - started < 200, `took ${Date.now() - started} ms`);
+});
+
+test('the page may call this server and the addresses an administrator set, never any https site', () => {
+  const connect = (options, req) => run(securityHeaders(options), req).headers['Content-Security-Policy'].match(/connect-src ([^;]*)/)[1];
+  // Nothing set: this server, and its own name on HTTPS (the "does this browser trust HTTPS" check).
+  assert.equal(connect({}, { headers: { host: 'mz.acme.io:3000' } }), "'self' https://mz.acme.io:*");
+  assert.equal(connect({}, { hostname: 'mz.acme.io', headers: { host: 'other' } }), "'self' https://mz.acme.io:*", 'Express\'s own reading of the host first');
+  assert.doesNotMatch(connect({}, { headers: { host: 'mz.acme.io' } }), /(^| )https:( |$)/, 'no scheme-wide source');
+  // The server address readers use, set by an administrator, read on every response.
+  let saved = 'https://reports.acme.io/base/';
+  const options = { connectSources: () => [saved, '', 'javascript:alert(1)', 'https://u:p@x.acme.io', "https://a.acme.io'; script-src *"] };
+  assert.equal(connect(options, { headers: { host: 'mz.acme.io' } }), "'self' https://mz.acme.io:* https://reports.acme.io");
+  saved = 'http://10.0.0.7:8080';
+  assert.equal(connect(options, { headers: { host: 'mz.acme.io' } }), "'self' https://mz.acme.io:* http://10.0.0.7:8080");
+  // A Host header that is not a host name adds nothing to the policy.
+  assert.equal(connect({}, { headers: { host: "evil.example; script-src 'unsafe-inline'" } }), "'self'");
+  assert.equal(connect({ connectSources: () => { throw new Error('settings not loaded'); } }, { headers: {} }), "'self'");
+  assert.equal(cspOrigin('https://[::1]:8443/x'), 'https://[::1]:8443');
+  assert.equal(cspOrigin('ftp://files.acme.io'), '');
+  assert.match(contentSecurityPolicy(), /connect-src 'self';/);
 });

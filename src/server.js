@@ -64,7 +64,7 @@ import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
 import { buildBrandedReminder, effectiveBranding, personName, REMINDER_PLACEHOLDERS } from './reminder-email.js';
 import { focusProjects, nextRunAfter } from './automation-config.js';
-import { deriveConnection, publicConnection } from './cxone/endpoints.js';
+import { checkServiceUrl, deriveConnection, publicConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
 import { checkCxKey, checkEnvFile, explainCxone, explainGit, explainSmtp, refusedByCheck } from './troubleshoot.js';
 import { TrustStore, isUntrustedCode } from './trust.js';
@@ -72,7 +72,7 @@ import { activeProxy, checkRoute, cleanProxy, proxyWithAuth, readNetwork, requir
 import { SettingsStore, apiPath, applyEnvironmentSmtp, cleanPersonalBranding, hasEnvironmentSmtp, hostOfUrl, isVerified, mergeSettings, overlayBranding, parseAddressList, publicSettings, smtpFingerprint, supportChannel } from './settings.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import v8 from 'node:v8';
-import { Watchdog, rollbackTarget, shouldNotify, shouldRaiseCase } from './watchdog.js';
+import { Watchdog, outsideFault, rollbackTarget, shouldNotify, shouldRaiseCase } from './watchdog.js';
 import { COMMANDS, isPaused, parseCommand, statusDue, systemEmail } from './hands-off.js';
 import { findReferences, peekTenant, readAction, replyReference, signAction } from './action-links.js';
 import { BACKUP_SUBJECT, findBackupInMailbox, readReplies } from './mail-inbox.js';
@@ -95,13 +95,20 @@ import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, isFinal, mayUse } from './features.js';
 import { PROBE_DEFAULTS, probeFusion } from './fusion.js';
 import { aiFindings, cleanEngines as cleanFusionEngines, readRiskFusion } from './fusion-ai.js';
-import { DEFAULT_PERIOD as FUSION_PERIOD, USAGE_PERIODS, fusionUsage, projectFacts, scanTypeOf, scanTypes, tenantAi, tenantCredits } from './fusion-usage.js';
+import { DEFAULT_PERIOD as FUSION_PERIOD, USAGE_PERIODS, fusionUsage, projectFacts, scanLanguages, scanTypeOf, scanTypes, tenantAi, tenantCredits } from './fusion-usage.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
 import { PasswordResets, RESET_TTL_MS, maskEmail, resetAllowed } from './password-reset.js';
 import { FaeFlushRunner, FaeFlushStore, FaeHistory, NE, cleanOptions, markState, previewTenant, summaryOf, testProject, valueOf } from './fae-flush.js';
 import { WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
+// Govern (beta): credit governance, per tenant (src/govern/).
+import { GovernService } from './govern/cycle.js';
+import { registerGovernRoutes } from './govern/routes.js';
+// Labs → Status board and Consolidated view (beta): their routes and the Workbench fetch's hooks.
+import { registerLabsRoutes } from './labs-routes.js';
+import { attachScanFacts } from './status-board.js';
+import { checkOutboundUrl } from './outbound-url.js';
 import {
   SessionStore,
   clearSessionCookie,
@@ -176,8 +183,9 @@ let restoredFromMailbox = null;
       ]);
       if (found && bundle) {
         const pending = path.join(dataDir, PENDING_RESTORE);
-        fs.writeFileSync(`${pending}.partial`, zlib.gzipSync(Buffer.from(JSON.stringify(bundle))), { mode: 0o600 });
-        fs.renameSync(`${pending}.partial`, pending);
+        const partial = `${pending}.${randomUUID()}.partial`;
+        fs.writeFileSync(partial, zlib.gzipSync(Buffer.from(JSON.stringify(bundle))), { mode: 0o600, flag: 'wx' });
+        fs.renameSync(partial, pending);
         restoredFromMailbox = { name: found.name, date: found.date };
         console.log(`[data] Found ${found.name} in ${backupMailbox.email}: restoring it.`);
       } else {
@@ -253,6 +261,8 @@ function buildTenant({ id, dir }) {
   const settingsStore = new SettingsStore({ file: first ? settingsFile : path.join(dir, 'settings.json') });
   if (first) settingsStore.applyEnvironment();
   const creditLedger = new CreditLedger({ file: path.join(dir, 'triage-credits.json') });
+  // Govern (beta): MZ's own spend is refused for a project or person whose Enforce budget is used up (only while Govern is unlocked).
+  creditLedger.setSpendGuard((q) => (governLocked() ? '' : tenancy.context(id).govern.get().spendRefusal(q)));
   const automationState = new AutomationState({
     file: first && config.settingsFile ? config.settingsFile.replace(/\.json$/, '') + '-automation.json' : path.join(dir, 'automation-state.json'),
   });
@@ -297,6 +307,8 @@ function buildTenant({ id, dir }) {
     faeFlush: new FaeFlushStore({ file: path.join(dir, 'fae-flush.json') }),
     // Every result FAE Flush marked, after its run: the value it brought (Labs → FAE Flush → Value).
     faeHistory: new FaeHistory({ file: path.join(dir, 'fae-flush-history.json') }),
+    // Govern (beta): budgets, holds, alerts and usage in govern/, made the first time Govern is used (src/govern/cycle.js).
+    govern: lazyGovern(id, path.join(dir, 'govern')),
     touchedProjects: new Map(),
     relayCache: new TtlCache({ max: 100_000 }),
     recentActions: new TtlCache({ max: 100_000 }),
@@ -307,6 +319,35 @@ function buildTenant({ id, dir }) {
     state: { automationSessionId: null, bootstrapSessionId: null, integrationFingerprint: null, integrationAttempt: null, integrationFailure: { fingerprint: null, until: 0 }, lastDashboardOrigin: '', connectionHelp: {} },
   };
 }
+/**
+ * Govern (beta) for one tenant, made on first use: it reads and acts through the tenant's own integration session,
+ * records in the tenant's audit chain and mails through MZ's verified mailer.
+ */
+function lazyGovern(id, dir) {
+  let service = null;
+  const inTenant = (fn) => tenancy.run(id, fn);
+  return {
+    loaded: () => Boolean(service),
+    get: () =>
+      (service ??= new GovernService({
+        dir,
+        clientOf: () => inTenant(() => integrationSession()?.client ?? null),
+        connectionOf: () => inTenant(() => integrationSession()?.connection ?? null),
+        audit: (entry) => tenancy.context(id).audit.record(entry),
+        sendMail: (message, to) => inTenant(() => sendReminderMail(presenter.exit(() => sendingSettings()), message, { to, exact: true })),
+        meta: () => ({ tenant: inTenant(() => integrationSession()?.connection?.tenant ?? ''), version: APP_VERSION, allowLoopback: Boolean(process.env.NODE_TEST_CONTEXT) }),
+        pool: () =>
+          inTenant(() => {
+            const s = settingsStore.get();
+            const period = poolPeriod(s);
+            return { limit: s.aiTriage?.monthlyCreditLimit ?? 0, period, used: creditLedger.usedInPeriod(period).total };
+          }),
+      })),
+  };
+}
+/** Govern is held back until its activation code is in force (features.js unlockedBy). */
+const governLocked = () => featureLocked(featureById('govern'));
+
 /** The running tenant's own variables (its integration session and the like). */
 const tstate = scopedState(tenancy);
 const settingsStore = scoped(tenancy, 'settingsStore');
@@ -614,7 +655,7 @@ async function resolveAutomationSession() {
       return session;
     } catch (error) {
       console.warn(`! Stored automation key could not be used: ${error.message}`);
-      tstate.integrationFailure = { fingerprint, until: Date.now() + 30_000 + Math.floor(Math.random() * 30_000) };
+      tstate.integrationFailure = { fingerprint, until: Date.now() + 30_000 + Math.floor(Math.random() * 30_000), error };
       return null;
     } finally {
       if (tstate.integrationAttempt?.promise === promise) tstate.integrationAttempt = null;
@@ -722,6 +763,8 @@ app.disable('x-powered-by');
 app.use(securityHeaders({
   scriptHashes: inlineScriptHashes(path.join(publicDir, 'index.html')),
   hsts: () => httpsManager.hstsHeader(),
+  // The report server address an administrator set (its Test button checks it from the browser).
+  connectSources: () => [settingsStore.get().links?.reportServerUrl, config.reportServerUrl],
 }));
 // Big replies (the page's script, the fetch stream, full results, downloads) shrink
 // 5-10x for a remote office or VPN: brotli or gzip at a quick level, the fetch stream
@@ -764,6 +807,9 @@ app.use((req, res, next) => {
 });
 // A page's script error is a few lines of text: no reason to accept megabytes of it.
 app.use('/api/diagnostics/client-error', express.json({ limit: '16kb' }));
+// Govern (beta): small JSON bodies, except a CSV import (at most 1 MiB of CSV, in JSON).
+app.use('/api/govern/csv', express.json({ limit: '2mb' }));
+app.use('/api/govern', express.json({ limit: '64kb' }));
 app.use(express.json({ limit: '4mb' }));
 
 /**
@@ -937,6 +983,8 @@ const SERVER_PERMISSIONS = new Set(['security.https', 'backup.view', 'backup.run
 /** What a person may do: their role's permissions, without the server-wide ones when they work only in other tenants. */
 function permissionsFor(user) {
   const all = iam.permissionsOf(user);
+  // The consolidated view (Labs): given to one person by an Admin, never by a role (src/iam.js PERSON_GRANTS).
+  if (user?.consolidated === true && !user.disabled) all.add('consolidated.view');
   if (!user?.tenants?.length || user.tenants.includes(DEFAULT_TENANT)) return all;
   return new Set([...all].filter((p) => !SERVER_PERMISSIONS.has(p)));
 }
@@ -1208,7 +1256,7 @@ function describeMe(session, user) {
     // The page's languages this person may use (Hebrew only for the people chosen).
     languages: languageAccess.available(allowedLanguages(user.id)),
     // Add-ons a code has unlocked (in date or not): until then the page does not show them.
-    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, impact: Boolean(activations.feature('impact')?.on), faeFlush: Boolean(activations.feature('faeFlush')?.on) },
+    unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, impact: Boolean(activations.feature('impact')?.on), faeFlush: Boolean(activations.feature('faeFlush')?.on), govern: Boolean(activations.feature('govern')?.on), statusBoard: Boolean(activations.feature('statusBoard')?.on), consolidated: Boolean(activations.feature('consolidated')?.on) },
     // The product licence's end, for the Admins' banner in the last 30 days (src/activation.js).
     licence: held.has('activation.manage') ? (({ until, daysLeft, warn, activation }) => ({ until, daysLeft, warn, activation }))(activations.product()) : null,
     // The organisation's name (given with the terms of use), for what CxMissionZero makes for others.
@@ -1221,7 +1269,8 @@ function describeMe(session, user) {
     tenancy: tenancy.enabled
       ? {
           current: { id: tenancy.current().id, name: tenantName(tenancy.current().id) },
-          tenants: tenantsOf(user, held).map((id) => ({ id, name: tenantName(id) })),
+          // With when each last fetched (tenants loaded since the start), for the switcher (Labs → Consolidated view).
+          tenants: tenantsOf(user, held).map((id) => ({ id, name: tenantName(id), ...labs.fetchInfo(id) })),
           superAdmin: isSuperAdmin(held),
         }
       : null,
@@ -1764,6 +1813,8 @@ function iamView(req) {
     me: { id: req.user.id, permissions: [...req.permissions] },
     tenants: tenancy.enabled && isSuperAdmin(req.permissions) ? tenancy.list().map((t) => ({ id: t.id, name: tenantName(t.id) })) : null,
     signIn: can(req, 'iam.manage') ? { ...passwordResetReady(), canChange: !tenancy.enabled || isSuperAdmin(req.permissions) } : null,
+    // Labs → Consolidated view: an Admin ticks who may see it, once its activation code is in force.
+    consolidatedGrant: !featureLocked(featureById('consolidated')) && can(req, 'iam.manage') && req.user.role === 'admin',
   };
 }
 
@@ -1841,7 +1892,7 @@ function managedUser(req) {
   const user = visibleUser(req, req.params.id);
   if (user.id === req.user.id) throw Object.assign(new Error('Change your own profile under Settings → Your profile.'), { status: 400 });
   if (!iam.canGrant(req.permissions, iam.permissionsOf({ ...user, disabled: false }))) {
-    throw Object.assign(new Error(`You cannot change ${user.email}: their role holds permissions you do not have.`), { status: 403 });
+    throw Object.assign(new Error('You cannot change this person: their role holds permissions you do not have.'), { status: 403 });
   }
   return user;
 }
@@ -2265,6 +2316,9 @@ app.post(
       return res.status(400).json({ error: help.problem, help });
     }
     const overrides = { baseUrl: String(baseUrl).trim().replace(/\/+$/, ''), iamUrl: String(iamUrl).trim().replace(/\/+$/, ''), tenant: String(tenant).trim() };
+    // Typed addresses are checked before the key goes anywhere: https, never a link-local or metadata address.
+    if (overrides.baseUrl) overrides.baseUrl = checkServiceUrl(overrides.baseUrl, 'API URL');
+    if (overrides.iamUrl) overrides.iamUrl = checkServiceUrl(overrides.iamUrl, 'IAM URL');
     const session = await connectCheckmarxOne(key, {
       baseUrl: overrides.baseUrl || config.overrides.baseUrl,
       iamUrl: overrides.iamUrl || config.overrides.iamUrl,
@@ -2501,6 +2555,8 @@ app.put(
     const clean = (v) => String(v ?? '').trim().replace(/\/+$/, '');
     const overrides = { ...(current.integrationOverrides ?? { baseUrl: '', iamUrl: '', tenant: '' }) };
     for (const field of ['baseUrl', 'iamUrl', 'tenant']) if (field in body) overrides[field] = clean(body[field]);
+    // Saved as typed, but never an address the key must not go to (https, no link-local or metadata address).
+    for (const [field, label] of [['baseUrl', 'API URL'], ['iamUrl', 'IAM URL']]) if (field in body && overrides[field]) overrides[field] = checkServiceUrl(overrides[field], label);
     const key = String(body.apiKey ?? '').trim();
     const before = cxoneFingerprint(current.automationApiKey, current.integrationOverrides ?? {});
     // The stored key is never sent to another host: new IAM or API hosts need the key pasted again.
@@ -3321,7 +3377,8 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
 
   // Who ran each project's *latest* scan (so a rescan moves the reminder to
   // whoever ran it most recently), and the findings: independent, so both at once.
-  const [initiators, result, types] = await Promise.all([
+  const scanEngines = {};
+  const [initiators, result, types, languages, boardFacts] = await Promise.all([
     collectInitiators(client, req.session.connection, projects, {
       rules: settings.initiators,
       useDirectory: settings.initiators.useDirectory,
@@ -3345,7 +3402,11 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     }),
     // Whether each project's latest scan was a Fusion scan, a LAST scan or neither: the Workbench colours its row.
     // Part of the fetch being waited for (a call per 100 projects), so not queued behind background work.
-    scanTypes(client, Object.fromEntries(projects.map((p) => [p.id, lastScans?.[p.id]]).filter(([, scan]) => scan)), { concurrency: 2, background: false }).catch(() => ({})),
+    scanTypes(client, Object.fromEntries(projects.map((p) => [p.id, lastScans?.[p.id]]).filter(([, scan]) => scan)), { concurrency: 2, background: false, engines: scanEngines }).catch(() => ({})),
+    // The languages each latest scan has results in, for the line under its name (a call per 50 projects).
+    scanLanguages(client, Object.fromEntries(projects.map((p) => [p.id, lastScans?.[p.id]]).filter(([, scan]) => scan)), { concurrency: 2, background: false }).catch(() => ({})),
+    // Labs → Status board: applications and failed scans, tenant-wide and cached (only while it is unlocked).
+    labs.readFacts(client, identity),
   ]);
   // Stopped part-way, or projects left out: what was read is the data, and only its projects keep their initiators.
   if (result.notRead || result.leftOut) {
@@ -3361,9 +3422,12 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
     summary.initiatorConfidence = info.confidence ?? 'none';
     summary.lastScanDate = info.scanDate ?? null;
     summary.scanType = types[summary.projectId] ?? '';
+    summary.languages = languages[summary.projectId] ?? [];
     summary.url = projectUrl(summary, req.session.connection, settings.links);
   }
   result.initiators = initiators.byProject;
+  // Labs → Status board: each project's scan time, engines, applications, groups and failed scans.
+  attachScanFacts(result.projects, { scans: lastScans, engines: scanEngines, applications: boardFacts.applications, failed: boardFacts.failed, groups: Object.fromEntries(allProjects.map((p) => [p.id, p.groups])) });
   result.detectionWindow = detectionWindow;
   result.engines = engines;
   leftOut.noCode = result.leftOut ?? 0;
@@ -3389,6 +3453,7 @@ async function runScan(req, { onStart, onProject, shouldStop = () => false } = {
   const whole = !detectionWindow && !vulnerability;
   if (branchScope === 'primary') for (const summary of result.projects) findingJournal.observe(summary, summary.risks, { complete: whole && !summary.error, engines });
   req.session.lastScan = result;
+  labs.noteFetch(req, result, allProjects.length);
 
   const response = {
     ...result,
@@ -3501,7 +3566,12 @@ app.get(
     });
     if (req.query.stream !== '1') {
       try {
-        return res.json(await runScan(req));
+        return res.json(
+          await runScan(req).catch((error) => {
+            labs.noteFetchFailed(error);
+            throw error;
+          }),
+        );
       } finally {
         release();
       }
@@ -3531,6 +3601,7 @@ app.get(
       const expected = Number.isInteger(error.status) && error.status >= 400 && error.status < 600;
       console.error(`GET /api/scan (stream) -> ${logSafe(expected ? error.message : error.stack ?? error.message)}`);
       diagnostics.error('fetch-failed', error, { status: expected ? error.status : 500 });
+      labs.noteFetchFailed(error);
       send({ type: 'error', status: expected ? error.status : 500, error: expected ? error.message : 'Something went wrong on the server. The details are in its log.' });
     } finally {
       release();
@@ -3849,8 +3920,10 @@ app.post(
 const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|0\.0\.0\.0)$/i;
 
 function requestOrigin(req) {
+  // Only a plain host[:port] (requestHost's rule): never a path, user name or other site smuggled into a header.
   const forwardedHost = viaTrustedProxy(req) ? String(req.get('x-forwarded-host') ?? '').split(',')[0].trim() : '';
-  return `${req.protocol}://${forwardedHost || req.get('host')}`;
+  const host = /^([\w.-]+|\[[0-9a-f:.]+\])(:\d{1,5})?$/i.test(forwardedHost) ? forwardedHost : requestHost(req);
+  return host ? `${req.protocol}://${host}` : '';
 }
 
 /**
@@ -3994,6 +4067,8 @@ const triageAllowed = (res) => actionAllowed(res, 'enabled');
 
 /** The credit pool's period: 'month' (refills monthly) or 'all' (one pool). */
 const poolPeriod = (settings = settingsStore.get()) => (settings.aiTriage?.poolPeriod === 'all' ? 'all' : 'month');
+/** Who asks to spend, for Govern's spend guard (beta): the person's email, or the emailed report's recipient. */
+const governRequester = (actor) => String(actor?.email || actor?.recipient || '').toLowerCase();
 const creditsRemaining = () => creditLedger.remaining(settingsStore.get().aiTriage?.monthlyCreditLimit ?? 0, new Date(), poolPeriod());
 
 /** The tenant's credits as last read from Checkmarx One, and this app's spending total then. */
@@ -4710,7 +4785,7 @@ function activationView(req) {
     // Only the add-ons a code has unlocked (expired ones too, to renew): nothing else is named.
     languages: Object.fromEntries(Object.keys(GATED_LANGUAGES).map((code) => [code, languageAccess.status(code)]).filter(([, s]) => s.on || s.expired)),
     tenants: activations.tenants(),
-    features: Object.fromEntries(['impact', 'faeFlush'].map((name) => [name, activations.feature(name)]).filter(([, f]) => f)),
+    features: Object.fromEntries(['impact', 'faeFlush', 'govern', 'statusBoard', 'consolidated'].map((name) => [name, activations.feature(name)]).filter(([, f]) => f)),
     product: activations.product(),
     history: activations.history().slice(0, 10),
   };
@@ -4739,6 +4814,12 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
     what = `the Cx Credits Calculator's Impact tab ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}` : 'turned off'}`;
   } else if (result.scope === 'feature:faeFlush') {
     what = `FAE Flush (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with Beta access` : 'turned off: a run under way pauses'}`;
+  } else if (result.scope === 'feature:statusBoard') {
+    what = `the Status board (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for everyone who may load findings` : 'turned off'}`;
+  } else if (result.scope === 'feature:consolidated') {
+    what = `the Consolidated view (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the people an Admin ticks under People & roles` : 'turned off'}`;
+  } else if (result.scope === 'feature:govern') {
+    what = `Govern (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with a Govern permission or Beta access` : 'turned off: its cycles stop, restrictions already made stay until restored'}`;
   } else if (result.scope === 'product') {
     what = `CxMissionZero activated for ${result.org} until ${result.expires.slice(0, 10)}`;
   } else {
@@ -5067,10 +5148,12 @@ app.post(
           kind: 'triage',
           allowance: allocations.balance(projectId).triage.allocated,
           cap: tenantLeft(),
+          requester: governRequester(base.actor),
         });
         if (!reservation) {
-          results.push({ alternateIds, ok: false, status: 402, error: 'Credits are busy with another request; try again in a moment.' });
-          auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
+          // Govern (beta): a used-up budget in Enforce mode says so; otherwise concurrent requests hold the credits.
+          results.push({ alternateIds, ok: false, status: 402, error: creditLedger.lastRefusal || 'Credits are busy with another request; try again in a moment.' });
+          auditCredit({ ...base, outcome: 'refused', reason: creditLedger.lastRefusal || 'Credits reserved by concurrent requests; nothing sent.' });
           continue;
         }
         const started = Date.now();
@@ -5455,7 +5538,13 @@ app.post(
         kind: 'remediation',
         allowance: allocations.balance(finding.projectId).remediation.allocated,
         cap: tenantLeft(),
+        requester: governRequester(base.actor),
       });
+      if (!reservation && creditLedger.lastRefusal) {
+        // Govern (beta): a used-up budget in Enforce mode.
+        auditCredit({ ...base, outcome: 'refused', reason: creditLedger.lastRefusal });
+        return res.status(402).json({ error: creditLedger.lastRefusal });
+      }
       if (!reservation) {
         auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
         return res.status(402).json({ error: 'Credits are busy with another request; try again in a moment.' });
@@ -6036,9 +6125,9 @@ async function adminTriage(session, findings, initiatorsByProject = {}, { actor 
         auditCredit({ ...base, outcome: 'refused', reason: `Not sent: ${stopped}` });
         continue;
       }
-      const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), { period: poolPeriod(), cap: tenantLeft() });
+      const reservation = creditLedger.reserve(alternateIds.length, limit, new Date(), { period: poolPeriod(), cap: tenantLeft(), forProject: projectId, requester: governRequester(actor) });
       if (!reservation) {
-        const why = tenantShortfall(alternateIds.length) || `${poolName(limit)} is used up (credit limit reached).`;
+        const why = creditLedger.lastRefusal || tenantShortfall(alternateIds.length) || `${poolName(limit)} is used up (credit limit reached).`;
         failed += group.length;
         errors.push(`${projectName}: ${why}`);
         auditCredit({ ...base, outcome: 'refused', reason: why });
@@ -6230,11 +6319,11 @@ async function adminRemediate(session, findings, initiatorsByProject = {}, { act
         auditCredit({ ...base, outcome: 'refused', reason: refusal });
         continue;
       }
-      const reservation = creditLedger.reserve(credits, limit, new Date(), { period: poolPeriod(), projectId, kind: 'remediation', allowance: allocations.balance(projectId).remediation.allocated, cap: tenantLeft() });
+      const reservation = creditLedger.reserve(credits, limit, new Date(), { period: poolPeriod(), projectId, kind: 'remediation', allowance: allocations.balance(projectId).remediation.allocated, cap: tenantLeft(), requester: governRequester(actor) });
       if (!reservation) {
         failed += group.length;
-        errors.push(`${projectName}: credits are busy with another request; try again in a moment.`);
-        auditCredit({ ...base, outcome: 'refused', reason: 'Credits reserved by concurrent requests; nothing sent.' });
+        errors.push(`${projectName}: ${creditLedger.lastRefusal || 'credits are busy with another request; try again in a moment.'}`);
+        auditCredit({ ...base, outcome: 'refused', reason: creditLedger.lastRefusal || 'Credits reserved by concurrent requests; nothing sent.' });
         continue;
       }
       const started = Date.now();
@@ -8148,7 +8237,9 @@ async function inboxTick() {
       if (!handsOff.on || !handsOff.replies || !isVerified(settings) || !smtp.user) return;
       let messages;
       try {
-        messages = await readReplies({ host: handsOff.imapHost || smtp.host, port: handsOff.imapPort, secure: handsOff.imapPort === 993, user: smtp.user, password: smtp.password, rejectUnauthorized: smtp.rejectUnauthorized });
+        // Turning the certificate check off for the mail server covers that server only, not a separate IMAP host.
+        const sameHost = !handsOff.imapHost || handsOff.imapHost === smtp.host;
+        messages = await readReplies({ host: handsOff.imapHost || smtp.host, port: handsOff.imapPort, secure: handsOff.imapPort === 993, user: smtp.user, password: smtp.password, rejectUnauthorized: sameHost ? smtp.rejectUnauthorized : true });
         inboxFailures.delete(id);
       } catch (error) {
         diagnostics.error('inbox', error);
@@ -8191,13 +8282,17 @@ async function tenantProblems() {
   const found = [];
   if (settings.automationApiKey || (id === DEFAULT_TENANT && config.bootstrapApiKey)) {
     const session = integrationSession() ?? (await resolveAutomationSession().catch(() => null));
-    if (!session) found.push({ key: `cxone:${id}`, title: 'Checkmarx One connection', detail: 'The server cannot sign in to Checkmarx One with its key.', tenant: id });
-    else {
+    if (!session) {
+      const failure = tstate.integrationFailure?.error;
+      const outside = outsideFault(failure);
+      found.push({ key: `cxone:${id}`, title: 'Checkmarx One connection', detail: outside ? `The server cannot sign in to Checkmarx One: Checkmarx One is not answering (${failure.httpStatus || failure.status || failure.code || 'timed out'}). This is on Checkmarx One's side; MissionZero keeps trying.` : 'The server cannot sign in to Checkmarx One with its key.', tenant: id, outside });
+    } else {
       // One small question to Checkmarx One: a session that exists is not one that works.
       try {
         await withTimeout(session.client.request('/api/projects', { query: { limit: 1 }, retries: 1, background: true }), 'Checkmarx One');
       } catch (error) {
-        found.push({ key: `cxone:${id}`, title: 'Checkmarx One connection', detail: error.message, tenant: id });
+        const outside = outsideFault(error);
+        found.push({ key: `cxone:${id}`, title: 'Checkmarx One connection', detail: outside ? `${error.message}. This is on Checkmarx One's side; MissionZero keeps trying.` : error.message, tenant: id, outside });
       }
     }
   }
@@ -8205,7 +8300,7 @@ async function tenantProblems() {
     try {
       await withTimeout(testConnection(sendingSettings().smtp), 'The mail server');
     } catch (error) {
-      found.push({ key: `smtp:${id}`, title: 'Email server', detail: error.message, tenant: id });
+      found.push({ key: `smtp:${id}`, title: 'Email server', detail: error.message, tenant: id, outside: outsideFault(error) });
     }
   }
   const inbox = inboxFailures.get(id);
@@ -8492,6 +8587,7 @@ async function tenantCreditsOf(req, { fresh = false, wait = true } = {}) {
       .catch(() => null)
       .then((value) => {
         session.tenantCredits = { at: Date.now(), value };
+        labs.noteCredits(value);
         if (value) tenantSeen = { available: value.available, spent: creditLedger.usedInPeriod('all').total, at: Date.now(), session };
         return value;
       })
@@ -9570,8 +9666,9 @@ app.post(
     if (req.query.check === '1') return res.json({ backup: info });
     // Staged decrypted: it sits in the state folder (0600) beside the same secrets.
     const pending = path.join(dataDir, PENDING_RESTORE);
-    fs.writeFileSync(`${pending}.partial`, zlib.gzipSync(Buffer.from(JSON.stringify(bundle))), { mode: 0o600 });
-    fs.renameSync(`${pending}.partial`, pending);
+    const partial = `${pending}.${randomUUID()}.partial`;
+    fs.writeFileSync(partial, zlib.gzipSync(Buffer.from(JSON.stringify(bundle))), { mode: 0o600, flag: 'wx' });
+    fs.renameSync(partial, pending);
     audit.record({
       type: 'backup',
       outcome: 'changed',
@@ -10372,6 +10469,58 @@ function faeTick(all = false) {
   else turn();
 }
 setInterval(() => productActive() && faeTick(true), FAE_TICK_MS).unref?.();
+
+// ---- Govern (beta): credit governance — budgets, requests, restrictions, alerts, attribution (src/govern/) ------------
+// Routes under /api/govern; each tenant's Govern runs its cycle on its own schedule (default every 15 minutes,
+// jittered), only while its activation code is in force and the tenant has a Checkmarx One integration; the outbox
+// of notifications is drained on the same tick, apart from the cycle.
+registerGovernRoutes(app, {
+  requireFeature,
+  requirePermission,
+  asyncRoute,
+  governOf: () => tenancy.current().govern.get(),
+  actorOf: (req) => adminActor(req),
+  sendMail: (message, to) => sendReminderMail(presenter.exit(() => sendingSettings()), message, { to, exact: true }),
+  meta: () => ({ tenant: integrationSession()?.connection?.tenant ?? '', version: APP_VERSION, allowLoopback: Boolean(process.env.NODE_TEST_CONTEXT) }),
+  // Only https (plain http to this machine only under the test runner), never link-local or cloud metadata.
+  checkWebhookUrl: (url) => checkOutboundUrl(url, { label: 'webhook address', allowLoopbackHttp: Boolean(process.env.NODE_TEST_CONTEXT) }),
+});
+const GOVERN_TICK_MS = Number(process.env.GOVERN_TICK_MS) || 15_000;
+setInterval(() => {
+  if (!productActive() || governLocked()) return;
+  tenancy.each(() => {
+    if (!integrationSession()) return;
+    try {
+      const govern = tenancy.current().govern.get();
+      govern.tick();
+      govern.notifier.drain().catch(() => {});
+    } catch (error) {
+      console.warn(`! [govern] ${logSafe(error.message)}`);
+    }
+  });
+}, GOVERN_TICK_MS).unref?.();
+
+// ---- Labs → Status board and Consolidated view (beta): src/labs-routes.js ------------------------------------------
+// The board reads the session's Workbench data; the consolidated view reads each tenant's own memory (never Checkmarx
+// One) and writes one line to each tenant's audit log per visit.
+const labs = registerLabsRoutes(app, {
+  requireFeature,
+  requirePermission,
+  asyncRoute,
+  tenancy,
+  featureLocked: (id) => featureLocked(featureById(id)),
+  fetchInProgress,
+  identityOf: (session) => readerIdentity(session),
+  linkBase: (req) => settingsStore.get().links?.baseUrl || req.session.connection?.baseUrl || '',
+  tenantsOf: (user, permissions) => tenantsOf(user, permissions),
+  tenantName,
+  creditPool: () => creditPool(),
+  adminActor,
+  auditIam,
+  visibleUser,
+  iamView,
+  iam,
+});
 
 app.get('/api/beta/github/logins', requireFeature('identityMatching'), (req, res) => {
   const lastScan = req.session.lastScan;

@@ -11,6 +11,8 @@
 import { createHash } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
 
+import { blockedHost, outboundUrlProblem } from '../outbound-url.js';
+
 export const DEFAULT_IMAGE = 'ghcr.io/cxsmtp/cxdetectiondatebasereminder';
 const MAX_LAYER = 64 * 1024 * 1024;
 const MAX_FILES = 20_000;
@@ -45,6 +47,12 @@ export function parseImage(image) {
 
 const TAG = /^[\w][\w.-]{0,127}$/;
 const DIGEST = /^sha256:[0-9a-f]{64}$/;
+
+/** A tag or a sha256 digest: what install() and manifest() take. */
+export const isImageRef = (ref) => typeof ref === 'string' && (TAG.test(ref) || DIGEST.test(ref));
+
+/** The site a host belongs to (its last two labels), for "is the sign-in service the registry's own?". */
+const siteOf = (host) => String(host).toLowerCase().replace(/:\d+$/, '').split('.').slice(-2).join('.');
 const PLATFORM_ARCH = { x64: 'amd64', arm64: 'arm64' };
 
 /**
@@ -57,6 +65,7 @@ export class ImageRegistry {
 
   constructor({ image = DEFAULT_IMAGE, token = '', fetch: fetchImpl = globalThis.fetch, arch = process.arch, timeoutMs = 60_000 } = {}) {
     Object.assign(this, parseImage(image));
+    if (blockedHost(this.registry.replace(/:\d+$/, ''))) throw new UpdateError(`${this.registry} is a link-local or cloud metadata address, never a registry.`, 400);
     this.name = `${this.registry}/${this.repository}`;
     this.#token = token;
     this.fetch = fetchImpl;
@@ -101,12 +110,16 @@ export class ImageRegistry {
   async #authenticate(challenge) {
     const params = Object.fromEntries([...challenge.matchAll(/(\w+)="([^"]*)"/g)].map((m) => [m[1], m[2]]));
     if (!/^bearer/i.test(challenge) || !params.realm) throw new UpdateError(`${this.registry} refused the request and did not say how to sign in.`, 401);
+    // The sign-in address comes from the registry's answer: https (plain http only on this machine), never a
+    // link-local or metadata address, and the registry token only to the registry's own site.
+    const problem = outboundUrlProblem(params.realm);
+    if (problem) throw new UpdateError(`${this.registry} asked to sign in at an address the server does not call (it ${problem}).`, 401);
     const realm = new URL(params.realm);
-    if (realm.protocol !== 'https:' && !/^(localhost|127\.0\.0\.1)$/.test(realm.hostname)) throw new UpdateError(`${this.registry} asked to sign in over plain http.`, 401);
+    const ownSite = siteOf(realm.hostname) === siteOf(this.registry);
     realm.searchParams.set('scope', params.scope || `repository:${this.repository}:pull`);
     if (params.service) realm.searchParams.set('service', params.service);
     const headers = { 'User-Agent': 'cxmissionzero-update' };
-    if (this.#token) headers.Authorization = `Basic ${Buffer.from(`token:${this.#token}`).toString('base64')}`;
+    if (this.#token && ownSite) headers.Authorization = `Basic ${Buffer.from(`token:${this.#token}`).toString('base64')}`;
     let response;
     try {
       response = await this.fetch(realm, { headers, signal: AbortSignal.timeout(this.timeoutMs) });

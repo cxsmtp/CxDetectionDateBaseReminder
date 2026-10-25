@@ -20,7 +20,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { ImageRegistry, UpdateError, appLayers, untarLayer } from './registry.js';
+import { ImageRegistry, UpdateError, appLayers, isImageRef, untarLayer } from './registry.js';
 import { BUILT_IN, compareVersions } from './store.js';
 import { compareFiles, readManifest } from '../integrity/manifest.js';
 import { compareFileMap } from '../integrity/service.js';
@@ -30,6 +30,8 @@ const SIGNED_FROM = '1.0.72';
 
 const VERSION_LABEL = 'io.cxmissionzero.version';
 const VERSION = /^\d{1,4}\.\d{1,4}\.\d{1,4}$/;
+/** Text for the audit log on one line: no line breaks or control characters to forge another entry with. */
+const oneLine = (text) => String(text ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').slice(0, 2000);
 /** Registry reads a check may make for tags it has not seen before; the rest follow on the next check. */
 const NEW_READS_PER_CHECK = 150;
 
@@ -253,6 +255,8 @@ export class UpdateService {
    * Runs in the background; status().job follows it.
    */
   install(ref, { by = '', automatic = false, switchAfter = true } = {}) {
+    // A tag or a digest, nothing else: it is named in the audit log and in the registry address.
+    if (!isImageRef(ref)) throw new UpdateError('Choose a version: a tag (like 1.0.99 or latest) or a sha256 digest.', 400);
     if (this.#job?.state === 'running') throw new UpdateError('An update is already running.', 409);
     if (!this.supervised) throw new UpdateError('Updates from this page need the container to start with its own start command (the launcher). Run the image without a custom command, or update with podman pull.', 409);
     const job = { state: 'running', ref, by, automatic, startedAt: new Date().toISOString(), step: 'Reading the image', downloaded: 0, version: '' };
@@ -285,7 +289,7 @@ export class UpdateService {
     })().catch((error) => {
       job.state = 'failed';
       job.error = error.message;
-      this.record({ outcome: 'failure', reason: `Update to ${ref} failed: ${error.message}`, by, details: { tag: ref } });
+      this.record({ outcome: 'failure', reason: oneLine(`Update to ${ref} failed: ${error.message}`), by, details: { tag: ref } });
     });
     return job;
   }

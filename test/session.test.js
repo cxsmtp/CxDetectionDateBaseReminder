@@ -115,3 +115,25 @@ test('readSessionCookie picks its cookie out of a crowded header', () => {
   assert.equal(readSessionCookie({ headers: { cookie: 'a=1; b=2' } }), null);
   assert.equal(readSessionCookie({ headers: { cookie: `a=1; ${SESSION_COOKIE}=abc-123; b=2` } }), 'abc-123');
 });
+
+test('the session cookie is Secure wherever the browser is known to be on HTTPS, and plain http still signs in', async () => {
+  const { setSessionCookie, cookieShouldBeSecure } = await import('../src/session.js');
+  const cookieFor = (req) => {
+    const set = [];
+    setSessionCookie({ headers: {}, ...req }, { append: (name, value) => set.push(value) }, 'abc');
+    return set[0];
+  };
+  // HTTPS here, or at a proxy named in TRUST_PROXY (Express sets req.secure).
+  assert.match(cookieFor({ secure: true }), /; Secure$/);
+  // A proxy that does TLS but is not named in TRUST_PROXY, or a page that says it is on https.
+  assert.match(cookieFor({ headers: { 'x-forwarded-proto': 'https' } }), /; Secure$/);
+  assert.match(cookieFor({ headers: { 'x-forwarded-proto': 'HTTPS, http' } }), /; Secure$/);
+  assert.match(cookieFor({ headers: { origin: 'https://mz.acme.io' } }), /; Secure$/);
+  assert.match(cookieFor({ headers: { referer: 'https://mz.acme.io/#settings' } }), /; Secure$/);
+  // Plain http on a local network: no Secure, or the browser would drop the cookie and nobody could sign in.
+  const plain = cookieFor({ headers: { origin: 'http://10.0.0.5:3000', referer: 'https://elsewhere.example/' } });
+  assert.doesNotMatch(plain, /Secure/);
+  assert.match(plain, new RegExp(`^${SESSION_COOKIE}=abc; Path=/; HttpOnly; SameSite=Lax$`));
+  assert.equal(cookieShouldBeSecure({ headers: { 'x-forwarded-proto': 'http' } }), false);
+  assert.equal(cookieShouldBeSecure({ headers: {} }), false);
+});

@@ -35,6 +35,9 @@ export class CreditLedger {
   #triaged = new Map(); // projectId -> Map of risk id -> when it was last sent for AI Triage
   #writeTimer = null;
   #writeDelay;
+  #spendGuard = null;
+  /** Why the last reserve() was refused by the spend guard ('' when it was not). */
+  lastRefusal = '';
 
   constructor({ file, writeDelayMs = 200 } = {}) {
     this.#file = file ?? path.join(process.cwd(), 'data', 'triage-credits.json');
@@ -164,10 +167,19 @@ export class CreditLedger {
    * 'month' refills monthly, 'all' never) and, when
    * `allowance` is given, against that project's allocation for `kind`.
    * `cap`, when given, is what the tenant has left in Checkmarx One: the pool never spends past it.
+   * `requester`: who asks (an email), for the spend guard. When the spend guard refuses, `lastRefusal` says why.
    * Returns a reservation to release once the request is settled, or null
    * when any would be exceeded.
    */
-  reserve(credits, limit, now = new Date(), { projectId, kind = 'triage', allowance, period = 'month', cap = null } = {}) {
+  reserve(credits, limit, now = new Date(), { projectId, kind = 'triage', allowance, period = 'month', cap = null, requester = '', forProject = '' } = {}) {
+    // Govern (beta): no spend for a project, or by a person, whose budget in Enforce mode is used up.
+    // `forProject`: the project, for this check only (a reservation that is not counted per project).
+    this.lastRefusal = '';
+    const refusal = this.#spendGuard?.({ projectId: projectId || forProject, kind, credits, requester }) ?? '';
+    if (refusal) {
+      this.lastRefusal = String(refusal);
+      return null;
+    }
     const monthLeft = limit > 0 ? limit - this.usedInPeriod(period, now).total - this.#reserved : Infinity;
     if (credits > monthLeft) return null;
     if (cap !== null && cap !== undefined && credits > cap - this.#reserved) return null;
@@ -186,6 +198,14 @@ export class CreditLedger {
         if (projectId) this.#reservedBy.set(key, this.reservedFor(projectId, kind) - credits);
       },
     };
+  }
+
+  /**
+   * A check every reservation goes through first: ({ projectId, kind, credits, requester }) → '' to allow, or the
+   * reason it is refused (Govern sets it, src/govern/cycle.js spendRefusal). null removes it.
+   */
+  setSpendGuard(fn) {
+    this.#spendGuard = typeof fn === 'function' ? fn : null;
   }
 
   remaining(limit, now = new Date(), period = 'month') {

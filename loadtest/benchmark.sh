@@ -26,6 +26,10 @@ pin() { if [ -n "${1:-}" ] && command -v taskset >/dev/null; then echo "taskset 
 BENCH_ADMIN_PASSWORD=$(node -e "console.log('bench-' + require('crypto').randomBytes(12).toString('base64url'))")
 export BENCH_ADMIN_PASSWORD
 KEY=$(node -e "const e=o=>Buffer.from(JSON.stringify(o)).toString('base64url');console.log(e({alg:'none'})+'.'+e({iss:'http://127.0.0.1:4101/auth/realms/acme',azp:'integration'})+'.sig')")
+# A throwaway activation key for this run only, so the Labs features under test (Govern, Status board, Consolidated
+# view) can be unlocked: a development copy trusts it under a test context (src/activation.js); a release never does.
+read -r BENCH_ACTIVATION_PUBLIC BENCH_ACTIVATION_KEY < <(node -e "const k=require('crypto').generateKeyPairSync('ed25519');console.log(k.publicKey.export({format:'der',type:'spki'}).toString('base64'), Buffer.from(k.privateKey.export({format:'pem',type:'pkcs8'})).toString('base64'))")
+export BENCH_ACTIVATION_KEY
 # Credits switched on and plenty allocated, so triage and remediation are limited by the server, not the budget.
 node -e "
 const fs=require('fs');
@@ -38,7 +42,7 @@ sleep 0.5
 HEAP=${SERVER_MEMORY_MB:+--max-old-space-size=$SERVER_MEMORY_MB}
 PORT=3997 HOST=127.0.0.1 DATA_DIR=$DATA BACKUP_INTERVAL_HOURS=0 REPORT_SIGNING_KEY=loadtest \
   CX_API_KEY=$KEY CX_BASE_URL=http://127.0.0.1:4101 CX_IAM_URL=http://127.0.0.1:4101 CX_TENANT=acme \
-  ADMIN_EMAIL=admin@bench.io ADMIN_PASSWORD="$BENCH_ADMIN_PASSWORD" ACCEPT_TERMS=admin@bench.io SMTP_HOST= SMTP_USER= SMTP_PASS= \
+  NODE_TEST_CONTEXT=benchmark MZ_ACTIVATION_TEST_KEY=$BENCH_ACTIVATION_PUBLIC ADMIN_EMAIL=admin@bench.io ADMIN_PASSWORD="$BENCH_ADMIN_PASSWORD" ACCEPT_TERMS=admin@bench.io SMTP_HOST= SMTP_USER= SMTP_PASS= \
   $(pin "${SERVER_CPUS:-}") node $HEAP ${SERVER_NODE_FLAGS:-} src/server.js > "$DATA/server.log" 2>&1 & SERVER=$!
 for _ in $(seq 1 100); do grep -q 'Successfully authenticated' "$DATA/server.log" 2>/dev/null && break; sleep 0.2; done
 

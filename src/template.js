@@ -20,6 +20,29 @@ const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&
 
 export const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 
+const LINK_SCHEMES = new Set(['http:', 'https:', 'mailto:']);
+
+/**
+ * `value` when it is safe as a link (href/src) in HTML: an http, https or mailto
+ * address, or a relative one; '' for anything else (javascript:, data:, vbscript:…).
+ * Escaping alone keeps a value inside its attribute, not out of a script: URL.
+ */
+export function safeUrl(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  // Browsers drop these before reading a scheme ("java\tscript:"), so they never pass.
+  if (/[\u0000-\u001f\u007f]/.test(text)) return '';
+  try {
+    return LINK_SCHEMES.has(new URL(text).protocol) ? text : '';
+  } catch {
+    // Not absolute: relative only when no scheme comes before the path, query or fragment.
+    return /^[^/?#]*:/.test(text) ? '' : text;
+  }
+}
+
+/** Is the text before a {{tag}} the start of a URL attribute's value (href="{{url}}")? */
+const URL_ATTRIBUTE = /(?:^|[\s"'/])(?:href|src|action|formaction|background|poster|cite|xlink:href)\s*=\s*["']?$/i;
+
 /** Look a dotted path up through the scope stack, innermost scope first. */
 function lookup(stack, name) {
   if (name === '.') return stack[stack.length - 1];
@@ -163,8 +186,10 @@ function renderWithStack(source, stack, escape, budget, depth) {
 
     if (sections.length > 0) continue; // Inside a section body; rendered later.
 
-    const value = lookup(stack, name);
+    let value = lookup(stack, name);
     if (value === undefined || value === null) continue;
+    // A value that starts a link's address must be a web or mail address (never javascript:).
+    if (escape && URL_ATTRIBUTE.test(source.slice(Math.max(0, match.index - 64), match.index))) value = safeUrl(value);
     out.push(spend(budget, brace === '{' || !escape ? String(value) : escapeHtml(value)));
   }
 

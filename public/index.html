@@ -58,6 +58,7 @@
     <link rel="stylesheet" href="brand-fonts.css" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="nextgen.css" />
+    <link rel="stylesheet" href="mobile.css" />
   </head>
   <body>
     <div class="shell">
@@ -108,6 +109,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
             <span>Audit</span>
           </a>
+          <p class="nav-group" data-stage="govern" id="nav-group-govern" data-perm="feature.govern" title="Who may use how many AI credits, and what happens at the limit" hidden><i aria-hidden="true"></i>Govern</p>
           <p class="nav-group" data-stage="plan" data-perm="projections.use" title="Work out the Checkmarx One credits a customer needs"><i aria-hidden="true"></i>Plan</p>
           <a href="#/calculator" data-route="calculator" class="tab" data-stage="plan" data-perm="projections.use">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 7h8" /><path d="M8 11h2" /><path d="M14 11h2" /><path d="M8 15h2" /><path d="M14 15h2" /><path d="M8 18h2" /><path d="M14 18h2" /></svg>
@@ -126,7 +128,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>
             <span>Logs</span>
           </a>
-          <p class="nav-group nav-labs" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching feature.fusionResults feature.faeFlush" title="Early features, still being tried out: who wrote the code, what Fusion re-scored, and FAE on the backlog"><i aria-hidden="true"></i>Labs</p>
+          <p class="nav-group nav-labs" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching feature.fusionResults feature.faeFlush feature.statusBoard feature.consolidated feature.govern" title="Early features, still being tried out: who wrote the code, what Fusion re-scored, and FAE on the backlog"><i aria-hidden="true"></i>Labs</p>
           <a href="#/beta" data-route="beta" class="tab" data-stage="labs" data-perm="beta.use feature.codeAuthors feature.identityMatching">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.5L4.6 18.2A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.8L14 9.5V3" /><path d="M7.5 15h9" /></svg>
             <span id="nav-beta-label">Code authors</span>
@@ -138,6 +140,18 @@
           <a href="#/flush" data-route="flush" class="tab" id="nav-flush" data-stage="labs" data-perm="feature.faeFlush">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8z" /><path d="M17 15l3 3" /><path d="M20 15l-3 3" /></svg>
             <span>FAE Flush</span>
+          </a>
+          <a href="#/status" data-route="status" class="tab" id="nav-status" data-stage="labs" data-perm="feature.statusBoard">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16" /><path d="M4 12h11" /><path d="M4 18h6" /></svg>
+            <span>Status board</span><span class="badge warn nav-beta" data-beta-badge="statusBoard">Beta</span>
+          </a>
+          <a href="#/consolidated" data-route="consolidated" class="tab" id="nav-consolidated" data-stage="labs" data-perm="feature.consolidated">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z" /><path d="M3 13l9 5 9-5" /></svg>
+            <span>Consolidated</span><span class="badge warn nav-beta" data-beta-badge="consolidated">Beta</span>
+          </a>
+          <a href="#/govern" data-route="govern" class="tab" id="nav-govern" data-stage="labs" data-perm="feature.govern">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17a8 8 0 0 1 16 0" /><path d="M12 17l4-5" /><path d="M4 21h16" /></svg>
+            <span>Govern</span><span class="badge warn nav-beta" data-beta-badge="govern">Beta</span>
           </a>
         </nav>
         <div class="sidebar-tools" id="sidebar-tools" hidden>
@@ -184,11 +198,14 @@
             <button type="button" id="page-reload" class="icon-btn" hidden title="Reload this page's data (keeps your filters and tabs)" aria-label="Reload this page's data">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.4-6.4L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-15.4 6.4L3 16" /><path d="M3 21v-5h5" /></svg>
             </button>
-            <label class="lang-pick tenant-pick" id="tenant-pick" title="The Checkmarx One tenant you are working in" hidden>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
-              <span class="tenant-name" id="tenant-name" translate="no"></span>
-              <select id="tenant-select" aria-label="Tenant" translate="no"></select>
-            </label>
+            <div class="tenant-switch" id="tenant-pick" hidden>
+              <button type="button" class="lang-pick tenant-pick" id="tenant-button" aria-haspopup="listbox" aria-expanded="false" aria-controls="tenant-menu" title="The Checkmarx One tenant you are working in">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
+                <span class="tenant-name" id="tenant-name" translate="no"></span>
+                <svg class="tenant-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5" /></svg>
+              </button>
+              <div class="cv-menu" id="tenant-menu" role="listbox" aria-label="Tenant" tabindex="-1" hidden></div>
+            </div>
             <span class="sub conn-pill" id="connection">Starting…</span>
             <div class="conn-group" id="conn-group" hidden>
               <button type="button" class="conn-chip" data-conn="cxone" aria-haspopup="dialog" aria-label="Checkmarx One connection">
@@ -2608,6 +2625,485 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div class="fusion-side-list" id="fusion-side-list"></div>
               </section>
             </div>
+          </div>
+
+          <!-- ================= Labs → Status board (Beta): every project's last scan and results at a glance ================= -->
+          <div id="page-status" class="page status-board" hidden>
+            <section class="panel gv-top" id="sb-top">
+              <div class="panel-head"><h2>Status board <span class="badge warn" data-beta-badge="statusBoard">Beta</span> <button type="button" class="help-q" aria-expanded="false" aria-controls="help-sb" aria-label="What is this?" title="What is this?">?</button></h2></div>
+              <p class="gv-lede">Every project's last scan and its results, at a glance. From the Workbench's data: no extra Checkmarx One calls.</p>
+              <div class="gv-top-acts" id="sb-read"></div>
+              <p class="help-text gv-help" id="help-sb">Each row is a project the Workbench loaded. <strong>Results</strong>: its open results by severity, from the left, with the total and critical + high at the end; outlined in gold for a Fusion scan, in pink for a LAST scan. <strong>Scan health</strong>: how long ago its latest scan ran (green under 7 days, amber under 30, red after; striped when a newer scan failed), and the engines it ran. Click a row for its last five scans.</p>
+            </section>
+            <div class="gv-figs" id="sb-figs" hidden></div>
+            <p class="gv-note info" id="sb-note" hidden></p>
+            <p class="status" id="sb-status" role="status"></p>
+            <section class="panel" id="sb-panel" hidden>
+              <div class="gv-tools">
+                <span class="flush-label" id="sb-bar-label">Bar shows</span>
+                <span class="flush-seg" role="radiogroup" aria-labelledby="sb-bar-label">
+                  <label><input type="radio" name="sb-bar" value="results" checked /><span>Results</span></label>
+                  <label><input type="radio" name="sb-bar" value="health" /><span>Scan health</span></label>
+                </span>
+                <label class="gv-inline"><span class="flush-label">Group by</span>
+                  <select id="sb-group" aria-label="Group by">
+                    <option value="">None</option>
+                    <option value="application">Application</option>
+                    <option value="group">Group</option>
+                    <option value="health">Scan health</option>
+                  </select>
+                </label>
+                <input type="search" id="sb-q" placeholder="Search projects" aria-label="Search projects" />
+                <span class="gv-grow"></span>
+                <details class="col-picker" id="sb-cols">
+                  <summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary>
+                  <div class="col-menu"></div>
+                </details>
+                <button type="button" class="sm" id="sb-csv">Export CSV</button>
+                <button type="button" class="sm" id="sb-report">HTML report</button>
+              </div>
+              <div class="sb-legend" id="sb-legend"></div>
+              <div class="table-wrap"><table class="data-table tt sb-table" id="sb-table"><thead><tr></tr></thead><tbody></tbody></table></div>
+              <p class="hint sb-more" id="sb-more"></p>
+            </section>
+            <!-- A project's last scans, beside the board. -->
+            <div class="fusion-drawer sb-drawer" id="sb-drawer" hidden>
+              <div class="fusion-scrim" data-sb-close></div>
+              <section class="fusion-sheet" role="dialog" aria-modal="true" aria-labelledby="sb-side-title">
+                <header class="fusion-side-head">
+                  <div class="fusion-side-top">
+                    <div><h2 id="sb-side-title" translate="no"></h2><p class="hint" id="sb-side-meta"></p></div>
+                    <button type="button" class="icon-btn" data-sb-close aria-label="Close" title="Close (Esc)">✕</button>
+                  </div>
+                  <div class="fusion-facts" id="sb-side-facts"></div>
+                  <div class="fusion-side-acts"><a class="button-like sm" id="sb-side-open" target="_blank" rel="noopener">Open in Checkmarx One ↗</a></div>
+                </header>
+                <div class="fusion-side-list sb-side-list" id="sb-side-list"></div>
+              </section>
+            </div>
+          </div>
+
+          <!-- ================= Labs → Consolidated view (Beta): every connected tenant in one place, read only ================= -->
+          <div id="page-consolidated" class="page consolidated" hidden>
+            <section class="panel gv-top" id="cv-top">
+              <div class="panel-head"><h2>Consolidated view <span class="badge warn" data-beta-badge="consolidated">Beta</span> <button type="button" class="help-q" aria-expanded="false" aria-controls="help-cv" aria-label="What is this?" title="What is this?">?</button></h2></div>
+              <p class="gv-lede">Every connected tenant in one place. Read only: to change anything, open the tenant.</p>
+              <div class="gv-top-acts"><span class="cv-note"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>Read only · each visit is written to that tenant's audit log</span></div>
+              <p class="help-text gv-help" id="help-cv">Each tenant's figures are what it holds now: its last Workbench fetch, the credits it last read and its credit pool (and Govern's budgets where Govern runs). Nothing here reads Checkmarx One or changes a tenant. A tenant nobody has loaded findings in since the server started says "Not loaded — open it once". The "Go to" buttons take you into the tenant, as the tenant switcher does.</p>
+            </section>
+            <div class="gv-figs" id="cv-figs"></div>
+            <p class="status" id="cv-status" role="status"></p>
+            <p class="gv-note info" id="cv-empty" hidden><strong>No tenant has loaded findings yet.</strong> <span>Open each tenant once and load findings on its Workbench: its projects show here from then on.</span></p>
+            <div class="ptabs" role="tablist" aria-label="Consolidated view" data-ptabs="consolidated">
+              <button type="button" role="tab" class="ptab" data-pt="overview">Overview</button>
+              <button type="button" role="tab" class="ptab" data-pt="projects">Projects <em class="ptab-count" id="cv-n-projects"></em></button>
+              <button type="button" role="tab" class="ptab" data-pt="fusion">Fusion</button>
+              <button type="button" role="tab" class="ptab" data-pt="credits">Credits</button>
+              <button type="button" role="tab" class="ptab" data-pt="status">Status board</button>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="consolidated:overview" role="tabpanel">
+              <div class="cv-cards" id="cv-cards"></div>
+              <section class="panel cv-side">
+                <div class="panel-head"><h2>Side by side</h2><div class="actions"><button type="button" class="sm" data-cv-csv="side">Export CSV</button><button type="button" class="sm" data-cv-html="side">HTML report</button></div></div>
+                <div class="gv-tools"><span class="gv-chips" role="group" aria-label="Tenant" id="cv-side-chips"></span></div>
+                <div class="table-wrap"><table class="data-table tt" id="cv-side"><thead><tr></tr></thead><tbody></tbody></table></div>
+              </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="consolidated:projects" role="tabpanel" hidden>
+              <section class="panel">
+                <div class="gv-tools">
+                  <span class="gv-chips" role="group" aria-label="Tenant" id="cv-proj-chips"></span>
+                  <input type="search" id="cv-proj-q" placeholder="Search projects in every tenant" aria-label="Search projects" />
+                  <span class="gv-grow"></span>
+                  <details class="col-picker" id="cv-proj-cols">
+                    <summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary>
+                    <div class="col-menu"></div>
+                  </details>
+                  <button type="button" class="sm" data-cv-csv="projects">Export CSV</button>
+                  <button type="button" class="sm" data-cv-html="projects">HTML report</button>
+                </div>
+                <div class="table-wrap"><table class="data-table tt" id="cv-proj"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <p class="hint" id="cv-proj-more"></p>
+              </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="consolidated:fusion" role="tabpanel" hidden>
+              <section class="panel">
+                <p class="cv-fusion-sum" id="cv-fusion-sum"></p>
+                <div class="gv-tools">
+                  <span class="gv-chips" role="group" aria-label="Tenant" id="cv-fusion-chips"></span>
+                  <input type="search" id="cv-fusion-q" placeholder="Search projects in every tenant" aria-label="Search projects" />
+                  <span class="gv-grow"></span>
+                  <button type="button" class="sm" data-cv-csv="fusion">Export CSV</button>
+                  <button type="button" class="sm" data-cv-html="fusion">HTML report</button>
+                </div>
+                <div class="table-wrap"><table class="data-table tt" id="cv-fusion"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <p class="hint">The projects whose latest scan was a Fusion or a LAST scan, in every tenant. What Fusion re-scored is on each tenant's Fusion results page.</p>
+              </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="consolidated:credits" role="tabpanel" hidden>
+              <section class="panel">
+                <div class="gv-tools">
+                  <span class="gv-chips" role="group" aria-label="Tenant" id="cv-credit-chips"></span>
+                  <span class="gv-grow"></span>
+                  <button type="button" class="sm" data-cv-csv="credits">Export CSV</button>
+                  <button type="button" class="sm" data-cv-html="credits">HTML report</button>
+                </div>
+                <div class="table-wrap"><table class="data-table tt" id="cv-credits"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <p class="hint">AI credits: what each tenant last read from Checkmarx One (on its Credit Control page). Credit pool: what CxMissionZero may spend there. Govern: its budgets, where Govern runs.</p>
+              </section>
+            </div>
+
+            <div class="ptpanel" data-ptpanel="consolidated:status" role="tabpanel" hidden>
+              <section class="panel">
+                <div class="gv-tools">
+                  <span class="flush-label" id="cv-bar-label">Bar shows</span>
+                  <span class="flush-seg" role="radiogroup" aria-labelledby="cv-bar-label">
+                    <label><input type="radio" name="cv-bar" value="results" checked /><span>Results</span></label>
+                    <label><input type="radio" name="cv-bar" value="health" /><span>Scan health</span></label>
+                  </span>
+                  <label class="gv-inline"><span class="flush-label">Group by</span>
+                    <select id="cv-status-group" aria-label="Group by">
+                      <option value="">None</option>
+                      <option value="application">Application</option>
+                      <option value="group">Group</option>
+                      <option value="health">Scan health</option>
+                    </select>
+                  </label>
+                  <input type="search" id="cv-status-q" placeholder="Search projects in every tenant" aria-label="Search projects" />
+                  <span class="gv-grow"></span>
+                  <details class="col-picker" id="cv-status-cols">
+                    <summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary>
+                    <div class="col-menu"></div>
+                  </details>
+                  <button type="button" class="sm" data-cv-csv="status">Export CSV</button>
+                  <button type="button" class="sm" data-cv-html="status">HTML report</button>
+                </div>
+                <div class="gv-tools"><span class="gv-chips" role="group" aria-label="Tenant" id="cv-status-chips"></span></div>
+                <div class="sb-legend" id="cv-status-legend"></div>
+                <div class="table-wrap"><table class="data-table tt sb-table" id="cv-board"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <p class="hint sb-more" id="cv-status-more"></p>
+              </section>
+            </div>
+          </div>
+
+          <!-- ================= Labs → Govern (Beta): who may use how many AI credits, and what happens at the limit ================= -->
+          <div id="page-govern" class="page govern viz" hidden>
+            <section class="panel gv-top" id="gv-top">
+              <div class="panel-head"><h2>Govern <span class="badge warn" data-beta-badge="govern">Beta</span> <button type="button" class="help-q" aria-expanded="false" aria-controls="help-gv" aria-label="What is this?" title="What is this?">?</button></h2></div>
+              <p class="gv-lede">Who may use how many AI credits, and what happens at the limit.</p>
+              <div class="gv-top-acts"><span id="gv-cycle" class="gv-cycle"></span><button type="button" class="sm" id="gv-run" hidden>Run now</button></div>
+              <p class="help-text gv-help" id="help-gv">A <strong>budget</strong> caps the AI credits of one person, group, project or application, per month, quarter, custom dates or for good. Govern reads what Checkmarx One reports each of them used, in the background every few minutes (Run now starts a cycle at once). <strong>Monitor</strong> warns near and over the limit; <strong>Enforce</strong> also takes AI away at the limit — a person's AI roles, a project's Auto Triage and PR remediation — and puts it back when usage is under the budget again, a request is approved or someone restores it. Anyone may ask for more credits; Security Champions and Admins answer. Every change is written to the audit log.</p>
+            </section>
+            <div class="gv-figs" id="gv-figs" role="group" aria-label="Govern figures" hidden></div>
+            <p class="status" id="gv-status" role="status"></p>
+            <div class="ptabs" role="tablist" aria-label="Govern" data-ptabs="govern">
+              <button type="button" role="tab" class="ptab" data-pt="overview" data-perm="govern.view govern.request">Overview</button>
+              <button type="button" role="tab" class="ptab" data-pt="budgets" data-perm="govern.view">Budgets <em class="ptab-count" id="gv-n-budgets"></em></button>
+              <button type="button" role="tab" class="ptab" data-pt="requests" data-perm="govern.request govern.approve govern.view">Requests <em class="ptab-count" id="gv-n-requests"></em></button>
+              <button type="button" role="tab" class="ptab" data-pt="restrictions" data-perm="govern.view">Restrictions &amp; alerts <em class="ptab-count" id="gv-n-restrictions"></em></button>
+              <button type="button" role="tab" class="ptab" data-pt="attribution" data-perm="govern.attribution govern.view">Attribution <em class="ptab-count" id="gv-n-attribution"></em></button>
+              <button type="button" role="tab" class="ptab" data-pt="settings" data-perm="govern.settings">Settings</button>
+            </div>
+
+            <!-- Overview -->
+            <div class="ptpanel" data-ptpanel="govern:overview" role="tabpanel">
+              <div class="gv-stack" id="gv-banners"></div>
+              <section class="panel gv-personal" id="gv-personal" hidden>
+                <div class="panel-head"><div><h2>Your AI credits</h2><p class="hint" id="gv-me-who"></p></div><button type="button" class="primary sm" id="gv-me-ask" hidden>Ask for credits</button></div>
+                <div class="fusion-facts gv-me-facts" id="gv-me-facts"></div>
+                <div class="gv-me-status" id="gv-me-status"></div>
+                <h3 class="gv-sub-h">Your requests</h3>
+                <div class="table-wrap"><table class="data-table tt gv-table" id="gv-me-table"><thead><tr></tr></thead><tbody></tbody></table></div>
+              </section>
+              <section class="panel" id="gv-pool" hidden>
+                <div class="panel-head"><h2>Credit pool</h2><span class="hint gv-head-note" id="gv-pool-period"></span></div>
+                <div id="gv-pool-body"></div>
+              </section>
+              <section class="panel" id="gv-trend" hidden>
+                <div class="panel-head"><h2>Credits over time <span class="hint inline-hint" id="gv-trend-sub">by action, per day</span></h2>
+                  <span class="flush-seg gv-range" id="gv-range" role="radiogroup" aria-label="Range">
+                    <label><input type="radio" name="gv-range" value="7d" /><span>7 days</span></label>
+                    <label><input type="radio" name="gv-range" value="period" checked /><span>This period</span></label>
+                    <label><input type="radio" name="gv-range" value="90d" /><span>90 days</span></label>
+                    <label><input type="radio" name="gv-range" value="12m" /><span>12 months</span></label>
+                  </span>
+                </div>
+                <div class="chart-legend" id="gv-chart-legend"></div>
+                <div class="chart gv-chart" id="gv-chart"></div>
+                <details class="disclosure gv-chart-more"><summary>Show as a table</summary><div id="gv-chart-table"></div></details>
+              </section>
+              <section class="panel" id="gv-topc" hidden>
+                <div class="panel-head"><h2>Top consumers <span class="hint inline-hint">in the lookback window</span></h2>
+                  <span class="flush-seg" id="gv-top-level" role="radiogroup" aria-label="Level">
+                    <label><input type="radio" name="gv-top-level" value="user" checked /><span>Users</span></label>
+                    <label><input type="radio" name="gv-top-level" value="project" /><span>Projects</span></label>
+                    <label><input type="radio" name="gv-top-level" value="group" /><span>Groups</span></label>
+                    <label><input type="radio" name="gv-top-level" value="application" /><span>Applications</span></label>
+                  </span>
+                </div>
+                <div class="gv-tools">
+                  <span class="gv-grow"></span>
+                  <details class="col-picker" id="gv-top-cols"><summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary><div class="col-menu"></div></details>
+                  <button type="button" class="sm" id="gv-top-csv">Export CSV</button>
+                  <button type="button" class="sm" id="gv-top-html">Export HTML</button>
+                </div>
+                <p class="gv-note" id="gv-top-note" hidden></p>
+                <div class="table-wrap"><table class="data-table tt gv-table" id="gv-top-table"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <p class="hint gv-table-foot" id="gv-top-more"></p>
+              </section>
+            </div>
+
+            <!-- Budgets -->
+            <div class="ptpanel" data-ptpanel="govern:budgets" role="tabpanel" hidden>
+              <section class="panel" id="gv-budgets-panel">
+                <div class="panel-head"><div><h2>Budgets</h2><p class="hint">A budget caps the AI credits of one person, group, project or application. Monitor warns; Enforce also takes AI away at the limit.</p></div>
+                  <div class="actions gv-head-acts"><button type="button" class="sm" id="gv-budget-import" hidden>Import CSV</button><button type="button" class="sm" id="gv-budget-export-all" title="Every budget with every field, to edit and import again">Export CSV</button><button type="button" class="sm" id="gv-budget-html">Export HTML</button><button type="button" class="primary sm" id="gv-budget-new" hidden>New budget</button></div></div>
+                <input type="file" id="gv-import-file" accept=".csv,text/csv" hidden />
+                <div class="gv-tools">
+                  <span class="gv-chips" role="group" aria-label="Level" id="gv-levels"></span>
+                  <input type="search" id="gv-budget-q" placeholder="Search budgets" aria-label="Search budgets" />
+                  <span class="gv-grow"></span>
+                  <details class="col-picker" id="gv-budget-cols"><summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary><div class="col-menu"></div></details>
+                  <button type="button" class="sm" id="gv-budget-csv" title="The rows and columns the table shows">Export the table</button>
+                </div>
+                <div class="flush-actbar gv-actbar" id="gv-budget-bar" hidden>
+                  <b id="gv-budget-count"></b><span class="hint" id="gv-budget-bar-hint" hidden></span>
+                  <span class="flush-grow"></span>
+                  <button type="button" class="sm" data-gv-bulk="amount">Set amount</button>
+                  <button type="button" class="sm" data-gv-bulk="warn">Warn at %</button>
+                  <button type="button" class="sm" data-gv-bulk="monitor">Monitor</button>
+                  <button type="button" class="sm" data-gv-bulk="enforce">Enforce</button>
+                  <button type="button" class="sm" data-gv-bulk="pause">Pause</button>
+                  <button type="button" class="sm" data-gv-bulk="resume">Resume</button>
+                  <button type="button" class="sm" data-gv-bulk="exempt">Exempt</button>
+                  <button type="button" class="sm" data-gv-bulk="unexempt">Not exempt</button>
+                  <button type="button" class="sm" data-gv-clear aria-label="Clear the selection" title="Clear the selection">✕</button>
+                </div>
+                <div class="table-wrap gv-scroll"><table class="data-table tt flush-table gv-table" id="gv-budgets"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <p class="hint gv-table-foot" id="gv-budget-more"></p>
+                <details class="disclosure gv-exempt"><summary>Exemptions <em class="ptab-count" id="gv-n-exempt"></em></summary>
+                  <div class="gv-exempt-head"><p class="hint">Never restricted, still counted and warned about: shared or service accounts. With or without a budget.</p><button type="button" class="sm" id="gv-exempt-add" hidden>Exempt someone</button></div>
+                  <div id="gv-exempt-list"></div>
+                </details>
+              </section>
+              <section class="panel" id="gv-import" hidden>
+                <div class="panel-head"><div><h2>Import budgets from CSV</h2><p class="hint">Checked, nothing changed yet. Apply makes exactly these changes, all or nothing, and is refused if any of these budgets changed since this check.</p></div>
+                  <button type="button" class="icon-btn" id="gv-import-close" aria-label="Close" title="Close">✕</button></div>
+                <div class="gv-figs gv-import-figs" id="gv-import-figs"></div>
+                <p class="status" id="gv-import-status" role="status"></p>
+                <div class="gv-note bad gv-import-errors" id="gv-import-errors" hidden></div>
+                <div class="gv-tools">
+                  <span class="gv-chips" role="group" aria-label="Change" id="gv-import-chips"></span>
+                  <span class="gv-grow"></span>
+                  <span class="hint gv-import-after" id="gv-import-after"></span>
+                </div>
+                <div class="table-wrap gv-scroll"><table class="data-table tt gv-table gv-diff" id="gv-import-table"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <div class="actions gv-import-acts">
+                  <button type="button" class="primary" id="gv-import-apply" disabled>Apply</button>
+                  <button type="button" id="gv-import-again">Check again</button>
+                  <button type="button" id="gv-import-plan">Download the plan</button>
+                  <button type="button" class="ghost" id="gv-import-cancel">Cancel</button>
+                  <span class="hint" id="gv-import-when"></span>
+                </div>
+              </section>
+            </div>
+
+            <!-- Requests -->
+            <div class="ptpanel" data-ptpanel="govern:requests" role="tabpanel" hidden>
+              <section class="panel">
+                <div class="panel-head"><div><h2>Requests</h2><p class="hint" id="gv-req-lede"></p></div><button type="button" class="primary sm" id="gv-req-ask" hidden>Ask for credits</button></div>
+                <div class="gv-tools">
+                  <span class="gv-chips" role="group" aria-label="Status" id="gv-req-chips"></span>
+                  <input type="search" id="gv-req-q" placeholder="Search requests" aria-label="Search requests" />
+                  <span class="gv-grow"></span>
+                  <details class="col-picker" id="gv-req-cols"><summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary><div class="col-menu"></div></details>
+                  <button type="button" class="sm" id="gv-req-csv">Export CSV</button>
+                  <button type="button" class="sm" id="gv-req-html">Export HTML</button>
+                </div>
+                <div class="flush-actbar gv-actbar" id="gv-req-bar" hidden>
+                  <b id="gv-req-count"></b><span class="hint" id="gv-req-bar-none">Nothing to do with these: only open requests can be answered or withdrawn.</span>
+                  <span class="flush-grow"></span>
+                  <button type="button" class="sm" data-gv-rbulk="approve">Approve as asked</button>
+                  <button type="button" class="sm" data-gv-rbulk="deny">Deny…</button>
+                  <button type="button" class="sm" data-gv-rbulk="cancel">Withdraw</button>
+                  <button type="button" class="sm" data-gv-clear aria-label="Clear the selection" title="Clear the selection">✕</button>
+                </div>
+                <div class="table-wrap gv-scroll"><table class="data-table tt flush-table gv-table" id="gv-requests"><thead><tr></tr></thead><tbody></tbody></table></div>
+              </section>
+            </div>
+
+            <!-- Restrictions & alerts -->
+            <div class="ptpanel" data-ptpanel="govern:restrictions" role="tabpanel" hidden>
+              <section class="panel">
+                <div class="panel-head"><div><h2>Active restrictions</h2><p class="hint">What Govern took away at a limit, and from whom. Restore puts it back and gives a grace: no new restriction until usage grows again or the period ends.</p></div></div>
+                <div class="gv-tools">
+                  <input type="search" id="gv-res-q" placeholder="Search restrictions" aria-label="Search restrictions" />
+                  <span class="gv-grow"></span>
+                  <details class="col-picker" id="gv-res-cols"><summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary><div class="col-menu"></div></details>
+                  <button type="button" class="sm" id="gv-res-csv">Export CSV</button>
+                  <button type="button" class="sm" id="gv-res-html">Export HTML</button>
+                </div>
+                <div class="flush-actbar gv-actbar" id="gv-res-bar" hidden>
+                  <b id="gv-res-count"></b>
+                  <span class="flush-grow"></span>
+                  <button type="button" class="sm" data-gv-restore-sel>Restore…</button>
+                  <button type="button" class="sm" data-gv-clear aria-label="Clear the selection" title="Clear the selection">✕</button>
+                </div>
+                <div class="table-wrap gv-scroll"><table class="data-table tt flush-table gv-table" id="gv-restrictions"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <p class="hint gv-table-foot">Partial: Govern never says Restricted while Checkmarx One still gives an AI role, for example through a group. Mark such a group as AI-only under Settings to let Govern remove the membership.</p>
+              </section>
+              <section class="panel">
+                <div class="panel-head"><div><h2>Alerts <span class="badge gv-info" id="gv-alert-unread-n" hidden></span></h2><p class="hint" id="gv-alert-backlog"></p></div>
+                  <div class="actions gv-head-acts"><button type="button" class="sm" id="gv-alert-allread">Mark all read</button></div></div>
+                <div class="gv-tools">
+                  <span class="flush-seg" id="gv-alert-sev" role="radiogroup" aria-label="Severity"></span>
+                  <span class="gv-chips" role="group" aria-label="Category" id="gv-alert-cats"></span>
+                  <label class="check gv-inline"><input type="checkbox" id="gv-alert-unread" /> <span>Unread only</span></label>
+                </div>
+                <div class="gv-tools">
+                  <input type="search" id="gv-alert-q" placeholder="Search alerts" aria-label="Search alerts" />
+                  <span class="gv-grow"></span>
+                  <details class="col-picker" id="gv-alert-cols"><summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary><div class="col-menu"></div></details>
+                  <button type="button" class="sm" id="gv-alert-csv">Export CSV</button>
+                  <button type="button" class="sm" id="gv-alert-html">Export HTML</button>
+                </div>
+                <div class="flush-actbar gv-actbar" id="gv-alert-bar" hidden>
+                  <b id="gv-alert-count"></b>
+                  <span class="flush-grow"></span>
+                  <button type="button" class="sm" id="gv-alert-readsel">Mark read</button>
+                  <button type="button" class="sm" data-gv-clear aria-label="Clear the selection" title="Clear the selection">✕</button>
+                </div>
+                <div class="table-wrap gv-scroll"><table class="data-table tt gv-table gv-feed" id="gv-alerts"><thead><tr></tr></thead><tbody></tbody></table></div>
+              </section>
+            </div>
+
+            <!-- Attribution -->
+            <div class="ptpanel" data-ptpanel="govern:attribution" role="tabpanel" hidden>
+              <section class="panel">
+                <div class="panel-head"><div><h2>Attribution</h2><p class="hint wide">How Checkmarx One reports a name, and whose budget it counts towards here. Each decision is kept, written to the audit log, and applied to the same name's other spellings.</p></div></div>
+                <div class="gv-tools">
+                  <span class="flush-seg" id="gv-attr-tabs" role="radiogroup" aria-label="Show"></span>
+                  <span class="gv-chips" role="group" aria-label="Level" id="gv-attr-dims"></span>
+                </div>
+                <div class="gv-tools">
+                  <input type="search" id="gv-attr-q" placeholder="Search names" aria-label="Search names" />
+                  <span class="gv-grow"></span>
+                  <details class="col-picker" id="gv-attr-cols"><summary class="button-like sm" aria-label="Choose columns"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>Columns</summary><div class="col-menu"></div></details>
+                </div>
+                <p class="hint wide gv-attr-hint" id="gv-attr-hint"></p>
+                <p class="hint wide" id="gv-attr-sum"></p>
+                <div class="flush-actbar gv-actbar" id="gv-attr-bar" hidden>
+                  <b id="gv-attr-count"></b>
+                  <span class="flush-grow"></span>
+                  <button type="button" class="sm" data-gv-abulk="ignore">Ignore</button>
+                  <button type="button" class="sm" data-gv-abulk="clear">Clear the decisions</button>
+                  <button type="button" class="sm" data-gv-clear aria-label="Clear the selection" title="Clear the selection">✕</button>
+                </div>
+                <div class="table-wrap gv-scroll"><table class="data-table tt flush-table gv-table" id="gv-attribution"><thead><tr></tr></thead><tbody></tbody></table></div>
+                <p class="hint wide gv-table-foot">Map: choose who it counts towards. Reject this match: never match these two again. Ignore: a shared or service account, counted towards no one. A decision can be cleared later under Matched or Ignored.</p>
+              </section>
+            </div>
+
+            <!-- Settings -->
+            <div class="ptpanel" data-ptpanel="govern:settings" role="tabpanel" hidden>
+              <form id="gv-set-form" class="gv-set" novalidate hidden>
+                <section class="panel">
+                  <div class="panel-head"><h2>Cycle</h2><span class="hint gv-head-note" id="gv-set-last"></span></div>
+                  <div class="field"><span>Check usage and act</span>
+                    <span class="flush-seg" role="radiogroup" aria-label="Check usage and act">
+                      <label><input type="radio" name="cycleMinutes" value="2" /><span>Every 2 min</span></label>
+                      <label><input type="radio" name="cycleMinutes" value="5" /><span>5 min</span></label>
+                      <label><input type="radio" name="cycleMinutes" value="15" /><span>15 min</span></label>
+                      <label><input type="radio" name="cycleMinutes" value="60" /><span>60 min</span></label>
+                      <label><input type="radio" name="cycleMinutes" value="0" /><span>Off</span></label>
+                    </span>
+                  </div>
+                  <div class="grid2">
+                    <label class="field"><span>Lookback window</span><select name="window"><option value="last_month">Last month</option><option value="last_30_days">Last 30 days</option><option value="last_90_days">Last 90 days</option><option value="last_180_days">Last 180 days</option><option value="last_year">Last year</option></select><small class="hint">Checkmarx One reports totals over this window. Each period counts its own share.</small></label>
+                    <label class="field"><span>Grace after a manual restore</span><div class="gv-field-row"><input type="text" inputmode="decimal" name="graceGrowBy" /><span class="gv-suffix">credits more</span></div><small class="hint">No new restriction until usage grows by this much, or the period ends. Can be set per restore.</small></label>
+                  </div>
+                  <details class="disclosure"><summary>More options</summary>
+                    <div class="grid2">
+                      <label class="field"><span>Rows per Checkmarx One page</span><input type="number" name="pageSize" min="1" max="1000" step="1" /></label>
+                      <label class="field"><span>Read people, groups and projects every</span><div class="gv-field-row"><input type="number" name="orgRefreshMinutes" min="5" max="1440" step="1" /><span class="gv-suffix">min</span></div></label>
+                      <label class="field"><span>Check restrictions are still in place every</span><div class="gv-field-row"><input type="number" name="driftEveryCycles" min="1" max="96" step="1" /><span class="gv-suffix">cycles</span></div></label>
+                      <label class="field"><span>Most targets per breach, by default</span><input type="number" name="maxTargetsDefault" min="1" max="10000" step="1" /></label>
+                      <label class="field"><span>Open requests expire after</span><div class="gv-field-row"><input type="number" name="requestExpiryDays" min="1" max="365" step="1" /><span class="gv-suffix">days</span></div></label>
+                      <label class="field"><span>Usage counts as stale after</span><div class="gv-field-row"><input type="number" name="staleAfterCycles" min="1" max="96" step="1" /><span class="gv-suffix">cycles without a complete read</span></div></label>
+                    </div>
+                  </details>
+                </section>
+                <section class="panel">
+                  <div class="panel-head"><h2>What Enforce takes away</h2></div>
+                  <div class="field"><span>AI roles to remove from a person</span>
+                    <div class="gv-checks" id="gv-set-roles"></div>
+                    <input type="text" id="gv-set-add-role" class="gv-add-role" maxlength="100" placeholder="Add another role (Enter)" aria-label="Add another role" />
+                    <p class="status warn gv-warn-line" id="gv-set-viewscans" hidden>view-scans also stops the person seeing scans at all. Only tick it if the teams agreed.</p>
+                  </div>
+                  <div class="field" id="gv-set-groups"><span>AI-only groups <small>(Govern may remove a person from them)</small></span>
+                    <div class="chip-input"><span class="gv-chip-list" id="gv-set-groups-chips"></span><input type="search" data-gv-pick-q autocomplete="off" role="combobox" aria-expanded="true" aria-controls="gv-set-groups-list" placeholder="Add a group" aria-label="Add a group" /></div>
+                    <div class="gv-pick" role="listbox" id="gv-set-groups-list" data-gv-pick-list hidden></div>
+                  </div>
+                  <div class="toggle-list compact"><label class="switch"><input type="checkbox" name="prDisableUnreadable" /> <span><strong>Turn off PR remediation even when its setting cannot be read</strong><small>Off: such projects are reported, not changed</small></span></label></div>
+                </section>
+                <section class="panel wide">
+                  <div class="panel-head"><h2>Notifications</h2><span class="hint gv-head-note" id="gv-test-result" role="status"></span></div>
+                  <div class="gv-grid3">
+                    <label class="field"><span>Send from severity</span><select name="minSeverity"><option value="info">Info and above</option><option value="warning">Warning and above</option><option value="error">Error and above</option><option value="critical">Critical only</option></select><small class="hint">Every alert is in the feed; this is what is sent.</small></label>
+                    <div class="field"><span>Email</span>
+                      <label class="check"><input type="checkbox" name="emailOn" /> <span>Send alerts by email</span></label>
+                      <input type="text" name="emailRecipients" placeholder="secops@example.com, finops@example.com" aria-label="Email to" />
+                      <small class="hint">Through CxMissionZero's own mail server (Settings → Email server).</small>
+                      <select name="emailMinSeverity" aria-label="Email from severity"><option value="info">Info and above</option><option value="warning">Warning and above</option><option value="error">Error and above</option><option value="critical">Critical only</option></select>
+                    </div>
+                    <div class="field"><span>Webhook</span>
+                      <label class="check"><input type="checkbox" name="webhookOn" /> <span>Call a webhook</span></label>
+                      <input type="url" name="webhookUrl" placeholder="https://hooks.example.com/govern" aria-label="Webhook URL" />
+                      <select name="webhookMinSeverity" aria-label="Webhook from severity"><option value="info">Info and above</option><option value="warning">Warning and above</option><option value="error">Error and above</option><option value="critical">Critical only</option></select>
+                    </div>
+                  </div>
+                  <div class="gv-grid3">
+                    <label class="field"><span>Webhook signing secret</span><div class="gv-field-row"><input type="password" name="webhookSecret" autocomplete="new-password" maxlength="256" /><button type="button" class="sm" id="gv-secret-change" hidden>Change</button></div><small class="hint" id="gv-secret-state"></small></label>
+                    <div class="field gv-span2"><span>How calls are signed</span><p class="hint wide">Each call carries <code>X-MZ-Signature: sha256=…</code> and <code>X-MZ-Timestamp</code>: an HMAC-SHA256 of the timestamp, a dot and the body, made with this secret. Check it before trusting a call.</p></div>
+                  </div>
+                  <div class="actions compact"><button type="submit" class="primary">Save</button><button type="button" id="gv-test-email">Send test email</button><button type="button" id="gv-test-webhook">Send test webhook</button><span class="status" id="gv-set-status" role="status"></span></div>
+                </section>
+                <section class="panel wide">
+                  <div class="panel-head"><div><h2>Permission check</h2><p class="hint wide">What the server's Checkmarx One key may do for Govern. Reads are tried now; a change can only be known after the first real one.</p></div><div class="actions gv-head-acts"><span class="hint" id="gv-perm-at"></span><button type="button" class="sm" id="gv-perm-run">Run check</button></div></div>
+                  <div id="gv-perm-body"></div>
+                </section>
+              </form>
+            </div>
+
+            <!-- The side panel (a budget, a request, a name to attribute) -->
+            <div class="fusion-drawer gv-drawer" id="gv-drawer" hidden>
+              <div class="fusion-scrim" data-gv-close></div>
+              <section class="fusion-sheet" role="dialog" aria-modal="true" aria-labelledby="gv-side-title">
+                <header class="fusion-side-head">
+                  <div class="fusion-side-top">
+                    <div><h2 id="gv-side-title"></h2><p class="hint" id="gv-side-sub"></p></div>
+                    <button type="button" class="icon-btn" data-gv-close aria-label="Close" title="Close (Esc)">✕</button>
+                  </div>
+                  <div id="gv-side-head"></div>
+                </header>
+                <div class="gv-form" id="gv-side-body"></div>
+                <div class="gv-foot" id="gv-side-foot" hidden></div>
+              </section>
+            </div>
+            <dialog id="gv-dialog" class="notice-dialog gv-dialog" aria-labelledby="gv-dialog-title">
+              <form method="dialog">
+                <h2 id="gv-dialog-title"></h2>
+                <div id="gv-dialog-body"></div>
+                <div class="actions">
+                  <button value="go" class="primary" id="gv-dialog-go">OK</button>
+                  <button value="cancel" formnovalidate>Cancel</button>
+                </div>
+              </form>
+            </dialog>
           </div>
 
           <!-- ================= Audit ================= -->

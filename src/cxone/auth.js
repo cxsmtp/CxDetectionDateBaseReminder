@@ -1,4 +1,5 @@
 import { networkReason } from './client.js';
+import { checkServiceUrl, scrubText } from './endpoints.js';
 /**
  * Checkmarx One authentication.
  *
@@ -13,7 +14,8 @@ const EXPIRY_SKEW_MS = 30_000;
 
 export class AuthError extends Error {
   constructor(message, status = 401) {
-    super(message);
+    // Whatever the IAM host answered, no token or key ever reaches a message or a log.
+    super(scrubText(message));
     this.name = 'AuthError';
     this.status = status;
   }
@@ -47,9 +49,16 @@ export class TokenProvider {
   }
 
   async #fetchToken() {
-    const { tokenUrl, apiKey } = this.#connection;
-    if (!tokenUrl) throw new AuthError('No Checkmarx One IAM URL is configured for this session.');
+    const { apiKey } = this.#connection;
+    if (!this.#connection.tokenUrl) throw new AuthError('No Checkmarx One IAM URL is configured for this session.');
     if (!apiKey) throw new AuthError('No Checkmarx One API key is configured for this session.');
+    // The key goes only to a checked address: https, a real host, never a metadata or link-local one.
+    let tokenUrl;
+    try {
+      tokenUrl = checkServiceUrl(this.#connection.tokenUrl, 'IAM URL');
+    } catch (error) {
+      throw new AuthError(error.message, 400);
+    }
 
     const body = new URLSearchParams({
       grant_type: 'refresh_token',
@@ -70,7 +79,7 @@ export class TokenProvider {
     }
 
     if (!response.ok) {
-      const detail = (await response.text().catch(() => '')).slice(0, 300);
+      const detail = scrubText((await response.text().catch(() => '')).slice(0, 300));
       const hint =
         response.status === 400 || response.status === 401
           ? 'The API key is invalid, revoked or expired.'

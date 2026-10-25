@@ -803,7 +803,8 @@ export class SettingsStore {
     fs.mkdirSync(dir, { recursive: true, mode: DIR_MODE });
     // Write-then-rename so a crash cannot leave a half-written settings file.
     const temp = `${this.#file}.${randomUUID()}.tmp`;
-    fs.writeFileSync(temp, JSON.stringify(this.#settings, null, 2), { mode: FILE_MODE });
+    // Created only if nothing has that name yet, so never written through a link left in its place.
+    fs.writeFileSync(temp, JSON.stringify(this.#settings, null, 2), { mode: FILE_MODE, flag: 'wx' });
     fs.renameSync(temp, this.#file);
     fs.chmodSync(this.#file, FILE_MODE);
   }

@@ -24,6 +24,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { mapWithConcurrency } from '../cxone/client.js';
+import { blockedHost } from '../outbound-url.js';
 
 const run = promisify(execFile);
 const EMAIL_RE = /^(?=[^]{3,254}$)[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -420,9 +421,11 @@ export function setCloneHostCheck(check) {
 }
 
 async function cloneOnce(url, { cacheDir, authHeader = '', blobs = false } = {}) {
-  if (!/^https:\/\/[\w.-]+(:\d+)?\/[\w.\-/]+$/.test(url)) throw new Error(`Not an https repository address: ${url}`);
+  if (!/^https:\/\/[\w.-]+(:\d+)?\/[\w.\-/]+$/.test(url)) throw new Error(`Not an https repository address: ${String(url).replace(/\/\/[^/@]*@/, '//')}`); // never a login it may carry
   // Never a request to an arbitrary host (an internal service, say) because a project named it.
   const host = new URL(url).hostname.toLowerCase();
+  // Not even a connected or allowed host may be a link-local or cloud metadata address.
+  if (blockedHost(host)) throw new Error(`Repositories on ${host} are never cloned: a link-local or cloud metadata address.`);
   if (!cloneHostAllowed(host)) throw new Error(`Repositories on ${host} are not cloned: connect that host on the Beta page, or add it to SCM_ALLOWED_HOSTS.`);
   const dir = path.join(cacheDir, `${createHash('sha256').update(url).digest('hex').slice(0, 16)}${blobs ? '-full' : ''}`);
   // Credentials go in an environment-only header: never in arguments, never on disk.

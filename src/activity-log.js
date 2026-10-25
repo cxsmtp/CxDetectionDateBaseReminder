@@ -13,6 +13,21 @@ import path from 'node:path';
 
 const MAX_TEXT = 200;
 const clean = (value, max = MAX_TEXT) => String(value ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, max);
+/** The log holds names, emails and IP addresses: only this server's user may read it. */
+const FILE_MODE = 0o600;
+const DIR_MODE = 0o700;
+
+/**
+ * When something happened, always as an ISO time (what `list` compares and sorts by): a Date, an
+ * ISO string or a millisecond count that names a real moment; anything else is "now".
+ */
+export function entryTime(value, now = new Date()) {
+  let at = null;
+  if (value instanceof Date) at = value;
+  else if (typeof value === 'number' && Number.isFinite(value)) at = new Date(value);
+  else if (typeof value === 'string' && value.length <= 40 && /^\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:\d{2})$/.test(value)) at = new Date(value);
+  return at && Number.isFinite(at.getTime()) ? at.toISOString() : now.toISOString();
+}
 
 export class ActivityLog {
   constructor({ file, maxBytes = 20 * 1024 * 1024, memory = 20_000, keepDays = 365 } = {}) {
@@ -23,7 +38,7 @@ export class ActivityLog {
     this.entries = [];
     this.pending = [];
     this.timer = null;
-    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: DIR_MODE });
     this.#load();
   }
 
@@ -38,7 +53,13 @@ export class ActivityLog {
       for (const line of text.split('\n')) {
         if (!line) continue;
         try {
-          this.entries.push(JSON.parse(line));
+          const e = JSON.parse(line);
+          if (!e || typeof e !== 'object' || Array.isArray(e)) continue;
+          // What `list` relies on, whatever the line held: an ISO time (none that parses is the
+          // distant past, so it is not shown) and a list of field names.
+          e.at = entryTime(e.at, new Date(0));
+          if (!Array.isArray(e.fields)) e.fields = [];
+          this.entries.push(e);
         } catch {}
       }
     }
@@ -52,7 +73,7 @@ export class ActivityLog {
   /** One thing someone did. Fields are cut to size; nothing but these fields is kept. */
   record(entry) {
     const row = {
-      at: entry.at ?? new Date().toISOString(),
+      at: entryTime(entry.at),
       user: clean(entry.user, 254),
       name: clean(entry.name, 120),
       role: clean(entry.role, 60),
@@ -83,11 +104,26 @@ export class ActivityLog {
     if (!this.pending.length) return;
     const text = this.pending.map((r) => JSON.stringify(r)).join('\n') + '\n';
     this.pending = [];
+    // One open file, checked and written through the same descriptor: the size that decides a
+    // rotation is the size of the file being written, not of whatever the name pointed at a moment before.
+    let fd = null;
     try {
-      if (fs.existsSync(this.file) && fs.statSync(this.file).size + text.length > this.maxBytes) fs.renameSync(this.file, this.#older());
-      fs.appendFileSync(this.file, text, { mode: 0o600 });
+      fd = fs.openSync(this.file, 'a', FILE_MODE);
+      if (fs.fstatSync(fd).size + Buffer.byteLength(text) > this.maxBytes) {
+        fs.closeSync(fd);
+        fd = null;
+        fs.renameSync(this.file, this.#older());
+        // A fresh file of our own: refused if anything appeared under the name in between.
+        fd = fs.openSync(this.file, 'ax', FILE_MODE);
+      }
+      try {
+        fs.fchmodSync(fd, FILE_MODE); // an older file made with wider rights is narrowed too
+      } catch {}
+      fs.writeSync(fd, text);
     } catch (error) {
       console.error(`[activity] could not write the activity log: ${error.message}`);
+    } finally {
+      if (fd !== null) fs.closeSync(fd);
     }
   }
 

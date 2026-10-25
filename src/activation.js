@@ -63,9 +63,9 @@ export function readCode(code) {
 /**
  * What a code may unlock. "tenants" is several Checkmarx One tenants; "lang:<code>" a gated
  * language; "feature:<name>" a feature held back until it is ready ("feature:impact": the Cx Credits
- * Calculator's Impact tab; "feature:faeFlush": Labs → FAE Flush). (MZ-01.00.62's "calculator" scope is gone: the calculator is a permission.)
+ * Calculator's Impact tab; "feature:faeFlush": Labs → FAE Flush; "feature:govern": Labs → Govern; "feature:statusBoard" and "feature:consolidated": Labs → Status board and Consolidated view). (MZ-01.00.62's "calculator" scope is gone: the calculator is a permission.)
  */
-export const SCOPES = new Set(['tenants', 'lang:he', 'feature:impact', 'feature:faeFlush', 'product']);
+export const SCOPES = new Set(['tenants', 'lang:he', 'feature:impact', 'feature:faeFlush', 'feature:govern', 'feature:statusBoard', 'feature:consolidated', 'product']);
 /** For a language scope, whether the code turns it on or off. */
 export const ACTIONS = new Set(['activate', 'deactivate']);
 

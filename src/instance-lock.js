@@ -29,7 +29,8 @@ export class InstanceLock {
   constructor(dataDir, { staleMs = 30_000, beatMs = 10_000 } = {}) {
     this.#file = path.join(dataDir, LOCK_FILE);
     this.#staleMs = staleMs;
-    this.#beatMs = beatMs;
+    // At least three beats per stale window, or a live server's lock looks dead between beats.
+    this.#beatMs = Math.max(250, Math.min(beatMs, Math.floor(staleMs / 3)));
   }
 
   #read() {

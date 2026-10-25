@@ -430,6 +430,22 @@ export function cleanOptions(o = {}) {
   };
 }
 
+/** This process's private code folders (FaeFlushRunner.tmpDir): removed, with anything left in them, when it exits. */
+const ownTmpDirs = new Set();
+let removeTmpDirsOnExit = false;
+function rememberTmpDir(dir) {
+  ownTmpDirs.add(dir);
+  if (removeTmpDirsOnExit) return;
+  removeTmpDirsOnExit = true;
+  process.once('exit', () => {
+    for (const folder of ownTmpDirs) {
+      try {
+        fs.rmSync(folder, { recursive: true, force: true });
+      } catch {}
+    }
+  });
+}
+
 /**
  * Runs a FAE Flush: `clientOf()` gives the tenant's Checkmarx One client (null while there is none), `record`
  * notes what happened (the audit log), `history` keeps every result marked, `tmpDir` holds a project's code
@@ -437,8 +453,27 @@ export function cleanOptions(o = {}) {
  */
 export class FaeFlushRunner {
   constructor({ store, clientOf, record = () => {}, history = null, tmpDir = os.tmpdir(), limits = LIMITS, now = () => Date.now() }) {
-    Object.assign(this, { store, clientOf, record, history, tmpDir, limits, now });
+    Object.assign(this, { store, clientOf, record, history, limits, now });
+    this.#tmpRoot = tmpDir;
     this.busy = new Set();
+  }
+
+  #tmpRoot;
+  #tmpOwn = '';
+
+  /**
+   * Where a project's code waits between download and upload: never the shared temp folder itself,
+   * but a folder of this server's own inside it, made with an unpredictable name and readable by
+   * this server's user alone (0700), made again the same way if something cleared it away, and
+   * removed when the process exits (a stop or restart ends in process.exit, src/server.js).
+   */
+  get tmpDir() {
+    if (!this.#tmpOwn || !fs.existsSync(this.#tmpOwn)) {
+      fs.mkdirSync(this.#tmpRoot, { recursive: true, mode: 0o700 });
+      this.#tmpOwn = fs.mkdtempSync(path.join(this.#tmpRoot, 'mz-fae-'));
+      rememberTmpDir(this.#tmpOwn);
+    }
+    return this.#tmpOwn;
   }
 
   get job() {

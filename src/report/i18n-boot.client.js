@@ -7,49 +7,87 @@
 {
   const L = t;
   const island = JSON.parse(document.getElementById('report-i18n').textContent);
-  const carried = island.strings || {};
-  const offered = island.languages || [];
-  const has = (code) => offered.some(([known]) => known === code);
+  const offered = Array.isArray(island.languages) ? island.languages : [];
+  const has = (code) => typeof code === 'string' && offered.some(([known]) => known === code);
   setAvailable(offered.map(([code]) => code));
 
-  /** The reminder server this report talks to (a reader's correction, kept in this browser, wins). */
+  /** An http(s) address without user name, query or fragment (as a reminder server's), else ''. */
+  const webAddress = (value) => {
+    try {
+      const url = new URL(String(value ?? ''));
+      if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username || url.password) return '';
+      return `${url.origin}${url.pathname}`.replace(/\/+$/, '');
+    } catch {
+      return '';
+    }
+  };
+  /**
+   * The reminder server this report talks to: the one it was sent with, or a reader's correction
+   * kept in this browser (report.client.js, switchServer), when that is a web address too.
+   */
   function server() {
     let base = '';
     try {
       base = String(JSON.parse(document.getElementById('report-data').textContent).config.relayUrl || '').replace(/\/+$/, '');
-      base = localStorage.getItem(`cxReportServer:${base}`) || base;
     } catch {}
-    return base.replace(/\/+$/, '');
+    let corrected = '';
+    try {
+      corrected = webAddress(localStorage.getItem(`cxReportServer:${base}`));
+    } catch {}
+    return corrected || webAddress(base);
   }
 
   const kept = (code) => `mz-report-words:${island.version}:${code}`;
   // Words from outside the report (the server, or this browser's storage, which another local file
   // could write to) may carry exactly the markup of their English and nothing more: a sentence is
   // put in as HTML, so a word with any other tag or attribute is left out.
+  // (public/i18n.js sanitises every sentence to inline markup again before it is shown.) The words
+  // are kept in objects without a prototype, and names that are not wording are never copied.
   const tagsOf = (text) => (String(text).match(/<\/?[a-zA-Z][^>]*>/g) || []).map((tag) => tag.replace(/\s+/g, ' ')).sort().join('\n');
-  const safe = (map) =>
-    Object.fromEntries(Object.entries(map && typeof map === 'object' ? map : {}).filter(([english, out]) => typeof out === 'string' && tagsOf(english) === tagsOf(out)));
-  const fetched = {};
+  const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+  const safe = (map, check = true) => {
+    const out = Object.create(null);
+    for (const [english, word] of Object.entries(map && typeof map === 'object' ? map : {})) {
+      if (UNSAFE_KEYS.has(english) || typeof word !== 'string' || (check && tagsOf(english) !== tagsOf(word))) continue;
+      out[english] = word;
+    }
+    return out;
+  };
+  // The report's own words (written by its server when it was made), per offered language.
+  const carried = new Map(Object.entries(island.strings && typeof island.strings === 'object' ? island.strings : {}).filter(([code]) => has(code)).map(([code, map]) => [code, safe(map, false)]));
+  const fetched = new Map();
   /** A language's words: carried, kept from before, or asked for (a few seconds at most). */
   async function words(code) {
     if (code === 'en') return {};
-    if (carried[code]) return carried[code];
-    if (fetched[code]) return fetched[code];
+    if (!has(code)) throw new Error(`${code}: not offered in this report`);
+    if (carried.has(code)) return carried.get(code);
+    if (fetched.has(code)) return fetched.get(code);
     try {
       const saved = JSON.parse(localStorage.getItem(kept(code)) || 'null');
-      if (saved && typeof saved === 'object') return (fetched[code] = safe(saved));
+      if (saved && typeof saved === 'object') {
+        const stored = safe(saved);
+        fetched.set(code, stored);
+        return stored;
+      }
     } catch {}
     if (!island.fetch || !server()) throw new Error(`${code}: not in this report`);
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = controller && setTimeout(() => controller.abort(), 5000);
     try {
-      const response = await fetch(`${server()}/api/relay/report-words/${encodeURIComponent(code)}`, { signal: controller?.signal });
+      // Asked of the reminder server only, at an http(s) address, without cookies; an answer from
+      // anywhere else (a redirect to another origin) is not read.
+      const target = new URL(`${server()}/api/relay/report-words/${encodeURIComponent(code)}`);
+      if (target.protocol !== 'https:' && target.protocol !== 'http:') throw new Error(`${code}: the reminder server address is not a web address`);
+      const response = await fetch(target.href, { signal: controller?.signal, credentials: 'omit', referrerPolicy: 'no-referrer' });
+      if (response.url && new URL(response.url).origin !== target.origin) throw new Error(`${code}: answered from another address`);
       const body = await response.json();
-      if (!response.ok || !body?.strings) throw new Error(body?.error || String(response.status));
+      if (!response.ok || !body?.strings || typeof body.strings !== 'object') throw new Error(body?.error || String(response.status));
+      const got = safe(body.strings);
       try {
-        localStorage.setItem(kept(code), JSON.stringify(body.strings));
+        localStorage.setItem(kept(code), JSON.stringify(got));
       } catch {}
-      return (fetched[code] = safe(body.strings));
+      fetched.set(code, got);
+      return got;
     } finally {
       if (timer) clearTimeout(timer);
     }

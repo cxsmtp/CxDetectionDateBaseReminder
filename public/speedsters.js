@@ -152,10 +152,30 @@ export const SPEEDSTERS = [
 
 let last = -1;
 let order = [];
+
+/** A whole number from 0 to below `n`, from the browser's (or Node's) cryptographic random source. */
+function randomBelow(n) {
+  const limit = Math.floor(0x100000000 / n) * n; // no modulo bias
+  const word = new Uint32Array(1);
+  do globalThis.crypto.getRandomValues(word);
+  while (word[0] >= limit);
+  return word[0] % n;
+}
+
+/** `list` in a uniformly random order (Fisher–Yates). */
+export function shuffled(list) {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = randomBelow(i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 /** A different one each time: every icon once, in a shuffled order, then shuffle again (never the same twice in a row). */
 export function nextSpeedster() {
   if (!order.length) {
-    order = SPEEDSTERS.map((_, i) => i).sort(() => Math.random() - 0.5);
+    order = shuffled(SPEEDSTERS.map((_, i) => i));
     if (order[0] === last && order.length > 1) order.push(order.shift());
   }
   last = order.shift();
