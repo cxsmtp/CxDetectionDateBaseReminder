@@ -5145,6 +5145,9 @@
   "Remove this group": "このグループを外す",
   "Remove exemption": "適用除外を解除",
   "Restricted budgets": "制限中の予算",
-  "Add exemption": "適用除外を追加"
+  "Add exemption": "適用除外を追加",
+  "More": "その他",
+  "Menu": "メニュー",
+  "What to load": "読み込む内容"
  }
 }

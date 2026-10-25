@@ -34456,5 +34456,23 @@
   "seen": [
    "Govern › exempt someone › dialog button"
   ]
+ },
+ "More": {
+  "kind": "text",
+  "seen": [
+   "Workbench › phone menu bar"
+  ]
+ },
+ "Menu": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "Workbench › phone menu sheet"
+  ]
+ },
+ "What to load": {
+  "kind": "text",
+  "seen": [
+   "Workbench › phone sheet"
+  ]
  }
 }

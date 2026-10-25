@@ -52,9 +52,9 @@ The coloured label next to each page title says which group the page is in.
 
 **Every page keeps what you were doing.** Go to another page and come back: your filters, tabs, selections, open rows, typed text and unsaved role changes are still there, and so is the scroll position.
 - **↻** (top right) reloads the data of the page you are on and keeps your filters and tabs.
-- **Refresh** (bottom of the sidebar; in the menu under your name on a phone) starts over: CxMissionZero reloads and every page opens as new. Saved settings, reports and credits are not affected.
+- **Refresh** (bottom of the sidebar; under **More** on a phone) starts over: CxMissionZero reloads and every page opens as new. Saved settings, reports and credits are not affected.
 
-**Get help** (bottom of the sidebar; in the menu under your name on a phone): point at it and choose **Submit a support case** or **Request an enhancement**, or **Track my requests**. See [Get help](#get-help-support-cases-and-enhancements).
+**Get help** (bottom of the sidebar; under **More** on a phone): point at it and choose **Submit a support case** or **Request an enhancement**, or **Track my requests**. See [Get help](#get-help-support-cases-and-enhancements).
 
 **Sort and filter any table from its headings.** Next to each column heading of a data table (projects, people, the audit and activity logs, reports, credits, the downloaded HTML report…) there are two small buttons:
 - **⇅ Sort by this column**: the first click sorts numbers largest first and words A to Z, the second reverses it, the third goes back to the table's own order. Empty cells stay at the bottom either way.
@@ -62,13 +62,23 @@ The coloured label next to each page title says which group the page is in.
 - A line above a filtered table says **Showing 12 of 40 rows**, with **Clear filters**. Tables that show everything at once filter every row; the People list, Projects and the credit audit log sort and filter every row loaded, not only the page in view; a table the server sends a page at a time (Logs → User activity) says **on this page**.
 - Findings that share one Checkmarx One result stay together whatever the sort, and the sort and filters are kept when you switch pages.
 - **Every table fits its panel.** Headings wrap (the sort and filter buttons go under a long label) and long text wraps inside its column, so no column runs off the right; the audit log shows each entry's reason on up to two lines (**Details** has it all).
-- **On a phone** each table row is shown as a small card, its column headings beside the values; below 1024 pixels wide the Workbench's projects are cards too. Cards have no headings to sort by: narrow them with the search and filter boxes above them.
+- **On a phone** each table row is shown as a small card, its column headings beside the values, and the Workbench's projects are a list you tap (see [On a phone](#on-a-phone)); between 761 and 1024 pixels wide the Workbench's projects are cards. Cards and lists have no headings to sort by: narrow them with the search and filter pills above them.
 
 **Jump to (Ctrl K, or ⌘K on a Mac)** goes to any page, tab, Settings section or common action: type a few letters (for example *smtp*, *allocated*, *backups*) and press Enter.
 
 **Tabs instead of long pages.** Most pages have tabs at the top (for example Audit: *Credit audit log*, *Integrity & reconcile*, *State & backups*). The tab you last used opens next time. The address bar follows the tab, so `#/audit/backups` or `#/settings/smtp` opens that place directly.
 
 **Any screen.** The layout adapts to the screen: a full sidebar on a desktop, an icon rail on a tablet, a bottom bar on a phone, and wide screens use their full width. Tables stay inside their panels: long emails go onto two lines after their @, and below 1024 pixels wide (tablets and phones) the Workbench's projects are shown as one card each, so no column is cut off at the right. The header is one line: the page's name and what it is for.
+
+### On a phone
+
+Up to 760 pixels wide CxMissionZero works like a phone app, in every look and in light and dark:
+- **The tab bar** at the bottom holds four pages (your pinned pages first, then the menu's order) and **More**. **More** opens a sheet with you at the top, every page you may open as a grouped list (Act, Follow up, Prove, Plan, Set up, Labs), and then the tenant, the connections, the language, the theme, **Get help** and **Refresh**.
+- **The page's name** is large at the top and settles into a slim bar as you scroll; search and your name stay at the right.
+- **The Workbench** opens with its summary: Get started folded into one line (tap it for the steps), Mission Zero, then the totals as cards you swipe. **What to load** is one row: it says the time window and engines, and **Load** loads findings straight away (**Stop** while loading). Tap the row to change the window, engines, branch or **Narrow down** in a sheet; **Load findings** there loads and closes it.
+- **Projects are a list**: each row shows the project, its languages, a bar of its open findings by severity, how many and how old. Tap a row for the project's own screen: its findings by severity, every column you chose under Columns, its AI credits (tap them to give extra credits) and **Remind**, **People**, **AI credits** and **Track** for that project alone (it becomes the only ticked project). **‹ Projects** or your phone's back gesture returns to the list.
+- **Select** (beside Projects) shows tick boxes to choose several projects; the actions bar floating above the tab bar then acts on them, as **Remind**, **People**, **AI credits** and **Track** do on a computer.
+- Side panels (Fusion, Status board, a report's details, the Workbench's actions) rise from the bottom as sheets.
 
 <a id="your-appearance"></a>**Your appearance: your own look, light or dark.** Settings → **Your appearance** (under **You**, next to Your profile and Your branding) holds how the app looks to you. The sun or moon button in the top bar stays for a quick switch of the theme:
 - **Look**: **The organisation's** (whatever the Admin chose; out of the box **Command center**: warm paper or night ink, a dark menu console, headings and figures in Fraunces), or one of your own, each shown as a small picture: **Cabin** (a luxury car's cockpit at night, with a line of ambient light), **Circuit** (a sports car's gauges, with a needle on the Dashboard), **Residence** (a grand hotel: ivory, navy and gold), **Chronometer** (a fine watch: green and gold, a fluted bezel), **Signal**, **Studio**, **Atelier** or **Classic** (the look before MZ-01.00.77, unchanged). In every look but Classic, buttons stand off the page; the golden buttons stay gold.
@@ -1281,7 +1291,7 @@ Send it to whoever maintains CxMissionZero when something goes wrong. **It captu
 
 ## Cx Credits Calculator
 
-**Cx Credits Calculator** (menu group **Plan**; on a phone, through Jump to) works out the credits a customer needs, from their own data, and makes a report of it. It is for Admins, and for any role an Admin gives the **Cx Credits Calculator** permission to. Each **customer** is saved on this server as you go: **New customer** starts one, named after your organisation (the name given with the terms) while no customer has it, **Customer** switches between them, **Delete customer** removes one (its reports stay). The first time, the calculator starts that customer by itself.
+**Cx Credits Calculator** (menu group **Plan**; on a phone, under **More**) works out the credits a customer needs, from their own data, and makes a report of it. It is for Admins, and for any role an Admin gives the **Cx Credits Calculator** permission to. Each **customer** is saved on this server as you go: **New customer** starts one, named after your organisation (the name given with the terms) while no customer has it, **Customer** switches between them, **Delete customer** removes one (its reports stay). The first time, the calculator starts that customer by itself.
 
 **One click.** **Generate projection report** reads Checkmarx One first when nothing is read yet, then makes the report with every default in place. **Email the report** sends it, in the page's language, to up to 10 addresses (through Settings → Email server). Once it is made, **Download PDF summary** gives the pages to present: triage & remediation with the backlog forecast, Checkmarx Fusion, the total credits required, and the trend with how each number is worked out, followed by an appendix with every calculation. **Start again** clears every choice made for the customer and reads Checkmarx One again (the Fusion models stay).
 

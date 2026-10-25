@@ -2143,7 +2143,7 @@ body.sheet-open { overflow: hidden; }
    ========================================================================== */
 
 @media (max-width: 760px) {
-  .nav-group, .sidebar-tools, .sidebar-foot { display: none !important; }
+  .sidebar .nav-group, .sidebar .sidebar-tools, .sidebar-foot { display: none !important; }
   .tab.active::before { display: none; }
   .stage-chip { display: none; }
   main { padding-bottom: 32px; }
@@ -4136,3 +4136,6 @@ button.gv-sugg:hover:not(:disabled) { border-color: var(--accent); }
   .govern .flush-seg span { white-space: normal; }
   .gv-who-cell, .gv-reason, .gv-use-cell, .gv-alert { min-width: 0; }
 }
+
+/* Phone-only pieces (public/mobile.js); public/mobile.css shows them on a phone. */
+:root:not([data-phone]) :is(.m-more, .m-select, .m-sev, .m-scope-row, .m-sheet, .m-backdrop, .m-detail-head) { display: none !important; }

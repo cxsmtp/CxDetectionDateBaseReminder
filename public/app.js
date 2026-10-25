@@ -6,6 +6,7 @@ import { initStatusBoard } from './status-board.js';
 import { initConsolidated } from './consolidated.js';
 import { initGovern } from './govern.js';
 import { initTenantMenu } from './tenant-menu.js';
+import { initMobile } from './mobile.js';
 import { SEVERITIES_ALL, creditTiers, tierName } from './credit-tiers.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engines.js';
 import { LANGUAGES, availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
@@ -1667,6 +1668,8 @@ $('nav-fold-all').addEventListener('click', () => {
 });
 for (const group of document.querySelectorAll('#nav .nav-group')) group.addEventListener('click', () => renderNavPins());
 renderNavPins();
+// Phones: four pages in the bar, the rest (and the top bar's controls) in the More sheet.
+initMobile();
 
 const PAGE_TITLES = {
   connect: ['Sign in', 'Act on findings, follow them up, prove every credit'],
@@ -4856,6 +4859,17 @@ const projectColumns = () => [
   null,
 ];
 
+// Open findings by severity as one strip: a thin bar in a phone's project list, four figures on a project's own screen.
+function sevStrip(bySeverity = {}) {
+  const parts = [['CRITICAL', 'Critical', 'c'], ['HIGH', 'High', 'h'], ['MEDIUM', 'Medium', 'm'], ['LOW', 'Low', 'l']];
+  return `<span class="m-sev">${parts
+    .map(([key, label, cls]) => {
+      const n = Number(bySeverity?.[key] ?? 0);
+      return `<i class="m-sev-${cls}" style="--n:${n}"><b>${fmt(n)}</b><small>${label}</small></i>`;
+    })
+    .join('')}</span>`;
+}
+
 function renderProjects() {
   const rows = sortAndFilter('projects', visibleProjects(), projectColumns(), renderProjects);
   const body = $('projects-body');
@@ -4886,7 +4900,7 @@ function renderProjects() {
             p.url
               ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.projectName)}</a>`
               : escapeHtml(p.projectName)
-          }${Array.isArray(p.languages) && p.languages.length ? `<span class="proj-langs" title="Languages its latest scan has results in">${escapeHtml(p.languages.join(' · '))}</span>` : ''}${p.error ? `<span class="err">${escapeHtml(p.error)}</span>` : ''}</td>
+          }${Array.isArray(p.languages) && p.languages.length ? `<span class="proj-langs" title="Languages its latest scan has results in">${escapeHtml(p.languages.join(' · '))}</span>` : ''}${p.error ? `<span class="err">${escapeHtml(p.error)}</span>` : ''}${sevStrip(p.bySeverity)}</td>
           <td class="num c-count" data-label="Open findings">${p.totalRisks}</td>
           ${activeColumns().map((c) => {
             const v = c.value(p);

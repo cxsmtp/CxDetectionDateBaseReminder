@@ -5145,6 +5145,9 @@
   "Remove this group": "นำกลุ่มนี้ออก",
   "Remove exemption": "ยกเลิกการยกเว้น",
   "Restricted budgets": "งบประมาณที่ถูกจำกัด",
-  "Add exemption": "เพิ่มการยกเว้น"
+  "Add exemption": "เพิ่มการยกเว้น",
+  "More": "เพิ่มเติม",
+  "Menu": "เมนู",
+  "What to load": "สิ่งที่จะโหลด"
  }
 }
