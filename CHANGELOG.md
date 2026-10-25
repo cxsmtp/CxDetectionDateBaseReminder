@@ -88,7 +88,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.01.02 — MERGED_AT UTC · [#PRNUM](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/PRNUM)
+## MZ-01.01.02 — MERGED_AT UTC · [#125](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/125)
 
 - **MZ-01.01.01's release checks, recorded.** MZ-01.01.01 was merged before its checks had finished. This release records them, and they were run on the merged code: the phone layout on every page, two benchmark pairs, the security scan, the tests and the dependencies.
 - **Phone layout check.** Nothing scrolls sideways, runs past the edge or is cut at it, in all 9 looks, in light and dark, on every page, tab and Settings section.
