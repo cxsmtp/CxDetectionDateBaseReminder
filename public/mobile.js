@@ -463,47 +463,187 @@ export function initMobile() {
   }
 
   // ---- Filters: the search stays; everything else waits behind Filter --------------------------------------
+  // A toolbar with a search keeps it and gains a Filter button; one without (a period and a grouping) becomes
+  // one Filter button that says what is chosen. Controls that belong to a form stay in it (their form attribute),
+  // so Apply, Reset and Enter still work from the sheet.
+  const FILTER_BOXES = '.filters, .gv-tools, .rp-tools, .fusion-tools, .iam-toolbar, #usage-filters, .audit-filters, .help-filters';
+  const NEEDS_SEARCH = '.gv-tools';
+  const isSearch = (el) => el.matches('input[type="search"]') || Boolean(el.querySelector?.(':scope > input[type="search"]'));
+  const changed = (el) => {
+    if (el.matches('select')) {
+      const start = Math.max(0, [...el.options].findIndex((o) => o.defaultSelected));
+      return el.selectedIndex !== start;
+    }
+    if (el.matches('input[type="checkbox"], input[type="radio"]')) return el.checked !== el.defaultChecked && el.checked;
+    if (el.matches('input:not([type="search"]):not([type="button"]):not([type="submit"])')) return el.value !== el.defaultValue && el.value !== '';
+    return false;
+  };
   const filterSheets = [];
-  for (const box of document.querySelectorAll('.filters, .gv-tools')) {
-    const search = box.querySelector(':scope > input[type="search"]');
-    if (!search) continue;
-    const rest = [...box.children].filter((el) => el !== search);
+  for (const box of document.querySelectorAll(FILTER_BOXES)) {
+    if (box.closest('.m-sheet')) continue;
+    // One search stays: the main one (a wide "Search" field) when there are several.
+    const searches = [...box.children].filter(isSearch);
+    const kept = searches.filter((el) => el.matches('.grow')).slice(0, 1).concat(searches.some((el) => el.matches('.grow')) ? [] : searches.slice(0, 1));
+    if (box.matches(NEEDS_SEARCH) && !kept.length) continue;
+    const rest = [...box.children].filter((el) => !kept.includes(el));
     if (!rest.length) continue;
+    const form = box.matches('form') ? box : box.closest('form');
     const sheet = makeSheet({ id: `m-filter-${filterSheets.length}`, title: 'Filter', closeLabel: 'Done', done: true });
     sheet.sheet.classList.add('m-filter-sheet');
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'm-filter m-flat';
+    button.className = kept.length ? 'm-filter m-flat' : 'm-filter m-filter-only m-flat';
     button.setAttribute('aria-haspopup', 'dialog');
-    button.innerHTML = `${svg('<path d="M4 6h16M7 12h10M10 18h4" />')}<span>Filter</span><b class="m-filter-n" hidden></b>`;
+    button.innerHTML = `${svg('<path d="M4 6h16M7 12h10M10 18h4" />')}<span>Filter</span><small class="m-filter-sum"></small><b class="m-filter-n" hidden></b>`;
     box.append(button);
     for (const el of rest) {
       const mark = document.createComment('m:filter');
       el.before(mark);
       movable.push({ el, mark, home: sheet.body });
+      if (form?.id) for (const c of [el, ...el.querySelectorAll('input, select, button, textarea')]) if (c.matches('input, select, button, textarea') && !c.hasAttribute('form')) c.setAttribute('form', form.id);
     }
+    const controls = () => rest.flatMap((el) => [el, ...el.querySelectorAll('input, select, textarea')]).filter((c) => c.matches('input, select, textarea') && !c.closest('[hidden]:not(.page)'));
     const count = () => {
-      const n = rest.filter((el) => (el.matches('select') && el.value) || el.querySelector?.(':scope > select:not([value=""])')?.value || el.querySelector?.('input[type="checkbox"]:checked') || (el.matches('input[type="checkbox"]') && el.checked)).length;
+      const n = controls().filter(changed).length;
       const badge = button.querySelector('.m-filter-n');
       badge.textContent = String(n);
       badge.hidden = !n;
       button.classList.toggle('on', n > 0);
+      // Without a search beside it, the button says what is chosen.
+      if (!kept.length) {
+        const sum = controls().filter((c) => c.matches('select')).map((c) => c.selectedOptions[0]?.textContent.trim()).filter(Boolean).join(' · ');
+        const small = button.querySelector('.m-filter-sum');
+        if (small.textContent !== sum) small.textContent = sum;
+      }
     };
     sheet.body.addEventListener('change', count);
     box.addEventListener('change', count);
+    form?.addEventListener('reset', () => setTimeout(count, 0));
     button.addEventListener('click', () => sheet.show());
-    // Exporting is done from the sheet; it closes so you see the result.
+    // Applying, exporting or opening something closes the sheet so you see the result.
     sheet.body.addEventListener('click', (event) => {
-      if (event.target.closest('button:not(.col-picker *)')) sheet.hide({ restore: false });
+      if (event.target.closest('button:not(.col-picker *), a[href]')) setTimeout(() => sheet.hide({ restore: false }), 0);
     });
     filterSheets.push({ sheet, count });
     count();
   }
 
+  // ---- Roles & permissions: one role at a time, chosen above the list ------------------------------------
+  const matrix = document.getElementById('iam-matrix');
+  if (matrix) {
+    const pick = document.createElement('label');
+    pick.className = 'm-role-pick';
+    pick.innerHTML = '<span>Role</span><select></select>';
+    const select = pick.querySelector('select');
+    matrix.closest('.table-wrap')?.before(pick);
+    const style = document.createElement('style');
+    document.head.append(style);
+    let chosen = 0;
+    const show = () => {
+      // Column 1 is the permission; the chosen role is column chosen + 2.
+      style.textContent = `@media (max-width: 760px) { #iam-matrix tr > :nth-child(n + 2):not(:nth-child(${chosen + 2})) { display: none; } }`;
+    };
+    const fill = () => {
+      const roles = [...matrix.querySelectorAll('thead th.role-col .role-pill')].map((el) => el.textContent.trim());
+      chosen = Math.min(chosen, Math.max(0, roles.length - 1));
+      const now = [...select.options].map((o) => o.textContent).join('|');
+      if (now !== roles.join('|')) {
+        select.replaceChildren(...roles.map((name, i) => {
+          const o = document.createElement('option');
+          o.value = String(i);
+          o.textContent = name;
+          return o;
+        }));
+      }
+      select.value = String(chosen);
+      pick.hidden = roles.length < 2;
+      show();
+    };
+    select.addEventListener('change', () => {
+      chosen = Number(select.value) || 0;
+      show();
+    });
+    new MutationObserver(fill).observe(matrix, { childList: true });
+    fill();
+  }
+
+  // ---- What to load on other pages: one row that says what is chosen, the options in a sheet ---------------
+  const folds = [];
+  function fold({ id, els, title, summary, run, runLabel = '' }) {
+    const parts = els.filter(Boolean);
+    if (!parts.length) return;
+    const sheet = makeSheet({ id, title, closeLabel: 'Done', done: true });
+    sheet.sheet.classList.add('m-scope-sheet', 'm-fold-sheet');
+    const row = document.createElement('div');
+    row.className = 'm-scope-row';
+    row.innerHTML = `<button type="button" class="m-scope-open m-flat" aria-haspopup="dialog" aria-controls="${id}"><span class="m-ico" aria-hidden="true">${SCOPE_ICON}</span><span class="m-scope-text"><b></b><small></small></span></button>${run ? '<button type="button" class="m-scope-load m-flat"></button>' : ''}`;
+    parts[0].before(row);
+    for (const el of parts) {
+      const mark = document.createComment(`m:${id}`);
+      el.before(mark);
+      movable.push({ el, mark, home: sheet.body });
+    }
+    const load = row.querySelector('.m-scope-load');
+    const update = () => {
+      const [main, sub] = summary();
+      row.querySelector('b').textContent = main;
+      row.querySelector('small').textContent = sub ?? '';
+      if (load) {
+        const target = run();
+        load.hidden = !target || target.hidden || target.classList.contains('perm-hidden');
+        load.disabled = Boolean(target?.disabled);
+        load.textContent = runLabel || (target?.textContent.trim() ?? '');
+      }
+    };
+    let queued = false;
+    const later = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        update();
+      });
+    };
+    for (const el of parts) {
+      new MutationObserver(later).observe(el, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'disabled', 'class', 'value'] });
+      el.addEventListener('change', later);
+      el.addEventListener('input', later);
+    }
+    row.querySelector('.m-scope-open').addEventListener('click', () => sheet.show());
+    load?.addEventListener('click', () => run()?.click());
+    sheet.body.addEventListener('click', (event) => {
+      if (run && event.target.closest('button[type="submit"], .primary') === run()) setTimeout(() => sheet.hide({ restore: false }), 0);
+    });
+    folds.push({ sheet, row });
+    update();
+  }
+  const valueOr = (id) => {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() || el.getAttribute('placeholder') || '' : '';
+  };
+  fold({
+    id: 'm-fusion-scope',
+    els: [document.getElementById('fusion-scope')],
+    title: 'What to load',
+    summary: () => [
+      [valueOr('fusion-apps-in'), valueOr('fusion-projects-in')].filter(Boolean).join(' · '),
+      [...document.querySelectorAll('#fusion-scope .fusion-engine')].filter((l) => l.querySelector('input')?.checked).map((l) => l.textContent.trim()).join(' · '),
+    ],
+    run: () => document.getElementById('fusion-fetch'),
+  });
+  fold({
+    id: 'm-calc-scope',
+    els: [document.querySelector('#page-calculator .calc-source'), document.getElementById('calc-scope-box')],
+    title: 'Read from Checkmarx One',
+    summary: () => [document.getElementById('calc-scope-summary')?.textContent.trim() ?? '', document.getElementById('calc-read-note')?.textContent.trim() ?? ''],
+    run: () => document.getElementById('calc-read'),
+    runLabel: 'Read',
+  });
+
   // ---- Closing, and the app bar settling as the page scrolls ----------------------------------------------
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || event.defaultPrevented) return;
-    const open = [picker, ...filterSheets.map((f) => f.sheet), menu, scope].find((s) => s?.open);
+    const open = [picker, ...filterSheets.map((f) => f.sheet), ...folds.map((f) => f.sheet), menu, scope].find((s) => s?.open);
     if (open) open.hide();
     else if (detailId && !root.classList.contains('m-sheet-open') && !event.target.closest?.('.credit-editor, .wb-rail')) body?.querySelector('tr.m-detail .m-back')?.click();
   });
@@ -511,7 +651,7 @@ export function initMobile() {
     menu.hide({ restore: false });
     scope?.hide({ restore: false });
     picker.hide({ restore: false });
-    for (const f of filterSheets) f.sheet.hide({ restore: false });
+    for (const f of [...filterSheets, ...folds]) f.sheet.hide({ restore: false });
     if (detailId) {
       detailId = null;
       root.classList.remove('m-detail-open');
@@ -542,6 +682,7 @@ export function initMobile() {
       else if (!onPhone && el.parentNode === home) mark.after(el);
     }
     if (scopeRow) scopeRow.hidden = !onPhone;
+    for (const { row } of folds) row.hidden = !onPhone;
     if (onPhone) enhanceStrips();
     for (const [strip, { button }] of strips) {
       if (onPhone) refreshStrip(strip);
@@ -555,7 +696,7 @@ export function initMobile() {
       menu.hide({ restore: false });
       scope?.hide({ restore: false });
       picker.hide({ restore: false });
-      for (const f of filterSheets) f.sheet.hide({ restore: false });
+      for (const f of [...filterSheets, ...folds]) f.sheet.hide({ restore: false });
       table?.classList.remove('m-selecting');
     }
     markPrimary();
