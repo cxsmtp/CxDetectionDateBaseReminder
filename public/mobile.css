@@ -124,12 +124,23 @@
   :root[data-phone]:root:root:root .m-row #theme-toggle { display: inline-grid; place-items: center; width: 36px; height: 36px; min-height: 36px; border: 0; background: none; box-shadow: none; color: var(--muted); }
   :root[data-phone]:root:root:root .m-tools > .side-btn > span { display: inline; }
 
-  /* ---- Tabs inside a page: one scrolling strip, never cut in half --------------------------------- */
-  :root[data-phone]:root:root:root .ptabs, :root[data-phone]:root:root:root .tabs, :root[data-phone]:root:root:root .subtabs, :root[data-phone]:root:root:root .section-nav { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; margin-inline: -14px; padding-inline: 14px; scroll-padding-inline: 14px; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 24px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 24px), transparent 100%); }
-  :root[data-phone]:root:root:root .ptabs::-webkit-scrollbar, :root[data-phone]:root:root:root .tabs::-webkit-scrollbar, :root[data-phone]:root:root:root .subtabs::-webkit-scrollbar, :root[data-phone]:root:root:root .section-nav::-webkit-scrollbar { display: none; }
-  :root[data-phone]:root:root:root .ptabs > *, :root[data-phone]:root:root:root .tabs > *, :root[data-phone]:root:root:root .subtabs > *, :root[data-phone]:root:root:root .section-nav > * { flex: 0 0 auto; scroll-snap-align: start; white-space: nowrap; }
-  :root[data-phone]:root:root:root .segmented { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
-  :root[data-phone]:root:root:root .segmented::-webkit-scrollbar { display: none; }
+  /* ---- Tabs inside a page: never sideways. Up to three share the width; more are one button and a sheet -- */
+  :root[data-phone]:root:root:root :is(.ptabs, :root[data-phone]:root:root:root .set-nav-list, :root[data-phone]:root:root:root .tabs, :root[data-phone]:root:root:root .subtabs, :root[data-phone]:root:root:root .section-nav).m-picked { display: none; }
+  :root[data-phone]:root:root:root :is(.ptabs, :root[data-phone]:root:root:root .set-nav-list, :root[data-phone]:root:root:root .tabs, :root[data-phone]:root:root:root .subtabs, :root[data-phone]:root:root:root .section-nav).m-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; margin: 0 0 12px; padding: 2px; overflow: visible; border: 0; border-radius: 11px; background: color-mix(in srgb, var(--muted) 14%, transparent); -webkit-mask-image: none; mask-image: none; }
+  :root[data-phone]:root:root:root :is(.ptabs, :root[data-phone]:root:root:root .tabs, :root[data-phone]:root:root:root .subtabs, :root[data-phone]:root:root:root .section-nav).m-seg > * { display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 34px; margin: 0; padding: 5px 4px; border: 0; border-radius: 9px; background: none; box-shadow: none; color: var(--muted); font-size: 13.5px; font-weight: 600; line-height: 1.2; text-align: center; white-space: normal; overflow-wrap: anywhere; }
+  :root[data-phone]:root:root:root :is(.ptabs, :root[data-phone]:root:root:root .tabs, :root[data-phone]:root:root:root .subtabs, :root[data-phone]:root:root:root .section-nav).m-seg > :is(.active, :root[data-phone]:root:root:root [aria-selected="true"], :root[data-phone]:root:root:root [aria-current="page"]) { background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14); color: var(--text); }
+  :root[data-phone]:root:root:root :is(.ptabs, :root[data-phone]:root:root:root .tabs, :root[data-phone]:root:root:root .subtabs, :root[data-phone]:root:root:root .section-nav).m-seg > *::before, :root[data-phone]:root:root:root :is(.ptabs, :root[data-phone]:root:root:root .tabs, :root[data-phone]:root:root:root .subtabs, :root[data-phone]:root:root:root .section-nav).m-seg > *::after { display: none; }
+  :root[data-phone]:root:root:root .m-tabpick { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 44px; margin: 0 0 12px; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--border) 85%, transparent); border-radius: 12px; background: var(--surface); box-shadow: none; color: var(--text); font: inherit; font-size: 16px; font-weight: 600; text-align: start; cursor: pointer; }
+  :root[data-phone]:root:root:root .m-tabpick[hidden] { display: none; }
+  :root[data-phone]:root:root:root .m-tabpick > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :root[data-phone]:root:root:root .m-tabpick > svg { flex: 0 0 auto; width: 18px; height: 18px; fill: none; stroke: var(--muted); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  :root[data-phone]:root:root:root .set-nav { position: static; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; }
+  :root[data-phone]:root:root:root .m-backdrop.m-top { z-index: 95; }
+  :root[data-phone]:root:root:root .m-sheet.m-top { z-index: 96; }
+  :root[data-phone]:root:root:root .m-pick-list .m-row { width: 100%; cursor: pointer; }
+  :root[data-phone]:root:root:root .m-pick-list .m-row[aria-current] { color: var(--accent); font-weight: 700; }
+  :root[data-phone]:root:root:root .m-check svg { display: block; width: 20px; height: 20px; fill: none; stroke: var(--accent); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  :root[data-phone]:root:root:root .segmented { max-width: 100%; flex-wrap: wrap; overflow: visible; }
 
   /* ---- Forms: the label above its field, fields full width ---------------------------------------- */
   :root[data-phone]:root:root:root .scope-row, :root[data-phone]:root:root:root .controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: stretch; }
@@ -148,13 +159,24 @@
   :root[data-phone]:root:root:root .col-menu { max-width: calc(100vw - 32px); }
   :root[data-phone]:root:root:root .engine-pick .col-menu, :root[data-phone]:root:root:root .col-picker[open] > .col-menu { position: fixed; inset: auto 12px calc(76px + env(safe-area-inset-bottom)) 12px; width: auto; max-width: none; max-height: 62dvh; overflow-y: auto; z-index: 90; border-radius: 20px; }
 
-  /* ---- Filters: a search field, then pills ---------------------------------------------------------- */
-  :root[data-phone]:root:root:root .filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; }
-  :root[data-phone]:root:root:root .filters > input[type="search"], :root[data-phone]:root:root:root .filters > .search { flex: 1 1 100%; width: 100%; }
-  :root[data-phone]:root:root:root .filters > select { flex: 0 1 auto; width: auto; min-width: 0; min-height: 36px; height: 36px; padding-block: 0; padding-inline: 12px 28px; border-radius: 999px; }
-  :root[data-phone]:root:root:root .filters > label.check { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; min-height: 36px; margin: 0; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: 15px; }
-  :root[data-phone]:root:root:root .filters > button, :root[data-phone]:root:root:root .filters > .col-picker > summary { flex: 0 0 auto; width: auto; min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 15px; }
-  :root[data-phone]:root:root:root #page-dashboard .filters > .col-picker { display: none; }
+  /* ---- Filters: the search field and one Filter button; the rest in a sheet ---------------------------- */
+  :root[data-phone]:root:root:root .filters { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; }
+  :root[data-phone]:root:root:root .filters > input[type="search"] { flex: 1 1 auto; width: auto; min-width: 0; }
+  :root[data-phone]:root:root:root .gv-tools:has(> .m-filter) { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; }
+  :root[data-phone]:root:root:root .gv-tools:has(> .m-filter) > input[type="search"] { flex: 1 1 auto; width: auto; min-width: 0; min-height: 44px; }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > :is(.flush-seg, :root[data-phone]:root:root:root .gv-inline, :root[data-phone]:root:root:root .gv-chips) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > .gv-inline > select { flex: 1 1 auto; }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > :is(.flush-label, :root[data-phone]:root:root:root .gv-grow) { display: none; }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > details.col-picker > summary { width: 100%; min-height: 46px; justify-content: center; }
+  :root[data-phone]:root:root:root .m-filter { position: relative; display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--border) 85%, transparent); border-radius: 12px; background: var(--surface); box-shadow: none; color: var(--text); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+  :root[data-phone]:root:root:root .m-filter svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+  :root[data-phone]:root:root:root .m-filter.on { border-color: var(--accent); color: var(--accent); }
+  :root[data-phone]:root:root:root .m-filter-n { min-width: 18px; padding: 1px 6px; border-radius: 999px; background: var(--accent); color: var(--m-accent-ink); font-size: 11px; line-height: 16px; text-align: center; }
+  :root[data-phone]:root:root:root .m-filter-n[hidden] { display: none; }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body { gap: 10px; padding-top: 4px; }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > select, :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > button, :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > input { width: 100%; min-height: 46px; margin: 0; }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > label.check { display: flex; align-items: center; gap: 10px; min-height: 48px; margin: 0; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--border) 85%, transparent); border-radius: 12px; background: var(--surface); font-size: 16px; }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > #col-picker { display: none; }
 
   /* ---- The Workbench: summary first, what to load in one row ---------------------------------------- */
   :root[data-phone]:root:root:root .dash-top { position: static; display: flex; flex-direction: column; gap: 12px; }
@@ -177,32 +199,28 @@
   :root[data-phone]:root:root:root .m-scope-load[hidden] { display: none; }
   :root[data-phone]:root:root:root .m-scope-sheet .panel.scope { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
   :root[data-phone]:root:root:root .m-scope-sheet .panel.scope::before, :root[data-phone]:root:root:root .m-scope-sheet .panel.scope::after { display: none; }
+  :root[data-phone]:root:root:root .m-scope-sheet .panel.scope { display: flex; flex-direction: column; gap: 12px; }
+  :root[data-phone]:root:root:root .m-scope-sheet .scope-row { display: contents; }
+  :root[data-phone]:root:root:root .m-scope-sheet .scope-row > .scope-field { order: 0; }
+  :root[data-phone]:root:root:root .m-scope-sheet .scope-pick { order: 3; margin: 0; }
+  :root[data-phone]:root:root:root .m-scope-sheet .scope-row > .scope-field:has(> details) { display: none; order: 2; }
+  :root[data-phone]:root:root:root .m-scope-sheet .scope-row:has(#narrow-toggle[aria-expanded="true"]) > .scope-field:has(> details) { display: grid; }
+  :root[data-phone]:root:root:root .m-scope-sheet .scope-row > #narrow-toggle { order: 1; }
+  :root[data-phone]:root:root:root .m-scope-sheet .scope-row > .fetch-box { order: 4; }
+  :root[data-phone]:root:root:root .m-scope-sheet .scope-row > .left-out { order: 5; }
+  :root[data-phone]:root:root:root .m-scope-sheet .scope-row > .scope-summary { order: 1; }
 
-  /* Get started: one line with its progress; a tap opens the steps. */
-  :root[data-phone]:root:root:root #getting-started { padding: 12px 14px; }
-  :root[data-phone]:root:root:root #getting-started .gs-head { position: relative; padding-inline-end: 26px; cursor: pointer; }
-  :root[data-phone]:root:root:root #getting-started .gs-head::after { content: ""; position: absolute; inset-inline-end: 4px; top: 7px; width: 8px; height: 8px; border: solid var(--muted); border-width: 0 2px 2px 0; transform: rotate(45deg); transition: transform 0.2s ease; }
-  :root[data-phone]:root:root:root #getting-started.m-open .gs-head::after { transform: rotate(-135deg); top: 11px; }
-  :root[data-phone]:root:root:root #getting-started:not(.m-open) .gs-steps { display: none; }
-  :root[data-phone]:root:root:root .gs-head { flex-wrap: wrap; gap: 8px; }
-  :root[data-phone]:root:root:root .gs-head h2 { font-size: 16px; }
-  :root[data-phone]:root:root:root .gs-meter { display: block; flex: 1 1 100%; order: 3; height: 4px; }
-  :root[data-phone]:root:root:root .gs-steps { display: grid; grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: minmax(0, 1fr); gap: 0; overflow: visible; scroll-snap-type: none; margin: 6px 0 0; padding: 0; }
-  :root[data-phone]:root:root:root .gs-step { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; padding: 10px 0; min-width: 0; border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
-  :root[data-phone]:root:root:root .gs-step:first-child { border-top: 0; }
-  :root[data-phone]:root:root:root .gs-step:not(:last-child)::after { display: none; }
-  :root[data-phone]:root:root:root .gs-step .gs-text { margin: 0; }
-  :root[data-phone]:root:root:root .gs-step > button, :root[data-phone]:root:root:root .gs-step > a { margin: 0; }
+  /* Get started is for setting up, on a computer. */
+  :root[data-phone]:root:root:root #getting-started { display: none; }
 
-  /* The totals: cards you swipe through. */
+  /* The totals: one compact grid, three across. */
   :root[data-phone]:root:root:root #totals-panel { padding: 0; border: 0; background: none; box-shadow: none; }
-  :root[data-phone]:root:root:root #totals.totals { display: flex; flex-wrap: nowrap; gap: 8px; width: auto; margin: 0 -16px; padding: 2px 16px 4px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: 16px; scrollbar-width: none; border: 0; background: none; box-shadow: none; }
-  :root[data-phone]:root:root:root #totals.totals::-webkit-scrollbar { display: none; }
-  :root[data-phone]:root:root:root #totals.totals > div { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 1px; min-width: 104px; margin: 0; padding: 10px 12px; text-align: start; scroll-snap-align: start; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 16px; background: var(--surface); box-shadow: none; }
+  :root[data-phone]:root:root:root #totals.totals { display: grid; flex: 1 1 auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; width: 100%; margin: 0; padding: 0; overflow: hidden; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--border) 80%, transparent); box-shadow: none; }
+  :root[data-phone]:root:root:root #totals.totals > div { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 0; min-width: 0; margin: 0; padding: 8px 10px; text-align: start; border: 0; border-radius: 0; background: var(--surface); box-shadow: none; }
   :root[data-phone]:root:root:root #totals.totals > div::before, :root[data-phone]:root:root:root #totals.totals > div::after { display: none; }
-  :root[data-phone]:root:root:root #totals.totals .value { font-size: 22px; line-height: 1.15; }
-  :root[data-phone]:root:root:root #totals.totals .label { font-size: 12px; line-height: 1.25; white-space: nowrap; }
-  :root[data-phone]:root:root:root #totals.totals .sub { font-size: 11px; }
+  :root[data-phone]:root:root:root #totals.totals .value { font-size: 18px; line-height: 1.2; }
+  :root[data-phone]:root:root:root #totals.totals .label { font-size: 11px; line-height: 1.25; overflow-wrap: anywhere; }
+  :root[data-phone]:root:root:root #totals.totals .sub { font-size: 10.5px; }
   :root[data-phone]:root:root:root .totals:not(#totals), :root[data-phone]:root:root:root .figs, :root[data-phone]:root:root:root .kpi-row, :root[data-phone]:root:root:root .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   :root[data-phone]:root:root:root .totals > *, :root[data-phone]:root:root:root .gv-figs > *, :root[data-phone]:root:root:root .figs > *, :root[data-phone]:root:root:root .kpi-row > *, :root[data-phone]:root:root:root .tiles > * { min-width: 0; margin: 0; }
 
@@ -290,18 +308,20 @@
   :root[data-phone]:root:root:root #page-dashboard .act-bar .act-buttons > button svg { width: 19px; height: 19px; margin: 0; stroke: currentColor; }
   :root[data-phone]:root:root:root:has(#projects-body > tr.empty) #page-dashboard .act-bar, :root[data-phone]:root:root:root.m-detail-open #page-dashboard .act-bar, :root[data-phone]:root:root:root:has(.wb.rail-open) #page-dashboard .act-bar { display: none; }
 
-  /* ---- Labs figures (Govern, Status board, Consolidated): the number on top, its name under it ------ */
-  :root[data-phone]:root:root:root .gv-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; padding: 16px; border-radius: 18px; }
-  :root[data-phone]:root:root:root .gv-figs > span { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; font-size: 12.5px; line-height: 1.3; }
-  :root[data-phone]:root:root:root .gv-figs > span b { order: -1; font-size: 24px; line-height: 1.1; }
-  :root[data-phone]:root:root:root .gv-figs > span small { font-size: 11.5px; }
+  /* ---- Labs figures (Govern, Status board, Consolidated): a compact grid, three across --------------------- */
+  :root[data-phone]:root:root:root .gv-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; padding: 12px; border-radius: 16px; }
+  :root[data-phone]:root:root:root .gv-figs > span { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; font-size: 11px; line-height: 1.25; overflow-wrap: anywhere; }
+  :root[data-phone]:root:root:root .gv-figs > span b { order: -1; font-size: 18px; line-height: 1.15; }
+  :root[data-phone]:root:root:root .gv-figs > span small { font-size: 10.5px; }
   :root[data-phone]:root:root:root .gv-figs .gv-sep { display: none; }
   :root[data-phone]:root:root:root .gv-figs .gv-end { margin: 0; grid-column: 1 / -1; }
 
-  /* ---- Other tables: swipe sideways inside their card, the first column stays ---------------------- */
-  :root[data-phone]:root:root:root .table-wrap { overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; margin-inline: -14px; padding-inline: 14px; scrollbar-width: thin; }
-  :root[data-phone]:root:root:root .table-wrap > table:not(#projects):not(.sb-table) th:first-child, :root[data-phone]:root:root:root .table-wrap > table:not(#projects):not(.sb-table) td:first-child { position: sticky; inset-inline-start: 0; z-index: 1; background: var(--surface); }
-  :root[data-phone]:root:root:root table:not(#projects) th { white-space: nowrap; }
+  /* ---- Other tables: never sideways. Most become cards (public/table-tools.js); the rest fit the width ------ */
+  :root[data-phone]:root:root:root .table-wrap { overflow: visible; margin-inline: 0; padding-inline: 0; }
+  :root[data-phone]:root:root:root .table-wrap > table:not(#projects) { width: 100%; max-width: 100%; }
+  :root[data-phone]:root:root:root table:not(#projects) :is(th, :root[data-phone]:root:root:root td) { white-space: normal; overflow-wrap: anywhere; }
+  :root[data-phone]:root:root:root .auto-limits-wrap > table { table-layout: fixed; font-size: 13px; }
+  :root[data-phone]:root:root:root .auto-limits-wrap > table :is(th, :root[data-phone]:root:root:root td) { padding-inline: 4px; }
   :root[data-phone]:root:root:root .act-bar { flex-wrap: wrap; gap: 8px; }
   :root[data-phone]:root:root:root .act-bar .act-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; }
   :root[data-phone]:root:root:root .act-bar .act-buttons > button { width: 100%; justify-content: center; min-height: 44px; }
@@ -313,6 +333,10 @@
   :root[data-phone]:root:root:root .sb-table tbody tr.scan-row-fusion { box-shadow: inset 3px 0 0 var(--scan-fusion); }
   :root[data-phone]:root:root:root .sb-table tbody tr.scan-row-last { box-shadow: inset 3px 0 0 var(--scan-last); }
   :root[data-phone]:root:root:root .sb-table tbody tr > td, :root[data-phone]:root:root:root .sb-table tbody tr.scan-row-fusion > td, :root[data-phone]:root:root:root .sb-table tbody tr.scan-row-last > td { background: transparent; box-shadow: none; }
+  :root[data-phone]:root:root:root .sb-table tbody tr:not(.empty) > td { padding: 2px 0; }
+  :root[data-phone]:root:root:root .sb-table tbody tr:not(.empty) > td::before { display: none; content: none; }
+  :root[data-phone]:root:root:root .sb-table tbody tr:not(.empty) > td:not(.sb-name):not(.sb-barcell) { display: none; }
+  :root[data-phone]:root:root:root .sb-table tbody tr:not(.empty) > td.sb-barcell { margin-top: 6px; }
 
   /* ---- Side panels and dialogs: sheets from the bottom --------------------------------------------- */
   :root[data-phone]:root:root:root .fusion-drawer, :root[data-phone]:root:root:root .rp-drawer { align-items: flex-end; justify-content: stretch; }
@@ -344,4 +368,5 @@
   :root[data-phone]:root:root:root td.m-detail-act > .m-row:nth-child(4) { --m-tone: #2f8a4f; }
   :root[data-phone]:root:root:root .m-back:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 12px; }
   :root[data-phone]:root:root:root #projects > tbody > tr.m-detail.m-detail[data-id]:focus { outline: none; }
+  :root[data-phone]:root:root:root .m-scope-sheet .scope-row > #narrow-toggle { align-self: flex-start; }
 }

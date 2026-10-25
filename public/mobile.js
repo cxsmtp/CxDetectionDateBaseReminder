@@ -31,12 +31,12 @@ function usableTabs(nav) {
 }
 
 /** A bottom sheet: a grip, a title with a close or Done button, and a body. */
-function makeSheet({ id, title, closeLabel = 'Close', done = false }) {
+function makeSheet({ id, title, closeLabel = 'Close', done = false, top = false }) {
   const backdrop = document.createElement('div');
-  backdrop.className = 'm-backdrop';
+  backdrop.className = top ? 'm-backdrop m-top' : 'm-backdrop';
   backdrop.hidden = true;
   const sheet = document.createElement('section');
-  sheet.className = 'm-sheet';
+  sheet.className = top ? 'm-sheet m-top' : 'm-sheet';
   sheet.id = id;
   sheet.setAttribute('role', 'dialog');
   sheet.setAttribute('aria-modal', 'true');
@@ -226,13 +226,8 @@ export function initMobile() {
     const stopBtn = document.getElementById('fetch-stop');
     const load = scopeRow.querySelector('.m-scope-load');
     const summarise = () => {
-      const picks = [...scopePanel.querySelectorAll('.scope-row > .scope-field')]
-        .map((field) => {
-          const select = field.querySelector(':scope > select');
-          if (select) return select.selectedOptions[0]?.textContent.trim();
-          return field.querySelector(':scope > details > summary')?.textContent.trim();
-        })
-        .filter(Boolean);
+      // The time window only: engines, branch and narrowing wait behind Narrow down.
+      const picks = [...scopePanel.querySelectorAll('.scope-row > .scope-field > select')].map((select) => select.selectedOptions[0]?.textContent.trim()).filter(Boolean);
       scopeRow.querySelector('b').textContent = [...new Set(picks)].join(' · ');
       const narrowed = document.getElementById('scope-summary');
       const meta = document.getElementById('fetch-meta');
@@ -378,16 +373,145 @@ export function initMobile() {
     });
   }
 
+  // ---- Tabs: nothing scrolls sideways. Up to three tabs share the width; more become one button that
+  // opens a sheet listing them (with the group headings Settings has).
+  const STRIPS = '.ptabs, .set-nav-list, .tabs, .subtabs, .section-nav';
+  const ITEMS = ':scope > button, :scope > a, :scope > [role="tab"]';
+  const isActive = (el) => el.matches('.active, [aria-selected="true"], [aria-current="page"], [aria-current="true"]');
+  const usable = (el) => !el.hidden && !el.classList.contains('perm-hidden') && getComputedStyle(el).display !== 'none' && !el.closest('[hidden]');
+  const picker = makeSheet({ id: 'm-pick', title: '', top: true });
+  picker.sheet.classList.add('m-pick-sheet');
+  const CHEVRON = svg('<path d="M7 10l5 5 5-5" />');
+  const CHECK = svg('<path d="M5 12l5 5 9-10" />');
+  const strips = new Map();
+  function labelOf(item) {
+    const copy = item.cloneNode(true);
+    for (const x of copy.querySelectorAll('.badge, .help-q, [aria-hidden="true"]:not(.ptab-count)')) x.remove();
+    return copy.textContent.replace(/\s+/g, ' ').trim();
+  }
+  function refreshStrip(strip) {
+    const entry = strips.get(strip);
+    if (!entry || !root.hasAttribute('data-phone')) return;
+    const items = [...strip.querySelectorAll(ITEMS)];
+    // Its own classes are left as they are while they are right: changing them would wake the observer again.
+    const shown = items.filter(usable);
+    const few = shown.length <= 3 && !strip.matches('.set-nav-list');
+    strip.classList.toggle('m-seg', few);
+    strip.classList.toggle('m-picked', !few);
+    if (entry.button.hidden !== few) entry.button.hidden = few;
+    if (!few) {
+      const active = shown.find(isActive) ?? shown[0];
+      const text = active ? labelOf(active) : '';
+      const span = entry.button.querySelector('span');
+      if (span.textContent !== text) span.textContent = text;
+    }
+  }
+  function openPicker(strip) {
+    const items = [...strip.querySelectorAll(':scope > *')];
+    const title = strip.getAttribute('aria-label') || strip.closest('[aria-label]')?.getAttribute('aria-label') || '';
+    picker.sheet.querySelector('h2').textContent = title;
+    const out = [];
+    let group = null;
+    for (const el of items) {
+      if (el.matches('.set-group, .nav-group')) {
+        if (!usable(el)) continue;
+        const label = document.createElement('p');
+        label.className = 'm-group-label';
+        label.textContent = el.textContent.trim();
+        out.push(label);
+        group = null;
+        continue;
+      }
+      if (!el.matches('button, a, [role="tab"]') || !usable(el)) continue;
+      if (!group) {
+        group = document.createElement('div');
+        group.className = 'm-group m-pick-list';
+        out.push(group);
+      }
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'm-row m-flat';
+      row.innerHTML = `<span class="m-lbl"></span>${isActive(el) ? `<span class="m-check" aria-hidden="true">${CHECK}</span>` : ''}`;
+      row.querySelector('.m-lbl').textContent = labelOf(el);
+      if (isActive(el)) row.setAttribute('aria-current', 'true');
+      row.addEventListener('click', () => {
+        picker.hide({ restore: false });
+        el.click();
+        strips.get(strip)?.button.focus({ focusVisible: false });
+      });
+      group.append(row);
+    }
+    // A heading with nothing under it is dropped.
+    picker.body.replaceChildren(...out.filter((el, i) => !(el.classList.contains('m-group-label') && !out[i + 1]?.classList.contains('m-group'))));
+    picker.show();
+  }
+  function enhanceStrips() {
+    for (const strip of document.querySelectorAll(STRIPS)) {
+      if (strip.closest('.m-sheet') || strips.has(strip)) continue;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'm-tabpick m-flat';
+      button.hidden = true;
+      button.setAttribute('aria-haspopup', 'dialog');
+      button.innerHTML = `<span></span>${CHEVRON}`;
+      button.addEventListener('click', () => openPicker(strip));
+      strip.before(button);
+      strips.set(strip, { button });
+      new MutationObserver(() => refreshStrip(strip)).observe(strip, { subtree: true, attributes: true, attributeFilter: ['class', 'aria-selected', 'aria-current', 'hidden'], childList: true, characterData: true });
+      refreshStrip(strip);
+    }
+  }
+
+  // ---- Filters: the search stays; everything else waits behind Filter --------------------------------------
+  const filterSheets = [];
+  for (const box of document.querySelectorAll('.filters, .gv-tools')) {
+    const search = box.querySelector(':scope > input[type="search"]');
+    if (!search) continue;
+    const rest = [...box.children].filter((el) => el !== search);
+    if (!rest.length) continue;
+    const sheet = makeSheet({ id: `m-filter-${filterSheets.length}`, title: 'Filter', closeLabel: 'Done', done: true });
+    sheet.sheet.classList.add('m-filter-sheet');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'm-filter m-flat';
+    button.setAttribute('aria-haspopup', 'dialog');
+    button.innerHTML = `${svg('<path d="M4 6h16M7 12h10M10 18h4" />')}<span>Filter</span><b class="m-filter-n" hidden></b>`;
+    box.append(button);
+    for (const el of rest) {
+      const mark = document.createComment('m:filter');
+      el.before(mark);
+      movable.push({ el, mark, home: sheet.body });
+    }
+    const count = () => {
+      const n = rest.filter((el) => (el.matches('select') && el.value) || el.querySelector?.(':scope > select:not([value=""])')?.value || el.querySelector?.('input[type="checkbox"]:checked') || (el.matches('input[type="checkbox"]') && el.checked)).length;
+      const badge = button.querySelector('.m-filter-n');
+      badge.textContent = String(n);
+      badge.hidden = !n;
+      button.classList.toggle('on', n > 0);
+    };
+    sheet.body.addEventListener('change', count);
+    box.addEventListener('change', count);
+    button.addEventListener('click', () => sheet.show());
+    // Exporting is done from the sheet; it closes so you see the result.
+    sheet.body.addEventListener('click', (event) => {
+      if (event.target.closest('button:not(.col-picker *)')) sheet.hide({ restore: false });
+    });
+    filterSheets.push({ sheet, count });
+    count();
+  }
+
   // ---- Closing, and the app bar settling as the page scrolls ----------------------------------------------
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || event.defaultPrevented) return;
-    const open = [menu, scope].find((s) => s?.open);
+    const open = [picker, ...filterSheets.map((f) => f.sheet), menu, scope].find((s) => s?.open);
     if (open) open.hide();
     else if (detailId && !root.classList.contains('m-sheet-open') && !event.target.closest?.('.credit-editor, .wb-rail')) body?.querySelector('tr.m-detail .m-back')?.click();
   });
   window.addEventListener('hashchange', () => {
     menu.hide({ restore: false });
     scope?.hide({ restore: false });
+    picker.hide({ restore: false });
+    for (const f of filterSheets) f.sheet.hide({ restore: false });
     if (detailId) {
       detailId = null;
       root.classList.remove('m-detail-open');
@@ -395,6 +519,10 @@ export function initMobile() {
       for (const tr of document.querySelectorAll('tr.m-detail')) tr.classList.remove('m-detail');
     }
     queueMicrotask(markPrimary);
+    setTimeout(() => {
+      enhanceStrips();
+      for (const strip of strips.keys()) refreshStrip(strip);
+    }, 0);
   });
   let scrolled = false;
   window.addEventListener(
@@ -414,14 +542,34 @@ export function initMobile() {
       else if (!onPhone && el.parentNode === home) mark.after(el);
     }
     if (scopeRow) scopeRow.hidden = !onPhone;
+    if (onPhone) enhanceStrips();
+    for (const [strip, { button }] of strips) {
+      if (onPhone) refreshStrip(strip);
+      else {
+        strip.classList.remove('m-seg', 'm-picked');
+        button.hidden = true;
+      }
+    }
+    for (const f of filterSheets) f.count();
     if (!onPhone) {
       menu.hide({ restore: false });
       scope?.hide({ restore: false });
+      picker.hide({ restore: false });
+      for (const f of filterSheets) f.sheet.hide({ restore: false });
       table?.classList.remove('m-selecting');
     }
     markPrimary();
   }
   phone.addEventListener('change', place);
+  let looking = false;
+  new MutationObserver(() => {
+    if (looking || !root.hasAttribute('data-phone')) return;
+    looking = true;
+    requestAnimationFrame(() => {
+      looking = false;
+      enhanceStrips();
+    });
+  }).observe(document.querySelector('main') ?? document.body, { childList: true, subtree: true });
   // Permissions, pins and the active page change the four: watch the menu.
   new MutationObserver(markPrimary).observe(nav, { subtree: true, attributes: true, attributeFilter: ['class', 'hidden'], childList: true });
   place();

@@ -26,6 +26,23 @@ test('the phone layout only ever applies on a phone, and outranks every look wit
   assert.doesNotMatch(css, /url\(\s*['"]?https?:/i, 'nothing is fetched from outside');
 });
 
+test('on a phone nothing scrolls sideways, and setting up waits for a computer', () => {
+  const css = read('public/mobile.css');
+  assert.doesNotMatch(css, /overflow(-x)?:\s*(auto|scroll)\s*;(?![^}]*overflow-y)/, 'no sideways scrolling area');
+  for (const rule of css.match(/[^{}]+\{[^{}]*overflow-x[^{}]*\}/g) ?? []) assert.doesNotMatch(rule, /overflow-x:\s*(auto|scroll)/, rule.slice(0, 160));
+  assert.match(css, /\.m-picked \{ display: none; \}/, 'more than three tabs become one button and a sheet');
+  assert.match(css, /\.m-seg \{ display: grid; grid-auto-flow: column; grid-auto-columns: minmax\(0, 1fr\)/, 'up to three share the width');
+  assert.match(css, /#getting-started \{ display: none; \}/, 'no six-step setup on a phone');
+  assert.match(css, /#totals\.totals \{ display: grid;[^}]*repeat\(3, minmax\(0, 1fr\)\)/, 'the totals are a grid, three across');
+  assert.match(css, /\.gv-figs \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/, 'so are the Labs figures');
+  // Engines and branch wait behind Narrow down; the search stays and the rest waits behind Filter.
+  assert.match(css, /\.m-scope-sheet \.scope-row > \.scope-field:has\(> details\) \{ display: none;/);
+  assert.match(css, /\.m-scope-sheet \.scope-row:has\(#narrow-toggle\[aria-expanded="true"\]\) > \.scope-field:has\(> details\) \{ display: grid; \}/);
+  const js = read('public/mobile.js');
+  assert.match(js, /document\.querySelectorAll\('\.filters, \.gv-tools'\)/);
+  assert.match(js, /const rest = \[\.\.\.box\.children\]\.filter\(\(el\) => el !== search\)/);
+});
+
 test('the phone pieces stay out of sight on a wider screen', () => {
   const css = read('public/styles.css');
   const rule = css.match(/:root:not\(\[data-phone\]\) :is\(([^)]+)\) \{ display: none !important; \}/);
@@ -52,7 +69,7 @@ test('the page loads the phone layer after the looks, and starts it once the men
 test('the phone layer writes only its own markup: names and labels go in as text', () => {
   const js = read('public/mobile.js');
   assert.match(js, /^export function initMobile\(/m);
-  const allowed = new Set(['MORE_ICON', 'CLOSE_ICON', 'BACK_ICON', 'SCOPE_ICON', 'HELP_ICON', 'ROW_ICONS[key]', 'label', 'id', 'title', 'closeLabel', "b.querySelector('svg')?.outerHTML ?? ''"]);
+  const allowed = new Set(['MORE_ICON', 'CLOSE_ICON', 'BACK_ICON', 'SCOPE_ICON', 'HELP_ICON', 'CHEVRON', 'ROW_ICONS[key]', 'label', 'id', 'title', 'closeLabel', "b.querySelector('svg')?.outerHTML ?? ''", "svg('<path d=\"M4 6h16M7 12h10M10 18h4\" />')"]);
   const templates = [...js.matchAll(/innerHTML = `([^`]*)`/g)].map((m) => m[1]);
   assert.ok(templates.length >= 5);
   for (const template of templates) {
@@ -90,7 +107,7 @@ test('a project\'s actions on a phone act on that project alone', () => {
 });
 
 test('every word the phone layer shows is translated into each language', () => {
-  const words = ['More', 'Menu', 'What to load', 'Done', 'Load', 'Select', 'Projects', 'Tenant', 'Connections', 'Language', 'Theme', 'Get help', 'Close'];
+  const words = ['More', 'Menu', 'What to load', 'Filter', 'Done', 'Load', 'Select', 'Projects', 'Tenant', 'Connections', 'Language', 'Theme', 'Get help', 'Close'];
   const catalog = JSON.parse(read('i18n/catalog.json'));
   for (const word of words) assert.ok(catalog[word], `"${word}" is in the catalog`);
   for (const code of LANGUAGE_CODES) {
