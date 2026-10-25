@@ -8,7 +8,8 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
-| MZ-01.01.02 | 490/s, 14 (connection resets on the host; MZ-01.01.00 475–487, 30–47) | 11.3 s | 915 ms | 965 | 0 vulnerabilities | Scan 47cdd5a5 of main 3b6ab29 (MZ-01.01.01's code), every engine with Fusion: PENDING |
+| MZ-01.01.02 | 486/s, 30 (connection resets and timeouts on the host; main 475–492, 5–74; from one folder 496, 4 against 486, 34) | 10.2 s | 822 ms | 966 | 0 vulnerabilities | Rescan 79851f0b: 57 open (10 / 22 / 13 / 12), all judged before, nothing new; 33 first reported on main: 12 fixed, 21 not exploitable, 1 more found and fixed ([review](docs/security/mz-01.01.02-review.md)) |
+| MZ-01.01.01 | 490/s, 14 (connection resets on the host; MZ-01.01.00 475–487, 30–47) | 11.3 s | 915 ms | 965 | 0 vulnerabilities | Scan 47cdd5a5 of main 3b6ab29: 72 open (11 / 30 / 17 / 14); 33 first reported there, handled in MZ-01.01.02 |
 | MZ-01.01.00 | 488/s, 0 (main 483, 4) | 9.0 s | 659 ms | 963 | 0 vulnerabilities | Rescan 4c87c223 (every engine with Fusion): 57 open (10 critical, 22 high, 13 medium, 12 low), down from 120 on the first Fusion scan; about 110 fixed in code over six rounds; 29 marked not exploitable with their reasons, the 57 left are SAST results judged not exploitable, waiting for SAST triage rights to be marked (see [status](docs/status.md#mz-010100-security-review)) |
 | MZ-01.00.99 | 515/s, 0 (main 509, 0) | 7.0 s | 350 ms | 799 | 0 vulnerabilities | No new scan (checked); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
 | MZ-01.00.98 | 484/s, 15 (main 459, 181; three pairs on a busy host) | 10.2 s | 1.5 s | 796 | 0 vulnerabilities | No new scan (checked); rescan fe2eb036's 3 critical secret findings marked not exploitable, the rest still to triage (see [status](docs/status.md)) |
@@ -88,12 +89,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.01.02 — MERGED_AT UTC · [#125](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/125)
+## MZ-01.01.02 — 2026-10-25 19:21 UTC · [#125](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/125)
 
 - **MZ-01.01.01's release checks, recorded.** MZ-01.01.01 was merged before its checks had finished. This release records them, and they were run on the merged code: the phone layout on every page, two benchmark pairs, the security scan, the tests and the dependencies.
 - **Phone layout check.** Nothing scrolls sideways, runs past the edge or is cut at it, in all 9 looks, in light and dark, on every page, tab and Settings section.
 - **Benchmark table corrected.** Its rows for the phone layer now count sustained requests only, as the column says; they had the opening burst added in.
-- **Status.** MZ-01.01.01 ran at 490 requests a second for 3000 people at once on 2 vCPU, with 14 failed. Every failure was a connection the host reset or could not open, and none was a server error. MZ-01.01.00, with the same server code on the same host, ran at 475 to 487 a second with 30 to 47 failed. Reports open in 11.3 s and triage polls take 915 ms at p95. All 965 tests pass, and `npm audit` finds 0 vulnerabilities. SCAN_SENTENCE ([status](docs/status.md)).
+- **Security fixes from the main-branch scan.** The first scan of main after MZ-01.01.01 reported 33 results the branch scans had not. Twelve are fixed in code: the self-check and FAE Flush save through fresh temporary names, the FAE Flush test file sits in a private folder, a credit reservation accepts only a real number of credits, and test secrets are made fresh on every run. A rescan found one more temporary file, which is fixed too.
+- **Every other result has its reason.** The other 21 were each checked against the code and judged not exploitable, with the line that blocks each one ([review](docs/security/mz-01.01.02-review.md)).
+- **Status.** MZ-01.01.02 runs at 486 requests a second for 3000 people at once on 2 vCPU, with 30 failed, against main's 475 to 492 with 5 to 74 over four pairs. Every failure was a connection the host reset or could not open, and none was a server error. Run from the same folder, it did 496 a second with 4 failed, against main's 486 with 34. Reports open in 10.2 s and triage polls take 822 ms at p95. All 966 tests pass, and `npm audit` finds 0 vulnerabilities. Rescan 79851f0b found nothing new: the 57 results open are the ones judged before ([status](docs/status.md)).
 
 ## MZ-01.01.01 — 2026-10-25 15:00 UTC · [#124](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/124)
 
