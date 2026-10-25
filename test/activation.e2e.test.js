@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { freePort } from './free-port.js';
-import { FIRST_PASSWORD, NEXT_PASSWORD } from './test-credentials.js';
+import { FIRST_PASSWORD, MEMBER_NEXT_PASSWORD, MEMBER_PASSWORD, NEXT_PASSWORD } from './test-credentials.js';
 
 const PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -94,10 +94,10 @@ test('a Hebrew activation code turns it on; a deactivation code turns it off', a
 
   // A Security Analyst sees it once an Admin ticks the Hebrew permission for the role.
   const analyst = browser();
-  const added = await admin('POST', '/api/iam/users', { email: 'analyst@acme.io', name: 'Analyst', role: 'analyst', password: 'analyst password 1' });
+  const added = await admin('POST', '/api/iam/users', { email: 'analyst@acme.io', name: 'Analyst', role: 'analyst', password: MEMBER_PASSWORD });
   assert.equal(added.status, 201, JSON.stringify(added.body));
-  await analyst('POST', '/api/session/password', { email: 'analyst@acme.io', password: 'analyst password 1' });
-  await analyst('POST', '/api/me/password', { current: 'analyst password 1', next: 'analyst password 22' });
+  await analyst('POST', '/api/session/password', { email: 'analyst@acme.io', password: MEMBER_PASSWORD });
+  await analyst('POST', '/api/me/password', { current: MEMBER_PASSWORD, next: MEMBER_NEXT_PASSWORD });
   assert.equal((await analyst('GET', '/i18n/he.json')).status, 404, 'never sent to a role without it');
   assert.ok(!(await analyst('GET', '/api/health')).body.languages.includes('he'));
   assert.equal(await heServed(), 404, 'nor to someone not signed in');

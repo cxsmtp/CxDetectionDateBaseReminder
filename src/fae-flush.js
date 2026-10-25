@@ -1116,15 +1116,17 @@ export async function testProject(client, projectId, { getLastScans }) {
     const url = text(upload?.url, 4000);
     if (!url) add('The upload address takes the code', false, 'POST /api/uploads gave no address');
     else {
-      const file = path.join(os.tmpdir(), `fae-test-${randomUUID()}.zip`);
-      fs.writeFileSync(file, Buffer.from('PK\x05\x06' + '\0'.repeat(18), 'binary'));
+      // In a private folder of its own (0700), created exclusively: no other user can read or swap it.
+      const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-test-'));
+      const file = path.join(folder, `${randomUUID()}.zip`);
+      fs.writeFileSync(file, Buffer.from('PK\x05\x06' + '\0'.repeat(18), 'binary'), { mode: 0o600, flag: 'wx' });
       const where = new URL(url);
       const at = `${where.host === new URL(client.baseUrl ?? url).host ? 'same host' : where.host} ${where.pathname.split('/').slice(0, 3).join('/')}/…`;
       await client
         .uploadFile(url, file)
         .then(() => add('The upload address takes the code', true, `${at} · an empty zip accepted`))
         .catch((error) => add('The upload address takes the code', false, `${at} · ${whyRefused(error)}`))
-        .finally(() => fs.rm(file, { force: true }, () => {}));
+        .finally(() => fs.rm(folder, { recursive: true, force: true }, () => {}));
     }
   }
   const git = gitOf(scan);

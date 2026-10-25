@@ -38,6 +38,10 @@ test('the monthly limit holds, including against reservations still in flight', 
   assert.equal(ledger.remaining(10, sept), 4, 'releasing twice does not double-count');
   assert.equal(ledger.remaining(0, sept), null, '0 means no limit');
   assert.ok(ledger.reserve(1_000, 0, sept));
+  // Only a real, non-negative number of credits is reserved: a negative one would add room, NaN would pass every check.
+  const strict = new CreditLedger({ file: tmpFile() });
+  for (const bad of [-5, Number.NaN, Infinity, '3', undefined]) assert.equal(strict.reserve(bad, 0, sept), null, String(bad));
+  assert.equal(strict.remaining(10, sept), 10, 'and none of them changed what is left');
   // What the tenant has left in Checkmarx One caps the pool, and no pool at all.
   const capped = new CreditLedger({ file: tmpFile() });
   assert.equal(capped.reserve(6, 0, sept, { cap: 5 }), null, 'no pool: still not past what the tenant has left');

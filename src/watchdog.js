@@ -18,6 +18,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { randomBytes } from 'node:crypto';
 
 export const NOTIFY_AFTER = 2;
 export const CASE_AFTER = 3;
@@ -51,9 +52,15 @@ export class Watchdog {
   #save() {
     try {
       fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-      const tmp = `${this.#file}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 1), { mode: 0o600 });
-      fs.renameSync(tmp, this.#file);
+      // A fresh, unguessable name created exclusively ('wx'): never an existing file or a link planted there.
+      const tmp = `${this.#file}.${randomBytes(8).toString('hex')}.tmp`;
+      try {
+        fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 1), { mode: 0o600, flag: 'wx' });
+        fs.renameSync(tmp, this.#file);
+      } catch (error) {
+        if (error.code !== 'EEXIST') fs.rmSync(tmp, { force: true });
+        throw error;
+      }
     } catch {
       /* the self-check never breaks the app */
     }

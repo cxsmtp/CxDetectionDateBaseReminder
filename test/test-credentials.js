@@ -11,6 +11,11 @@ export const FIRST_PASSWORD = fresh('first');
 export const NEXT_PASSWORD = fresh('next');
 /** A backup passphrase. */
 export const PASSPHRASE = fresh('passphrase');
+/** The key a test server signs report links with. */
+export const SIGNING_KEY = fresh('signing');
+/** A second person's first password, and the one they change it to. */
+export const MEMBER_PASSWORD = fresh('member');
+export const MEMBER_NEXT_PASSWORD = fresh('member-next');
 
 /**
  * A stand-in Checkmarx One API key for the mock server: only its claims are

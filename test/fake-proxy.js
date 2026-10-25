@@ -3,9 +3,12 @@
 import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
-import { generateKeyPairSync } from 'node:crypto';
+import { createHash, generateKeyPairSync, timingSafeEqual } from 'node:crypto';
 
 import { makeCertificate } from '../src/tls.js';
+
+/** Equal texts, compared in constant time (over their hashes, so the lengths need not match). */
+const sameText = (a, b) => timingSafeEqual(createHash('sha256').update(String(a)).digest(), createHash('sha256').update(String(b)).digest());
 
 /** A forward proxy: CONNECT tunnels to 127.0.0.1 whatever the host, optional basic sign-in, optional refusals. */
 export async function testProxy({ user = '', pass = '', refuse = [] } = {}) {
@@ -14,7 +17,7 @@ export async function testProxy({ user = '', pass = '', refuse = [] } = {}) {
   server.on('connect', (req, socket, head) => {
     const auth = req.headers['proxy-authorization'] ?? '';
     seen.push({ target: req.url, auth });
-    if (user && auth !== `Basic ${Buffer.from(`${user}:${pass}`).toString('base64')}`) return socket.end('HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic\r\n\r\n');
+    if (user && !sameText(auth, `Basic ${Buffer.from(`${user}:${pass}`).toString('base64')}`)) return socket.end('HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic\r\n\r\n');
     if (refuse.some((h) => req.url.startsWith(h))) return socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
     const port = Number(req.url.slice(req.url.lastIndexOf(':') + 1));
     const upstream = net.connect(port, '127.0.0.1', () => {
