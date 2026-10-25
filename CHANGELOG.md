@@ -87,6 +87,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.01.01 — 2026-10-25 15:00 UTC · [#124](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/124)
+
+- **Every page on a phone, as an app.** The rest of the pages and tabs now work the way the Workbench does on a phone: Automation, the Dashboard, Credit Control, Impact, Audit, the calculator, People & roles, every Settings section, Logs, Get help and the Labs pages.
+- **Search, then Filter.** Lists keep their search field and one Filter button that shows how many filters are on; sort, role, status, dates, type, project, columns and exports sit in its sheet, where Apply and Reset still work. Credit Control and Get help have no search, so they show one Filter button that says what is chosen.
+- **Cards that read cleanly.** Table rows are cards with the first column as the title and every label in its own column, so long labels no longer overlap. An empty table says so in one line instead of one letter per line. Figures are tidy grids.
+- **One role at a time.** Roles & permissions shows the role you choose above the list, with each permission as a switch, instead of cutting the other roles off at the right.
+- **What to load in one row.** Fusion results and the Cx Credits Calculator fold their options into one row with Load results or Read, like the Workbench. Page introductions sit behind their ?.
+- **Nothing cut off.** HTTPS's certificate steps, Code authors' connections, Govern's attribution suggestions and Automation's per-severity switches fit the width. On every look, desktop included, Get help's Submit a support case button shows its text again.
+
 ## MZ-01.01.00 — 2026-10-24 22:40 UTC · [#123](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/123)
 
 - **Govern (Labs, Beta, with an activation code): the credits command center.** Budgets per user, group, project or application (monthly, quarterly, lifetime or your own dates), what each of them used, the pool and what is assigned from it, alerts by email and signed webhook, and who consumption counts towards; Monitor by default, Enforce only for those allowed. Built from vCxCreditGuard with its 35 known problems designed out ([Govern](docs/govern.md)).
