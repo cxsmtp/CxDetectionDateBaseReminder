@@ -72,7 +72,7 @@ import { activeProxy, checkRoute, cleanProxy, proxyWithAuth, readNetwork, requir
 import { SettingsStore, apiPath, applyEnvironmentSmtp, cleanPersonalBranding, hasEnvironmentSmtp, hostOfUrl, isVerified, mergeSettings, overlayBranding, parseAddressList, publicSettings, smtpFingerprint, supportChannel } from './settings.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import v8 from 'node:v8';
-import { Watchdog, rollbackTarget, shouldNotify, shouldRaiseCase } from './watchdog.js';
+import { Watchdog, outsideFault, rollbackTarget, shouldNotify, shouldRaiseCase } from './watchdog.js';
 import { COMMANDS, isPaused, parseCommand, statusDue, systemEmail } from './hands-off.js';
 import { findReferences, peekTenant, readAction, replyReference, signAction } from './action-links.js';
 import { BACKUP_SUBJECT, findBackupInMailbox, readReplies } from './mail-inbox.js';
@@ -655,7 +655,7 @@ async function resolveAutomationSession() {
       return session;
     } catch (error) {
       console.warn(`! Stored automation key could not be used: ${error.message}`);
-      tstate.integrationFailure = { fingerprint, until: Date.now() + 30_000 + Math.floor(Math.random() * 30_000) };
+      tstate.integrationFailure = { fingerprint, until: Date.now() + 30_000 + Math.floor(Math.random() * 30_000), error };
       return null;
     } finally {
       if (tstate.integrationAttempt?.promise === promise) tstate.integrationAttempt = null;
@@ -8282,13 +8282,17 @@ async function tenantProblems() {
   const found = [];
   if (settings.automationApiKey || (id === DEFAULT_TENANT && config.bootstrapApiKey)) {
     const session = integrationSession() ?? (await resolveAutomationSession().catch(() => null));
-    if (!session) found.push({ key: `cxone:${id}`, title: 'Checkmarx One connection', detail: 'The server cannot sign in to Checkmarx One with its key.', tenant: id });
-    else {
+    if (!session) {
+      const failure = tstate.integrationFailure?.error;
+      const outside = outsideFault(failure);
+      found.push({ key: `cxone:${id}`, title: 'Checkmarx One connection', detail: outside ? `The server cannot sign in to Checkmarx One: Checkmarx One is not answering (${failure.httpStatus || failure.status || failure.code || 'timed out'}). This is on Checkmarx One's side; MissionZero keeps trying.` : 'The server cannot sign in to Checkmarx One with its key.', tenant: id, outside });
+    } else {
       // One small question to Checkmarx One: a session that exists is not one that works.
       try {
         await withTimeout(session.client.request('/api/projects', { query: { limit: 1 }, retries: 1, background: true }), 'Checkmarx One');
       } catch (error) {
-        found.push({ key: `cxone:${id}`, title: 'Checkmarx One connection', detail: error.message, tenant: id });
+        const outside = outsideFault(error);
+        found.push({ key: `cxone:${id}`, title: 'Checkmarx One connection', detail: outside ? `${error.message}. This is on Checkmarx One's side; MissionZero keeps trying.` : error.message, tenant: id, outside });
       }
     }
   }
@@ -8296,7 +8300,7 @@ async function tenantProblems() {
     try {
       await withTimeout(testConnection(sendingSettings().smtp), 'The mail server');
     } catch (error) {
-      found.push({ key: `smtp:${id}`, title: 'Email server', detail: error.message, tenant: id });
+      found.push({ key: `smtp:${id}`, title: 'Email server', detail: error.message, tenant: id, outside: outsideFault(error) });
     }
   }
   const inbox = inboxFailures.get(id);

@@ -74,7 +74,7 @@ Every 5 minutes the server checks itself:
 | **Put back the last working connection** | A changed Checkmarx One or email connection does not work. |
 | **Sign in to Checkmarx One again** | The connection or the automatic runs fail. |
 | **Try the mail server again after a pause** | The mail server fails. |
-| **Go back to the previous version** | A version that came in less than a day ago broke what worked before, and the version before it passed a whole check. This happens once per version, and only when the server runs under its launcher (the image's own start command). |
+| **Go back to the previous version** | A version that came in less than a day ago broke what worked before, and the version before it passed a whole check. This happens once per version, and only when the server runs under its launcher (the image's own start command). It never happens for an outage on the far side: when Checkmarx One or the mail server answers 5xx or 429, times out or cannot be reached, going back a version cannot help, so the version stays and the email says the problem is on that side. A refused key (401) or a refused permission (403) after an update still counts. |
 
 **Who it tells.** Administrators are the people who may update the server or connect Checkmarx One or the email server, in the tenant concerned.
 
