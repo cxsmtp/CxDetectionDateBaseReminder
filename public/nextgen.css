@@ -272,7 +272,8 @@
 :root[data-ui="nextgen"] button:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
 :root[data-ui="nextgen"] button:active:not(:disabled) { transform: translateY(1px); }
 :root[data-ui="nextgen"] button.primary,
-:root[data-ui="nextgen"] a.button.primary {
+:root[data-ui="nextgen"] a.button.primary,
+:root[data-ui="nextgen"] a.button-like.primary {
   color: var(--primary-ink);
   border-color: transparent;
   background: var(--primary);
@@ -280,7 +281,8 @@
   font-weight: 600;
 }
 :root[data-ui="nextgen"] button.primary:hover:not(:disabled),
-:root[data-ui="nextgen"] a.button.primary:hover {
+:root[data-ui="nextgen"] a.button.primary:hover,
+:root[data-ui="nextgen"] a.button-like.primary:hover {
   background: var(--primary-hover);
   border-color: transparent;
 }

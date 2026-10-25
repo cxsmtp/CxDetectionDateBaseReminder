@@ -39,8 +39,11 @@ test('on a phone nothing scrolls sideways, and setting up waits for a computer',
   assert.match(css, /\.m-scope-sheet \.scope-row > \.scope-field:has\(> details\) \{ display: none;/);
   assert.match(css, /\.m-scope-sheet \.scope-row:has\(#narrow-toggle\[aria-expanded="true"\]\) > \.scope-field:has\(> details\) \{ display: grid; \}/);
   const js = read('public/mobile.js');
-  assert.match(js, /document\.querySelectorAll\('\.filters, \.gv-tools'\)/);
-  assert.match(js, /const rest = \[\.\.\.box\.children\]\.filter\(\(el\) => el !== search\)/);
+  // Every toolbar with options: the search stays, the rest waits behind Filter (or the toolbar becomes one Filter button).
+  assert.match(js, /const FILTER_BOXES = '\.filters, \.gv-tools, \.rp-tools, \.fusion-tools, \.iam-toolbar, #usage-filters, \.audit-filters, \.help-filters';/);
+  assert.match(js, /const rest = \[\.\.\.box\.children\]\.filter\(\(el\) => !kept\.includes\(el\)\)/);
+  // Controls that leave their form for the sheet still belong to it: Apply, Reset and Enter keep working.
+  assert.match(js, /c\.setAttribute\('form', form\.id\)/);
 });
 
 test('the phone pieces stay out of sight on a wider screen', () => {
@@ -69,11 +72,13 @@ test('the page loads the phone layer after the looks, and starts it once the men
 test('the phone layer writes only its own markup: names and labels go in as text', () => {
   const js = read('public/mobile.js');
   assert.match(js, /^export function initMobile\(/m);
-  const allowed = new Set(['MORE_ICON', 'CLOSE_ICON', 'BACK_ICON', 'SCOPE_ICON', 'HELP_ICON', 'CHEVRON', 'ROW_ICONS[key]', 'label', 'id', 'title', 'closeLabel', "b.querySelector('svg')?.outerHTML ?? ''", "svg('<path d=\"M4 6h16M7 12h10M10 18h4\" />')"]);
+  const allowed = new Set(['MORE_ICON', 'CLOSE_ICON', 'BACK_ICON', 'SCOPE_ICON', 'HELP_ICON', 'CHEVRON', 'id', 'ROW_ICONS[key]', 'label', 'id', 'title', 'closeLabel', "b.querySelector('svg')?.outerHTML ?? ''", "svg('<path d=\"M4 6h16M7 12h10M10 18h4\" />')"]);
   const templates = [...js.matchAll(/innerHTML = `([^`]*)`/g)].map((m) => m[1]);
   assert.ok(templates.length >= 5);
   for (const template of templates) {
     for (const [, expr] of template.matchAll(/\$\{([^}]*(?:\{[^}]*\}[^}]*)*)\}/g)) {
+      // A fixed choice between two of the module's own strings.
+      if (/^\w+ \? '[^'$`]*' : ''$/.test(expr.trim())) continue;
       if (expr.startsWith('\n') || expr.includes('?') && expr.includes(':') && !expr.includes('outerHTML')) {
         // The sheet's close control: a fixed choice between two of the module's own buttons.
         assert.match(expr, /done\s*\?/, `only the Done-or-close choice is computed: ${expr}`);
@@ -114,4 +119,29 @@ test('every word the phone layer shows is translated into each language', () => 
     const { strings } = JSON.parse(read(`public/i18n/${code}.json`));
     for (const word of words) assert.ok(strings[word], `${code}: "${word}"`);
   }
+});
+
+test('every page reads as an app: table rows are cards, empty tables say so, one role at a time', () => {
+  const css = read('public/mobile.css');
+  // A card's label sits in its own column, so a long one never runs into the next line.
+  assert.match(css, /table\.tt-stack > tbody > tr > td \{ max-width: none; width: auto; display: grid; grid-template-columns: minmax\(0, 40%\) minmax\(0, 1fr\);/);
+  assert.match(css, /table\.tt-stack > tbody > tr > td::before \{ grid-column: 1; grid-row: 1 \/ span 12; position: static;/);
+  // A table with nothing in it: its message across the width, never headings squeezed letter by letter.
+  assert.match(css, /table:has\(> tbody > tr:only-child > td\[colspan\]\) > thead \{ display: none; \}/);
+  assert.match(css, /table:has\(> tbody > tr:only-child > td\[colspan\]\) > tbody > tr > td \{ display: block; width: auto; max-width: none;/);
+  // Roles & permissions: a role picker, each permission a switch.
+  const js = read('public/mobile.js');
+  assert.match(js, /#iam-matrix tr > :nth-child\(n \+ 2\):not\(:nth-child\(\$\{chosen \+ 2\}\)\) \{ display: none; \}/);
+  assert.match(css, /#iam-matrix td\.cell input\[type="checkbox"\]:checked \{ background: var\(--ok, #2f8a4f\); \}/);
+  // Fusion results and the calculator fold what to load into one row, like the Workbench.
+  assert.match(js, /id: 'm-fusion-scope',[^]*run: \(\) => document\.getElementById\('fusion-fetch'\)/);
+  assert.match(js, /id: 'm-calc-scope',[^]*run: \(\) => document\.getElementById\('calc-read'\),\s*runLabel: 'Read'/);
+  // Every word these show is already translated (Filter, Role, Read, What to load, Read from Checkmarx One).
+  const catalog = JSON.parse(read('i18n/catalog.json'));
+  for (const word of ['Role', 'Read', 'Read from Checkmarx One', 'Load results']) assert.ok(catalog[word], word);
+});
+
+test('a primary link-button keeps its colour in every look (Get help → Submit a support case)', () => {
+  const css = read('public/nextgen.css');
+  assert.match(css, /:root\[data-ui="nextgen"\] a\.button\.primary,\n:root\[data-ui="nextgen"\] a\.button-like\.primary \{\n  color: var\(--primary-ink\);[^}]*background: var\(--primary\);/);
 });

@@ -369,4 +369,116 @@
   :root[data-phone]:root:root:root .m-back:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 12px; }
   :root[data-phone]:root:root:root #projects > tbody > tr.m-detail.m-detail[data-id]:focus { outline: none; }
   :root[data-phone]:root:root:root .m-scope-sheet .scope-row > #narrow-toggle { align-self: flex-start; }
+
+  /* ==== Every page, as an app ======================================================================== */
+
+  /* Cards for table rows: the first cell is the card's title; every other cell is "label  value", the label in its
+     own column so a long one never runs into the next line (the table's own headings label each cell). */
+  :root[data-phone]:root:root:root table.tt-stack > tbody { display: grid; gap: 8px; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr { display: block; margin: 0; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 14px; background: var(--surface); box-shadow: none; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td { max-width: none; width: auto; display: grid; grid-template-columns: minmax(0, 40%) minmax(0, 1fr); grid-auto-flow: row; column-gap: 12px; align-items: baseline; position: static; min-height: 0; padding: 3px 0; border: 0; background: none; text-align: start; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td::before { grid-column: 1; grid-row: 1 / span 12; position: static; width: auto; padding: 0; color: var(--muted); font-size: 12.5px; font-weight: 600; line-height: 1.35; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td > *, :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td { min-width: 0; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td:first-child:not([colspan]) { display: block; padding: 0 0 6px; font-size: 15.5px; font-weight: 600; line-height: 1.3; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td:first-child:not([colspan])::before { display: none; content: none; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td:first-child:has(> input[type="checkbox"]) { display: inline-block; padding: 0 8px 0 0; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td[colspan] { display: block; width: auto; max-width: none; padding: 4px 0; white-space: normal; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td[colspan]::before { display: none; content: none; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr.empty, :root[data-phone]:root:root:root table.tt-stack > tbody > tr:has(> td[colspan]:only-child) { border-style: dashed; background: none; color: var(--muted); }
+  /* A table with nothing in it yet: its message, never squeezed headings. */
+  :root[data-phone]:root:root:root table:has(> tbody > tr:only-child > td[colspan]) { display: block; width: 100%; }
+  :root[data-phone]:root:root:root table:has(> tbody > tr:only-child > td[colspan]) > thead { display: none; }
+  :root[data-phone]:root:root:root table:has(> tbody > tr:only-child > td[colspan]) > tbody, :root[data-phone]:root:root:root table:has(> tbody > tr:only-child > td[colspan]) > tbody > tr { display: block; }
+  :root[data-phone]:root:root:root table:has(> tbody > tr:only-child > td[colspan]) > tbody > tr > td { display: block; width: auto; max-width: none; padding: 14px 4px; white-space: normal; text-align: start; }
+
+  /* Toolbars without a search: one Filter button that says what is chosen. */
+  :root[data-phone]:root:root:root .m-filter-only { display: flex; width: 100%; justify-content: flex-start; }
+  :root[data-phone]:root:root:root .m-filter-sum { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--muted); font-size: 13.5px; font-weight: 500; text-align: end; text-overflow: ellipsis; white-space: nowrap; }
+  :root[data-phone]:root:root:root .m-filter:not(.m-filter-only) .m-filter-sum { display: none; }
+  :root[data-phone]:root:root:root :is(#usage-filters, :root[data-phone]:root:root:root .audit-filters, :root[data-phone]:root:root:root .help-filters, :root[data-phone]:root:root:root .iam-toolbar, :root[data-phone]:root:root:root .rp-tools, :root[data-phone]:root:root:root .fusion-tools):has(> .m-filter) { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; margin: 0 0 12px; padding: 0; border: 0; background: none; box-shadow: none; }
+  :root[data-phone]:root:root:root :is(.audit-filters, :root[data-phone]:root:root:root .rp-tools, :root[data-phone]:root:root:root .iam-toolbar, :root[data-phone]:root:root:root .fusion-tools) > :is(input[type="search"], :root[data-phone]:root:root:root label:has(> input[type="search"])) { flex: 1 1 auto; min-width: 0; margin: 0; }
+  :root[data-phone]:root:root:root .audit-filters > label:has(> input[type="search"]) > span { display: none; }
+  :root[data-phone]:root:root:root .audit-filters > label:has(> input[type="search"]) > input { width: 100%; min-height: 44px; }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > :is(label, :root[data-phone]:root:root:root .field) { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > :is(label, :root[data-phone]:root:root:root .field) > :is(input, :root[data-phone]:root:root:root select) { width: 100%; min-height: 46px; color: var(--text); font-weight: 400; }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > :is(.filter-actions, :root[data-phone]:root:root:root .audit-filter-actions, :root[data-phone]:root:root:root .log-actions) { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; margin-top: 4px; }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > :is(.filter-actions, :root[data-phone]:root:root:root .audit-filter-actions) > :is(button, :root[data-phone]:root:root:root a) { width: 100%; min-height: 46px; justify-content: center; }
+  :root[data-phone]:root:root:root .m-filter-sheet .m-sheet-body > .hint { margin: 0; font-size: 13px; }
+
+  /* Roles & permissions: one role, chosen above, as a list of switches. */
+  :root[data-phone]:root:root:root .m-role-pick { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  :root[data-phone]:root:root:root .m-role-pick[hidden] { display: none; }
+  :root[data-phone]:root:root:root .m-role-pick select { flex: 1 1 auto; min-height: 44px; color: var(--text); font-weight: 600; }
+  :root[data-phone]:root:root:root .matrix-wrap { overflow: visible; }
+  :root[data-phone]:root:root:root #iam-matrix { width: 100%; table-layout: auto; }
+  :root[data-phone]:root:root:root #iam-matrix thead th:first-child { display: none; }
+  :root[data-phone]:root:root:root #iam-matrix thead th.role-col { text-align: start; padding: 8px 4px; }
+  :root[data-phone]:root:root:root #iam-matrix td.cell { width: 64px; text-align: end; }
+  :root[data-phone]:root:root:root #iam-matrix td.cell input[type="checkbox"]:not(:disabled), :root[data-phone]:root:root:root #iam-matrix td.cell input[type="checkbox"]:disabled { appearance: none; -webkit-appearance: none; position: relative; width: 44px; height: 26px; margin: 0; border-radius: 999px; background: color-mix(in srgb, var(--muted) 30%, transparent); cursor: pointer; transition: background-color 0.2s ease; }
+  :root[data-phone]:root:root:root #iam-matrix td.cell input[type="checkbox"]::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: transform 0.2s ease; }
+  :root[data-phone]:root:root:root #iam-matrix td.cell input[type="checkbox"]:checked { background: var(--ok, #2f8a4f); }
+  :root[data-phone]:root:root:root #iam-matrix td.cell input[type="checkbox"]:checked::after { transform: translateX(18px); }
+  :root[data-phone]:root:root:root #iam-matrix td.cell input[type="checkbox"]:disabled { opacity: 0.55; cursor: default; }
+
+  /* Page introductions: the title and its "?" are enough on a phone. */
+  :root[data-phone]:root:root:root .gv-lede, :root[data-phone]:root:root:root #flush-intro .flush-steps, :root[data-phone]:root:root:root .calc-toolbar { display: none; }
+  :root[data-phone]:root:root:root .gv-top { padding: 12px 14px; }
+  :root[data-phone]:root:root:root .gv-top .panel-head { margin-bottom: 4px; }
+
+  /* Settings: "Changes save as you type" is a quiet line, not a box. */
+  :root[data-phone]:root:root:root .autosave-note { margin: 0 0 10px; padding: 6px 2px; border: 0; background: none; box-shadow: none; font-size: 13px; }
+
+  /* Figures in tiles: one tidy grid. */
+  :root[data-phone]:root:root:root .stat-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--border) 80%, transparent); }
+  :root[data-phone]:root:root:root .stat-tiles > div { min-width: 0; margin: 0; padding: 10px 12px; border: 0; border-radius: 0; background: var(--surface); box-shadow: none; }
+  :root[data-phone]:root:root:root .stat-tiles > div::before, :root[data-phone]:root:root:root .stat-tiles > div::after { display: none; }
+  :root[data-phone]:root:root:root .stat-tiles .value { font-size: 20px; line-height: 1.2; }
+  :root[data-phone]:root:root:root .stat-tiles .label { font-size: 12px; }
+  :root[data-phone]:root:root:root .stat-tiles .detail { font-size: 11.5px; }
+  :root[data-phone]:root:root:root :is(.audit-totals, :root[data-phone]:root:root:root .fusion-tiles).totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; overflow: hidden; margin: 0 0 12px; padding: 0; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--border) 80%, transparent); }
+  :root[data-phone]:root:root:root :is(.audit-totals, :root[data-phone]:root:root:root .fusion-tiles).totals > * { min-width: 0; margin: 0; padding: 8px 10px; border: 0; border-radius: 0; background: var(--surface); }
+  :root[data-phone]:root:root:root :is(.audit-totals, :root[data-phone]:root:root:root .fusion-tiles).totals .value { font-size: 18px; line-height: 1.2; }
+  :root[data-phone]:root:root:root :is(.audit-totals, :root[data-phone]:root:root:root .fusion-tiles).totals .label { font-size: 11px; }
+
+  /* Tabs that share the width carry no badges. */
+  :root[data-phone]:root:root:root :is(.ptabs, :root[data-phone]:root:root:root .tabs, :root[data-phone]:root:root:root .subtabs, :root[data-phone]:root:root:root .section-nav).m-seg > * > :is(.badge, :root[data-phone]:root:root:root .nav-beta) { display: none; }
+
+  /* Code and long values wrap inside their box. */
+  :root[data-phone]:root:root:root pre, :root[data-phone]:root:root:root .codeblock { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; max-width: 100%; }
+  :root[data-phone]:root:root:root .https-steps { grid-template-columns: minmax(0, 1fr); }
+  :root[data-phone]:root:root:root .https-step, :root[data-phone]:root:root:root .https-step * { min-width: 0; max-width: 100%; }
+  :root[data-phone]:root:root:root .https-step :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), :root[data-phone]:root:root:root select, :root[data-phone]:root:root:root textarea) { width: 100%; }
+
+  /* Automation's limits per severity: a list, its switch and figure on the right. */
+  :root[data-phone]:root:root:root .auto-limits-wrap > table :is(label, :root[data-phone]:root:root:root span) { white-space: nowrap; }
+  :root[data-phone]:root:root:root .auto-limits-wrap > table th { font-size: 11.5px; }
+
+  /* Get help: the two ways in side by side, filters behind Filter. */
+  :root[data-phone]:root:root:root .help-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+  :root[data-phone]:root:root:root .help-bar > a { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 4px 10px; font-size: 14.5px; line-height: 1.2; text-align: center; }
+  :root[data-phone]:root:root:root .help-bar > .help-filters { grid-column: 1 / -1; }
+
+  /* Primary actions at the end of a form fill the width. */
+  :root[data-phone]:root:root:root .panel .actions > button.primary:only-child, :root[data-phone]:root:root:root .panel > button.primary:last-child { width: 100%; min-height: 48px; }
+
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td > * { justify-self: start; max-width: 100%; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td:has(> label, :root[data-phone]:root:root:root > input[type="checkbox"]) { display: block; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td:has(> label, :root[data-phone]:root:root:root > input[type="checkbox"])::before { display: block; margin-bottom: 4px; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td > label { display: flex; align-items: flex-start; gap: 8px; }
+  :root[data-phone]:root:root:root .stat-tiles > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  :root[data-phone]:root:root:root .calc-head, :root[data-phone]:root:root:root .calc-head * { min-width: 0; }
+  :root[data-phone]:root:root:root .calc-customer select, :root[data-phone]:root:root:root .calc-customer input { width: 100%; }
+  :root[data-phone]:root:root:root .calc-sum { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  :root[data-phone]:root:root:root .calc-sum-item input { width: 100%; }
+  :root[data-phone]:root:root:root :is(.flush-seg, :root[data-phone]:root:root:root .gv-chips, :root[data-phone]:root:root:root .gv-seg, :root[data-phone]:root:root:root .gv-tools) { flex-wrap: wrap; max-width: 100%; }
+  :root[data-phone]:root:root:root :is(.flush-seg, :root[data-phone]:root:root:root .gv-chips, :root[data-phone]:root:root:root .gv-seg) > * { min-width: 0; }
+  :root[data-phone]:root:root:root .https-step a, :root[data-phone]:root:root:root .panel a { overflow-wrap: anywhere; }
+  :root[data-phone]:root:root:root .gv-sugg { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+  :root[data-phone]:root:root:root .gv-sugg > em { flex: 0 0 auto; }
+  :root[data-phone]:root:root:root .https-step label { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  :root[data-phone]:root:root:root .https-step label > a { min-width: 0; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td:has(> .row-actions) { display: block; padding-top: 8px; }
+  :root[data-phone]:root:root:root table.tt-stack > tbody > tr > td:has(> .row-actions)::before { display: none; content: none; }
+  :root[data-phone]:root:root:root table.tt-stack .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: auto; max-width: none; justify-content: flex-start; }
+  :root[data-phone]:root:root:root table.tt-stack .row-actions > label.check { display: flex; align-items: flex-start; gap: 8px; width: 100%; white-space: normal; }
 }
