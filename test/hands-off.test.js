@@ -89,6 +89,7 @@ test('the watchdog: tells after two checks, raises a case after three (only with
   r = new Watchdog({ file }).record([], { version: '1.0.56' });
   assert.equal(r.recovered[0].caseId, 'SUP-0003', 'kept across a restart');
   assert.equal(new Watchdog({ file }).wasHealthy('1.0.56'), true);
+  assert.deepEqual(fs.readdirSync(path.dirname(file)), ['watchdog.json'], 'saved through a fresh temporary name, none left behind');
 });
 
 test('going back to the previous version: only for a day, only once, only to a version that worked', () => {

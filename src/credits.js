@@ -175,6 +175,7 @@ export class CreditLedger {
     // Govern (beta): no spend for a project, or by a person, whose budget in Enforce mode is used up.
     // `forProject`: the project, for this check only (a reservation that is not counted per project).
     this.lastRefusal = '';
+    if (typeof credits !== 'number' || !Number.isFinite(credits) || credits < 0) return null;
     const refusal = this.#spendGuard?.({ projectId: projectId || forProject, kind, credits, requester }) ?? '';
     if (refusal) {
       this.lastRefusal = String(refusal);

@@ -11,7 +11,7 @@ import path from 'node:path';
 
 import { freePort } from './free-port.js';
 import { Terms } from '../src/terms.js';
-import { FIRST_PASSWORD, NEXT_PASSWORD } from './test-credentials.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, SIGNING_KEY } from './test-credentials.js';
 
 const children = [];
 test.after(() => {
@@ -23,7 +23,7 @@ function start(env = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'terms-'));
   let log = '';
   const child = spawn(process.execPath, ['src/server.js'], {
-    env: { ...process.env, HOST: '127.0.0.1', DATA_DIR: dataDir, BACKUP_INTERVAL_HOURS: '0', REPORT_SIGNING_KEY: 'terms', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', HTTPS: 'off', ACCEPT_TERMS: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, ...env },
+    env: { ...process.env, HOST: '127.0.0.1', DATA_DIR: dataDir, BACKUP_INTERVAL_HOURS: '0', REPORT_SIGNING_KEY: SIGNING_KEY, SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', HTTPS: 'off', ACCEPT_TERMS: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.stdout.on('data', (d) => (log += d));
