@@ -106,6 +106,22 @@ const gitOf = (scan) => {
 const SIGNED = /(X-Amz-(?:Signature|Credential|Security-Token)=)[^&"'\s\\]+/gi;
 export const redact = (value) => JSON.parse(JSON.stringify(value ?? null).replace(SIGNED, '$1[hidden]'));
 
+/**
+ * Writes JSON in one step: to a fresh, unguessable name created exclusively ('wx', 0600, never an existing file
+ * or a link planted there), then renamed over the file.
+ */
+function saveJson(file, value) {
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  const tmp = `${file}.${randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(value), { mode: 0o600, flag: 'wx' });
+    fs.renameSync(tmp, file);
+  } catch (error) {
+    if (error.code !== 'EEXIST') fs.rmSync(tmp, { force: true });
+    throw error;
+  }
+}
+
 /** The run, kept on disk (DATA_DIR/<tenant>/fae-flush.json): the last one, with every project's progress. */
 export class FaeFlushStore {
   constructor({ file }) {
@@ -122,10 +138,7 @@ export class FaeFlushStore {
 
   save() {
     if (!this.job) return;
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    const tmp = `${this.file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.job));
-    fs.renameSync(tmp, this.file);
+    saveJson(this.file, this.job);
   }
 }
 
@@ -157,10 +170,7 @@ export class FaeHistory {
   }
 
   save() {
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    const tmp = `${this.file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.data));
-    fs.renameSync(tmp, this.file);
+    saveJson(this.file, this.data);
   }
 }
 

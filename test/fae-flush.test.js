@@ -463,3 +463,16 @@ test('the private code folder goes away with the process that made it', { skip: 
   assert.equal(fs.existsSync(made), false, 'removed, with what was left in it');
   assert.deepEqual(fs.readdirSync(root).filter((f) => f.startsWith('mz-fae-')), []);
 });
+
+test('the run and its history are saved through a fresh temporary name, readable by this account only, none left behind', () => {
+  const own = fs.mkdtempSync(path.join(dir, 'save-'));
+  const store = new FaeFlushStore({ file: path.join(own, 'fae-flush.json') });
+  store.job = { runId: 'r1', projects: [] };
+  store.save();
+  store.save();
+  const history = new FaeHistory({ file: path.join(own, 'fae-history.json') });
+  history.put({ runId: 'r1', projectId: 'p1', marked: 2 });
+  assert.deepEqual(fs.readdirSync(own).sort(), ['fae-flush.json', 'fae-history.json']);
+  for (const name of fs.readdirSync(own)) assert.equal(fs.statSync(path.join(own, name)).mode & 0o777, 0o600, name);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(own, 'fae-flush.json'), 'utf8')).runId, 'r1');
+});
