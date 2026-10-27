@@ -53,7 +53,7 @@ import { impactSummary } from './impact-summary.js';
 import { TERMINAL, closure, newerThan, rescanRequest, verificationResult } from './verification.js';
 import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
-import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
+import { BULK_SEVERITIES, REPORT_SEARCHABLE, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { reportI18n, reportWords } from './report-i18n.js';
 import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
 import { buildCalculatorLauncher, buildStandaloneCalculator } from './standalone-calculator.js';
@@ -8770,10 +8770,16 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   const ranked = selectTopFindings(reportData, Infinity);
   const findings = ranked.slice(0, REPORT_TOP_N);
   const bulkFindings = ranked.slice(REPORT_TOP_N).filter((f) => BULK_SEVERITIES.includes(f.severity));
+  // The rest the report can search and filter (drawn when reached), up to what it holds: they get AI ids too,
+  // so Triage works on them; one scan's results are read once whatever the number of findings.
+  const moreFindings = ranked
+    .slice(REPORT_TOP_N)
+    .filter((f) => !BULK_SEVERITIES.includes(f.severity))
+    .slice(0, Math.max(0, REPORT_SEARCHABLE - findings.length - bulkFindings.length));
   const scanIdOf = (finding) => initiatorsByProject[finding.projectId]?.scanId ?? '';
   // The AI ids from each scan's result ids, kept and shared for 30 minutes (a scan's ids never change):
   // a report built again, or after a credit check, reads no scan again.
-  await resolveAiIds(session.client, [...findings, ...bulkFindings], scanIdOf);
+  await resolveAiIds(session.client, [...findings, ...bulkFindings, ...moreFindings], scanIdOf);
   // Where each shown finding is in its repository: the report's "Open in IDE" and "Apply fix in my workspace".
   // Code paths are read only for the scans of the findings shown, and remembered.
   const resultsCache = new Map();
@@ -8824,6 +8830,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   const html = generateHtmlReport(reportData, {
     findings,
     bulkFindings,
+    moreFindings,
     i18n,
     relayUrl,
     remediationViaRelay: true,

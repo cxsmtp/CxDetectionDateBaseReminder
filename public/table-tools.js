@@ -57,9 +57,13 @@ const headText = (th) => {
 };
 const headerCells = (table) => [...(table.tHead?.rows[table.tHead.rows.length - 1]?.cells ?? [])];
 const usable = (th) => !th.classList.contains('checkbox') && !th.querySelector('input') && th.dataset.ttCol !== 'off' && th.textContent.trim() !== '';
+// A table drawn a page at a time keeps its choices under the key its renderer asks sortAndFilter() with
+// (data-tt), so what is picked on a heading is what the renderer reads; a table shown whole, under its
+// place and headings.
 const keyOf = (table) => {
+  if (table.dataset.tt) return table.dataset.tt;
   const host = table.id || table.tBodies[0]?.id || table.closest('[id]')?.id || '';
-  return `${table.dataset.tt || host}|${headerCells(table).map(headText).join('|')}`;
+  return `${host}|${headerCells(table).map(headText).join('|')}`;
 };
 
 const isEmpty = (v) => v === null || v === undefined || (typeof v === 'number' && Number.isNaN(v)) || EMPTY.test(String(v).trim());

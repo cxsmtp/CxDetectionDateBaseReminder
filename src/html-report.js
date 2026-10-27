@@ -21,7 +21,14 @@ import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../public/look.js';
 export const resultKey = (f) =>
   f.alternateId ? `${f.projectId}|a:${f.alternateId}` : f.groupId ? `${f.projectId}|g:${f.groupId}` : `${f.projectId}|r:${f.riskId}`;
 
-export const REPORT_TOP_N = 50;
+export const REPORT_TOP_N = 300;
+/** The table shows this many rows a page. */
+export const REPORT_PAGE = 50;
+/**
+ * Findings a report can search and filter: the top ones, then the rest worst first, up to this many (each
+ * adds about 0.4 KB to the file). Beyond it the report says how many it left out.
+ */
+export const REPORT_SEARCHABLE = 10000;
 /** Severities that get a "triage all" action covering every finding, not just the top ones. */
 export const BULK_SEVERITIES = ['CRITICAL', 'HIGH'];
 /** The "Remediate all" buttons: critical, high, and every severity the credits are allocated for. */
@@ -35,7 +42,8 @@ const CLIENT_SCRIPT = ['./report/patch.client.js', './report/report.client.js']
 const I18N_SCRIPT = readFileSync(new URL('../public/i18n.js', import.meta.url), 'utf8');
 const I18N_BOOT = readFileSync(new URL('./report/i18n-boot.client.js', import.meta.url), 'utf8');
 // Sort and filter on the findings table's headings: the page's own module (public/table-tools.js).
-const TABLE_TOOLS = `${readFileSync(new URL('../public/table-tools.js', import.meta.url), 'utf8')}\nstartTableTools();`;
+// The report's paged table asks it for each page's rows, in the reader's order (window.MZTableTools).
+const TABLE_TOOLS = `${readFileSync(new URL('../public/table-tools.js', import.meta.url), 'utf8')}\nstartTableTools();\nwindow.MZTableTools = { sortAndFilter, tableFiltered, setTableState };\nwindow.MZReportTableReady?.();`;
 
 /** English with {0}, {1}… filled in: what a reader without the report's script sees. */
 const fill = (text, values) => String(text).replace(/\{(\d+)\}/g, (all, i) => (i < values.length ? String(values[i]) : all));
@@ -108,6 +116,7 @@ export function groupSharedResults(findings) {
  * @param {object} options
  * @param {Array}  [options.findings]    top findings, already enriched by resolveAiIds()
  * @param {Array}  [options.bulkFindings] critical/high findings beyond the top ones, for "triage all"
+ * @param {Array}  [options.moreFindings] the other findings beyond the top ones, for search and filters only
  * @param {object} [options.connection]  {baseUrl, iamUrl, tenant} — never the API key
  * @param {string} [options.portalUrl]   Checkmarx One web UI host, if not the API host
  * @param {string} [options.relayUrl]    where the report reaches this server's relay
@@ -133,8 +142,16 @@ export function generateHtmlReport(reportData, options = {}) {
     selectTopFindings(reportData, Infinity)
       .slice(findings.length)
       .filter((f) => BULK_SEVERITIES.includes(f.severity));
+  // The rest, worst first, up to what the report can search: rows drawn only when a search or filter reaches them.
+  const moreFindings = (
+    options.moreFindings ??
+    selectTopFindings(reportData, Infinity)
+      .slice(findings.length)
+      .filter((f) => !BULK_SEVERITIES.includes(f.severity))
+  ).slice(0, Math.max(0, REPORT_SEARCHABLE - findings.length - bulkFindings.length));
   const projects = reportData.projects ?? [];
   const total = projects.reduce((sum, p) => sum + (p.risks?.length ?? 0), 0);
+  const searchable = findings.length + bulkFindings.length + moreFindings.length;
   const accent = /^#[0-9a-f]{3,8}$/i.test(branding.accentColor ?? '') ? branding.accentColor : '#2856c9';
   const look = reportLook(options.look);
 
@@ -171,10 +188,14 @@ export function generateHtmlReport(reportData, options = {}) {
   // Signed and relay-ready even without an address: a reader can enter the
   // reminder server's address in the report and still triage.
   const remediateHere = Boolean(options.remediationViaRelay);
-  const clientFindings = [...findings, ...bulkFindings].map((f, index) => {
+  const toClient = (f, index) => {
     const client = {
       key: String(index),
       shown: index < findings.length,
+      // Drawn later, when a search, a filter or a page reaches it: what its row shows.
+      ...(index >= findings.length
+        ? { age: Number.isFinite(f.ageDays) ? f.ageDays : null, ...(f.location && f.location !== '—' ? { where: String(f.location) } : {}) }
+        : {}),
       severity: String(f.severity || '').toUpperCase(),
       title: String(f.title ?? ''),
       projectId: String(f.projectId ?? ''),
@@ -194,7 +215,9 @@ export function generateHtmlReport(reportData, options = {}) {
         : {}),
     };
     return options.sign && !client.aiUnavailable ? { ...client, ...options.sign(client) } : client;
-  });
+  };
+  const clientFindings = [...findings, ...bulkFindings].map(toClient);
+  const clientMore = moreFindings.map((f, i) => toClient(f, findings.length + bulkFindings.length + i));
 
   // Confirmed findings AI Remediation can act on, one per Checkmarx One result: what "Remediate all" starts from.
   const fixable = [...new Map(clientFindings.filter((c) => !c.aiUnavailable && c.state === 'CONFIRMED').map((c) => [resultKey(c), c])).values()];
@@ -248,6 +271,9 @@ export function generateHtmlReport(reportData, options = {}) {
       adminContact: /^(?=[^]{3,254}$)[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(options.adminContact ?? '') ? options.adminContact : '',
     },
     findings: clientFindings,
+    // Searched and filtered too, drawn only when reached (never polled for their state until then).
+    more: clientMore,
+    paging: { top: findings.length, page: REPORT_PAGE, total, searchable },
     projectReports,
   };
 
@@ -271,13 +297,8 @@ export function generateHtmlReport(reportData, options = {}) {
     )
     .join('');
   const singleProject = projects.length === 1;
-  const moreText = total > findings.length
-    ? singleProject
-      ? `Showing ${findings.length} of ${total} findings: the worst and oldest first.`
-      : `Showing ${findings.length} of ${total} findings. Open one project's own report (built by the reminder server, opens in a new tab):`
-    : projectReports.length
-      ? `Open one project's own report (built by the reminder server, opens in a new tab):`
-      : '';
+  // How many the table holds is said above it (the scope line); here, each project's own report.
+  const moreText = projectReports.length && !singleProject ? `Open one project's own report (built by the reminder server, opens in a new tab):` : '';
 
   return `<!DOCTYPE html>
 <html lang="en"${look.ui === 'nextgen' ? ` data-ui="nextgen" data-accent="${look.accent}"` : ''}${lookPalette(look.look) ? ` data-look="${look.look}"` : ''}${look.theme === 'auto' ? '' : ` data-theme="${look.theme}"`}>
@@ -395,20 +416,21 @@ ${remediateHere ? `    <div class="bulk-row bulk-fix-row">
 
   <div class="toolbar" id="report-filters" role="search" aria-label="Filter findings">
     <div class="seg" role="group" aria-label="Severity">
-      <button type="button" class="seg-btn on" data-filter-sev="" aria-pressed="true">All <em>${findings.length}</em></button>
+      <button type="button" class="seg-btn on" data-filter-sev="" aria-pressed="true">All <em>${total}</em></button>
       ${['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
-        .map((sev) => [sev, findings.filter((f) => String(f.severity || '').toUpperCase() === sev).length])
+        .map((sev) => [sev, counts[sev] ?? 0])
         .filter(([, n]) => n > 0)
         .map(([sev, n]) => `<button type="button" class="seg-btn" data-filter-sev="${sev}" aria-pressed="false"><i class="dot dot-${sev.toLowerCase()}" aria-hidden="true"></i>${sev[0]}${sev.slice(1).toLowerCase()} <em>${n}</em></button>`)
         .join('\n      ')}
     </div>
-    <input type="search" id="report-search" placeholder="Search findings, projects, files" aria-label="Search findings" />
+    <input type="search" id="report-search" placeholder="Search every finding: query, file, project" aria-label="Search every finding" />
     <label class="check"><input type="checkbox" id="report-actionable" /> Only what AI can act on</label>
     <span id="filter-count" class="muted" role="status"></span>
   </div>
+  <p class="report-scope" id="report-scope" role="status">${total > findings.length ? `<span class="scope-pill">${tx('Top {0} of {1}', findings.length, total)}</span> ${tx('Worst severity first, then oldest · {0} a page · search and filters cover all {1}', REPORT_PAGE, searchable)}` : ''}</p>
 
   <div class="table-wrap">
-    <table id="findings">
+    <table id="findings" data-tt="findings">
       <thead>
         <tr><th>Severity</th><th>Finding</th><th>Type</th><th>Age</th><th title="Checkmarx One state — updates once connected">State</th><th title="AI Triage verdict, or the finding\'s Checkmarx One state once triaged">Triage result</th><th data-tt-col="off">Actions</th></tr>
       </thead>
@@ -416,6 +438,7 @@ ${remediateHere ? `    <div class="bulk-row bulk-fix-row">
 ${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere, sharedOf(clientFindings[index]))).join('\n')}
       </tbody>
     </table>
+    <nav class="pager" id="report-pager" aria-label="Pages" hidden></nav>
   </div>
 
   ${moreText
@@ -1057,6 +1080,30 @@ td.state-cell, td.finding { vertical-align: top; }
   #findings tr.filtered-out { display: none; }
 }
 @media print { .toolbar, .lifecycle { display: none !important; } tr.filtered-out { display: table-row; } }
+/* A page at a time: the scope above the table, the pages under it. */
+tr.paged-out { display: none; }
+.report-scope { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 10px; font-size: 13px; color: var(--muted-ink); }
+.report-scope:empty { display: none; }
+.scope-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+.scope-pill.warn { background: color-mix(in srgb, #f59e0b 18%, transparent); color: var(--ink); font-weight: 500; }
+.beyond-tag { display: inline-block; margin-inline-start: 6px; font-size: 11px; font-weight: 600; color: var(--muted); border: 1px dashed var(--line); border-radius: 4px; padding: 0 6px; vertical-align: 1px; white-space: nowrap; }
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted-ink); }
+.pager[hidden] { display: none; }
+.pager .pages { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.pager button { font: inherit; min-width: 34px; min-height: 32px; padding: 0 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); cursor: pointer; }
+.pager button[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.pager button:disabled { opacity: .4; cursor: default; }
+.pager .gap { padding: 0 4px; }
+@media (max-width: 760px) {
+  /* The headings stay, as a row of small buttons: each still sorts and filters. */
+  #findings thead { display: block; }
+  #findings thead tr { display: flex; flex-wrap: wrap; gap: 6px; background: none; border: 0; border-radius: 0; padding: 0; margin: 0 0 10px; }
+  #findings thead th { display: inline-flex; align-items: center; padding: 4px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 12px; position: static; }
+  #findings thead th[data-tt-col="off"] { display: none; }
+  .pager { border-top: 0; padding: 4px 0 12px; }
+  .pager .pages { width: 100%; justify-content: center; }
+}
+@media print { .pager { display: none !important; } tr.paged-out { display: table-row; } }
 
 /* Sort and filter on the headings (public/table-tools.js). */
 th.tt-th .tt-tools { display: inline-flex; align-items: center; gap: 1px; margin-inline-start: 4px; vertical-align: middle; }
