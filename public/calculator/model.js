@@ -496,6 +496,173 @@ export function fusionEstimate(projects = [], value = {}) {
   return { settings, rows, totals, byFrequency, byModel };
 }
 
+// --- Fusion for a new customer: code not in Checkmarx One yet, its lines counted with cloc -------
+//
+// The customer runs cloc (github.com/AlDanial/cloc, Count Lines of Code) on each repository and sends
+// the report: per language, its files, blank, comment and code lines. Only code lines count, and only
+// for languages Fusion scans: documentation, data and markup are left out (the reader can change that).
+
+/** Languages cloc reports that are not code Fusion scans: left out unless the reader counts them. */
+export const CLOC_LEFT_OUT = Object.freeze(['JSON', 'YAML', 'Markdown', 'XML', 'CSV', 'Text', 'SVG', 'HTML']);
+export const MAX_CLOC_LANGUAGES = 80;
+/** Fusion scans a new customer's project is given over the period, until the reader says otherwise. */
+export const NEW_CUSTOMER_SCANS = 12;
+const CLOC_META = new Set(['header', 'SUM', 'by_file', 'by_lang']);
+
+/** "C:\\code\\payments-api.json" → "payments-api". */
+export const clocName = (fileName) => String(fileName ?? '').split(/[\\/]/).pop().replace(/\.(json|csv|txt)$/i, '').replace(/\.cloc$/i, '').trim() || 'Project';
+
+/** One CSV line's fields (cloc quotes a field that has a comma or a quote in it). */
+function csvFields(line) {
+  const out = [];
+  let cur = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') (cur += '"'), (i += 1);
+      else if (ch === '"') quoted = false;
+      else cur += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') out.push(cur), (cur = '');
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map((f) => f.trim());
+}
+
+/**
+ * Files of several repositories (cloc --by-file run on the folder that holds them): grouped by the first
+ * folder under what they all share, each group a project.
+ */
+function byTopFolder(files) {
+  const split = files.map((f) => ({ ...f, parts: String(f.path).replace(/\\/g, '/').replace(/^\.\//, '').split('/').filter(Boolean) }));
+  const dirs = split.map((f) => f.parts.slice(0, -1));
+  let common = 0;
+  while (dirs.length && dirs.every((d) => d.length > common && d[common] === dirs[0][common])) common += 1;
+  const groups = new Map();
+  for (const f of split) {
+    // A file straight in the shared folder belongs to a project named after that folder.
+    const name = f.parts.length - 1 > common ? f.parts[common] : f.parts[common - 1] ?? 'Project';
+    if (!groups.has(name)) groups.set(name, {});
+    const langs = groups.get(name);
+    langs[f.language] = (langs[f.language] ?? 0) + f.code;
+  }
+  return [...groups].map(([name, langs]) => ({ name, langs }));
+}
+
+const codeOf = (v) => wholeNumber(v?.code) ?? 0;
+
+/**
+ * A cloc report as projects: [{ name, langs: { Language: code lines } }]. Reads --json and --csv, for one
+ * repository (a project named after the file) or --by-file over many (one project per top folder).
+ * Throws with what is wrong when the file is not a cloc report.
+ */
+export function parseCloc(text, fileName = '') {
+  const source = String(text ?? '').replace(/^\uFEFF/, '').trim();
+  const name = clocName(fileName);
+  const notCloc = () => new Error(`${fileName || 'This file'} is not a cloc report: run cloc with --json or --csv.`);
+  if (source.startsWith('{')) {
+    let json;
+    try {
+      json = JSON.parse(source);
+    } catch {
+      throw notCloc();
+    }
+    const table = json.by_lang && typeof json.by_lang === 'object' ? json.by_lang : json;
+    const entries = Object.entries(table).filter(([key, v]) => !CLOC_META.has(key) && v && typeof v === 'object' && 'code' in v);
+    if (!entries.length) throw notCloc();
+    // --by-file: the keys are files, each naming its language.
+    if (entries.every(([, v]) => typeof v.language === 'string')) {
+      return byTopFolder(entries.map(([path, v]) => ({ path, language: v.language, code: codeOf(v) })));
+    }
+    return [{ name, langs: Object.fromEntries(entries.map(([lang, v]) => [lang, codeOf(v)])) }];
+  }
+  const lines = source.split(/\r?\n/).filter((l) => l.trim());
+  const head = csvFields(lines[0] ?? '').map((h) => h.toLowerCase());
+  const at = (key) => head.indexOf(key);
+  if (at('language') < 0 || at('code') < 0) throw notCloc();
+  const rows = lines.slice(1).map(csvFields).filter((r) => r[at('language')] && r[at('language')] !== 'SUM');
+  if (at('filename') >= 0) {
+    return byTopFolder(rows.map((r) => ({ path: r[at('filename')], language: r[at('language')], code: wholeNumber(r[at('code')]) ?? 0 })));
+  }
+  return [{ name, langs: Object.fromEntries(rows.map((r) => [r[at('language')], wholeNumber(r[at('code')]) ?? 0])) }];
+}
+
+/** A new customer's project's lines: typed, else its code lines in the languages counted. */
+export function clocLines(project, leftOut = CLOC_LEFT_OUT) {
+  const typed = wholeNumber(project?.locOverride);
+  if (typed !== null) return typed;
+  const out = new Set(leftOut);
+  const langs = project?.langs && typeof project.langs === 'object' ? project.langs : {};
+  const keys = Object.keys(langs);
+  return keys.length ? keys.filter((l) => !out.has(l)).reduce((n, l) => n + (wholeNumber(langs[l]) ?? 0), 0) : null;
+}
+
+/** The new customer page's own choices, made safe to compute with (the models are the Fusion page's). */
+export function newCustomerSettings(value = {}) {
+  const v = value && typeof value === 'object' ? value : {};
+  const scans = wholeNumber(v.defaultScans);
+  return {
+    defaultScans: scans === null ? NEW_CUSTOMER_SCANS : Math.min(scans, 10000),
+    defaultModel: typeof v.defaultModel === 'string' && v.defaultModel ? v.defaultModel.slice(0, 60) : null,
+    leftOut: Array.isArray(v.leftOut) ? [...new Set(v.leftOut.map((l) => String(l ?? '').trim().slice(0, 60)).filter(Boolean))].slice(0, MAX_CLOC_LANGUAGES) : [...CLOC_LEFT_OUT],
+    optOut: v.optOut === true,
+  };
+}
+
+/**
+ * A new customer's Fusion need over the period, the same way as a customer's in Checkmarx One: each
+ * project's lines rounded up to whole 10K units, × its Fusion scans, × its model's credits per 10K.
+ * `fusionValue` gives the models and the period (the Fusion page's).
+ */
+export function newCustomerEstimate(value = {}, fusionValue = {}) {
+  const fusion = fusionSettings(fusionValue);
+  const own = newCustomerSettings(value);
+  const models = new Map(fusion.models.map((m) => [m.id, m]));
+  const defaultModel = models.has(own.defaultModel) ? own.defaultModel : fusion.defaultModel;
+  const projects = Array.isArray(value?.projects) ? value.projects : [];
+  const rows = projects.map((p) => {
+    const lines = clocLines(p, own.leftOut);
+    const included = p.included !== false;
+    const units = unitsOf(lines);
+    const override = wholeNumber(p.scansOverride);
+    const scans = override ?? own.defaultScans;
+    const model = p.modelOverride && models.has(p.modelOverride) ? p.modelOverride : defaultModel;
+    const rate = models.get(model)?.creditsPer10k ?? null;
+    const credits = included && units && rate !== null ? units * scans * rate : included && units && scans ? null : 0;
+    const out = new Set(own.leftOut);
+    const languages = Object.entries(p.langs ?? {})
+      .map(([name, n]) => ({ name, lines: wholeNumber(n) ?? 0, counted: !out.has(name) }))
+      .sort((a, b) => b.lines - a.lines);
+    return { ...p, lines, included, units, scans, scansFrom: override !== null ? 'project' : 'default', model, rate, credits, languages, unknownLines: lines === null, unknownRate: included && units > 0 && scans > 0 && rate === null };
+  });
+  const counted = rows.filter((r) => r.included && r.units);
+  const totals = {
+    projects: counted.length,
+    lines: counted.reduce((a, r) => a + r.lines, 0),
+    units: counted.reduce((a, r) => a + r.units, 0),
+    scans: counted.reduce((a, r) => a + r.scans, 0),
+    unitScans: counted.reduce((a, r) => a + r.units * r.scans, 0),
+    credits: counted.reduce((a, r) => a + (r.credits ?? 0), 0),
+    unknownLines: rows.filter((r) => r.included && r.unknownLines).length,
+    unknownRate: rows.filter((r) => r.unknownRate).length,
+  };
+  const byModel = fusion.models.map((m) => {
+    const mine = counted.filter((r) => r.model === m.id);
+    return { id: m.id, name: m.name, rate: m.creditsPer10k, projects: mine.length, unitScans: mine.reduce((a, r) => a + r.units * r.scans, 0), credits: mine.reduce((a, r) => a + (r.credits ?? 0), 0) };
+  });
+  return { settings: { ...own, defaultModel, periodMonths: fusion.periodMonths, models: fusion.models }, rows, totals, byModel };
+}
+
+/** Both Fusion parts' credits (the customer's projects in Checkmarx One, and its new code): null when neither counts. */
+export function fusionTotal(existing, fresh) {
+  const value = (x) => (Number.isFinite(Number(x?.totals?.credits)) && x?.totals?.credits !== null ? Number(x.totals.credits) : null);
+  const a = value(existing);
+  const b = value(fresh);
+  return a === null && b === null ? null : (a ?? 0) + (b ?? 0);
+}
+
 // --- Credits required: both parts, the extra asked for on top, and the bundles that buys --------
 
 export const BUNDLE_CREDITS = 10000;

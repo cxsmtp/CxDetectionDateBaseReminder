@@ -4490,7 +4490,7 @@ app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) =>
 app.put('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
   const body = req.body ?? {};
   const patch = {};
-  for (const key of ['name', 'tr', 'fusion', 'totals', 'scope', 'impact']) if (body[key] !== undefined) patch[key] = body[key];
+  for (const key of ['name', 'tr', 'fusion', 'fusionNew', 'totals', 'scope', 'impact']) if (body[key] !== undefined) patch[key] = body[key];
   res.json({ customer: projections.update(String(req.params.id), patch, req.user.email) });
 }));
 app.delete('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {

@@ -9,7 +9,7 @@
 
 import { describeEngines } from '../engines.js';
 import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../look.js';
-import { FREQUENCIES, SEVERITIES, cleanScope, creditSummary } from './model.js';
+import { FREQUENCIES, SEVERITIES, cleanScope, creditSummary, fusionTotal } from './model.js';
 import { allSections, moneyText, sectionHtml } from './explain.js';
 import { SEVERITY_COLOURS, backlogTrendChart, debtFixChart, forecastChart, monthLabel, ratesChart, severityChart, severityCharts } from './charts.js';
 
@@ -93,7 +93,8 @@ function answer(data, sum, L) {
   const parts = [
     tr && { key: 'backlog', label: w('Backlog today'), value: tr.backlogCredits, colour: 'var(--ink)' },
     tr && tr.aheadCredits > 0 && { key: 'ahead', label: w('Findings ahead'), value: tr.aheadCredits, colour: 'var(--accent)' },
-    data.fusion && { key: 'fusion', label: w('Fusion scans'), value: data.fusion.totals.credits ?? 0, colour: '#0d9488' },
+    data.fusion && { key: 'fusion', label: data.fusionNew ? w('Fusion — existing customer') : w('Fusion scans'), value: data.fusion.totals.credits ?? 0, colour: '#0d9488' },
+    data.fusionNew && { key: 'fusion-new', label: w('Fusion — new customer'), value: data.fusionNew.totals.credits ?? 0, colour: '#b7791f' },
     sum.extra > 0 && { key: 'extra', label: w('Extra credits'), value: sum.extra, colour: 'var(--muted)' },
   ].filter((p) => p && p.value > 0);
   const total = parts.reduce((a, p) => a + p.value, 0) || 1;
@@ -182,6 +183,20 @@ function story(data, L) {
       ${data.fusion.remainingCredits !== null && data.fusion.remainingCredits !== undefined ? `<p class="sub">${w('Credits remaining in the Checkmarx One tenant when this was made: {0}.', `<b>${num(data.fusion.remainingCredits)}</b>`)}</p>` : ''}
     </div>`);
   }
+  if (data.fusionNew) {
+    const t = data.fusionNew.totals;
+    cards.push(`<div class="card">
+      <h3>${w('Fusion — new customer')}</h3>
+      <table class="calc">
+        <tr><td>${w('Projects')}</td><td>${num(t.projects)}</td></tr>
+        <tr><td>${w('Code lines (counted with cloc)')}</td><td>${num(t.lines)}</td></tr>
+        <tr><td>${w('10K LOC units')}</td><td>${num(t.units)}</td></tr>
+        <tr><td>${w('Fusion scans over {0} months', num(data.fusionNew.periodMonths))}</td><td>${num(t.scans)}</td></tr>
+        <tr class="sum gold"><td>${w('Fusion credits')}</td><td>${num(t.credits, 1)}</td></tr>
+      </table>
+      ${t.unknownRate ? `<p class="sub warn">${w('{0} projects without a model rate are not counted', num(t.unknownRate))}</p>` : ''}
+    </div>`);
+  }
   if (!cards.length) return '';
   const chart = tr?.forecast?.length ? `<h3 class="chart-title">${w('Backlog trend and forecast')}</h3><p class="sub">${tr.monthlyChange >= 0 ? w('The backlog grew by {0} a month on average recently.', num(tr.monthlyChange)) : w('The backlog shrank by {0} a month on average recently.', num(-tr.monthlyChange))}</p>${forecastChart(tr.forecast, palette(L.t))}` : '';
   return `<section><h2>${w('How we got there')}</h2><div class="cards">${cards.join('')}</div>${chart}</section>`;
@@ -268,7 +283,8 @@ export function assumptionItems(data, sum, L) {
       items.push(w('FAE keeps {0}% of the new findings from being reported, among the false positives only.', num(tr.ahead.faePercent)));
     }
   }
-  if (data.fusion) items.push(w("Each project's lines of code are rounded up to whole 10K units on their own; one scan costs its model's credits per 10K LOC."));
+  if (data.fusion || data.fusionNew) items.push(w("Each project's lines of code are rounded up to whole 10K units on their own; one scan costs its model's credits per 10K LOC."));
+  if (data.fusionNew?.leftOut?.length) items.push(w('New customer: code lines counted with cloc, without blank and comment lines; not counted: {0}.', data.fusionNew.leftOut.map(esc).join(', ')));
   if (sum.settings.extraPercent) items.push(w('{0}% extra credits on top.', num(sum.settings.extraPercent, 2)));
   items.push(w('Bundles of {0} credits, rounded up to whole bundles.', num(sum.settings.bundleCredits)));
   return items;
@@ -346,6 +362,20 @@ function fusionAppendix(f, L) {
   <h3>${w('Projects')}</h3>
   ${table(`<thead><tr><th>${w('Project')}</th><th>${w('Criticality')}</th><th>${w('Scanned today')}</th><th>${w('Lines of code')}</th><th>${w('10K units')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
     ${f.rows.filter((r) => r.included).map((r) => `<tr><td class="name">${esc(r.name)}</td><td>${r.criticality ?? '—'}</td><td class="wrap">${frequency(r.frequency)}${r.scansPerWeek ? ` <small>${w('({0}/week)', num(r.scansPerWeek, 1))}</small>` : ''}</td><td>${num(r.lines)}</td><td>${num(r.units)}</td><td>${num(r.scans)}</td><td>${FROM[r.scansFrom] ? w(FROM[r.scansFrom]) : ''}</td><td class="name">${modelName(r.model)}</td><td>${r.credits === null || !r.units ? '—' : num(r.credits, 1)}</td></tr>`).join('')}
+  </tbody>`, 'dense')}
+</section>`;
+}
+
+/** Appendix: every figure of Fusion for the new customer (its lines counted with cloc). */
+function fusionNewAppendix(f, L) {
+  const { w, num } = L;
+  const models = new Map(f.models.map((m) => [m.id, m]));
+  const modelName = (id) => esc(models.get(id)?.name || '—');
+  return `<section class="appendix">
+  <h2>${w('Fusion — new customer')}</h2>
+  <p class="sub">${w('Fusion scans over {0} months.', num(f.periodMonths))} ${w('Code lines counted with cloc, without blank and comment lines.')}</p>
+  ${table(`<thead><tr><th>${w('Project')}</th><th>${w('Languages')}</th><th>${w('Lines of code')}</th><th>${w('10K units')}</th><th>${w('Fusion scans')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
+    ${f.rows.filter((r) => r.included).map((r) => `<tr><td class="name">${esc(r.name)}</td><td class="wrap">${(r.languages ?? []).map((l) => `${esc(l.name)} ${num(l.lines)}`).join(', ') || '—'}</td><td>${num(r.lines)}</td><td>${num(r.units)}</td><td>${num(r.scans)}</td><td class="name">${modelName(r.model)}</td><td>${r.credits === null || !r.units ? '—' : num(r.credits, 1)}</td></tr>`).join('')}
   </tbody>`, 'dense')}
 </section>`;
 }
@@ -488,7 +518,7 @@ export function buildReport(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
   const { w } = L;
   const customer = esc(data.customer || L.t('Customer'));
   // Reports made before the extra % and bundles were added carry no summary: work it out with none.
-  const sum = creditSummary(data.tr?.totals?.credits ?? null, data.fusion?.totals?.credits ?? null, data.summary?.settings);
+  const sum = creditSummary(data.tr?.totals?.credits ?? null, fusionTotal(data.fusion, data.fusionNew), data.summary?.settings);
   const made = esc(new Date(data.generatedAt).toLocaleString(L.locale));
   return `<!doctype html>
 <html lang="${esc(lang)}" dir="${dir === 'rtl' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${w('{0}: Checkmarx credits projection', customer)}</title>
@@ -514,9 +544,10 @@ ${provenance(data, L)}
 ${story(data, L)}
 ${impactSection(data, L)}
 ${assumptions(data, sum, L)}
-${data.tr || data.fusion ? `<p class="appendix-title">${w('Appendix: every figure')}</p>` : ''}
+${data.tr || data.fusion || data.fusionNew ? `<p class="appendix-title">${w('Appendix: every figure')}</p>` : ''}
 ${data.tr ? trAppendix(data.tr, L) : ''}
 ${data.fusion ? fusionAppendix(data.fusion, L) : ''}
+${data.fusionNew ? fusionNewAppendix(data.fusionNew, L) : ''}
 ${calculations(data, L)}
 </main>
 <footer>${w("An estimate made with CxMissionZero's Cx Credits Calculator from Checkmarx One data and the assumptions above. Credit rates and the credits actually used are set by Checkmarx and your agreement with them.")}${data.tr?.history?.length ? ` ${w('Backlog history: {0} to {1}.', esc(monthLabel(data.tr.history[0].month)), esc(monthLabel(data.tr.history[data.tr.history.length - 1].month)))}` : ''}</footer>

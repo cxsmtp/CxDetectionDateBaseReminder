@@ -6,7 +6,7 @@
 // Each page is drawn on a canvas (so every language's script and direction is drawn by the
 // browser), kept as a JPEG, and the three are written into a PDF here: no library, nothing sent.
 
-import { FREQUENCIES, HOURS_A_YEAR, SEVERITIES, aheadMonths, creditSummary } from './model.js';
+import { FREQUENCIES, HOURS_A_YEAR, SEVERITIES, aheadMonths, creditSummary, fusionTotal } from './model.js';
 import { allSections, moneyText } from './explain.js';
 import { forecastChart } from './charts.js';
 import { assumptionItems, reportFileName, trFigures, wording } from './report.js';
@@ -61,7 +61,7 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
   const L = wording({ t, lang });
   const { num } = L;
   const w = (...args) => plain(L.w(...args));
-  const sum = creditSummary(data.tr?.totals?.credits ?? null, data.fusion?.totals?.credits ?? null, data.summary?.settings);
+  const sum = creditSummary(data.tr?.totals?.credits ?? null, fusionTotal(data.fusion, data.fusionNew), data.summary?.settings);
   const customer = data.customer || L.t('Customer');
   const months = data.tr?.months ?? data.months ?? data.fusion?.periodMonths ?? 12;
   const pages = [];
@@ -92,6 +92,9 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
 
   // 2. Checkmarx Fusion: the projects, their scans and the credits, by how often they are scanned.
   const fu = data.fusion;
+  const fn = data.fusionNew;
+  // The new customer's code (cloc): one line on the Fusion page, its own part of the total.
+  const newLine = fn ? [w('New customer (code counted with cloc): {0} projects, {1} lines, {2} Fusion scans, {3} credits.', num(fn.totals?.projects), num(fn.totals?.lines), num(fn.totals?.scans), num(fn.totals?.credits))] : [];
   if (fu) {
     const T = fu.totals ?? {};
     const label = (id) => w(FREQUENCIES.find((x) => x.id === id)?.label ?? '—');
@@ -108,7 +111,22 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
         { label: w('Fusion credits'), value: num(T.credits), key: true },
       ],
       bars: bars.length ? { title: w('Fusion credits by how often projects are scanned'), items: bars } : null,
-      lines: models.length ? [`${w('Models')}: ${models.join('; ')}`] : [],
+      lines: [...(models.length ? [`${w('Models')}: ${models.join('; ')}`] : []), ...newLine],
+    });
+  } else if (fn) {
+    const T = fn.totals ?? {};
+    pages.push({
+      kind: 'fusion',
+      title: w('Checkmarx Fusion'),
+      subtitle: w('Fusion — new customer: code counted with cloc'),
+      figures: [
+        { label: w('Projects'), value: num(T.projects) },
+        { label: w('Lines of code'), value: num(T.lines) },
+        { label: w('Fusion scans over {0} months', num(fn.periodMonths)), value: num(T.scans) },
+        { label: w('Fusion credits'), value: num(T.credits), key: true },
+      ],
+      bars: null,
+      lines: [],
     });
   } else pages.push({ kind: 'fusion', title: w('Checkmarx Fusion'), subtitle: '', figures: [], lines: [w('Fusion is not in this projection.')] });
 
@@ -117,7 +135,8 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
   const parts = [
     f && { label: w('Backlog today'), value: f.backlogCredits, colour: C.ink },
     f && f.aheadCredits > 0 && { label: w('Findings ahead'), value: f.aheadCredits, colour: C.accent },
-    fu && { label: w('Fusion scans'), value: fu.totals?.credits ?? 0, colour: C.fusion },
+    fu && { label: fn ? w('Fusion — existing customer') : w('Fusion scans'), value: fu.totals?.credits ?? 0, colour: C.fusion },
+    fn && { label: w('Fusion — new customer'), value: fn.totals?.credits ?? 0, colour: '#b7791f' },
     sum.extra > 0 && { label: w('Extra credits'), value: sum.extra, colour: '#9aa1ab' },
   ].filter((p) => p && p.value > 0).map((p) => ({ ...p, text: num(p.value) }));
   pages.push({
@@ -192,7 +211,8 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
     calc.push({ label: w('To remediate (true positives)'), formula: fps.length === 1 ? `${num(reported)} × ${num(100 - fps[0])}% = ${num(T.truePositives)}` : `${SEVERITIES.filter((x) => tr.rows?.[x]?.truePositives > 0).map((x) => num(tr.rows[x].truePositives)).join(' + ')} = ${num(T.truePositives)}` });
     calc.push({ label: w('Triage & remediation credits'), formula: `${num(T.triageCredits)} + ${num(T.remediationCredits)} = ${num(T.credits)}` });
   }
-  if (fu) calc.push({ label: w('Fusion credits'), formula: `Σ ${w('10K units × scans')} × ${w('Credits per 10K LOC')} = ${num(fu.totals?.credits)}` });
+  if (fu) calc.push({ label: fn ? w('Fusion — existing customer') : w('Fusion credits'), formula: `Σ ${w('10K units × scans')} × ${w('Credits per 10K LOC')} = ${num(fu.totals?.credits)}` });
+  if (fn) calc.push({ label: w('Fusion — new customer'), formula: `Σ ${w('10K units × scans')} × ${w('Credits per 10K LOC')} = ${num(fn.totals?.credits)}` });
   calc.push({ label: w('Total credits required'), formula: `${sum.tr !== null && sum.fusion !== null ? `${num(sum.tr)} + ${num(sum.fusion)} = ` : ''}${num(sum.base)}${sum.extra ? ` + ${num(sum.settings.extraPercent, 2)}% = ${num(sum.total)}` : ''}; ${num(sum.total)} ÷ ${num(sum.settings.bundleCredits)} = ${num(sum.exactBundles, 2)} → ${num(sum.bundles)}` });
   const an = (x) => tr?.analysis?.[x] ?? {};
   pages.push({
