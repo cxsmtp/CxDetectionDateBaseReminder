@@ -115,7 +115,7 @@ Then the page shows:
    | --- | --- |
    | **Backlog today** | The open findings to triage: every one, unless you choose fewer |
    | **+ Still to come** | New findings a month over the period, falling each month as teams adopt AI. New findings a month are what the backlog grew by over the trend period, plus what was fixed meanwhile (never below 0), per severity. The first month comes at today's pace and each later one 2% below the one before (by default): over 12 months that is about 10.9 months' worth instead of 12. They follow what you chose under **Customize per severity**: each severity's new findings are counted in the same share as its backlog chosen, so with half of High chosen half of High's new findings count, and a severity set to none adds none |
-   | **+ More found by Fusion** | When Fusion is in the projection (**Include Fusion projection** ticked, and some project counted on the Fusion tab): this % more findings, on the backlog and on what is still to come. 5% by default; 0%, and not editable, while Fusion is left out |
+   | **+ More found by Fusion** | When Fusion is in the projection (**Add Fusion: Existing customer** ticked, and some project counted on the Fusion — existing customer tab): this % more findings, on the backlog and on what is still to come. 5% by default; 0%, and not editable, while Fusion is left out |
    | **− Kept away by FAE** | FAE keeps this % of the new findings (still to come and found by Fusion) from being reported, among the false positives only: it never takes more than the false positives there are, so the true positives do not change. 10% by default |
    | **= To triage** | Each costs its triage credits; the true positives among them are remediated too |
    | **→ Credits** | Split into the backlog today and what is ahead |
@@ -134,7 +134,9 @@ Everything read, uploaded and entered is saved with the customer.
 
 ## Fusion
 
-**Leaving Fusion out.** For a customer not taking Fusion, untick **Include Fusion projection** in the main configuration at the top, beside **Read from Checkmarx One** (ticked by default). Fusion is then left out of everything: the credits (the tile says **Left out**), the findings Fusion adds to triage & remediation (**More found by Fusion** shows 0% and cannot be changed), the Impact tab, the projection report and its PDF summary. The Fusion tab says so at its top, with **Include Fusion projection** to count it again, and keeps its models, numbers and projects for when it is; ticking it again brings back the % it had. The choice is saved with the customer; **Start again** ticks it again.
+The calculator has two Fusion tabs: **Fusion — existing customer**, for projects already in Checkmarx One, read with their lines of code, criticality and how often they are scanned; and **Fusion — new customer**, for code not in Checkmarx One yet, counted with cloc ([below](#fusion--new-customer-code-counted-with-cloc)). **Add Fusion**, in the main configuration at the top, has a tick for each, **Existing customer** and **New customer** (both ticked by default): the total counts only the ticked ones.
+
+**Leaving Fusion out.** For a customer not taking Fusion, untick **Add Fusion: Existing customer** in the main configuration at the top, beside **Read from Checkmarx One** (ticked by default). Fusion is then left out of everything: the credits (the tile says **Left out**), the findings Fusion adds to triage & remediation (**More found by Fusion** shows 0% and cannot be changed), the Impact tab, the projection report and its PDF summary. The Fusion — existing customer tab says so at its top, with **Include it** to count it again, and keeps its models, numbers and projects for when it is; ticking it again brings back the % it had. The choice is saved with the customer; **Start again** ticks it again.
 
 Fusion is paid in credits **per 10K LOC** (10,000 lines of code) **per scan**, at the rate of the AI model the scan uses. Each project's lines of code are rounded up to whole 10K units **on its own**:
 
@@ -177,6 +179,24 @@ The table lists the projects in the scope, the most often scanned first, 100 at 
 
 Click a column's heading to sort the table by it (project, criticality, how often it is scanned, lines of code, 10K units, Fusion scans, model or credits), and again for the other way: names start A to Z, numbers largest first, and a value shown as — (not known, or a project left out) always comes last. The choice is remembered in this browser. **Download CSV** downloads the table, in the same order.
 
+## Fusion — new customer (code counted with cloc)
+
+For a customer whose code is not in Checkmarx One yet, the lines of code come from **cloc** (Count Lines of Code, a free open-source tool) run where the code is: only the counts leave the customer's machine, never the code. The tab shows the commands, one line each for Windows cmd:
+
+- **One repository a file:** `podman run --rm -v "C:\code\payments-api:/src:ro" docker.io/aldanial/cloc --json --quiet /src > payments-api.json`, or with cloc installed `cloc --json --quiet --report-file=payments-api.json C:\code\payments-api`.
+- **Many repositories in one file:** `podman run --rm -v "C:\code:/src:ro" docker.io/aldanial/cloc --json --by-file --quiet /src > all-repos.json`. Each folder directly in `C:\code` becomes a project.
+- **CSV** (`--csv` in place of `--json`) is read too.
+
+Drop the files on the tab, or **choose files** (up to 50 MB each; a larger --by-file report is refused with what to do: run cloc without --by-file). A one-repository file becomes a project named after the file (`payments-api.json` → *payments-api*), renamed in the table if needed; a project of the same name is replaced, so a recount updates it. A file that is not a cloc report is refused, saying to run cloc with --json or --csv. **Add a project by hand** takes a name and its lines.
+
+**What counts.** Only code lines, never blank or comment lines, and only in languages Fusion scans. **Languages found** lists every language in the files with its lines: JSON, YAML, Markdown, XML, CSV, Text, SVG and HTML start crossed out (documentation, data and markup, not counted); click a language to count it, or to leave it out. Lines typed on a project win over its counted ones.
+
+**Credits.** As on the existing customer tab: each project's lines are rounded up to whole 10K LOC units on its own, and its credits are its units × its Fusion scans × its model's credits per 10K LOC. **Fusion scans per project** (12 to start with, over the projection period) and **Model** apply to every project; a number of scans or a model typed on a project wins. The models and their rates are the existing customer tab's, and **Model** starts as that tab's default. For example, 182,400 lines of Java is 19 units: 19 × 12 scans × 40 credits = 9,120 credits. A model without a rate is said, not counted as free.
+
+**Counted once.** A project whose name is also on the existing customer tab is flagged, so the same code is not counted on both by mistake: untick it on one of them unless it really is a second copy. **Include** leaves a project in or out; unticking **Add Fusion: New customer** leaves the whole tab out (it says **Left out**) and keeps its projects and settings.
+
+The tab is saved with the customer, and the projection report, its PDF summary and the standalone calculator show it as its own part of the Fusion credits.
+
 ## Credits required, extra %, and bundles
 
 The strip at the top of the page adds both parts together for the customer open:
@@ -185,9 +205,10 @@ The strip at the top of the page adds both parts together for the customer open:
 | --- | --- |
 | **Projection period** | How many months the projection covers, for both parts |
 | **Triage & remediation** | The credits over the period, split into the backlog today and what is ahead |
-| **Fusion** | The credits of the Fusion scans, once there are projects with lines of code. **Include Fusion projection** (at the top) unticked: **Left out**, and nothing of Fusion counts |
+| **Fusion — existing** | The credits of the Fusion scans of the customer's projects in Checkmarx One, once there are projects with lines of code. **Add Fusion: Existing customer** (at the top) unticked: **Left out**, and nothing of it counts |
+| **Fusion — new** | The credits of the Fusion scans of the code counted with cloc. **Add Fusion: New customer** unticked: **Left out** |
 | **Extra credits (%)** | A margin to add on top of the two, 0 to 500% (empty is none) |
-| **Total credits required** | Both, with the extra on top |
+| **Total credits required** | Triage & remediation and each Fusion part ticked, with the extra on top |
 | **Credits per bundle** | How many credits one bundle holds: 10,000 unless you change it |
 | **Bundles** | Total ÷ credits per bundle, **rounded up** to a whole bundle |
 
@@ -282,7 +303,7 @@ The calculator can be given to anyone (a partner, a customer, a colleague withou
 
 Both:
 
-- **The same calculator.** They are built, when downloaded, from the files this page runs on: the page itself, its modules (`public/calculator/*.js`), the .xlsx reader, the sample exports and the app's styles (`src/standalone-calculator.js`). So the projection, the Impact, the Fusion estimate, **Include Fusion projection**, the projection report and its PDF summary are this page's, figure for figure. Customers and reports are checked by the same rules as on the server (`public/calculator/profiles.js`, used by both). **Email the report** is not in them.
+- **The same calculator.** They are built, when downloaded, from the files this page runs on: the page itself, its modules (`public/calculator/*.js`), the .xlsx reader, the sample exports and the app's styles (`src/standalone-calculator.js`). So the projection, the Impact, both Fusion tabs, **Add Fusion**, the projection report and its PDF summary are this page's, figure for figure. Customers and reports are checked by the same rules as on the server (`public/calculator/profiles.js`, used by both). **Email the report** is not in them.
 - **Names on the reports.** **Your organisation** and **Prepared by**, at the top, are remembered in that browser.
 - **Kept in the browser.** Customers and reports are kept in the browser's own database (IndexedDB), at most 200 customers and 500 reports, as here. **Back up** downloads them all as one JSON file; **Restore** adds a backup back (same ids replaced, others kept), in that browser or another. A browser that keeps nothing for files opened from disk (some private windows) says so, and keeps them until the page is closed.
 - **Their look.** English, the Command center look in light or dark (the button at the top right, else as the computer is set), with the open-licence fonts Fraunces and IBM Plex inside and their licence (SIL OFL) at the end of the file.

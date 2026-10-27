@@ -89,6 +89,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.01.03 — DATE · [#126](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/126)
+
+- **The report lists the top 300.** The interactive HTML report now lists the 300 worst findings, worst severity first and then oldest, 50 to a page with page numbers under the list. It used to list 50.
+- **Search and filters reach every finding.** Search, the severity buttons and **Only what AI can act on** now cover every finding of the project, up to 10,000, not only the 300 listed. A match from beyond the top 300 is tagged **Beyond the top 300** and can be triaged and remediated like the rest. The severity buttons count the whole report.
+- **A filter on every heading.** Each heading of the report's list (**Severity**, **Finding**, **Type**, **Age**, **State**, **Triage result**) sorts on a click and has a filter: type to keep what contains it, compare ages with `>90` or `<=30`, or tick the values to keep. The filters combine, and **Clear all** resets them. On a phone the headings show as a row of buttons above the cards.
+- **Heading filters on the app's paged tables work again.** The heading filters on the app's own paged tables had stopped filtering. They work again.
+- **Fusion for a new customer.** The Cx Credits Calculator has a new **Fusion — new customer** tab for code that is not in Checkmarx One yet. The customer counts their code with cloc and sends the JSON or CSV files: one repository a file, or many at once with `--by-file`. Each becomes a project with its code lines, without blank lines, comments, documentation or data files unless you count those languages. Credits are worked out as on the existing tab: 10K LOC units × Fusion scans (12 to start with) × the model's credits per 10K LOC. A project on both tabs is flagged, so it is not counted twice.
+- **Add Fusion: one tick for each.** The old Fusion tab is now **Fusion — existing customer**. **Include Fusion projection** becomes **Add Fusion**, with a tick for **Existing customer** and one for **New customer**, both on by default. The credit total, the projection report, its PDF and the standalone calculator count only the ticked parts, each shown on its own.
+- **Status.** STATUS
+
 ## MZ-01.01.02 — 2026-10-25 19:21 UTC · [#125](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/125)
 
 - **MZ-01.01.01's release checks, recorded.** MZ-01.01.01 was merged before its checks had finished. This release records them, and they were run on the merged code: the phone layout on every page, two benchmark pairs, the security scan, the tests and the dependencies.

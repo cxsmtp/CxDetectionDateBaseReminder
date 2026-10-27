@@ -561,7 +561,7 @@ const codeOf = (v) => wholeNumber(v?.code) ?? 0;
 export function parseCloc(text, fileName = '') {
   const source = String(text ?? '').replace(/^\uFEFF/, '').trim();
   const name = clocName(fileName);
-  const notCloc = () => new Error(`${fileName || 'This file'} is not a cloc report: run cloc with --json or --csv.`);
+  const notCloc = () => Object.assign(new Error(`${fileName || 'This file'} is not a cloc report: run cloc with --json or --csv.`), { notCloc: true });
   if (source.startsWith('{')) {
     let json;
     try {

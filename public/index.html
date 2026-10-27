@@ -3443,7 +3443,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div class="calc-source">
                 <button type="button" class="secondary" id="calc-read">Read from Checkmarx One</button>
                 <label class="pill-check calc-branches" title="Unticked: each project's primary branch only (as set in Checkmarx One, else main, else master), so no finding is counted twice. Ticked: the scans of every branch, which is also what Fusion is charged for when feature branches are scanned with it."><input type="checkbox" id="calc-all-branches" /> Every branch</label>
-                <span class="calc-add-fusion" role="group" aria-labelledby="calc-add-fusion-label">
+                <span class="calc-add-fusion" role="group" aria-labelledby="calc-add-fusion-label" data-i18n-ctx="add-fusion">
                   <b id="calc-add-fusion-label">Add Fusion:</b>
                   <label class="pill-check calc-fusion-pill" title="Ticked: Fusion for the customer's projects in Checkmarx One is projected: its credits, and the findings it adds to Triage &amp; remediation. Unticked: none of it is counted, Triage &amp; remediation's &quot;More found by Fusion&quot; is 0%, and the report leaves it out. Its settings are kept."><input type="checkbox" id="calc-fusion-on" checked /> Existing customer <small>· projects in Checkmarx One</small></label>
                   <label class="pill-check calc-fusion-pill" title="Ticked: Fusion for code that is not in Checkmarx One yet, its lines counted with cloc (the Fusion — new customer tab), is in the credits and the report. Unticked: left out; its projects are kept."><input type="checkbox" id="calc-fusion-new-on" checked /> New customer <small>· code counted with cloc</small></label>

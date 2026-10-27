@@ -883,7 +883,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-fnew-off-note').hidden = !fnewOff();
     $('calc-fnew-scans').value = f.defaultScans;
     const fallback = fusion().models.find((m) => m.id === fusion().defaultModel);
-    $('calc-fnew-model').innerHTML = modelOptions(f.defaultModel, fallback ? `As the existing customer tab: ${fallback.name || 'Unnamed model'}` : 'No model yet');
+    $('calc-fnew-model').innerHTML = modelOptions(f.defaultModel, fallback ? t('As the existing customer tab: {0}').replace('{0}', fallback.name || t('Unnamed model')) : 'No model yet');
     // Every language found, most lines first: each one counted or left out with a click.
     const langs = new Map();
     for (const p of f.projects) for (const [lang, n] of Object.entries(p.langs ?? {})) langs.set(lang, (langs.get(lang) ?? 0) + (wholeNumber(n) ?? 0));
@@ -895,7 +895,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const existing = new Set((fusionOff() ? [] : scoped().filter((p) => p.included !== false)).map((p) => String(p.name).toLowerCase()));
     const twice = fnewOff() ? [] : est.rows.filter((r) => r.included && existing.has(String(r.name).toLowerCase())).map((r) => r.name);
     $('calc-fnew-dup').hidden = !twice.length;
-    $('calc-fnew-dup').textContent = twice.length ? `Also on the existing customer tab, so counted on both: ${twice.join(', ')}. Untick it on one of them unless it really is a second copy of the code.` : '';
+    $('calc-fnew-dup').textContent = twice.length ? t('Also on the existing customer tab, so counted on both: {0}. Untick it on one of them unless it really is a second copy of the code.').replace('{0}', twice.join(', ')) : '';
     const t = est.totals;
     const kpi = (label, value, sub, cls = '') => `<div class="rp-kpi ${cls}"><span class="rp-tile-label">${esc(label)}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${sub}</span></div>`;
     $('calc-fnew-kpis').innerHTML = f.projects.length
@@ -1006,7 +1006,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     let added = 0;
     for (const file of files) {
       try {
-        if (file.size > MAX_CLOC_BYTES) throw new Error(`${file.name} is over 50 MB: run cloc without --by-file.`);
+        if (file.size > MAX_CLOC_BYTES) throw new Error(t('{0} is over 50 MB: run cloc without --by-file.').replace('{0}', file.name));
         for (const found of parseCloc(await file.text(), file.name)) {
           const same = fnew().projects.find((p) => String(p.name).toLowerCase() === String(found.name).toLowerCase());
           if (same) Object.assign(same, { langs: found.langs, file: file.name, locOverride: null });
@@ -1015,8 +1015,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         }
         done.push(`<span translate="no">✓ ${esc(file.name)}</span>`);
       } catch (error) {
-        done.push(`<span class="bad" title="${esc(error.message)}" translate="no">✗ ${esc(file.name)}</span>`);
-        toast(error.message, 'bad');
+        const message = error.notCloc ? t('{0} is not a cloc report: run cloc with --json or --csv.').replace('{0}', file.name) : error.message;
+        done.push(`<span class="bad" title="${esc(message)}" translate="no">✗ ${esc(file.name)}</span>`);
+        toast(message, 'bad');
       }
     }
     $('calc-cloc-files').innerHTML = done.join('');
