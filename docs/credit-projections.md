@@ -251,12 +251,10 @@ The strip at the top of the page adds both parts together for the customer open:
 | --- | --- |
 | **Projection period** | How many months the projection covers, for both parts |
 | **Triage & remediation** | The credits over the period, split into the backlog today and what is ahead |
-| **Fusion — existing** | The credits of the Fusion scans of the customer's projects in Checkmarx One, once there are projects with lines of code. **Add Fusion: Existing customer** (at the top) unticked: **Left out**, and nothing of it counts |
-| **Fusion — new** | The credits of the Fusion scans of the code counted from git or with cloc. **Add Fusion: New customer** unticked: **Left out** |
+| **Fusion** | One tile, for the part that applies to the customer: **Fusion — existing** (its projects in Checkmarx One, once some have lines of code) or **Fusion — new** (code counted from git or with cloc), each only when ticked under **Add Fusion** and counted. When both apply, it adds them up and shows the split under it; with both unticked it says **Left out** |
 | **Extra credits (%)** | A margin to add on top of the two, 0 to 500% (empty is none) |
 | **Total credits required** | Triage & remediation and each Fusion part ticked, with the extra on top |
-| **Credits per bundle** | How many credits one bundle holds: 10,000 unless you change it |
-| **Bundles** | Total ÷ credits per bundle, **rounded up** to a whole bundle |
+| **Bundles** | Total ÷ the credits a bundle holds, **rounded up** to a whole bundle. Under it, *10,000 credits each* with **Change**, which opens **Credits per bundle**; a customer saved with another size shows it at once |
 
 For example, 24,000 + 700.5 credits with 10% extra is 27,170.55 credits: 2.72 bundles of 10,000, so **3 bundles**. The projection period, the extra % and the credits per bundle wait for **Apply** like every setting at the top, and are saved with the customer.
 
@@ -322,7 +320,7 @@ Fusion has frontier AI models read every line of each project on every Fusion sc
 - It is in the app's look when you make it: the command-center look with your accent (Fraunces and IBM Plex when the reader has them, else Palatino or Georgia and the system's sans), or the classic look. The PDF summary follows the same look.
 - Long project or model names wrap inside their cells, and a table wider than the screen (on a phone) scrolls inside its own box: nothing runs off the page.
 - It says the answer first: **Total credits required**, the bundles and the period, with one bar of what the credits are for (backlog today, findings ahead, Fusion scans, extra).
-- Then **How we got there**: today's backlog by severity and its trend, the next months (the vulnerabilities in scope, with the severities included and excluded; still to come, when it is counted; more found by Fusion; to triage, to remediate and credits, with the false positives assumed), Fusion (projects, lines of code, 10K units, scans, credits), and the backlog forecast.
+- Then **How we got there**: today's backlog by severity and its trend, the next months (the vulnerabilities in scope, with the severities included and excluded; still to come, when it is counted; more found by Fusion; to triage, to remediate and credits, with the false positives assumed), Fusion (projects, lines of code, 10K units, scans, credits) when it is counted, and the backlog forecast. When no Fusion is counted (left out, nothing counted, or no model rate), the Fusion card and its appendix are left out, and one line after the section asks the reader's Checkmarx team to help with a Fusion forecast if required; the PDF drops its Fusion page and puts the same line on the total page.
 - Then the **Assumptions**, in one short list.
 - Then **Appendix: every figure**: the matrix by severity (backlog, the debt rate and fixing rate over the last 6 months as a share of the backlog, to triage, the true positives after the false positives assumed, and the credits) and the charts, the Fusion models, scans by frequency and every project. A report made before MZ-01.00.67 opens in the same layout.
 - Last, **Data source**, closed until opened: that the figures are live (*Read live from Checkmarx One on 12 October 2026: 40 projects, 4,232 scans, 3,653 open vulnerabilities*), the trend period, the projects counted when the scope was narrowed, and those left out for having no scan from the scan origins counted. The assumptions name those origins when not every one counts (*Scans from: Jenkins, GitHub Actions.*), in the PDF summary too.
