@@ -3048,6 +3048,8 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .calc-scope-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-width: 0; }
 .calc-scope-leave { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 8px 0 4px; }
 .calc-branches { white-space: nowrap; }
+.calc-read-limit { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 13px; }
+.calc-read-limit input { width: 7.5em; text-align: end; font-variant-numeric: tabular-nums; }
 .calc-scope-label { font-size: 12px; font-weight: 500; color: var(--muted); }
 .calc-scope-summary { font-weight: 500; overflow-wrap: anywhere; }
 .calc-scope-summary.on { color: var(--accent); }

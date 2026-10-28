@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { generateKeyPairSync, sign } from 'node:crypto';
 
-import { aheadMonths, aheadSettings, allocate, analyse, backlogForecast, cleanScope, creditSummary, frequencyOf, fusionEstimate, fusionSettings, globMatch, inScope, planForecast, resolveSelected, scopeActive, seriesRows, severityForecast, severityPlan, suggestedScans, totalsSettings, trCost, trProjection, unitsOf, weeklyTrend, SEVERITIES } from '../public/calculator/model.js';
+import { aheadMonths, aheadSettings, allocate, analyse, backlogForecast, cleanScope, readLimit, creditSummary, frequencyOf, fusionEstimate, fusionSettings, globMatch, inScope, planForecast, resolveSelected, scopeActive, seriesRows, severityForecast, severityPlan, suggestedScans, totalsSettings, trCost, trProjection, unitsOf, weeklyTrend, SEVERITIES } from '../public/calculator/model.js';
 import { buildReport, reportFileName } from '../public/calculator/report.js';
 import { MAX_PROFILE_BYTES, ProjectionStore, ReportStore, TenantReadStore, cleanFusion, cleanReportData, cleanTr, countersOf, readFusionOffer, readFusionProjects, readTenant, seriesFor, weeklyBacklog } from '../src/projections.js';
 import { ActivationStore, checkCode } from '../src/activation.js';
@@ -172,7 +172,7 @@ test('customers: saved per field, reopened from disk, and an MZ-01.00.61 profile
   assert.equal(reopened.fusion.defaultModel, 'opus');
   assert.equal(reopened.fusion.projects[0].frequency, 'month');
   assert.equal((fs.statSync(file).mode & 0o777).toString(8), '600');
-  assert.throws(() => again.update(a.id, { tr: { totals: { weeks: Array(2000).fill('2026-01-05'), bySeverity: Object.fromEntries(['Critical', 'High', 'Medium', 'Low', 'Info'].map((s) => [s, Array(2000).fill(123456789.123)])) }, fixed: { weeks: Array(2000).fill('2026-01-05'), bySeverity: Object.fromEntries(['Critical', 'High', 'Medium', 'Low', 'Info'].map((s) => [s, Array(2000).fill(123456789.123)])) } }, fusion: { projects: Array.from({ length: 5000 }, (_, i) => ({ id: `p${i}-${'i'.repeat(90)}`, name: 'x'.repeat(200), scanId: 's'.repeat(100) })) } }), (e) => e.status === 413);
+  assert.throws(() => again.update(a.id, { tr: { totals: { weeks: Array(2000).fill('2026-01-05'), bySeverity: Object.fromEntries(['Critical', 'High', 'Medium', 'Low', 'Info'].map((s) => [s, Array(2000).fill(123456789.123)])) }, fixed: { weeks: Array(2000).fill('2026-01-05'), bySeverity: Object.fromEntries(['Critical', 'High', 'Medium', 'Low', 'Info'].map((s) => [s, Array(2000).fill(123456789.123)])) } }, fusion: { projects: Array.from({ length: 50000 }, (_, i) => ({ id: `p${i}-${'i'.repeat(90)}`, name: 'x'.repeat(200), scanId: 's'.repeat(100), initiator: 'u'.repeat(200) })) } }), (e) => e.status === 413 && /over 32 MB\): read fewer projects/.test(e.message));
   assert.ok(MAX_PROFILE_BYTES > 1e6);
   again.remove(a.id);
   assert.throws(() => again.get(a.id), (e) => e.status === 404);
@@ -411,6 +411,35 @@ test('one read of the tenant gives both tabs: the Fusion projects and the weekly
   assert.equal(cleanTr({ totals: { weeks: ['2026-01-01'], bySeverity: {}, meta: { fileName: 'x.xlsx' } } }).totals.meta.source, 'upload');
 });
 
+test('a read takes 10,000 projects unless the customer sets another number, and says when the tenant has more', async () => {
+  assert.equal(readLimit(undefined), 10000);
+  assert.equal(readLimit('25,000'), 25000);
+  assert.equal(readLimit(999999), 50000, 'never more than 50,000');
+  assert.equal(readLimit(0), 10000, 'nothing or 0: the default');
+  assert.equal(cleanScope({}).maxProjects, 10000);
+  const tenant = Array.from({ length: 12 }, (_, i) => ({ id: `p${i}`, name: `Project ${i}` }));
+  const asked = [];
+  const client = {
+    async *paginate(url, { maxItems }) {
+      asked.push(maxItems);
+      if (url === '/api/projects') yield* tenant.slice(0, maxItems);
+    },
+    async request(url) {
+      if (url === '/api/projects') return { totalCount: tenant.length, projects: tenant.slice(0, 1) };
+      if (url === '/api/scans') return { scans: [] };
+      return {};
+    },
+  };
+  const some = await readTenant(client, { maxProjects: 5 });
+  assert.equal(asked[0], 5);
+  assert.equal(some.projects.length, 5);
+  assert.deepEqual(some.limited, { read: 5, limit: 5, total: 12 });
+  const all = await readTenant(client, { maxProjects: 12 });
+  assert.equal(all.projects.length, 12);
+  assert.equal(all.limited, null, 'every project read: nothing to say');
+  assert.equal((await readTenant(client)).projects.length, 12, 'the default reads up to 10,000');
+});
+
 test('a new Fusion projection starts from the scans each frequency runs today; a saved one keeps its own', () => {
   const fresh = fusionSettings({ periodMonths: 6 });
   assert.equal(fresh.byFrequency['more-5-week'].scans, 26);
@@ -542,7 +571,7 @@ test('which projects count: applications, groups, people, names with wildcards, 
   assert.deepEqual([pa, pb, pc].filter((p) => inScope(p, { projects: ['p2'] })).map((p) => p.id), ['p2']);
   assert.deepEqual([pa, pb, pc].filter((p) => inScope(p, { ...pick, groups: ['team-a'] })).map((p) => p.id), ['p1', 'p3'], 'groups narrow what was picked');
   assert.deepEqual([pa, pb, pc].filter((p) => inScope(p, { ...pick, groups: ['team-b'] })).map((p) => p.id), []);
-  assert.equal(cleanScope({ projects: Array.from({ length: 6000 }, (_, i) => `id-${i}`) }).projects.length, 5000);
+  assert.equal(cleanScope({ projects: Array.from({ length: 60000 }, (_, i) => `id-${i}`) }).projects.length, 50000);
   assert.equal(scopeActive({ projects: ['p1'] }), true);
   assert.equal(scopeActive({}), false);
   assert.equal(scopeActive({ groups: ['g'] }), true);

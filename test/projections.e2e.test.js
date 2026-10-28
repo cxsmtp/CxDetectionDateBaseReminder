@@ -200,7 +200,7 @@ test('one read in the background fills both tabs from Checkmarx One: the backlog
   assert.equal((await uma('POST', '/api/projections/series', { projectIds: mobile })).status, 403);
   const scope = await ana('PUT', `/api/projections/${customerId}`, { scope: { applications: ['Mobile', '<b>'], names: ['web-*'], frequencies: ['month', 'hourly'], criticalities: [5, 9] } });
   assert.equal(scope.status, 200, scope.text);
-  assert.deepEqual((await ana('GET', `/api/projections/${customerId}`)).body.customer.scope, { applications: ['Mobile', '<b>'], projects: [], groups: [], initiators: [], names: ['web-*'], frequencies: ['month'], criticalities: [5], leaveOutNoCode: true, leaveOutNoFindings: false });
+  assert.deepEqual((await ana('GET', `/api/projections/${customerId}`)).body.customer.scope, { applications: ['Mobile', '<b>'], projects: [], groups: [], initiators: [], names: ['web-*'], frequencies: ['month'], criticalities: [5], leaveOutNoCode: true, leaveOutNoFindings: false, maxProjects: 10000 });
 });
 
 test('a report is emailed as its file, to the addresses typed, and only when it is one', async () => {

@@ -2,15 +2,14 @@
 // server (src/projections.js, in the data folder) and in the standalone calculator (in the browser). No
 // Node or browser APIs beyond crypto and TextEncoder, so both can use it.
 
-import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, MAX_CLOC_LANGUAGES, aheadSettings, cleanScope, creditSummary, fusionSettings, fusionTotal, impactSettings, modelsNamed, newCustomerSettings, totalsSettings, wholeNumber } from './model.js';
+import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, MAX_CLOC_LANGUAGES, MAX_PROJECTS, aheadSettings, cleanScope, creditSummary, fusionSettings, fusionTotal, impactSettings, modelsNamed, newCustomerSettings, totalsSettings, wholeNumber } from './model.js';
 import { DEFAULT_ENGINES, cleanEngines } from '../engines.js';
 
 export const MAX_PROFILES = 200;
-/** One profile, saved: the two exports' weekly series fit well inside this. */
-export const MAX_PROFILE_BYTES = 3 * 1024 * 1024;
+/** One profile, saved: about 550 bytes a project read, so 50,000 projects and the weekly series fit inside this. */
+export const MAX_PROFILE_BYTES = 32 * 1024 * 1024;
 export const MAX_REPORTS = 500;
-export const MAX_REPORT_BYTES = 4 * 1024 * 1024;
-export const MAX_PROJECTS = 5000;
+export const MAX_REPORT_BYTES = 32 * 1024 * 1024;
 const SEVERITIES = ['Critical', 'High', 'Medium', 'Low', 'Info'];
 const PLAN = ['Critical', 'High', 'Medium', 'Low'];
 const FREQ_IDS = new Set(FREQUENCIES.map((f) => f.id));
@@ -231,7 +230,7 @@ export function patchProfile(profile, patch = {}, by = '') {
   if (patch.impact !== undefined) next.impact = impactSettings(patch.impact);
   next.updatedAt = new Date().toISOString();
   next.updatedBy = text(by, 254);
-  if (bytes(next) > MAX_PROFILE_BYTES) throw fail(413, 'This customer is too large to save (over 3 MB). Use exports covering fewer weeks.');
+  if (bytes(next) > MAX_PROFILE_BYTES) throw fail(413, `This customer is too large to save (over ${MAX_PROFILE_BYTES / 1024 / 1024} MB): read fewer projects (Projects to read, at the top).`);
   return next;
 }
 
@@ -251,7 +250,7 @@ export function newReport({ customerId, customer, by = '', data }) {
   };
   const sum = creditSummary(report.trCredits, report.fusionCredits, clean?.summary?.settings);
   Object.assign(report, { extraPercent: sum.settings.extraPercent, bundleCredits: sum.settings.bundleCredits, totalCredits: sum.total, bundles: sum.bundles });
-  if (bytes(report) > MAX_REPORT_BYTES) throw fail(413, 'This report is too large to keep (over 4 MB).');
+  if (bytes(report) > MAX_REPORT_BYTES) throw fail(413, `This report is too large to keep (over ${MAX_REPORT_BYTES / 1024 / 1024} MB): read fewer projects (Projects to read, at the top).`);
   return report;
 }
 

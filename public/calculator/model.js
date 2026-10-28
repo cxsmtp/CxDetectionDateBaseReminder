@@ -30,6 +30,10 @@ export const DEFAULT_TR = Object.freeze({
 // The trend is always read over months (a single week says too little to project from).
 export const LOOKBACKS = [3, 6, 9, 12];
 export const UNIT_LOC = 10000;
+// Projects one read from Checkmarx One takes: 10,000 unless the customer sets another number, never
+// more than MAX_PROJECTS (also the most a customer or a report keeps).
+export const DEFAULT_READ_PROJECTS = 10_000;
+export const MAX_PROJECTS = 50_000;
 
 /** A whole number ≥ 0 from whatever was typed or read; null when there is none. */
 export function wholeNumber(value) {
@@ -46,6 +50,12 @@ export function amount(value) {
 }
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+
+/** How many projects a read takes: the number set (1 to MAX_PROJECTS), else DEFAULT_READ_PROJECTS. */
+export function readLimit(value) {
+  const n = wholeNumber(value);
+  return n ? clamp(n, 1, MAX_PROJECTS) : DEFAULT_READ_PROJECTS;
+}
 const monthKey = (iso) => String(iso).slice(0, 7);
 
 // ---------------------------------------------------------------------------------------------
@@ -713,7 +723,7 @@ export function cleanScope(value = {}) {
   return {
     applications: list(v.applications, 200),
     // Projects picked one by one, by id.
-    projects: list(v.projects, 200, 5000),
+    projects: list(v.projects, 200, MAX_PROJECTS),
     groups: list(v.groups, 200),
     initiators: list(v.initiators, 254),
     names: list(v.names, 100, 20),
@@ -722,6 +732,8 @@ export function cleanScope(value = {}) {
     // Projects whose latest scan counted no lines of code are left out unless kept; those with no open finding, when asked.
     leaveOutNoCode: v.leaveOutNoCode !== false,
     leaveOutNoFindings: v.leaveOutNoFindings === true,
+    // How many of the tenant's projects a read takes.
+    maxProjects: readLimit(v.maxProjects),
   };
 }
 

@@ -9,6 +9,7 @@ import {
   DEFAULT_TR,
   FREQUENCIES,
   LOOKBACKS,
+  MAX_PROJECTS,
   SEVERITIES,
   aheadSettings,
   amount,
@@ -26,6 +27,7 @@ import {
   parseCloc,
   sortProjects,
   planForecast,
+  readLimit,
   scopeActive,
   seriesRows,
   severityPlan,
@@ -109,7 +111,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderCustomers() {
     $('calc-empty').hidden = c.customers.length > 0;
     $('calc-customer').innerHTML = c.customers.map((x) => `<option value="${esc(x.id)}"${x.id === c.open?.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
-    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-scope-apply', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches']) $(id).disabled = !c.open;
+    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-scope-apply', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches', 'calc-max-projects']) $(id).disabled = !c.open;
   }
 
   function renderOrg() {
@@ -1252,6 +1254,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-leave-no-findings').checked = sc.leaveOutNoFindings;
     // The branches the last read counted (ticked: every branch).
     $('calc-all-branches').checked = tr()?.totals?.meta?.branches === 'all';
+    $('calc-max-projects').value = num(sc.maxProjects);
     renderScopeSummary();
   }
 
@@ -1436,10 +1439,20 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   $('calc-scope-clear').addEventListener('click', () => {
     if (!c.open) return;
     // Every project: the picks go; the leave-out options stay as they are.
-    c.open.scope = cleanScope({ leaveOutNoCode: scope().leaveOutNoCode, leaveOutNoFindings: scope().leaveOutNoFindings });
+    c.open.scope = cleanScope({ leaveOutNoCode: scope().leaveOutNoCode, leaveOutNoFindings: scope().leaveOutNoFindings, maxProjects: scope().maxProjects });
     save({ scope: c.open.scope });
     renderScope();
     applyScope();
+  });
+
+  // How many of the tenant's projects a read takes (10,000 unless set): kept with the customer.
+  $('calc-max-projects').addEventListener('change', (event) => {
+    if (!c.open) return;
+    const typed = wholeNumber(event.target.value);
+    c.open.scope = cleanScope({ ...scope(), maxProjects: typed });
+    event.target.value = num(scope().maxProjects);
+    save({ scope: c.open.scope });
+    if (typed > MAX_PROJECTS) setStatus('calc-read-note', `At most ${num(MAX_PROJECTS)} projects are read at once.`, 'warn');
   });
 
   // ---- Reading Checkmarx One: both tabs come from the tenant's projects and their scans ----------
@@ -1481,7 +1494,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     setStatus('calc-read-note', 'Reading the projects…', 'muted');
     try {
       // One branch per project (its primary branch) unless "Every branch" is ticked.
-      readProgress(await api('/api/projections/read', { method: 'POST', body: JSON.stringify({ branches: $('calc-all-branches').checked ? 'all' : 'primary' }), quiet: true }));
+      readProgress(await api('/api/projections/read', { method: 'POST', body: JSON.stringify({ branches: $('calc-all-branches').checked ? 'all' : 'primary', maxProjects: readLimit(scope().maxProjects) }), quiet: true }));
       poll();
     } catch (error) {
       readProgress(null);
@@ -1563,6 +1576,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!body.tr) setStatus('calc-read-note', `Read ${num(read.length)} projects from Checkmarx One; none had a scan to read the findings of.`, 'warn');
     else if (read.length === 1) setStatus('calc-read-note', 'Read 1 project and its scans from Checkmarx One.', 'ok');
     else setStatus('calc-read-note', `Read ${num(read.length)} projects and their scans from Checkmarx One.`, 'ok');
+    // More projects than Projects to read: said, with how to read them all.
+    if (body.limited) setStatus('calc-read-note', body.limited.total ? `Read the first ${num(body.limited.read)} of ${num(body.limited.total)} projects in Checkmarx One: set Projects to read to ${num(body.limited.total)} or more and read again to count them all.` : `Read the first ${num(body.limited.read)} projects: Checkmarx One has more. Raise Projects to read and read again to count them all.`, 'warn');
     if (!body.models?.length && !f.models.length && !fusionOff()) toast('Checkmarx One did not say which Fusion models it offers: add them under Fusion models, with their credits per 10K LOC.', 'warn', 9000);
     if (gone === 1) toast('1 project read before is no longer in Checkmarx One: it was taken off.', 'warn');
     else if (gone) toast(`${num(gone)} projects read before are no longer in Checkmarx One: they were taken off.`, 'warn');

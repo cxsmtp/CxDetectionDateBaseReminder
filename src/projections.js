@@ -14,11 +14,11 @@ import { randomUUID } from 'node:crypto';
 
 import { mapWithConcurrency } from './cxone/client.js';
 import { DEFAULT_ENGINES, cleanEngines, engineOf, engineScope } from './engines.js';
-import { getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
+import { countProjects, getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
 import { BRANCH_HOW, branchOf, primaryScans } from './cxone/branches.js';
-import { CRITICALITIES, amount, frequencyOf, modelsNamed, wholeNumber } from '../public/calculator/model.js';
+import { CRITICALITIES, DEFAULT_READ_PROJECTS, amount, frequencyOf, modelsNamed, readLimit, wholeNumber } from '../public/calculator/model.js';
 import { modelChoices } from './fusion-usage.js';
-import { MAX_PROFILES, MAX_PROJECTS, MAX_REPORTS, cleanFusion, cleanReportData, cleanTr, fail, finite, iso, migrate, newProfile, newReport, patchProfile, reportMeta, summary, text } from '../public/calculator/profiles.js';
+import { MAX_PROFILES, MAX_REPORTS, cleanFusion, cleanReportData, cleanTr, fail, finite, iso, migrate, newProfile, newReport, patchProfile, reportMeta, summary, text } from '../public/calculator/profiles.js';
 
 // The rules for customers and reports are shared with the standalone calculator (public/calculator/profiles.js).
 export { MAX_PROFILES, MAX_PROFILE_BYTES, MAX_REPORTS, MAX_REPORT_BYTES, cleanFusion, cleanReportData, cleanTr } from '../public/calculator/profiles.js';
@@ -388,9 +388,15 @@ export class TenantReadStore {
  * scanned in the last year (counted project by project); for triage & remediation, the backlog
  * and fixes week by week over the last `weeks` weeks, from the same scans' summaries.
  * `onProgress(step, done, total)` follows it: "projects" (each project's scans and lines of code), then "summaries".
+ * `maxProjects`: how many of the tenant's projects it takes (DEFAULT_READ_PROJECTS unless set; `limited` says when there were more).
  */
-export async function readTenant(client, { concurrency = 8, now = Date.now(), weeks = 52, onProgress = () => {}, branches = 'primary' } = {}) {
-  const [projects, applications] = await Promise.all([listProjects(client).then((list) => list.slice(0, MAX_PROJECTS)), listApplications(client).catch(() => [])]);
+export async function readTenant(client, { concurrency = 8, now = Date.now(), weeks = 52, onProgress = () => {}, branches = 'primary', maxProjects = DEFAULT_READ_PROJECTS } = {}) {
+  const limit = readLimit(maxProjects);
+  const listed = {};
+  const [projects, applications] = await Promise.all([listProjects(client, { maxItems: limit, stats: listed }), listApplications(client).catch(() => [])]);
+  // Stopped at the limit: how many there are, so the page can say what was left out.
+  const total = listed.stopped ? await countProjects(client).catch(() => null) : null;
+  const limited = listed.stopped && (total === null || total > projects.length) ? { read: projects.length, limit, total } : null;
   // Each project's applications, by name (a project may be in several).
   const appsOf = new Map();
   for (const app of applications) for (const id of app.projectIds) appsOf.set(id, [...(appsOf.get(id) ?? []), app.name]);
@@ -466,9 +472,10 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
     rows[i].openByEngine = Object.fromEntries(Object.entries(perEngine(summary)).map(([engine, { total }]) => [engine, SEVERITIES.reduce((n, s) => n + (total[s] ?? 0), 0)]));
   });
   const readAt = new Date(now).toISOString();
-  const meta = { source: 'cxone', readAt, projects: projects.length, scans: weekly.scans, engines: weekly.engines, engineSplit: true, branches: branches === 'all' ? 'all' : 'primary' };
+  const meta = { source: 'cxone', readAt, projects: projects.length, ...(limited ? { projectsLimit: limit, projectsTotal: total } : {}), scans: weekly.scans, engines: weekly.engines, engineSplit: true, branches: branches === 'all' ? 'all' : 'primary' };
   return {
     projects: rows,
+    limited,
     applications: [...new Set(applications.map((a) => a.name))].sort((a, b) => a.localeCompare(b)),
     tr: summaries.size ? { totals: { ...weekly.totals, meta }, fixed: { ...weekly.fixed, meta } } : null,
     readAt,
