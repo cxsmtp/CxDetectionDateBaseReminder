@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.03 | 432/s, 258 (connection resets and timeouts on the host; main 403–438, 282–740) | 23.1 s | 2.6 s | 979 | 0 vulnerabilities | Rescan 993d4d10: 63 open (1 / 31 / 21 / 9, 1 info); 35 judged before, 29 checked: 3 fixed, 26 not exploitable ([review](docs/security/mz-01.01.03-review.md)) |
 | MZ-01.01.02 | 486/s, 30 (connection resets and timeouts on the host; main 475–492, 5–74; from one folder 496, 4 against 486, 34) | 10.2 s | 822 ms | 966 | 0 vulnerabilities | Rescan 79851f0b: 57 open (10 / 22 / 13 / 12), all judged before, nothing new; 33 first reported on main: 12 fixed, 21 not exploitable, 1 more found and fixed ([review](docs/security/mz-01.01.02-review.md)) |
 | MZ-01.01.01 | 490/s, 14 (connection resets on the host; MZ-01.01.00 475–487, 30–47) | 11.3 s | 915 ms | 965 | 0 vulnerabilities | Scan 47cdd5a5 of main 3b6ab29: 72 open (11 / 30 / 17 / 14); 33 first reported there, handled in MZ-01.01.02 |
 | MZ-01.01.00 | 488/s, 0 (main 483, 4) | 9.0 s | 659 ms | 963 | 0 vulnerabilities | Rescan 4c87c223 (every engine with Fusion): 57 open (10 critical, 22 high, 13 medium, 12 low), down from 120 on the first Fusion scan; about 110 fixed in code over six rounds; 29 marked not exploitable with their reasons, the 57 left are SAST results judged not exploitable, waiting for SAST triage rights to be marked (see [status](docs/status.md#mz-010100-security-review)) |
@@ -89,7 +90,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.01.03 — DATE · [#126](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/126)
+## MZ-01.01.03 — 2026-10-28 15:18 UTC · [#126](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/126)
 
 - **The report lists the top 300, and every finding can be found.** The interactive HTML report lists the 300 worst findings, 50 a page, where it used to list 50. Search, the severity buttons and **Only what AI can act on** cover every finding of the project, up to 10,000, and each heading of the list sorts on a click and has its own filter. The heading filters on the app's own paged tables work again.
 - **Fusion for a new customer.** The Cx Credits Calculator has a new **Fusion — new customer** tab for code that is not in Checkmarx One yet: the customer counts their code with cloc and sends the JSON or CSV files, and each becomes a project with its code lines. A project on both tabs is flagged, so it is not counted twice.
@@ -98,7 +99,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **A truer count of findings still to come.** New findings a month were inflated when a scan ran only some engines; each engine now counts only from the scans it ran in. They are averaged over the last 12 months by default (saved customers on 3 move to 12), and the AI-adoption percentage is now a fall over a year, not a month. FAE is no longer part of the calculator, its report or its PDF.
 - **A leaner projection report and PDF.** The report opens with the vulnerabilities in scope and which severities are included and excluded, leaves out **Still to come** when it is not counted, shows the true positives with the false positives assumed, and adds the debt rate and fixing rate of the last 6 months, as percentages. The data source moves to a closed section at the end. The PDF adds its calculations only when **Include the calculations in the PDF** is ticked (unticked by default). Downloaded reports and calculators open light, and **Fusion scans by criticality** stays folded until it is needed.
 - **FAE Flush in every language.** The FAE Flush page's checks, messages and the reason a check did not finish are now translated, with the calculator's new wording, in all fourteen languages.
-- **Status.** STATUS
+- **Status.** 979 tests pass, `npm audit --omit=dev` finds nothing, and the benchmark is level with main (432 and 423 requests a second against 438 and 403, every failure a connection reset or timeout on the host). Checkmarx One's rescan has 63 open results: the 35 judged before, and 29 checked for this release, of which 3 are fixed (sign-ins to the mail server only over TLS, automation's wildcard patterns that could stall the server, raw error text in the consolidated view) and 26 are not exploitable ([review](docs/security/mz-01.01.03-review.md)). A mail server that wants a sign-in on port 587, 25 or 2525 must now offer STARTTLS.
 
 ## MZ-01.01.02 — 2026-10-25 19:21 UTC · [#125](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/125)
 
