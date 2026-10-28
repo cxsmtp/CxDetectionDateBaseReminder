@@ -58,7 +58,7 @@ import { reportI18n, reportWords } from './report-i18n.js';
 import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
 import { buildCalculatorLauncher, buildStandaloneCalculator } from './standalone-calculator.js';
 import { reportFileName as projectionFileName } from '../public/calculator/report.js';
-import { MAX_PROJECTS, globMatch, readLimit } from '../public/calculator/model.js';
+import { MAX_PROJECTS, cleanOrigins, globMatch, readLimit } from '../public/calculator/model.js';
 import { buildReminder, buildReportData, buildReportEmail, buildTemplateData } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -4478,13 +4478,13 @@ app.get('/api/projections/read', requireCalculator, (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json(readView(calculatorReads.get(tenancy.current().id)));
 });
-/** The backlog and fixes, week by week, of the projects in a customer's scope and the engines chosen, from the last read. */
+/** The backlog and fixes, week by week, of the projects in a customer's scope, the engines and scan origins chosen, from the last read. */
 app.post('/api/projections/series', requireCalculator, (req, res) => {
   const read = projectionReads.get();
   if (!read?.weeks?.length) return res.status(409).json({ error: 'Read Checkmarx One first: the scope is worked out from the last read.' });
   const ids = Array.isArray(req.body?.projectIds) ? req.body.projectIds.slice(0, MAX_PROJECTS).map((id) => String(id).slice(0, 100)) : [];
-  // The engines whose findings count (SAST and SCA unless more are ticked).
-  res.json(seriesFor(read, ids, cleanEngines(req.body?.engines).length ? cleanEngines(req.body.engines) : DEFAULT_ENGINES));
+  // The engines whose findings count (SAST and SCA unless more are ticked), and the scan origins whose scans do (null: every one).
+  res.json(seriesFor(read, ids, cleanEngines(req.body?.engines).length ? cleanEngines(req.body.engines) : DEFAULT_ENGINES, cleanOrigins(req.body?.origins)));
 });
 app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
   res.json({ customer: projections.get(String(req.params.id)) });

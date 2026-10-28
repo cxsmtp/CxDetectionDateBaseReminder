@@ -227,6 +227,37 @@ export function countersOf(summary) {
   return { total, fresh, byEngine };
 }
 
+/**
+ * Where a scan came from (its scan origin), as a readable label: what Checkmarx One says started it
+ * (`sourceOrigin`: the plugin or tool, as its CLI's --agent names it), else what its `userAgent` or
+ * `sourceType` show. A tool not known here keeps the name Checkmarx One gives; nothing said is "Not said".
+ */
+export const ORIGIN_NOT_SAID = 'Not said';
+const ORIGIN_LABELS = [
+  [/jenkins/i, 'Jenkins'],
+  [/git\s*hub[\s_-]*action|gh[\s_-]*action/i, 'GitHub Actions'],
+  [/azure|\bado\b|vsts|\btfs\b/i, 'Azure DevOps'],
+  [/git\s*lab/i, 'GitLab CI'],
+  [/bit\s*bucket/i, 'Bitbucket Pipelines'],
+  [/team\s*city/i, 'TeamCity'],
+  [/bamboo/i, 'Bamboo'],
+  [/circle\s*ci/i, 'CircleCI'],
+  [/travis/i, 'Travis CI'],
+  [/vs\s*code|visual\s*studio|jetbrains|intellij|eclipse|\bide\b/i, 'IDE'],
+  [/web\s*hook|\bscm\b|pull[\s_-]*request/i, 'Code repository (webhook)'],
+  [/git\s*hub/i, 'GitHub'],
+  [/web\s*app|web\s*portal|\bportal\b|\bui\b|manual|^web$/i, 'Web portal (by hand)'],
+  [/postman|\bapi\b|\brest\b/i, 'API'],
+  [/\bcli\b|ast[\s_-]*cli|cx[\s_-]*cli/i, 'CLI'],
+];
+const labelOf = (value) => ORIGIN_LABELS.find(([pattern]) => pattern.test(value))?.[1] ?? '';
+export function scanOrigin(scan) {
+  const said = text(scan?.sourceOrigin, 60);
+  if (said) return labelOf(said) || said;
+  // A user agent or source type says something only when it names a tool ("zip" or "git" does not).
+  return labelOf(text(scan?.userAgent, 200)) || labelOf(text(scan?.sourceType, 60)) || ORIGIN_NOT_SAID;
+}
+
 /** A summary's counts per engine; one without them (made before engines were told apart) is one engine, "ALL". */
 const perEngine = (summary) => summary?.byEngine ?? { ALL: { total: summary?.total ?? zeros(), fresh: summary?.fresh ?? zeros() } };
 /** Is this engine counted? "ALL" (counts that could not be told apart) always is. */
@@ -247,6 +278,56 @@ async function scanSummaries(client, scanIds, { concurrency = 6, onChunk } = {})
   return out;
 }
 
+/** Each week's end, oldest first: the last is `now`. */
+const weekEnds = (now, count) => Array.from({ length: count }, (_, i) => now - (count - 1 - i) * 7 * DAY);
+
+/**
+ * One project's own weeks, engine by engine ({ SAST: { t, f }, … }: the backlog at each week's end and the
+ * fixes in each week, by severity), from its scans oldest first: `line` is [{ at, ran, by }], `by` a scan's
+ * counts per engine and `ran` the engines it ran (null: those it reports).
+ */
+function projectWeeks(line, ends) {
+  const blank = () => Object.fromEntries(SEVERITIES.map((s) => [s, ends.map(() => 0)]));
+  const out = {};
+  // Each engine on its own timeline: the scans that ran it. A scan that ran only some engines (a SAST-only
+  // scan between full ones) leaves the others' last results standing, rather than counting them fixed and
+  // then new again. A scan that does not say which engines it ran is taken to have run those it reports.
+  for (const engine of new Set(line.flatMap((x) => Object.keys(x.by)))) {
+    const mine = line.filter((x) => engine === 'ALL' || (x.ran?.has(engine) ?? engine in x.by));
+    if (!mine.length) continue;
+    const of = (x) => x.by[engine] ?? { total: zeros(), fresh: zeros() };
+    const own = (out[engine] = { t: blank(), f: blank() });
+    let k = 0;
+    for (let w = 0; w < ends.length; w += 1) {
+      while (k + 1 < mine.length && mine[k + 1].at <= ends[w]) k += 1;
+      if (mine[k].at > ends[w]) continue;
+      for (const s of SEVERITIES) own.t[s][w] += of(mine[k]).total[s] ?? 0;
+    }
+    for (let i = 1; i < mine.length; i += 1) {
+      const w = ends.findIndex((end) => mine[i].at <= end && mine[i].at > end - 7 * DAY);
+      if (w === -1) continue;
+      const prev = of(mine[i - 1]);
+      const next = of(mine[i]);
+      // What this engine's scan before reported, plus what it found new, less what it reports now.
+      for (const s of SEVERITIES) own.f[s][w] += Math.max(0, (prev.total[s] ?? 0) + (next.fresh[s] ?? 0) - (next.total[s] ?? 0));
+    }
+  }
+  return out;
+}
+
+/** A scan as a project keeps it to work its weeks out again (see weeklyBacklog), in short: its time, origin (an index), engines run and counts. */
+const packScan = (x, origins) => ({
+  t: x.at,
+  o: origins.indexOf(x.origin),
+  r: x.ran ? [...x.ran] : null,
+  s: Object.fromEntries(Object.entries(x.by).map(([engine, c]) => [engine, [...SEVERITIES.map((s) => c.total?.[s] ?? 0), ...SEVERITIES.map((s) => c.fresh?.[s] ?? 0)]])),
+});
+const unpackScan = (p) => {
+  const counts = (a, from) => Object.fromEntries(SEVERITIES.map((s, i) => [s, Number(a?.[from + i]) || 0]));
+  const by = Object.entries(p?.s && typeof p.s === 'object' ? p.s : {}).map(([engine, a]) => [engine, { total: counts(a, 0), fresh: counts(a, SEVERITIES.length) }]);
+  return { at: Number(p?.t), ran: Array.isArray(p?.r) ? new Set(p.r) : null, by: Object.fromEntries(by) };
+};
+
 /**
  * The tenant's backlog and fixes, week by week, as the two Checkmarx One exports give them
  * ("Total" and "Fixed Vulnerabilities by Severity"), worked out from every project's scans:
@@ -255,8 +336,7 @@ async function scanSummaries(client, scanIds, { concurrency = 6, onChunk } = {})
  * what it reports). A project scanned before the window counts from its last scan before it.
  */
 export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks = 52, engines = null } = {}) {
-  const ends = [];
-  for (let k = weeks - 1; k >= 0; k -= 1) ends.push(now - k * 7 * DAY);
+  const ends = weekEnds(now, weeks);
   const blank = () => Object.fromEntries(SEVERITIES.map((s) => [s, ends.map(() => 0)]));
   const totals = blank();
   const fixed = blank();
@@ -268,6 +348,7 @@ export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks =
   // The engines the tenant's own totals count (null: every engine); each project keeps every engine apart.
   const scope = engineScope(engines);
   const at = (scan) => Date.parse(scan?.createdAt ?? scan?.updatedAt ?? '');
+  const ranOf = (scan) => (Array.isArray(scan.engines) && scan.engines.length ? new Set(scan.engines.map(engineOf)) : null);
   let scansUsed = 0;
   // Each project's own weeks, per engine, so the backlog of any set of projects and engines can be added up later.
   const byProject = new Map();
@@ -275,46 +356,25 @@ export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks =
     const timeline = [...(before ? [before] : []), ...[...scans].reverse()].filter((scan) => summaries.has(scan.id) && Number.isFinite(at(scan)));
     if (!timeline.length) continue;
     scansUsed += timeline.length;
-    const own = { e: {}, scans: timeline.length };
-    const ownOf = (engine) => (own.e[engine] ??= { t: blank(), f: blank() });
-    // Each engine on its own timeline: the scans that ran it. A scan that ran only some engines (a SAST-only
-    // scan between full ones) leaves the others' last results standing, rather than counting them fixed and
-    // then new again. A scan that does not say which engines it ran is taken to have run those it reports.
-    const ranOf = (scan) => (Array.isArray(scan.engines) && scan.engines.length ? new Set(scan.engines.map(engineOf)) : null);
-    const engines = new Set(timeline.flatMap((scan) => Object.keys(perEngine(summaries.get(scan.id)))));
-    for (const engine of engines) {
+    const line = timeline.map((scan) => ({ at: at(scan), ran: ranOf(scan), by: perEngine(summaries.get(scan.id)), origin: scanOrigin(scan) }));
+    const e = projectWeeks(line, ends);
+    for (const [engine, pair] of Object.entries(e)) {
       if (engine === 'ALL') sastKnown = false;
-      const line = timeline.filter((scan) => engine === 'ALL' || (ranOf(scan)?.has(engine) ?? engine in perEngine(summaries.get(scan.id))));
-      if (!line.length) continue;
-      const of = (scan) => perEngine(summaries.get(scan.id))[engine] ?? { total: zeros(), fresh: zeros() };
-      let k = 0;
-      for (let w = 0; w < ends.length; w += 1) {
-        while (k + 1 < line.length && at(line[k + 1]) <= ends[w]) k += 1;
-        if (at(line[k]) > ends[w]) continue;
-        const { total } = of(line[k]);
-        const mine = ownOf(engine);
-        for (const s of SEVERITIES) {
-          mine.t[s][w] += total[s];
-          if (counted(engine, scope)) totals[s][w] += total[s];
-          if (engine === 'SAST' && counted(engine, scope)) sastTotals[s][w] += total[s];
-        }
-      }
-      for (let i = 1; i < line.length; i += 1) {
-        const t = at(line[i]);
-        const w = ends.findIndex((end) => t <= end && t > end - 7 * DAY);
-        if (w === -1) continue;
-        const prev = of(line[i - 1]);
-        const next = of(line[i]);
-        // What this engine's scan before reported, plus what it found new, less what it reports now.
-        for (const s of SEVERITIES) {
-          const gone = Math.max(0, (prev.total[s] ?? 0) + (next.fresh[s] ?? 0) - (next.total[s] ?? 0));
-          if (!gone) continue;
-          ownOf(engine).f[s][w] += gone;
-          if (counted(engine, scope)) fixed[s][w] += gone;
-          if (engine === 'SAST' && counted(engine, scope)) sastFixed[s][w] += gone;
+      if (!counted(engine, scope)) continue;
+      for (const s of SEVERITIES) {
+        for (let w = 0; w < ends.length; w += 1) {
+          totals[s][w] += pair.t[s][w];
+          fixed[s][w] += pair.f[s][w];
+          if (engine !== 'SAST') continue;
+          sastTotals[s][w] += pair.t[s][w];
+          sastFixed[s][w] += pair.f[s][w];
         }
       }
     }
+    // Where its scans came from (o). Scanned from more than one, it keeps its scans in short too (x), so its
+    // weeks can be worked out again from the scans of only some of them (seriesFor).
+    const origins = [...new Set(line.map((x) => x.origin))].sort();
+    const own = { e, scans: line.length, o: origins, ...(origins.length > 1 ? { x: line.map((x) => packScan(x, origins)) } : {}) };
     if (project?.id) byProject.set(String(project.id), own);
   }
   const days = ends.map((t) => new Date(t).toISOString().slice(0, 10));
@@ -322,11 +382,20 @@ export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks =
   return { totals: { weeks: days, bySeverity: totals, ...sast(sastTotals) }, fixed: { weeks: days, bySeverity: fixed, ...sast(sastFixed) }, scans: scansUsed, byProject, engines: scope ?? [] };
 }
 
+/** A project's weeks from its scans from these origins only (its scans kept in short: see weeklyBacklog). */
+function fromOrigins(own, kept, ends) {
+  const index = new Set(kept.map((o) => own.o.indexOf(o)));
+  const line = (Array.isArray(own.x) ? own.x : []).filter((p) => index.has(p?.o)).map(unpackScan).filter((x) => Number.isFinite(x.at)).sort((a, b) => a.at - b.at);
+  return { scans: line.length, e: projectWeeks(line, ends) };
+}
+
 /**
  * The backlog and fixes, week by week, of these projects only (ids), from a read's own weeks per
- * project: the same two series the whole tenant has, for a scope.
+ * project: the same two series the whole tenant has, for a scope. `origins`: only the scans from these
+ * scan origins count (null: every scan). A project with none of them is left out; one scanned from
+ * several keeps the scans from these, its weeks worked out again from them.
  */
-export function seriesFor(read, ids, engines = null) {
+export function seriesFor(read, ids, engines = null, origins = null) {
   const weeks = Array.isArray(read?.weeks) ? read.weeks : [];
   const blank = () => Object.fromEntries(SEVERITIES.map((s) => [s, weeks.map(() => 0)]));
   const totals = blank();
@@ -334,10 +403,15 @@ export function seriesFor(read, ids, engines = null) {
   const sastTotals = blank();
   const sastFixed = blank();
   const scope = engineScope(engines);
+  const wanted = Array.isArray(origins) ? new Set(origins.map((o) => text(o, 60)).filter(Boolean)) : null;
+  // The read's own week ends: its last week ends when it was read.
+  const ends = weekEnds(Date.parse(read?.readAt ?? '') || Date.now(), weeks.length);
   let projects = 0;
   let scans = 0;
   // A read made before engines were told apart counts every engine: said, so the page can ask for a new read.
   let engineSplit = true;
+  // The same for a read made before scan origins were recorded: it counts every scan.
+  let originSplit = true;
   // Whether SAST's own part is known: not for a read that counted every engine together.
   let sastKnown = true;
   const add = (pair, t = totals, f = fixed) => {
@@ -349,8 +423,14 @@ export function seriesFor(read, ids, engines = null) {
     }
   };
   for (const id of new Set((Array.isArray(ids) ? ids : []).map(String))) {
-    const own = Object.hasOwn(read?.series ?? {}, id) ? read.series[id] : null;
+    let own = Object.hasOwn(read?.series ?? {}, id) ? read.series[id] : null;
     if (!own) continue;
+    if (wanted && !Array.isArray(own.o)) originSplit = false;
+    else if (wanted) {
+      const kept = own.o.filter((o) => wanted.has(o));
+      if (!kept.length) continue;
+      if (kept.length < own.o.length) own = fromOrigins(own, kept, ends);
+    }
     projects += 1;
     scans += wholeNumber(own.scans) ?? 0;
     if (own.e && typeof own.e === 'object') {
@@ -369,7 +449,8 @@ export function seriesFor(read, ids, engines = null) {
       add(own);
     }
   }
-  const meta = { source: 'cxone', readAt: read?.readAt ?? null, projects, scans, scoped: true, engines: scope ?? [], engineSplit };
+  // The scan origins counted ([] = every one).
+  const meta = { source: 'cxone', readAt: read?.readAt ?? null, projects, scans, scoped: true, engines: scope ?? [], engineSplit, origins: wanted ? [...wanted].sort() : [], originSplit };
   // SAST's own part, for Fusion's extra findings.
   const sast = (part) => (sastKnown ? { sast: part } : {});
   return { totals: { weeks, bySeverity: totals, ...sast(sastTotals), meta }, fixed: { weeks, bySeverity: fixed, ...sast(sastFixed), meta } };
@@ -391,7 +472,8 @@ export class TenantReadStore {
   save({ readAt, weeks, byProject }) {
     const series = {};
     // Per engine (own.e); a read saved before engines were told apart has t and f, every engine together.
-    for (const [id, own] of byProject ?? []) series[id] = own.e ? { scans: own.scans, e: own.e } : { scans: own.scans, t: own.t, f: own.f };
+    // Where its scans came from (o) and, scanned from several, its scans in short (x): see weeklyBacklog.
+    for (const [id, own] of byProject ?? []) series[id] = own.e ? { scans: own.scans, e: own.e, ...(own.o ? { o: own.o } : {}), ...(own.x ? { x: own.x } : {}) } : { scans: own.scans, t: own.t, f: own.f };
     const value = { readAt, weeks, series };
     // No file: kept in memory only (the standalone calculator's launcher).
     if (this.#file) writeJson(this.#file, value);
@@ -456,14 +538,26 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
   });
 
   // Fusion: how often each project was scanned in the last year (a younger project: since it was created).
-  const rows = perProject.map(({ project, latest, lastScan, lines, scans, count, failed, branch, branchHow }) => {
+  const rows = perProject.map(({ project, latest, lastScan, lines, scans, before, count, failed, branch, branchHow }) => {
     const born = Date.parse(project.createdAt ?? '');
     const windowDays = Math.max(7, Math.min(365, (now - Math.max(yearAgo, Number.isFinite(born) ? born : 0)) / DAY));
-    const inYear = scans.length >= MAX_SCANS_PER_PROJECT || count > scans.length ? count : scans.filter((x) => Date.parse(x.createdAt ?? '') >= yearAgo).length;
+    const yearScans = scans.filter((x) => Date.parse(x.createdAt ?? '') >= yearAgo);
+    const inYear = scans.length >= MAX_SCANS_PER_PROJECT || count > scans.length ? count : yearScans.length;
     // Scans that could not be listed: the last scan still says whether it was within the year.
     const lastAt = Date.parse(lastScanDate(latest) ?? '');
     const scanCount = failed ? (lastAt >= yearAgo ? 1 : 0) : inYear;
     const frequency = frequencyOf(scanCount, windowDays);
+    // Where its scans came from: each scan origin with its scans in the year (those listed, scaled up to the count
+    // when there were more), so the page can count the scans from only some. An origin of a scan before the year
+    // (the one its backlog starts from) is there with 0: the project still has a scan from it.
+    const origins = {};
+    for (const x of [...scans, ...(before ? [before] : [])]) origins[scanOrigin(x)] = 0;
+    if (failed || (!scans.length && !before)) {
+      if (latest?.id) origins[scanOrigin(latest)] = scanCount;
+    } else {
+      for (const x of yearScans) origins[scanOrigin(x)] += 1;
+      if (yearScans.length && scanCount > yearScans.length) for (const o of Object.keys(origins)) origins[o] = Math.round((origins[o] * scanCount) / yearScans.length);
+    }
     return {
       id: project.id,
       name: project.name,
@@ -472,6 +566,9 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
       initiator: String(latest?.initiator ?? lastScan?.initiator ?? '').slice(0, 254),
       criticality: CRITICALITIES.includes(Number(project.criticality)) ? Number(project.criticality) : null,
       scanCount,
+      // The days its scans were counted over (a year, or since it was created), for its frequency from only some origins.
+      scanDays: Math.round(windowDays * 100) / 100,
+      origins,
       scansPerWeek: Math.round(frequency.perWeek * 100) / 100,
       frequency: frequency.id,
       lastScanAt: lastScanDate(latest),
@@ -499,7 +596,7 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
     rows[i].openByEngine = Object.fromEntries(Object.entries(perEngine(summary)).map(([engine, { total }]) => [engine, SEVERITIES.reduce((n, s) => n + (total[s] ?? 0), 0)]));
   });
   const readAt = new Date(now).toISOString();
-  const meta = { source: 'cxone', readAt, projects: projects.length, ...(limited ? { projectsLimit: limit, projectsTotal: total } : {}), scans: weekly.scans, engines: weekly.engines, engineSplit: true, branches: branches === 'all' ? 'all' : 'primary' };
+  const meta = { source: 'cxone', readAt, projects: projects.length, ...(limited ? { projectsLimit: limit, projectsTotal: total } : {}), scans: weekly.scans, engines: weekly.engines, engineSplit: true, origins: [], originSplit: true, branches: branches === 'all' ? 'all' : 'primary' };
   return {
     projects: rows,
     limited,

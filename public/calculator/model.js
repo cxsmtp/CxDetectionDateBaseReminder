@@ -734,7 +734,109 @@ export function cleanScope(value = {}) {
     leaveOutNoFindings: v.leaveOutNoFindings === true,
     // How many of the tenant's projects a read takes.
     maxProjects: readLimit(v.maxProjects),
+    // The scan origins whose scans count (null: every one, also those a later read finds).
+    origins: cleanOrigins(v.origins),
   };
+}
+
+/** Scan origins by name ("Jenkins", "CLI"…), each once; null (every origin) unless a list is given. */
+export const cleanOrigins = (value) => (Array.isArray(value) ? list(value, 60, 200) : null);
+
+/**
+ * A project as only its scans from these scan origins see it (null: every origin): its scans in the year
+ * from them and how often that is. null when it has no scan from them (it is left out). A project added by
+ * hand, or read before scan origins were recorded, is as it was.
+ */
+export function byOrigins(project, origins) {
+  const own = project?.origins;
+  if (!Array.isArray(origins) || project?.source === 'manual' || !own || typeof own !== 'object') return project;
+  const all = Object.keys(own);
+  const mine = all.filter((o) => origins.includes(o));
+  if (!mine.length) return null;
+  if (mine.length === all.length) return project;
+  const scanCount = mine.reduce((n, o) => n + (wholeNumber(own[o]) ?? 0), 0);
+  const f = frequencyOf(scanCount, Number(project.scanDays) || 365);
+  return { ...project, scanCount, frequency: f.id, scansPerWeek: Math.round(f.perWeek * 100) / 100 };
+}
+
+/**
+ * Every scan origin the projects read have, with its scans in the year and the projects scanned from it,
+ * most scans first ("Not said" last); [] when the read did not record them.
+ */
+export function originCounts(projects = []) {
+  const by = new Map();
+  for (const p of projects) {
+    if (p?.source === 'manual' || !p?.origins || typeof p.origins !== 'object') continue;
+    for (const [origin, n] of Object.entries(p.origins)) {
+      const x = by.get(origin) ?? { origin, scans: 0, projects: 0 };
+      x.scans += wholeNumber(n) ?? 0;
+      x.projects += 1;
+      by.set(origin, x);
+    }
+  }
+  return [...by.values()].sort((a, b) => (a.origin === 'Not said') - (b.origin === 'Not said') || b.scans - a.scans || a.origin.localeCompare(b.origin));
+}
+
+/**
+ * The settings at the top of the calculator that wait for Apply, and what they are now: every branch,
+ * Add Fusion (existing and new customer), the projection period, the extra % and bundle size, and the
+ * scope (Projects to read, scan origins, and which projects).
+ */
+export function topSettings(value = {}) {
+  const v = value && typeof value === 'object' ? value : {};
+  return {
+    allBranches: v.allBranches === true,
+    fusionOn: v.fusionOn !== false,
+    fusionNewOn: v.fusionNewOn !== false,
+    periodMonths: clamp(wholeNumber(v.periodMonths) ?? 12, 1, 60),
+    ...totalsSettings(v),
+    scope: cleanScope(v.scope),
+  };
+}
+
+/** What each setting is called where it is changed, in the order the page shows them. */
+const SETTING_NAMES = [
+  ['allBranches', 'Every branch'],
+  ['maxProjects', 'Projects to read'],
+  ['fusionOn', 'Add Fusion: Existing customer'],
+  ['fusionNewOn', 'Add Fusion: New customer'],
+  ['origins', 'Include scans from'],
+  ['applications', 'Applications'],
+  ['projects', 'Projects'],
+  ['leaveOutNoCode', 'Leave out projects with no lines of code'],
+  ['leaveOutNoFindings', 'Leave out projects with no open findings'],
+  ['groups', 'Groups'],
+  ['names', 'Project names'],
+  ['initiators', 'Last scanned by'],
+  ['frequencies', 'How often they are scanned'],
+  ['criticalities', 'Criticality'],
+  ['periodMonths', 'Projection period'],
+  ['extraPercent', 'Extra credits (%)'],
+  ['bundleCredits', 'Credits per bundle'],
+];
+const SCOPE_KEYS = new Set(['maxProjects', 'origins', 'applications', 'projects', 'leaveOutNoCode', 'leaveOutNoFindings', 'groups', 'names', 'initiators', 'frequencies', 'criticalities']);
+
+/**
+ * What changed from `applied` to `next` (both topSettings), each { key, label, reads }: `reads` when it takes
+ * reading Checkmarx One again, as the last read (`read`: { at, branches, limit, origins }) cannot answer it:
+ * a branch choice it was not made with, more projects than it stopped at, or scan origins it did not record.
+ */
+export function settingChanges(applied, next, read = {}) {
+  const a = topSettings(applied);
+  const b = topSettings(next);
+  const same = (x, y) => (Array.isArray(x) && Array.isArray(y) ? [...x].map(String).sort().join('\n') === [...y].map(String).sort().join('\n') : x === y);
+  const out = [];
+  for (const [key, label] of SETTING_NAMES) {
+    const from = SCOPE_KEYS.has(key) ? a.scope[key] : a[key];
+    const to = SCOPE_KEYS.has(key) ? b.scope[key] : b[key];
+    if (same(from, to)) continue;
+    let reads = false;
+    if (key === 'allBranches') reads = to !== (read.branches === 'all');
+    else if (key === 'maxProjects') reads = Boolean(read.at && read.limit && to > read.limit);
+    else if (key === 'origins') reads = Boolean(read.at && read.origins === false);
+    out.push({ key, label, reads });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -775,8 +877,8 @@ export function sortProjects(rows, { key, dir = 'asc' } = {}, { modelName = (id)
     .map((x) => x.row);
 }
 
-/** Is anything picked (applications, projects, groups, names, people, frequencies, criticalities)? */
-export const scopeActive = (scope) => Object.values(cleanScope(scope)).some((v) => Array.isArray(v) && v.length);
+/** Is anything picked (applications, projects, groups, names, people, frequencies, criticalities)? Scan origins pick scans, not projects. */
+export const scopeActive = (scope) => Object.entries(cleanScope(scope)).some(([key, v]) => key !== 'origins' && Array.isArray(v) && v.length);
 
 /** A project's open findings now, of these engines (every engine when none given); null when not known. */
 export function openFindings(project, engines = null) {

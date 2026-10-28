@@ -197,10 +197,23 @@ test('one read in the background fills both tabs from Checkmarx One: the backlog
   const at = (b, i) => ['Critical', 'High', 'Medium', 'Low'].reduce((n, s) => n + b.totals.bySeverity[s][i], 0);
   assert.equal(at(scoped.body, 51) + at(rest.body, 51), at(whole.body, 51), 'a scope and the rest add up to the whole');
   assert.equal((await ana('POST', '/api/projections/series', { projectIds: ['__proto__', 'constructor'] })).body.totals.meta.projects, 0);
+  // Include scans from: each project says where its scans came from; only those from the origins ticked count.
+  assert.deepEqual(Object.keys(p1.origins).sort(), ['GitHub Actions', 'Web portal (by hand)'], 'the mock’s project 1: GitHub Actions, and every 7th scan by hand');
+  assert.ok(p1.origins['GitHub Actions'] > p1.origins['Web portal (by hand)']);
+  const ids = projects.map((p) => p.id);
+  const byHand = await ana('POST', '/api/projections/series', { projectIds: ids, origins: ['Web portal (by hand)'] });
+  assert.equal(byHand.status, 200, byHand.text);
+  assert.deepEqual(byHand.body.totals.meta.origins, ['Web portal (by hand)']);
+  assert.ok(byHand.body.totals.meta.projects > 0 && byHand.body.totals.meta.projects < PROJECTS, 'only the projects with a scan by hand');
+  assert.ok(byHand.body.totals.meta.scans < whole.body.totals.meta.scans);
+  const everyOrigin = await ana('POST', '/api/projections/series', { projectIds: ids, origins: ['Jenkins', 'GitHub Actions', 'Azure DevOps', 'CLI', 'Web portal (by hand)'] });
+  assert.deepEqual(everyOrigin.body.totals.bySeverity, whole.body.totals.bySeverity, 'every origin ticked: every scan');
+  assert.equal((await ana('POST', '/api/projections/series', { projectIds: ids, origins: [] })).body.totals.meta.projects, 0, 'none ticked: nothing');
+  assert.deepEqual((await ana('POST', '/api/projections/series', { projectIds: ids, origins: 'Jenkins' })).body.totals.bySeverity, whole.body.totals.bySeverity, 'not a list: every origin');
   assert.equal((await uma('POST', '/api/projections/series', { projectIds: mobile })).status, 403);
   const scope = await ana('PUT', `/api/projections/${customerId}`, { scope: { applications: ['Mobile', '<b>'], names: ['web-*'], frequencies: ['month', 'hourly'], criticalities: [5, 9] } });
   assert.equal(scope.status, 200, scope.text);
-  assert.deepEqual((await ana('GET', `/api/projections/${customerId}`)).body.customer.scope, { applications: ['Mobile', '<b>'], projects: [], groups: [], initiators: [], names: ['web-*'], frequencies: ['month'], criticalities: [5], leaveOutNoCode: true, leaveOutNoFindings: false, maxProjects: 10000 });
+  assert.deepEqual((await ana('GET', `/api/projections/${customerId}`)).body.customer.scope, { applications: ['Mobile', '<b>'], projects: [], groups: [], initiators: [], names: ['web-*'], frequencies: ['month'], criticalities: [5], leaveOutNoCode: true, leaveOutNoFindings: false, maxProjects: 10000, origins: null });
 });
 
 test('a report is emailed as its file, to the addresses typed, and only when it is one', async () => {

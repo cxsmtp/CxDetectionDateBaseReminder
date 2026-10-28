@@ -155,6 +155,7 @@ function provenance(data, L) {
   const leftOut = [
     out.noCode > 0 && w('Left out: {0} projects whose latest scan counted no lines of code.', num(out.noCode)),
     out.noFindings > 0 && w('Left out: {0} projects with no open findings.', num(out.noFindings)),
+    out.noOrigin > 0 && w('Left out: {0} projects with no scan from those scan origins.', num(out.noOrigin)),
   ].filter(Boolean).map((t) => `<p class="sub">${t}</p>`).join('');
   // At the end, closed: what the data is and how it was read, for whoever wants it.
   return `<details class="live"><summary><span class="live-dot" aria-hidden="true"></span>${w('Data source')}</summary><div><p>${line}</p>${tr?.lookbackMonths ? `<p class="sub">${w('The trend is measured over the last {0} months of that data, week by week, and carried forward.', num(tr.lookbackMonths))}</p>` : ''}${engines}${branches}${leftOut}${scopeLine(src, L)}</div></details>`;
@@ -299,6 +300,12 @@ export function assumptionItems(data, sum, L) {
       else items.push(w('New findings keep arriving at the pace of the last {0} months.', num(tr.lookbackMonths)));
       if (tr.fusion) items.push(tr.sastOnly ? w('Fusion reports {0}% more SAST findings than today.', num(tr.ahead.fusionUpliftPercent)) : w('Fusion reports {0}% more findings than today.', num(tr.ahead.fusionUpliftPercent)));
     }
+  }
+  // Not every scan origin: the scans counted (how often projects are scanned, and the backlog and its trend) are from these only.
+  const origins = data.source?.origins;
+  if (Array.isArray(origins)) {
+    const named = esc(origins.join(', '));
+    items.push(!origins.length ? w('Scans from: no scan origin.') : data.source.originsFusionOnly ? w('Scans from: {0} (for Fusion: the two exports count every scan).', named) : w('Scans from: {0}.', named));
   }
   if (data.fusion || data.fusionNew) items.push(w("Each project's lines of code are rounded up to whole 10K units on their own; one scan costs its model's credits per 10K LOC."));
   if (data.fusionNew?.leftOut?.length) items.push(w('New customer: code lines counted with cloc, without blank and comment lines; not counted: {0}.', data.fusionNew.leftOut.map(esc).join(', ')));
