@@ -26,15 +26,20 @@ export const MAX_BACKUP_BYTES = 25 * 1024 * 1024;
 /**
  * The IMAP client's options. Certificates are checked: for replies, unless an Admin turned the
  * check off for the email server (the same account, the same choice, said in the server log);
- * for backups, always, as nothing lets an Admin turn it off there.
+ * for backups, always, as nothing lets an Admin turn it off there. The password is only ever
+ * sent over TLS: from the start (993), or else STARTTLS must be offered and taken, so a server
+ * (or anyone in between) that leaves STARTTLS out gets no sign-in at all.
  */
 export function imapOptions(account, { allowUnverified = false } = {}) {
   const verify = allowUnverified ? verifiesCertificate(account) : true;
   if (!verify) warnUnverified('mailbox (IMAP)', account);
+  const secure = account.secure !== false;
   return {
     host: account.host,
     port: account.port,
-    secure: account.secure !== false,
+    secure,
+    // imapflow refuses both at once; without it, STARTTLS is only tried, and a password could go in clear.
+    ...(secure ? {} : { doSTARTTLS: true }),
     auth: { user: account.user, pass: account.password },
     tls: { rejectUnauthorized: verify },
     logger: false,
@@ -59,8 +64,24 @@ export async function downloadCapped(client, uid, part, max) {
   return Buffer.concat(chunks);
 }
 
+/**
+ * A client whose late socket errors (a timeout after a refused connect) are dropped: what went wrong
+ * reaches the caller through the call that failed, and the client is closed there.
+ */
+function quiet(client) {
+  client.on('error', () => {});
+  return client;
+}
+
+/** Said when the mailbox server offers no STARTTLS (the same words in the self-check and the server log). */
+export const NO_STARTTLS =
+  'The mailbox server offers no encrypted connection, and MissionZero never sends a password without one. How to fix it: use port 993 (encrypted from the start), or ask the mail server\'s administrator to turn on STARTTLS for this port.';
+
 /** An IMAP failure, never with the password in it (servers and libraries can echo commands). */
 function safeError(error, account) {
+  if (error?.tlsFailed || /does not support STARTTLS/i.test(String(error?.message ?? ''))) {
+    return Object.assign(new Error(NO_STARTTLS), { code: 'ENOSTARTTLS' });
+  }
   const message = redactSecrets(String(error?.message ?? error), { user: account.user, password: account.password });
   if (error && typeof error === 'object' && message !== error.message) {
     try {
@@ -110,10 +131,11 @@ export async function readReplies(account) {
   const testDir = process.env.NODE_TEST_CONTEXT && process.env.MZ_TEST_INBOX_DIR;
   if (testDir) return readTestInbox(testDir);
   const { ImapFlow } = await import('imapflow');
-  const client = new ImapFlow(imapOptions(account, { allowUnverified: true }));
+  const client = quiet(new ImapFlow(imapOptions(account, { allowUnverified: true })));
   try {
     return await readUnread(client);
   } catch (error) {
+    client.close();
     throw safeError(error, account);
   }
 }
@@ -189,10 +211,11 @@ export async function findBackupInMailbox(account, accept) {
     return null;
   }
   const { ImapFlow } = await import('imapflow');
-  const client = new ImapFlow(imapOptions(account));
+  const client = quiet(new ImapFlow(imapOptions(account)));
   try {
     return await searchBackups(client, accept);
   } catch (error) {
+    client.close();
     throw safeError(error, account);
   }
 }

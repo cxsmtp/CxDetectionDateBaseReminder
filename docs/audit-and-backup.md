@@ -163,7 +163,7 @@ To rebuild, start a new server with an empty state folder and these settings:
 | `BACKUP_EMAIL_PASSWORD` | The mailbox's password. |
 | `BACKUP_PASSPHRASE` | The same passphrase as the old server. |
 | `BACKUP_EMAIL_IMAP_HOST` | The mailbox server. It defaults to `SMTP_HOST`. |
-| `BACKUP_EMAIL_IMAP_PORT` | The port. It defaults to 993. |
+| `BACKUP_EMAIL_IMAP_PORT` | The port. It defaults to 993. On any other port (such as 143) the server must offer STARTTLS: the password is only ever sent over an encrypted connection, and the server log says so if it cannot be (from MZ-01.01.05). |
 | `BACKUP_EMAIL_USER` | The account. It defaults to `BACKUP_EMAIL`. |
 
 Before anything loads, the server reads the mailbox. It looks at the newest 20 emails

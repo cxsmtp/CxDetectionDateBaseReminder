@@ -510,7 +510,7 @@ For teams that would rather not sign in to one more tool. **Settings → Hands-o
 3. Who: where reminders go, who gets the status, who gets the summary.
 4. When: how often it checks, and the status's day and hour.
 
-**Turn on hands-off** saves it all. The weekly status has buttons that act after one more click: **Send the reminders now**, **Pause for 7 days** or **Resume**, and **Stop sending me this**. With **Also read replies** ticked, a reply that starts with one word also works: PAUSE, RESUME, RUN, STATUS, STOP or SOLVED. MissionZero acts only when the reply comes from the address it wrote to.
+**Turn on hands-off** saves it all. The weekly status has buttons that act after one more click: **Send the reminders now**, **Pause for 7 days** or **Resume**, and **Stop sending me this**. With **Also read replies** ticked, a reply that starts with one word also works: PAUSE, RESUME, RUN, STATUS, STOP or SOLVED. The mailbox password is only ever sent over an encrypted connection: port 993, or another port whose server offers STARTTLS (from MZ-01.01.05). MissionZero acts only when the reply comes from the address it wrote to.
 
 **Self-check.** Every 5 minutes MissionZero checks Checkmarx One, the email server, its automatic runs and its error rate, and puts right what it can. It emails the administrators when something needs them, and again when it works. With auto-update on, a problem it cannot fix becomes a support case that the administrators forward to the maintainer; they close it with **Mark as solved** or a SOLVED reply. The box at the bottom shows what is wrong now and the last events; **Check now** runs a check. Details: [hands-off](hands-off.md).
 
