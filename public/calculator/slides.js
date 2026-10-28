@@ -399,21 +399,25 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
 
   // The figures down the side, the picture beside them, the lines under it.
   let fy = 290;
-  for (const fig of page.figures) {
-    // Small print under the figure (what the plan takes, the false positives): as many lines as it needs.
-    ctx.font = font(20);
-    const small = (fig.notes ?? []).flatMap((n) => wrap(ctx, n, 504));
-    const base = fig.small ? 108 : 150;
-    const height = base + small.length * 26 + (small.length ? 8 : 0);
+  // Small print under a figure (to remediate, what is included and excluded, the false positives): as many lines
+  // as it needs. When the column would run into the footer, the figures close up a little.
+  ctx.font = font(20);
+  const notesOf = page.figures.map((fig) => (fig.notes ?? []).flatMap((n) => wrap(ctx, n, 504)));
+  const sizes = (compact) => page.figures.map((fig, i) => (fig.small ? 108 : compact ? 134 : 150) + notesOf[i].length * (compact ? 24 : 26) + (notesOf[i].length ? 8 : 0));
+  const compact = sizes(false).reduce((a, h) => a + h + 14, fy) > H - 80;
+  const heights = sizes(compact);
+  page.figures.forEach((fig, i) => {
+    const small = notesOf[i];
+    const base = fig.small ? 108 : compact ? 134 : 150;
     ctx.fillStyle = fig.key ? C.key : C.soft;
-    ctx.fillRect(X(80, 560), fy, 560, height);
+    ctx.fillRect(X(80, 560), fy, 560, heights[i]);
     const after = lines(fig.label, 108, fy + 44, 504, { size: 24, colour: C.muted, lead: 30 });
-    const valueY = fig.small ? Math.max(after + 26, fy + 86) : Math.max(after + 36, fy + 112);
-    text(fig.value, 108, valueY, { size: fig.small ? 36 : 54, weight: 600, colour: fig.key ? C.accent : C.ink });
+    const valueY = fig.small ? Math.max(after + 26, fy + 86) : Math.max(after + (compact ? 30 : 36), fy + (compact ? 100 : 112));
+    text(fig.value, 108, valueY, { size: fig.small ? 36 : compact ? 48 : 54, weight: 600, colour: fig.key ? C.accent : C.ink });
     if (fig.note) text(fig.note, 612, valueY, { size: 22, colour: C.muted, align: 'end' });
-    small.forEach((row, i) => text(row, 108, fy + base + i * 26, { size: 20, colour: C.muted }));
-    fy += height + 14;
-  }
+    small.forEach((row, j) => text(row, 108, fy + base + j * (compact ? 24 : 26), { size: 20, colour: C.muted }));
+    fy += heights[i] + (compact ? 10 : 14);
+  });
   const left = page.figures.length ? 700 : 80;
   const width = W - left - 80;
   let y = 300;

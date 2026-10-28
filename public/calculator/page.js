@@ -297,6 +297,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const projection = trProjection(analysis, tr(), { months: horizon(), fusion: fusionOn() });
     return {
       analysis,
+      // The debt and fixing rates over the last 6 months, for the report, whatever the trend is averaged over.
+      recent: analyse(totalRows, fixedRows, 6),
       projection,
       weekly: weeklyTrend(totalRows, fixedRows, 52),
       forecast: planForecast(analysis, projection),
@@ -595,6 +597,14 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       total: debtFigures(t.analysis.total),
       spanMonths: t.analysis.spanMonths,
     },
+    recent: t.recent ? {
+      months: 6,
+      spanMonths: t.recent.spanMonths,
+      ...Object.fromEntries([...SEVERITIES, 'total'].map((s) => {
+        const x = s === 'total' ? t.recent.total : t.recent.perSeverity[s];
+        return [s, { arrivals: x.arrivals, fixedMonthly: x.fixedMonthly, addedPct: x.addedPct, fixedPct: x.fixedPct }];
+      })),
+    } : null,
   });
 
   /** How far along its track a slider's thumb is, for the filled part (0 is at the very start). */

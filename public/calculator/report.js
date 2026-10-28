@@ -178,7 +178,7 @@ function story(data, L) {
       <table class="calc">
         <tr><td>${w('Backlog to triage')}</td><td>${num(f.selected)}</td></tr>
         ${tr.ahead?.includeFuture === false ? '' : `<tr><td>${tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer over a year with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace')}</td><td>+${num(f.future)}</td></tr>`}
-        <tr><td>${w('More found by Fusion ({0}%)', num(tr.fusion ? tr.ahead?.fusionUpliftPercent ?? 0 : 0))}</td><td>+${num(f.fusionExtra)}</td></tr>
+        ${tr.fusion ? `<tr><td>${w('More found by Fusion ({0}%)', num(tr.ahead?.fusionUpliftPercent ?? 0))}</td><td>+${num(f.fusionExtra)}</td></tr>` : ''}
         <tr class="sum"><td>${w('To triage')}</td><td>${num(f.toTriage)}</td></tr>
         <tr><td>${w('To remediate (true positives)')}</td><td>${num(f.truePositives)}</td></tr>
         <tr class="sum gold"><td>${w('Triage & remediation credits')}</td><td>${num(f.credits, 1)}</td></tr>
@@ -330,6 +330,8 @@ function trAppendix(tr, L) {
   const hasDebtFix = Number.isFinite(tr.analysis?.total?.fixedMonthly);
   const signed = (v) => (!Number.isFinite(v) ? '—' : Math.round(v) > 0 ? `+${num(v)}` : Math.round(v) < 0 ? `−${num(-v)}` : '0');
   const hasWeeklyDebt = tr.weekly?.some((x) => x.addedRate !== undefined);
+  // A month's findings, and that as a share of today's backlog.
+  const rate = (n, share) => (Number.isFinite(n) ? `${num(n)}${Number.isFinite(share) ? `<small class="fp">${w('{0}% of the backlog', num(share, 1))}</small>` : ''}` : '—');
   // True positives: what is left once the false positives are taken out, one % for every severity counted or each its own.
   const fpOf = [...new Set(rows.filter((r) => (r.toTriage ?? r.selected) > 0).map((r) => r.fp))];
   const oneFp = fpOf.length === 1 ? fpOf[0] : null;
@@ -341,6 +343,8 @@ function trAppendix(tr, L) {
     <thead><tr><th>${w('By severity')}</th>${SEVERITIES.map((s) => `<th><i class="dot" style="background:${SEVERITY_COLOURS[s]}"></i>${w(s)}</th>`).join('')}<th>${w('Total')}</th></tr></thead>
     <tbody>
       <tr><td>${w('Current backlog')}</td>${cell((r) => num(r.backlog))}<td>${num(f.backlog)}</td></tr>
+      ${tr.recent ? `<tr><td>${w('Debt rate: reported a month, last {0} months', num(tr.recent.months))}</td>${SEVERITIES.map((s) => `<td>${rate(tr.recent[s]?.arrivals, tr.recent[s]?.addedPct)}</td>`).join('')}<td>${rate(tr.recent.total?.arrivals, tr.recent.total?.addedPct)}</td></tr>
+      <tr><td>${w('Fixing rate: fixed a month, last {0} months', num(tr.recent.months))}</td>${SEVERITIES.map((s) => `<td>${rate(tr.recent[s]?.fixedMonthly, tr.recent[s]?.fixedPct)}</td>`).join('')}<td>${rate(tr.recent.total?.fixedMonthly, tr.recent.total?.fixedPct)}</td></tr>` : ''}
       ${hasDebtFix ? `<tr class="muted"><td>${w('Change a month')}</td>${SEVERITIES.map((s) => `<td>${signed(an(s).netMonthly)}</td>`).join('')}<td>${signed(tr.analysis?.total?.netMonthly)}</td></tr>`
     : `<tr class="muted"><td>${w('Debt increase')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).debtRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.debtRate)}</td></tr>
       <tr class="muted"><td>${w('Fix rate')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).fixRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.fixRate)}</td></tr>`}
