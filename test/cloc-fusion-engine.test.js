@@ -21,7 +21,7 @@ import { allSections } from '../public/calculator/explain.js';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const VENDOR = path.join(ROOT, 'src', 'cloc-fusion');
-const MODELS = [{ id: 'm1', name: 'opus-5.5', creditsPer10k: 4 }, { id: 'm2', name: 'haiku-4.5', creditsPer10k: 1 }];
+const MODELS = [{ id: 'm1', name: 'Deep review', creditsPer10k: 4 }, { id: 'm2', name: 'Quick review', creditsPer10k: 1 }];
 
 test('cloc-fusion\'s engine is vendored as it is: each file with its origin, the MIT licence, and its page as noted', () => {
   assert.match(CLOC_FUSION.version, /^\d+\.\d+\.\d+$/);
@@ -118,7 +118,7 @@ function clocFusionReport() {
   });
   return {
     tool: 'cloc-fusion', version: '1.3.2', generatedAt: '2026-10-27T10:05:00.000Z',
-    settings: { windowDays: 365, connections: [{ name: 'github', provider: 'github' }], fusion: { models: [{ id: 'fast', name: 'Haiku-4.5', creditsPer10k: 1 }] } },
+    settings: { windowDays: 365, connections: [{ name: 'github', provider: 'github' }], fusion: { models: [{ id: 'fast', name: 'quick REVIEW', creditsPer10k: 1 }] } },
     developers: { windowDays: 90, total: 7, bots: 1, repos: 3 },
     contributors: [{ name: 'Ana Silva', email: 'ana@globex.io', repos: ['globex/claims-portal'] }],
     repos: [
