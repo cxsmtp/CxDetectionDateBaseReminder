@@ -78,7 +78,7 @@ test.before(async () => {
   await until(() => /Successfully authenticated/.test(log) && /First administrator created/.test(log));
   await admin('POST', '/api/session/password', { email: 'admin@acme.io', password: FIRST_PASSWORD });
   await admin('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD });
-  await admin('PUT', '/api/settings', { smtp: { host: '127.0.0.1', port: smtp.port, secure: false, requireAuth: true, user: 'mz@acme.io', password: 'x', rejectUnauthorized: false, fromAddress: 'mz@acme.io', fromName: 'MissionZero' } });
+  await admin('PUT', '/api/settings', { smtp: { host: '127.0.0.1', port: smtp.port, secure: false, requireAuth: false, user: 'mz@acme.io', password: 'x', rejectUnauthorized: false, fromAddress: 'mz@acme.io', fromName: 'MissionZero' } });
   assert.equal((await admin('POST', '/api/settings/connections/check', { rollback: false })).body.smtp.ok, true);
 });
 
