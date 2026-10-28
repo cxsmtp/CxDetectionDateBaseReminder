@@ -130,9 +130,37 @@ export function cleanFusion(value) {
 }
 
 /**
- * Fusion for a new customer: projects whose lines of code were counted with cloc (each language's code
- * lines), or typed, with their own scans and model. The models are the Fusion page's, so a model is kept
- * by id only.
+ * Where a project counted from git came from: its host, repository path and clone address (https, or
+ * http to this computer; never with a user name, password or token in it), the branch and commit counted,
+ * when, and which of the Admin's git connections (by id) was used. null when it was not counted from git.
+ */
+export function cleanGitFrom(value) {
+  if (!value || typeof value !== 'object') return null;
+  let url;
+  try {
+    url = new URL(String(value.url ?? ''));
+  } catch {
+    return null;
+  }
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || String(value.url).length > 500) return null;
+  const path = url.pathname.split('/').filter(Boolean).join('/').replace(/\.git$/i, '');
+  if (!path) return null;
+  const commit = String(value.commit ?? '');
+  return {
+    host: url.host.toLowerCase(),
+    path: text(decodeURIComponent(path), 300),
+    url: url.href.replace(/\/+$/, ''),
+    branch: text(value.branch, 200),
+    commit: /^[0-9a-f]{7,40}$/i.test(commit) ? commit.toLowerCase().slice(0, 12) : '',
+    countedAt: iso(value.countedAt),
+    connection: /^[a-z]{1,12}-[1-9]$/.test(String(value.connection ?? '')) ? value.connection : '',
+  };
+}
+
+/**
+ * Fusion for a new customer: projects whose lines of code were counted with cloc or from git (each
+ * language's code lines), or typed, with their own scans and model. The models are the Fusion page's, so a
+ * model is kept by id only.
  */
 export function cleanFusionNew(value) {
   const v = value && typeof value === 'object' ? value : {};
@@ -140,6 +168,8 @@ export function cleanFusionNew(value) {
     id: text(p?.id, 100) || `new-${newId().slice(0, 8)}`,
     name: text(p?.name, 200) || 'Unnamed project',
     file: text(p?.file, 200),
+    // Counted from git: where from (never a token). A project counted before MZ-01.01.04 has none.
+    ...(cleanGitFrom(p?.git) ? { git: cleanGitFrom(p.git) } : {}),
     langs: Object.fromEntries(
       Object.entries(p?.langs && typeof p.langs === 'object' ? p.langs : {})
         .slice(0, MAX_CLOC_LANGUAGES)

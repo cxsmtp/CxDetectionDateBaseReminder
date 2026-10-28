@@ -57,6 +57,7 @@ import { BULK_SEVERITIES, REPORT_SEARCHABLE, REPORT_TOP_N, generateHtmlReport, s
 import { reportI18n, reportWords } from './report-i18n.js';
 import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
 import { buildCalculatorLauncher, buildStandaloneCalculator } from './standalone-calculator.js';
+import { connectionSource, createGitCounter, gitSource, listRepositories, sweepLeftovers } from './fusion-git.js';
 import { reportFileName as projectionFileName } from '../public/calculator/report.js';
 import { MAX_PROJECTS, globMatch, readLimit } from '../public/calculator/model.js';
 import { buildReminder, buildReportData, buildReportEmail, buildTemplateData } from './reminder.js';
@@ -4485,6 +4486,77 @@ app.post('/api/projections/series', requireCalculator, (req, res) => {
   const ids = Array.isArray(req.body?.projectIds) ? req.body.projectIds.slice(0, MAX_PROJECTS).map((id) => String(id).slice(0, 100)) : [];
   // The engines whose findings count (SAST and SCA unless more are ticked).
   res.json(seriesFor(read, ids, cleanEngines(req.body?.engines).length ? cleanEngines(req.body.engines) : DEFAULT_ENGINES));
+});
+
+/**
+ * Fusion — new customer, Count from git (src/fusion-git.js): a customer's repositories counted on this
+ * server, from one of the Admin's git connections (by id: its token stays here) or a token typed for one
+ * count (used for that request and the count it starts, never kept, logged or sent back). Only the hosts
+ * repositories may be cloned from (cloneHostAllowed: the public hosts, the connected ones, SCM_ALLOWED_HOSTS).
+ */
+const gitCounter = createGitCounter({ allowHost: (host) => cloneHostAllowed(host), log: (line) => console.error(line) });
+sweepLeftovers();
+/** The Admin's git connections a count may use: each set's hosts with a token (src/scm/instances.js). */
+function countConnections(settings = settingsStore.get()) {
+  const out = [];
+  for (const set of gitSets(settings)) {
+    for (const provider of SCM_PROVIDERS) {
+      const cfg = provider === 'github' ? set.github : set.scm[provider];
+      if (!cfg?.token) continue;
+      let source;
+      try {
+        source = connectionSource(provider, cfg);
+      } catch {
+        continue; // an address the count may not call (http, link-local…): not offered
+      }
+      const owner = provider === 'github' ? cfg.org : provider === 'gitlab' ? cfg.group : provider === 'azure' ? '' : cfg.workspace;
+      out.push({ id: `${provider}-${set.n}`, provider, label: SCM_LABELS[provider], host: source.gitHost, owner: String(owner ?? ''), source });
+    }
+  }
+  return out;
+}
+/** Where the code is, from what the page sent: a connection's id, or {provider, address, token}. */
+function countSource(body) {
+  if (body?.connection) {
+    const found = countConnections().find((x) => x.id === String(body.connection));
+    if (!found) throw Object.assign(new Error('That git connection is no longer set up: choose another, or give a token.'), { status: 404 });
+    return found.source;
+  }
+  const typed = body?.token && typeof body.token === 'object' ? body.token : null;
+  if (!typed) throw Object.assign(new Error('Choose where the code is: one of the git connections, or a token.'), { status: 400 });
+  const source = gitSource({ provider: String(typed.provider ?? ''), address: String(typed.address ?? ''), token: String(typed.token ?? '') });
+  if (!cloneHostAllowed(source.gitHost.replace(/:\d+$/, ''))) throw Object.assign(new Error(`Repositories on ${source.gitHost} are not counted: connect that host on the Beta page, or add it to SCM_ALLOWED_HOSTS.`), { status: 400 });
+  return source;
+}
+app.get('/api/projections/git/connections', requireCalculator, (req, res) => {
+  // Names, hosts and kinds only: never a token, nor the address a token is kept for beyond its host.
+  res.json({ connections: countConnections().map(({ id, provider, label, host, owner }) => ({ id, provider, label, host, owner })) });
+});
+app.post('/api/projections/git/repositories', requireCalculator, asyncRoute(async (req, res) => {
+  try {
+    const source = countSource(req.body);
+    res.json(await listRepositories(source, req.body?.owner));
+  } catch (error) {
+    res.status(error.status ?? 500).json({ error: error.status ? error.message : 'The repositories could not be listed.' });
+  }
+}));
+app.post('/api/projections/git/count', requireCalculator, asyncRoute(async (req, res) => {
+  try {
+    const source = countSource(req.body);
+    const job = await gitCounter.start(req.user.email, { source, repositories: req.body?.repositories });
+    audit.record({ type: 'settings', outcome: 'changed', reason: `Cx Credits Calculator: code lines of ${job.repositories.length} repositor${job.repositories.length === 1 ? 'y' : 'ies'} counted from git on ${source.gitHost} (${req.body?.connection ? `the Admin's ${source.label} connection` : 'a token typed for this count'}).`, actor: { kind: 'user', user: req.user.email, ip: clientIp(req) } });
+    res.status(202).json(job);
+  } catch (error) {
+    res.status(error.status ?? 500).json({ error: error.status ? error.message : 'The count could not be started.' });
+  }
+}));
+app.get('/api/projections/git/count', requireCalculator, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    res.json(gitCounter.view(req.user.email, req.query.id));
+  } catch (error) {
+    res.status(error.status ?? 500).json({ error: error.message });
+  }
 });
 app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
   res.json({ customer: projections.get(String(req.params.id)) });

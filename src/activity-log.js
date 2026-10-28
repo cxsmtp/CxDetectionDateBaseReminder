@@ -287,6 +287,8 @@ export const ACTIONS = {
   'DELETE /api/projections/:id': 'Deleted a calculator customer',
   'POST /api/projections/read': 'Read Checkmarx One for the calculator',
   'POST /api/projections/fusion/read': 'Read Fusion projects for the calculator',
+  'POST /api/projections/git/repositories': 'Listed git repositories for the calculator',
+  'POST /api/projections/git/count': 'Counted code lines from git for the calculator',
   'POST /api/projections/reports': 'Generated a projection report',
   'GET /api/projections/reports/:id': 'Downloaded a projection report',
   'DELETE /api/projections/reports/:id': 'Deleted a projection report',

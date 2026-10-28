@@ -7,6 +7,7 @@ import { deriveConnection } from './cxone/endpoints.js';
 import { branchScopeOf } from './cxone/branches.js';
 import { DEFAULT_ENGINES, cleanEngines } from './engines.js';
 import { TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
+import { createGitCounter, gitSource, listRepositories, sweepLeftovers } from './fusion-git.js';
 import { MAX_PROJECTS, readLimit } from '../public/calculator/model.js';
 
 /**
@@ -16,7 +17,8 @@ import { MAX_PROJECTS, readLimit } from '../public/calculator/model.js';
  * A browser cannot call Checkmarx One from a page opened from disk (its API answers no other
  * site), so the reads go through here. Nothing is kept: the key and what was read live in this
  * process's memory until it stops. Only the page it served can use it (a secret in that page,
- * and this computer's own address).
+ * and this computer's own address). It also counts a new customer's code lines from git, with
+ * this computer's git and a token typed for that count (src/fusion-git.js).
  */
 
 const json = (res, status, body) => {
@@ -49,12 +51,22 @@ function openBrowser(url) {
   } catch {}
 }
 
-export async function startLauncher({ html, port = 0, host = '127.0.0.1', open = true, log = console.log, connect = (connection) => new CxClient(connection) } = {}) {
+/** A token typed into the page for one count (Fusion — new customer, Count from git): checked, never kept. */
+function typedSource(input) {
+  const typed = input?.token && typeof input.token === 'object' ? input.token : null;
+  if (!typed) throw Object.assign(new Error('Give the git host, its address and a token.'), { status: 400 });
+  return gitSource({ provider: String(typed.provider ?? ''), address: String(typed.address ?? ''), token: String(typed.token ?? '') });
+}
+
+export async function startLauncher({ html, port = 0, host = '127.0.0.1', open = true, log = console.log, connect = (connection) => new CxClient(connection), gitBin = 'git' } = {}) {
   // Plain http, so this computer only: the page's secret and the API key never cross a network.
   if (!['127.0.0.1', 'localhost', '::1'].includes(String(host))) throw new Error(`The calculator only serves this computer (127.0.0.1), not ${host}.`);
   const secret = randomBytes(24).toString('base64url');
   const page = html.replace('"__CALCULATOR_LAUNCHER__"', JSON.stringify({ token: secret }));
   const state = { client: null, connection: null, job: null, read: new TenantReadStore({ file: null }) };
+  // Counting from git with this computer's git: any host the token is for, never a link-local or metadata address.
+  const counter = createGitCounter({ log, bin: gitBin, maxRunning: 1 });
+  sweepLeftovers();
 
   const readView = (job) => (job ? { id: job.id, state: job.state, step: job.step, done: job.done, total: job.total, startedAt: job.startedAt, finishedAt: job.finishedAt ?? null, error: job.error ?? null, ...(job.state === 'done' ? { result: job.result } : {}) } : { state: 'none' });
 
@@ -108,6 +120,12 @@ export async function startLauncher({ html, port = 0, host = '127.0.0.1', open =
       const ids = Array.isArray(input?.projectIds) ? input.projectIds.slice(0, MAX_PROJECTS).map((id) => String(id).slice(0, 100)) : [];
       return seriesFor(read, ids, cleanEngines(input?.engines).length ? cleanEngines(input.engines) : DEFAULT_ENGINES);
     },
+    // Fusion — new customer, Count from git, as CxMissionZero counts (src/fusion-git.js), on this computer: a token
+    // typed for one count only (there are no Admin's connections here), held in memory while the count runs.
+    'GET /api/projections/git/connections': () => ({ connections: [] }),
+    'POST /api/projections/git/repositories': (input) => listRepositories(typedSource(input), input?.owner),
+    'POST /api/projections/git/count': (input) => counter.start('local', { source: typedSource(input), repositories: input?.repositories }),
+    'GET /api/projections/git/count': (_input, url) => counter.view('local', url.searchParams.get('id')),
   };
 
   const server = http.createServer(async (req, res) => {
@@ -123,7 +141,7 @@ export async function startLauncher({ html, port = 0, host = '127.0.0.1', open =
     if (!route) return json(res, 404, { error: 'Not found.' });
     if (req.headers['x-calculator-token'] !== secret) return json(res, 403, { error: 'Open the calculator at the address the launcher printed.' });
     try {
-      json(res, 200, await route(req.method === 'POST' ? await body(req) : null));
+      json(res, 200, await route(req.method === 'POST' ? await body(req) : null, url));
     } catch (error) {
       if (error.status) return json(res, error.status, { error: error.message });
       // Unexpected: the details (paths, internals) go to the launcher's own window, not to the page.

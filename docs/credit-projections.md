@@ -135,7 +135,7 @@ Everything read, uploaded and entered is saved with the customer.
 
 ## Fusion
 
-The calculator has two Fusion tabs: **Fusion — existing customer**, for projects already in Checkmarx One, read with their lines of code, criticality and how often they are scanned; and **Fusion — new customer**, for code not in Checkmarx One yet, counted with cloc ([below](#fusion--new-customer-code-counted-with-cloc)). **Add Fusion**, in the main configuration at the top, has a tick for each, **Existing customer** and **New customer** (both ticked by default): the total counts only the ticked ones.
+The calculator has two Fusion tabs: **Fusion — existing customer**, for projects already in Checkmarx One, read with their lines of code, criticality and how often they are scanned; and **Fusion — new customer**, for code not in Checkmarx One yet, counted from git or with cloc ([below](#fusion--new-customer-code-counted-from-git-or-with-cloc)). **Add Fusion**, in the main configuration at the top, has a tick for each, **Existing customer** and **New customer** (both ticked by default): the total counts only the ticked ones.
 
 **Leaving Fusion out.** For a customer not taking Fusion, untick **Add Fusion: Existing customer** in the main configuration at the top, beside **Read from Checkmarx One** (ticked by default). Fusion is then left out of everything: the credits (the tile says **Left out**), the findings Fusion adds to triage & remediation (**More found by Fusion** shows 0% and cannot be changed), the Impact tab, the projection report and its PDF summary. The Fusion — existing customer tab says so at its top, with **Include it** to count it again, and keeps its models, numbers and projects for when it is; ticking it again brings back the % it had. The choice is saved with the customer; **Start again** ticks it again.
 
@@ -180,9 +180,29 @@ The table lists the projects in the scope, the most often scanned first, 100 at 
 
 Click a column's heading to sort the table by it (project, criticality, how often it is scanned, lines of code, 10K units, Fusion scans, model or credits), and again for the other way: names start A to Z, numbers largest first, and a value shown as — (not known, or a project left out) always comes last. The choice is remembered in this browser. **Download CSV** downloads the table, in the same order.
 
-## Fusion — new customer (code counted with cloc)
+## Fusion — new customer (code counted from git or with cloc)
 
-For a customer whose code is not in Checkmarx One yet, the lines of code come from **cloc** (Count Lines of Code, a free open-source tool) run where the code is: only the counts leave the customer's machine, never the code. The tab shows the commands, one line each for Windows cmd:
+For a customer whose code is not in Checkmarx One yet, the lines of code are counted one of two ways, picked at the top of the tab: **Count from git** or **Upload cloc results**. Either way each repository becomes a project in the same table, counted the same way (below), and a project of the same name is replaced.
+
+### Count from git
+
+**1 · Where the code is.** One of the Admin's git connections (GitHub, GitLab, Azure DevOps and Bitbucket, from the Beta page or the environment, numbered ones included: the same as Code authors), shown by host and kind only; their tokens stay on the server. Or **A token for this count only**: the git host, its address (github.com, gitlab.com and bitbucket.org unless another is typed; an Azure DevOps organisation such as `https://dev.azure.com/acme`) and a read-only token: GitHub *Contents: read*, GitLab *read_repository*, Azure DevOps *Code (Read)*, Bitbucket *Repositories: Read* (or `user:app-password`). The typed token is used for that request and the count it starts, then dropped: it is never saved with the customer, never written to a log, the audit or activity log, a file, an address or a command line, never sent back to the browser, and removed from any error git or the host gives. It goes only to its own host (an Azure DevOps token only to its own organisation), as an Authorization header; git gets it through its environment (`http.extraHeader`), never as an argument.
+
+**Which hosts.** The same rule as cloning for Code authors: github.com, gitlab.com, bitbucket.org, dev.azure.com, the hosts the Admin connected, and `SCM_ALLOWED_HOSTS`; https only, never with a user name or password in the address, and never a link-local or cloud metadata address (a name that leads to one is refused too). git is given https only and follows no redirects.
+
+**2 · Which repositories.** Type the organisation (GitHub, or a user), group (GitLab, with its subgroups), project (Azure DevOps; empty for every project) or workspace or project key (Bitbucket), and **List its repositories**: up to 1,000, each with its default branch, size and *archived* tag; those not archived are ticked, up to 50. Or paste clone addresses, one a line (https; a password in one is refused). **Count code lines (N repositories)** counts up to 50 at once, two at a time.
+
+**How it is counted.** For each repository, git fetches only the default branch's latest commit (`--depth 1`, no history, no tags) into a folder of its own (`mz-git-count-…`, readable by the server's user only) under the temporary folder; the files are read where git keeps them (no checkout), counted, and the folder is deleted at once, also when the count fails or runs out of time. A folder left by a server that stopped mid-count is removed at its next start. Each file's language comes from its name or extension (a file without one, from its `#!` line), as cloc names it; blank lines and comment lines (each language's line and block comments, a marker inside a string not counting) are left out; a file in two places is counted once; files git would call binary (a NUL byte in their first 8,000 bytes) and files over 1 MB are skipped. The result is the same shape as cloc's (per language, its files and code lines), so **Languages found** and the credits read it the same way. There is no cloc to install, so totals may differ slightly from cloc's. A repository over 2 GB, or taking more than 10 minutes, is stopped and says so.
+
+**Progress.** A line per repository: *Waiting*, *Fetching the latest commit…*, *Counting… 2,104 of 3,880 files*, then its code lines and main languages, or why it was not counted (the token refused, not found, the host not allowed, too big, too slow). Each repository becomes a project as soon as it is counted.
+
+**From, and Count again.** The table's **From** column says where a project's lines came from: *git · main · 3f2a1c9* (branch and commit; the host and path on hover) or *cloc · payments-api.json*. **Count again** on a git project counts its repository's latest commit again, with the connection it was counted with when it is still set up, or else what step 1 says. The customer keeps, with each git project, its host, repository path and address, branch, commit, when it was counted and the connection's id: never a token. Customers saved before keep their projects as they were.
+
+**Who, and where.** Anyone with the Cx Credits Calculator permission. In the standalone calculator, the launcher (`node cx-credits-calculator.mjs`) counts on its own computer with that computer's git and a token typed there (it has no Admin's connections); without git installed it says so. The HTML file on its own cannot reach git: it offers **Upload cloc results** only.
+
+### Upload cloc results
+
+When the code must not leave the customer, the lines of code come from **cloc** (Count Lines of Code, a free open-source tool) run where the code is: only the counts leave the customer's machine, never the code. `docker.io/aldanial/cloc` is cloc's official image, from its author Al Danial. The tab shows the commands, one line each for Windows cmd:
 
 - **One repository a file:** `podman run --rm -v "C:\code\payments-api:/src:ro" docker.io/aldanial/cloc --json --quiet /src > payments-api.json`, or with cloc installed `cloc --json --quiet --report-file=payments-api.json C:\code\payments-api`.
 - **Many repositories in one file:** `podman run --rm -v "C:\code:/src:ro" docker.io/aldanial/cloc --json --by-file --quiet /src > all-repos.json`. Each folder directly in `C:\code` becomes a project.
@@ -207,7 +227,7 @@ The strip at the top of the page adds both parts together for the customer open:
 | **Projection period** | How many months the projection covers, for both parts |
 | **Triage & remediation** | The credits over the period, split into the backlog today and what is ahead |
 | **Fusion — existing** | The credits of the Fusion scans of the customer's projects in Checkmarx One, once there are projects with lines of code. **Add Fusion: Existing customer** (at the top) unticked: **Left out**, and nothing of it counts |
-| **Fusion — new** | The credits of the Fusion scans of the code counted with cloc. **Add Fusion: New customer** unticked: **Left out** |
+| **Fusion — new** | The credits of the Fusion scans of the code counted from git or with cloc. **Add Fusion: New customer** unticked: **Left out** |
 | **Extra credits (%)** | A margin to add on top of the two, 0 to 500% (empty is none) |
 | **Total credits required** | Triage & remediation and each Fusion part ticked, with the extra on top |
 | **Credits per bundle** | How many credits one bundle holds: 10,000 unless you change it |

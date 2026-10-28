@@ -2969,6 +2969,45 @@ ol.calc-how li.calc-total { font-weight: 600; }
 .calc-fnew-table .calc-lang-line { display: block; font-size: 12px; color: var(--muted); }
 .calc-fnew-table .calc-lang-bar { display: flex; height: 6px; max-width: 220px; margin-top: 4px; border-radius: 3px; overflow: hidden; background: var(--surface-2); }
 .calc-fnew-table .calc-lang-bar i { display: block; height: 100%; }
+/* Fusion — new customer: Count from git. The switch is a .segmented; the rest follows the calculator's panels in every look. */
+.calc-fnew-ways { margin: 0 0 12px; }
+.calc-fnew-way > .calc-cmd-label:first-child { margin-top: 0; }
+.calc-git-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px 18px; margin: 0 0 10px; }
+.calc-git-steps h3 { margin: 0 0 6px; font-size: 14px; }
+.calc-git-steps .field { margin: 0; }
+.calc-git-hosts { display: grid; gap: 6px; }
+.calc-git-host { display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); cursor: pointer; }
+.calc-git-host:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.calc-git-host input { flex: none; margin-top: 3px; }
+.calc-git-host > span { min-width: 0; overflow-wrap: anywhere; }
+.calc-git-host small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+.calc-git-token { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 8px 12px; margin-top: 10px; }
+.calc-git-token .field input, .calc-git-token .field select, .calc-git-owner .field input { width: 100%; }
+.calc-git-wide { grid-column: 1 / -1; }
+.calc-git-lock { margin: 0; font-size: 12px; }
+.calc-git-owner { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-end; }
+.calc-git-owner .field { flex: 1 1 180px; min-width: 0; }
+.calc-git-repos { margin: 8px 0 0; max-height: 240px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.calc-git-repos-head { position: sticky; top: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--surface-2); color: var(--muted); font-size: 12px; }
+.calc-git-repos-head span { flex: 1 1 auto; }
+.calc-git-repos label { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 13px; cursor: pointer; }
+.calc-git-repos label:last-child { border-bottom: 0; }
+.calc-git-repos label > span { min-width: 0; overflow-wrap: anywhere; }
+.calc-git-size { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.calc-git-tag { display: inline-block; padding: 0 7px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.calc-git-paste { margin: 8px 0 0; }
+.calc-git-paste textarea { min-height: 72px; font: 12px/1.5 var(--mono, ui-monospace, Consolas, monospace); }
+.calc-git-progress { display: grid; gap: 6px; margin: 0 0 10px; }
+.calc-git-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 13px; }
+.calc-git-row > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.calc-git-state { color: var(--muted); font-size: 12px; text-align: end; }
+.calc-git-state.done { color: var(--ok); }
+.calc-git-state.bad { color: var(--bad); }
+.calc-fnew-table .calc-from .link { display: block; margin-top: 2px; font-size: 12px; }
+@media (max-width: 640px) {
+  .calc-git-row { grid-template-columns: minmax(0, 1fr); }
+  .calc-git-state { text-align: start; }
+}
 .calc-warn-note { border-inline-start-color: var(--warn, #b54708); background: color-mix(in srgb, var(--warn, #b54708) 10%, transparent); }
 .calc-source button { white-space: normal; max-width: 100%; }
 .calc-source-state { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; flex: 1 1 260px; min-width: 0; }
