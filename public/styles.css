@@ -3069,7 +3069,6 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .calc-step b { font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .calc-step small { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
 .calc-step-key { border-color: var(--border-strong); background: var(--surface-2); }
-.calc-step-note { display: block; margin-top: 4px; font-style: italic; }
 .calc-step-gold { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: var(--accent-soft); }
 .calc-step-gold b { color: var(--accent); }
 .calc-op { align-self: center; color: var(--muted); font-size: 16px; padding: 0 2px; }

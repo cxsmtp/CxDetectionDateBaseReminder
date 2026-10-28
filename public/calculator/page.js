@@ -451,7 +451,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         <div class="calc-steps">
           ${step('Backlog today', num(P.selected), P.selected === P.backlog ? 'every open finding' : `of ${num(P.backlog)} open`, '', 'backlog')}
           <span class="calc-op" aria-hidden="true">+</span>
-          ${step('Still to come', num(P.future), !A.includeFuture ? 'not counted' : `<span>${A.aiDeclinePercent ? `${num(P.arrivals)} new a month now, ${num(A.aiDeclinePercent)}% fewer each month with AI, over ${num(months)} months` : `${num(P.arrivals)} new a month × ${num(months)} months`}</span>${P.selected < P.backlog ? ' <span class="calc-step-note">In the same share per severity as the backlog chosen.</span>' : ''}`, '', 'future')}
+          ${step('Still to come', num(P.future), !A.includeFuture ? 'not counted' : `over ${num(months)} months`, '', 'future')}
           <span class="calc-op" aria-hidden="true">+</span>
           ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? `${num(A.fusionUpliftPercent)}% more findings` : fusionOff() ? '0% · Fusion left out' : 'Fusion not in the projection', '', 'fusion')}
           <span class="calc-op" aria-hidden="true">−</span>
