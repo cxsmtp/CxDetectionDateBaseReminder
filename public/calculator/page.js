@@ -300,7 +300,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       // The debt and fixing rates over the last 6 months, for the report, whatever the trend is averaged over.
       recent: analyse(totalRows, fixedRows, 6),
       projection,
-      weekly: weeklyTrend(totalRows, fixedRows, 52),
+      // Week by week over the months the trend is averaged over, at least 6 (as far back as the data goes).
+      weekly: weeklyTrend(totalRows, fixedRows, Math.round(Math.max(6, tr().lookbackMonths) * 4.345)),
       forecast: planForecast(analysis, projection),
       bySeverity: severityPlan(analysis, projection),
     };
