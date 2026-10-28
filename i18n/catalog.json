@@ -4027,6 +4027,12 @@
    "calculator report"
   ]
  },
+ "ast-app is the client every Checkmarx One API key signs in through, so it names no one: list the person's username or email instead.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Checkmarx One identities (MZ-01.01.05: never by the shared ast-app client id)"
+  ]
+ },
  "at": {
   "kind": "text",
   "seen": [
@@ -5497,6 +5503,14 @@
    "settings › span › Available variables",
    "logs › span › Available variables",
    "logs › activity › span › Available variables"
+  ]
+ },
+ "Checkmarx One usernames that may sign in with a key. Their email always counts.": {
+  "kind": "text",
+  "seen": [
+   "first start › small › People",
+   "sign in › small › People",
+   "Dashboard › small › People"
   ]
  },
  "Checkmarx One: connected": {
@@ -13661,6 +13675,12 @@
    "interactive HTML report"
   ]
  },
+ "Only someone allowed to enforce budgets can change what an Enforce budget restricts.": {
+  "kind": "message",
+  "seen": [
+   "Govern › budget › save (MZ-01.01.05: only an enforcer changes what an Enforce budget restricts)"
+  ]
+ },
  "Only the findings of this vulnerability are loaded, and every action here works on them. Several at once: separate them with commas.": {
   "kind": "text",
   "seen": [
@@ -19517,6 +19537,12 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "The mailbox server offers no encrypted connection, and MissionZero never sends a password without one. How to fix it: use port {0} (encrypted from the start), or ask the mail server's administrator to turn on STARTTLS for this port.": {
+  "kind": "message",
+  "seen": [
+   "self-check › replies (MZ-01.01.05: a mailbox password only over TLS)"
+  ]
+ },
  "The message is larger than the mail server accepts.": {
   "kind": "message",
   "seen": [
@@ -21614,14 +21640,6 @@
    "first start › input › Only these projects or people — optional",
    "sign in › input › Only these projects or people — optional",
    "Dashboard › input › Only these projects or people — optional"
-  ]
- },
- "Usernames or client ids that may sign in with a key. Their email always counts.": {
-  "kind": "text",
-  "seen": [
-   "first start › small › People",
-   "sign in › small › People",
-   "Dashboard › small › People"
   ]
  },
  "Uses Checkmarx One credits": {
