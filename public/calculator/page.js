@@ -557,7 +557,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   // ---- "?": how each number is worked out, with the figures in -------------------------------
 
   const whyButton = (key) => `<button type="button" class="calc-why" data-why="${key}" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button>`;
-  const WHY = { backlog: ['backlog'], future: ['future'], fusion: ['fusion'], triage: ['triage', 'remediate'], credits: ['credits'], 'fusion-credits': ['fusion-credits'], total: ['total'] };
+  const WHY = { backlog: ['backlog'], future: ['future'], fusion: ['fusion'], triage: ['triage', 'remediate'], credits: ['credits'], 'fusion-credits': ['fusion-credits', 'fusion-new-credits'], total: ['total'] };
   const pop = document.createElement('div');
   pop.className = 'calc-pop';
   pop.setAttribute('role', 'dialog');
@@ -575,7 +575,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     closePop();
     const data = reportData();
     const L = wording({ t, lang: currentLanguage() });
-    const sections = allSections(data, L).filter((x) => WHY[button.dataset.why]?.includes(x.key));
+    // The summary's Fusion is both customers': with only the new customer's counted, the existing one's "not in this projection" is left out.
+    const sections = allSections(data, L).filter((x) => WHY[button.dataset.why]?.includes(x.key) && !(x.key === 'fusion-credits' && !data.fusion && data.fusionNew));
     if (!sections.length) return;
     pop.innerHTML = `<button type="button" class="calc-pop-close" aria-label="${esc(t('Close'))}">×</button>${sections.map((x) => `<h4>${x.title}</h4>${sectionHtml(x)}`).join('')}`;
     pop.dir = RTL.has(currentLanguage()) ? 'rtl' : 'ltr';
@@ -1134,6 +1135,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     // The HTML file on its own: Count from git says it cannot, and points to cloc-fusion.
     $('calc-git-offline').hidden = on;
     $('calc-git-steps').hidden = !on;
+    // How the server measures: not said where nothing is measured.
+    $('calc-git-how').hidden = !on;
     for (const id of ['calc-git-progress', 'calc-git-summary']) if (!on) $(id).hidden = true;
     if (shown === 'git' && on) loadConnections();
   }

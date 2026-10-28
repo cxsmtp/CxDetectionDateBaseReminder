@@ -291,6 +291,12 @@ test('the page: Count from git across connections and organizations, Import a cl
   const page = fs.readFileSync(new URL('../public/calculator/page.js', import.meta.url), 'utf8');
   assert.match(page, /data-fnew-recount>Count again</);
   assert.match(page, /gitOn = \(\) => !standalone \|\| canGit\(\)/);
+  // The file on its own: the steps and how the server measures are hidden, only the note that it cannot is shown.
+  assert.match(html, /<p class="calc-notice calc-warn-note calc-git-how" id="calc-git-how">How it is measured/);
+  assert.match(page, /\$\('calc-git-offline'\)\.hidden = on;\s+\$\('calc-git-steps'\)\.hidden = !on;[\s\S]{0,120}\$\('calc-git-how'\)\.hidden = !on;/);
+  assert.match(html, /<input type="checkbox" id="calc-fusion-new-on" checked \/> New customer <small>· code counted from git, cloc-fusion or cloc<\/small>/);
+  // The summary's Fusion "?" explains both customers' parts.
+  assert.match(page, /'fusion-credits': \['fusion-credits', 'fusion-new-credits'\]/);
   assert.match(page, /Everything this token can see/);
   assert.match(fs.readFileSync(new URL('../public/calculator/standalone.js', import.meta.url), 'utf8'), /canGit: \(\) => Boolean\(launcher\)/);
 });

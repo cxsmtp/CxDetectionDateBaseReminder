@@ -3010,6 +3010,9 @@ ol.calc-how li.calc-total { font-weight: 600; }
 .calc-add-fusion { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .calc-add-fusion > b { font-size: 13px; }
 .calc-add-fusion .pill-check small { color: var(--muted); font-weight: 500; }
+/* On a narrow screen a pill wraps inside the panel instead of pushing the page sideways. */
+.calc-add-fusion .pill-check { max-width: 100%; flex-wrap: wrap; row-gap: 0; padding-block: 4px; }
+.calc-add-fusion .pill-check small { white-space: normal; }
 /* Include scans from: the scan origins, a drop-down like the engines', each with its scans and projects. */
 .calc-origins { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .calc-origins > b { font-size: 13px; }
@@ -3102,7 +3105,7 @@ ol.calc-how li.calc-total { font-weight: 600; }
 .calc-git-filter { flex: 0 1 200px; min-width: 120px; padding: 2px 8px; font-size: 12px; }
 .calc-git-repos label.calc-git-hidden { display: none; }
 .calc-git-run { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-end; margin: 10px 0 4px; }
-.calc-git-run .field { flex: 0 1 260px; min-width: 0; margin: 0; }
+.calc-git-run .field { flex: 1 1 260px; max-width: 380px; min-width: 0; margin: 0; }
 .calc-git-run .field select { width: 100%; }
 .calc-git-summary { margin: 0 0 10px; }
 .calc-git-progress { max-height: 420px; overflow: auto; }
