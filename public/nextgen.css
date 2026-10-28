@@ -1339,19 +1339,16 @@
    ========================================================================== */
 
 /* Readings on one band: Impact's figures, the calculator's sums. Hairlines between, no cards. */
-:root[data-ui="nextgen"][data-look~="signal"] .impact-tiles,
-:root[data-ui="nextgen"][data-look~="signal"] .calc-sum { gap: 0; padding: 0; border-top: 1px solid var(--text); border-bottom: 1px solid var(--border); }
-:root[data-ui="nextgen"][data-look~="signal"] .impact-tile,
-:root[data-ui="nextgen"][data-look~="signal"] .calc-sum-item { border: 0; border-inline-start: 1px solid var(--border); background: transparent; box-shadow: none; padding: 14px 18px 16px; }
-:root[data-ui="nextgen"][data-look~="signal"] .impact-tile:first-child,
-:root[data-ui="nextgen"][data-look~="signal"] .calc-sum-item:first-child { border-inline-start: 0; padding-inline-start: 0; }
+:root[data-ui="nextgen"][data-look~="signal"] .impact-tiles { gap: 0; padding: 0; border-top: 1px solid var(--text); border-bottom: 1px solid var(--border); }
+:root[data-ui="nextgen"][data-look~="signal"] .impact-tile { border: 0; border-inline-start: 1px solid var(--border); background: transparent; box-shadow: none; padding: 14px 18px 16px; }
+:root[data-ui="nextgen"][data-look~="signal"] .impact-tile:first-child { border-inline-start: 0; padding-inline-start: 0; }
 :root[data-ui="nextgen"][data-look~="signal"] .impact-tile .label,
-:root[data-ui="nextgen"][data-look~="signal"] .calc-sum-item > span:first-child { font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+:root[data-ui="nextgen"][data-look~="signal"] .calc-strip-label { font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 :root[data-ui="nextgen"][data-look~="signal"] .impact-tile .value { font-size: 40px; font-weight: 400; letter-spacing: -0.02em; line-height: 1.05; }
 :root[data-ui="nextgen"][data-look~="signal"] .impact-tile.hero .value { color: var(--signal); }
-:root[data-ui="nextgen"][data-look~="signal"] .calc-sum-item b { font-size: 30px; font-weight: 400; letter-spacing: -0.015em; }
-:root[data-ui="nextgen"][data-look~="signal"] .calc-sum-key { background: transparent; }
-:root[data-ui="nextgen"][data-look~="signal"] .calc-sum-key b { color: var(--signal); }
+:root[data-ui="nextgen"][data-look~="signal"] .calc-strip-fig { font-weight: 400; letter-spacing: -0.015em; }
+:root[data-ui="nextgen"][data-look~="signal"] .calc-strip { --strip-key: var(--signal); border-color: transparent; border-top: 1px solid var(--text); border-radius: 0; background: transparent; }
+:root[data-ui="nextgen"][data-look~="signal"] .calc-strip-set { background: var(--well); }
 
 /* Notes are a rule and words, not a coloured box. */
 :root[data-ui="nextgen"][data-look~="signal"] .audit-log .supporting-notice { background: transparent; border: 0; border-inline-start: 2px solid var(--signal); padding: 2px 0 2px 14px; }
@@ -1406,11 +1403,11 @@
 
 /* Sections: space, not rules. */
 :root[data-ui="nextgen"][data-look~="signal"] :is(.panel, .journey, .totals, .stat-tiles, .rp-portfolio, .rp-kpis, .rp-flow:not([hidden]), .table-wrap) { border-top: 0; border-radius: var(--radius); }
-:root[data-ui="nextgen"][data-look~="signal"] :is(.totals > div, .rp-tile, .rp-kpi, .impact-tile, .calc-sum-item) { border-inline-start: 0; }
-:root[data-ui="nextgen"][data-look~="signal"] :is(.impact-tiles, .calc-sum) { border: 0; gap: 8px 28px; }
-:root[data-ui="nextgen"][data-look~="signal"] :is(.impact-tile, .calc-sum-item):first-child { padding-inline-start: 18px; }
-:root[data-ui="nextgen"][data-look~="signal"] :is(.impact-tile, .calc-sum-item) { border-radius: var(--radius); transition: background 0.2s ease; }
-:root[data-ui="nextgen"][data-look~="signal"] :is(.impact-tile, .calc-sum-item):hover { background: var(--well); }
+:root[data-ui="nextgen"][data-look~="signal"] :is(.totals > div, .rp-tile, .rp-kpi, .impact-tile) { border-inline-start: 0; }
+:root[data-ui="nextgen"][data-look~="signal"] .impact-tiles { border: 0; gap: 8px 28px; }
+:root[data-ui="nextgen"][data-look~="signal"] .impact-tile:first-child { padding-inline-start: 18px; }
+:root[data-ui="nextgen"][data-look~="signal"] .impact-tile { border-radius: var(--radius); transition: background 0.2s ease; }
+:root[data-ui="nextgen"][data-look~="signal"] .impact-tile:hover { background: var(--well); }
 :root[data-ui="nextgen"][data-look~="signal"] fieldset { border: 0; padding: 0; margin-inline: 0; }
 :root[data-ui="nextgen"][data-look~="signal"] legend { padding: 0; }
 
@@ -1611,10 +1608,10 @@
 @media (prefers-reduced-motion: reduce) { :root[data-ui="nextgen"][data-look~="cabin"] .topbar::after { animation: none; } }
 
 /* Glass: every section a pane, its top edge catching the light; no frames. */
-:root[data-ui="nextgen"][data-look~="cabin"] :is(.panel, .journey, .rp-flow:not([hidden]), .rp-portfolio, .table-wrap, .impact-tiles, .calc-sum) { background: var(--glass); border: 0; border-radius: 24px; box-shadow: inset 0 1px 0 var(--glass-edge), 0 30px 60px -40px rgb(0 0 0 / 0.5); backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3); }
+:root[data-ui="nextgen"][data-look~="cabin"] :is(.panel, .journey, .rp-flow:not([hidden]), .rp-portfolio, .table-wrap, .impact-tiles) { background: var(--glass); border: 0; border-radius: 24px; box-shadow: inset 0 1px 0 var(--glass-edge), 0 30px 60px -40px rgb(0 0 0 / 0.5); backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3); }
 :root[data-ui="nextgen"][data-look~="cabin"] .panel { padding: 22px 24px; }
 :root[data-ui="nextgen"][data-look~="cabin"] :is(.panel, .journey) :is(.panel, .table-wrap) { background: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
-:root[data-ui="nextgen"][data-look~="cabin"] :is(.impact-tiles, .calc-sum) { padding: 8px; }
+:root[data-ui="nextgen"][data-look~="cabin"] .impact-tiles { padding: 8px; }
 :root[data-ui="nextgen"][data-look~="cabin"] .totals { background: transparent; box-shadow: none; }
 :root[data-ui="nextgen"][data-look~="cabin"] thead th, :root[data-ui="nextgen"][data-look~="cabin"] #projects thead th { background: transparent; }
 :root[data-ui="nextgen"][data-look~="cabin"] tbody tr { border-color: var(--glass-line); }
@@ -1623,8 +1620,8 @@
 /* Type: light, wide and calm, like the figures on a luxury instrument cluster; labels in small capitals. */
 :root[data-ui="nextgen"][data-look~="cabin"] h1 { font-weight: 300; letter-spacing: -0.02em; }
 :root[data-ui="nextgen"][data-look~="cabin"] h2 { font-weight: 400; }
-:root[data-ui="nextgen"][data-look~="cabin"] :is(.rp-tile-label, .totals .label, .flow-label, .scope-label, .field > span, .field > label, legend, thead th, #projects thead th, .rp-head, .nav-group, .jlabel, .gs-stage, .set-group, .stage-chip, .impact-tile .label, .calc-sum-item > span:first-child) { font-family: var(--font); font-size: 10.5px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-:root[data-ui="nextgen"][data-look~="cabin"] :is(.rp-tile-value, .rp-kpi-value, .totals .value, .flow-big, .flow-num, .jz-pct, .impact-tile .value, .calc-sum-item b) { font-weight: 300; letter-spacing: -0.03em; }
+:root[data-ui="nextgen"][data-look~="cabin"] :is(.rp-tile-label, .totals .label, .flow-label, .scope-label, .field > span, .field > label, legend, thead th, #projects thead th, .rp-head, .nav-group, .jlabel, .gs-stage, .set-group, .stage-chip, .impact-tile .label, .calc-strip-label) { font-family: var(--font); font-size: 10.5px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+:root[data-ui="nextgen"][data-look~="cabin"] :is(.rp-tile-value, .rp-kpi-value, .totals .value, .flow-big, .flow-num, .jz-pct, .impact-tile .value, .calc-strip-fig) { font-weight: 300; letter-spacing: -0.03em; }
 :root[data-ui="nextgen"][data-look~="cabin"] .flow-big { font-size: 72px; }
 
 /* Controls: glass pills; the one that matters lit with the ambient colour. */
@@ -1964,10 +1961,13 @@
 }
 
 /* All three: panes of their own material, soft corners, no frames. */
-:is(:root[data-ui="nextgen"][data-look~="circuit"], :root[data-ui="nextgen"][data-look~="residence"], :root[data-ui="nextgen"][data-look~="chronometer"]) :is(.panel, .journey, .rp-flow:not([hidden]), .rp-portfolio, .table-wrap, .impact-tiles, .calc-sum) { background: var(--glass); border: 0; box-shadow: inset 0 1px 0 var(--glass-edge), 0 24px 50px -36px rgb(0 0 0 / 0.45); }
+:is(:root[data-ui="nextgen"][data-look~="circuit"], :root[data-ui="nextgen"][data-look~="residence"], :root[data-ui="nextgen"][data-look~="chronometer"]) :is(.panel, .journey, .rp-flow:not([hidden]), .rp-portfolio, .table-wrap, .impact-tiles) { background: var(--glass); border: 0; box-shadow: inset 0 1px 0 var(--glass-edge), 0 24px 50px -36px rgb(0 0 0 / 0.45); }
 :is(:root[data-ui="nextgen"][data-look~="circuit"], :root[data-ui="nextgen"][data-look~="residence"], :root[data-ui="nextgen"][data-look~="chronometer"]) :is(.panel, .journey) :is(.panel, .table-wrap) { background: transparent; box-shadow: none; }
 :is(:root[data-ui="nextgen"][data-look~="circuit"], :root[data-ui="nextgen"][data-look~="residence"], :root[data-ui="nextgen"][data-look~="chronometer"]) .panel { padding: 22px 24px; }
-:is(:root[data-ui="nextgen"][data-look~="circuit"], :root[data-ui="nextgen"][data-look~="residence"], :root[data-ui="nextgen"][data-look~="chronometer"]) :is(.impact-tiles, .calc-sum) { padding: 8px; }
+:is(:root[data-ui="nextgen"][data-look~="circuit"], :root[data-ui="nextgen"][data-look~="residence"], :root[data-ui="nextgen"][data-look~="chronometer"]) .impact-tiles { padding: 8px; }
+:is(:root[data-ui="nextgen"][data-look~="cabin"], :root[data-ui="nextgen"][data-look~="circuit"], :root[data-ui="nextgen"][data-look~="residence"], :root[data-ui="nextgen"][data-look~="chronometer"]) .calc-strip { border-color: var(--glass-line); background: transparent; }
+:is(:root[data-ui="nextgen"][data-look~="cabin"], :root[data-ui="nextgen"][data-look~="circuit"], :root[data-ui="nextgen"][data-look~="residence"], :root[data-ui="nextgen"][data-look~="chronometer"]) .calc-strip-set { background: var(--well); }
+:is(:root[data-ui="nextgen"][data-look~="cabin"], :root[data-ui="nextgen"][data-look~="circuit"], :root[data-ui="nextgen"][data-look~="residence"], :root[data-ui="nextgen"][data-look~="chronometer"]) .calc-strip > div { border-color: var(--glass-line); }
 :is(:root[data-ui="nextgen"][data-look~="circuit"], :root[data-ui="nextgen"][data-look~="residence"], :root[data-ui="nextgen"][data-look~="chronometer"]) :is(.totals, thead th, #projects thead th) { background: transparent; box-shadow: none; }
 :is(:root[data-ui="nextgen"][data-look~="circuit"], :root[data-ui="nextgen"][data-look~="residence"], :root[data-ui="nextgen"][data-look~="chronometer"]) .scope-pick { border: 0; border-radius: 16px; background: var(--well); padding: 16px 18px; }
 :is(:root[data-ui="nextgen"][data-look~="circuit"], :root[data-ui="nextgen"][data-look~="residence"], :root[data-ui="nextgen"][data-look~="chronometer"]) .sidebar { background: color-mix(in srgb, var(--bg) 70%, transparent); }
@@ -1981,7 +1981,7 @@
 :root[data-ui="nextgen"][data-look~="circuit"] body { background: radial-gradient(1000px 520px at 50% -18%, color-mix(in srgb, var(--signal) 10%, transparent), transparent 65%), repeating-linear-gradient(45deg, color-mix(in srgb, var(--text) 2.2%, transparent) 0 2px, transparent 2px 5px), var(--bg); background-attachment: fixed; }
 :root[data-ui="nextgen"][data-look~="circuit"] :is(h1, h2) { font-family: "MZ Brand Condensed", var(--font); font-weight: 500; letter-spacing: -0.005em; }
 :root[data-ui="nextgen"][data-look~="circuit"] h1 { text-transform: uppercase; letter-spacing: 0.02em; }
-:root[data-ui="nextgen"][data-look~="circuit"] :is(.rp-tile-label, .totals .label, .flow-label, .scope-label, .field > span, .field > label, legend, thead th, #projects thead th, .nav-group, .jlabel, .gs-stage, .set-group, .stage-chip, .impact-tile .label, .calc-sum-item > span:first-child) { font-family: var(--font); font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+:root[data-ui="nextgen"][data-look~="circuit"] :is(.rp-tile-label, .totals .label, .flow-label, .scope-label, .field > span, .field > label, legend, thead th, #projects thead th, .nav-group, .jlabel, .gs-stage, .set-group, .stage-chip, .impact-tile .label, .calc-strip-label) { font-family: var(--font); font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
 :root[data-ui="nextgen"][data-look~="circuit"] :is(.flow-big, .flow-num, .totals .value, .rp-tile-value, .impact-tile .value) { font-weight: 500; font-style: italic; letter-spacing: -0.02em; }
 :root[data-ui="nextgen"][data-look~="circuit"] :is(button, .button):not(.is-golden):not(.link):not(.ptab):not(.tab):not(.help-q):not(.calc-why):not(.nav-pin) { border-radius: 10px; }
 :root[data-ui="nextgen"][data-look~="circuit"] :is(.ptab[aria-selected="true"], .ptab.active, .set-nav a.active, .tab.active) { background: var(--text); color: var(--bg); box-shadow: inset 0 -2px 0 var(--signal); }
@@ -2008,8 +2008,8 @@
 :root[data-ui="nextgen"][data-look~="residence"] body { background: radial-gradient(1100px 600px at 50% -20%, color-mix(in srgb, var(--signal) 9%, transparent), transparent 65%), var(--bg); background-attachment: fixed; }
 :root[data-ui="nextgen"][data-look~="residence"] :is(h1, h2, .app-name) { font-family: var(--ng-serif); font-weight: 400; letter-spacing: -0.01em; }
 :root[data-ui="nextgen"][data-look~="residence"] h2::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-inline-end: 12px; vertical-align: 0.18em; background: var(--signal); transform: rotate(45deg); }
-:root[data-ui="nextgen"][data-look~="residence"] :is(.rp-tile-label, .totals .label, .flow-label, .scope-label, .field > span, .field > label, legend, thead th, #projects thead th, .nav-group, .jlabel, .gs-stage, .set-group, .stage-chip, .impact-tile .label, .calc-sum-item > span:first-child) { font-family: var(--font); font-size: 10.5px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: color-mix(in srgb, var(--signal) 70%, var(--muted)); }
-:root[data-ui="nextgen"][data-look~="residence"] :is(.flow-big, .flow-num, .totals .value, .rp-tile-value, .impact-tile .value, .calc-sum-item b) { font-family: var(--ng-serif); font-weight: 300; letter-spacing: -0.02em; }
+:root[data-ui="nextgen"][data-look~="residence"] :is(.rp-tile-label, .totals .label, .flow-label, .scope-label, .field > span, .field > label, legend, thead th, #projects thead th, .nav-group, .jlabel, .gs-stage, .set-group, .stage-chip, .impact-tile .label, .calc-strip-label) { font-family: var(--font); font-size: 10.5px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: color-mix(in srgb, var(--signal) 70%, var(--muted)); }
+:root[data-ui="nextgen"][data-look~="residence"] :is(.flow-big, .flow-num, .totals .value, .rp-tile-value, .impact-tile .value, .calc-strip-fig) { font-family: var(--ng-serif); font-weight: 300; letter-spacing: -0.02em; }
 :root[data-ui="nextgen"][data-look~="residence"] :is(button:not(.is-golden).primary, a.button.primary) { --btn-glow: 0 0 0 1px color-mix(in srgb, var(--signal) 70%, transparent); letter-spacing: 0.04em; }
 :root[data-ui="nextgen"][data-look~="residence"] :is(.ptab[aria-selected="true"], .ptab.active, .set-nav a.active, .tab.active) { background: var(--primary); color: var(--primary-ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal) 60%, transparent); }
 :root[data-ui="nextgen"][data-look~="residence"] .tab.active svg { color: var(--signal); }
@@ -2022,8 +2022,8 @@
 :root[data-ui="nextgen"][data-look~="chronometer"] { --radius: 20px; --radius-sm: 12px; --ng-serif: "MZ Fraunces", "Iowan Old Style", Georgia, serif; }
 :root[data-ui="nextgen"][data-look~="chronometer"] body { background: radial-gradient(1000px 560px at 50% -18%, color-mix(in srgb, var(--signal) 10%, transparent), transparent 66%), var(--bg); background-attachment: fixed; }
 :root[data-ui="nextgen"][data-look~="chronometer"] :is(h1, h2, .app-name) { font-family: var(--ng-serif); font-weight: 450; letter-spacing: -0.012em; }
-:root[data-ui="nextgen"][data-look~="chronometer"] :is(.rp-tile-label, .totals .label, .flow-label, .scope-label, .field > span, .field > label, legend, thead th, #projects thead th, .nav-group, .jlabel, .gs-stage, .set-group, .stage-chip, .impact-tile .label, .calc-sum-item > span:first-child) { font-family: var(--font); font-size: 10.5px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; }
-:root[data-ui="nextgen"][data-look~="chronometer"] :is(.flow-big, .flow-num, .totals .value, .rp-tile-value, .impact-tile .value, .calc-sum-item b) { font-weight: 300; letter-spacing: -0.025em; }
+:root[data-ui="nextgen"][data-look~="chronometer"] :is(.rp-tile-label, .totals .label, .flow-label, .scope-label, .field > span, .field > label, legend, thead th, #projects thead th, .nav-group, .jlabel, .gs-stage, .set-group, .stage-chip, .impact-tile .label, .calc-strip-label) { font-family: var(--font); font-size: 10.5px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; }
+:root[data-ui="nextgen"][data-look~="chronometer"] :is(.flow-big, .flow-num, .totals .value, .rp-tile-value, .impact-tile .value, .calc-strip-fig) { font-weight: 300; letter-spacing: -0.025em; }
 :root[data-ui="nextgen"][data-look~="chronometer"] :is(button:not(.is-golden).primary, a.button.primary) { --btn-glow: 0 0 0 1px color-mix(in srgb, var(--signal) 55%, transparent); }
 :root[data-ui="nextgen"][data-look~="chronometer"] :is(.ptab[aria-selected="true"], .ptab.active, .set-nav a.active, .tab.active) { background: var(--primary); color: var(--primary-ink); }
 :root[data-ui="nextgen"][data-look~="chronometer"] .tab.active svg { color: var(--primary-ink); }
