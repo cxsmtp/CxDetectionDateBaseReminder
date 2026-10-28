@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.04 | 447/s, 200 (connection resets and timeouts on the host; main 426–460, 111–313) | 28.8 s | 2.2 s | 1006 | 0 vulnerabilities | Rescan ea771546: 69 open (1 / 32 / 21 / 14, 1 info), down from 76; 14 new checked: none exploitable, 4 hardened, 7 gone ([review](docs/security/mz-01.01.04-review.md)) |
 | MZ-01.01.03 | 432/s, 258 (connection resets and timeouts on the host; main 403–438, 282–740) | 23.1 s | 2.6 s | 979 | 0 vulnerabilities | Rescan 993d4d10: 63 open (1 / 31 / 21 / 9, 1 info); 35 judged before, 29 checked: 3 fixed, 26 not exploitable ([review](docs/security/mz-01.01.03-review.md)) |
 | MZ-01.01.02 | 486/s, 30 (connection resets and timeouts on the host; main 475–492, 5–74; from one folder 496, 4 against 486, 34) | 10.2 s | 822 ms | 966 | 0 vulnerabilities | Rescan 79851f0b: 57 open (10 / 22 / 13 / 12), all judged before, nothing new; 33 first reported on main: 12 fixed, 21 not exploitable, 1 more found and fixed ([review](docs/security/mz-01.01.02-review.md)) |
 | MZ-01.01.01 | 490/s, 14 (connection resets on the host; MZ-01.01.00 475–487, 30–47) | 11.3 s | 915 ms | 965 | 0 vulnerabilities | Scan 47cdd5a5 of main 3b6ab29: 72 open (11 / 30 / 17 / 14); 33 first reported there, handled in MZ-01.01.02 |
@@ -90,7 +91,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.01.04 — DATE · [#127](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/127)
+## MZ-01.01.04 — 2026-10-28 18:25 UTC · [#127](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/127)
 
 - **More found by Fusion counts SAST only.** In the Cx Credits Calculator, Fusion's extra findings (5% by default) are now counted on the SAST findings among the backlog chosen and the findings still to come, in each severity's own SAST share, since Fusion reads code; SCA and the other engines no longer add to it. The page, the projection report, its calculations and the PDF say "SAST findings".
 - **Saved customers follow.** A customer read from Checkmarx One before this version is added up again from the last read when it is opened, so its SAST share is known without reading again. With the two exports, which add every engine together, the % stays on every finding and the page says so.
@@ -98,7 +99,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 - **Include scans from.** A list next to **Add Fusion** names every scan origin found in the read (Jenkins, GitHub Actions, the CLI, the web portal and so on), with its scans and projects, all ticked to start with. Only the scans from the ticked origins count: how often each project is scanned for Fusion, and the backlog and its trend for triage and remediation. A project with no such scan is left out. The report and the PDF name the origins counted.
 - **One Apply for every setting.** The settings at the top and the project filters wait for **Apply**: a bar lists the changes waiting, with **Undo**. When a change needs Checkmarx One read again (**Every branch**, more **Projects to read**), Apply says so and asks first.
 - **Only the Fusion that applies.** The calculator shows one Fusion figure, for the part that applies to the customer (both added up when both do), and **Credits per bundle** (10,000) sits behind **Change** under Bundles. When Fusion is not counted, the report and its PDF leave it out and say in one line, after **How we got there**, to ask the Checkmarx team for a Fusion forecast if one is needed.
-- **Status.** STATUS
+- **Status.** 1,006 tests pass and `npm audit --omit=dev` finds nothing. Under 3000 people at once the final code served 447 requests a second against main's 426, with fewer failed (200 against 313, all connection resets and timeouts on the test host) and a shorter tail. Checkmarx One's 14 new results on this release were each checked: none is exploitable, four were hardened anyway (git now connects only to the addresses checked, among them), and the rescan of the final code reports 69 open, down from 76 ([review](docs/security/mz-01.01.04-review.md)).
 
 ## MZ-01.01.03 — 2026-10-28 15:18 UTC · [#126](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/126)
 
