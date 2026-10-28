@@ -10,7 +10,7 @@
 import { FREQUENCIES, HOURS_A_YEAR, SEVERITIES, aheadMonths, creditSummary, fusionTotal } from './model.js';
 import { allSections, moneyText } from './explain.js';
 import { forecastChart } from './charts.js';
-import { assumptionItems, reportFileName, trFigures, wording } from './report.js';
+import { assumptionItems, falsePositiveLine, reportFileName, selectionLine, trFigures, wording } from './report.js';
 import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../look.js';
 
 /** The page size in PDF points (16:9, as a presentation) and the drawing size in pixels. */
@@ -80,12 +80,14 @@ export function slideContent(data, { t, lang = 'en', calculations = false } = {}
     pages.push({
       kind: 'tr',
       title: w('Triage & remediation'),
-      subtitle: w('The backlog today and the findings still to come over the next {0} months', num(months)),
+      subtitle: tr.ahead?.includeFuture === false ? w('The backlog today, triaged and remediated over the next {0} months', num(months)) : w('The backlog today and the findings still to come over the next {0} months', num(months)),
       figures: [
-        { label: w('Backlog today'), value: num(f.backlog) },
-        { label: tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer each month with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace'), value: `+${num(f.future)}` },
-        { label: w('To triage'), value: num(f.toTriage), note: w('{0} to remediate', num(f.truePositives)) },
-        { label: w('Triage & remediation credits'), value: num(f.credits), key: true },
+        // Every open vulnerability today, small: what the plan takes from it comes next.
+        { label: w('Total open vulnerabilities today'), value: num(f.backlog), small: true },
+        // Still to come only when it is counted.
+        ...(tr.ahead?.includeFuture === false ? [] : [{ label: tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer each month with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace'), value: `+${num(f.future)}` }]),
+        { label: w('To triage'), value: num(f.toTriage), notes: [w('{0} to remediate', num(f.truePositives)), plain(selectionLine(tr, L))].filter(Boolean) },
+        { label: w('Triage & remediation credits'), value: num(f.credits), key: true, notes: [plain(falsePositiveLine(tr, L))].filter(Boolean) },
       ],
       chart: tr.forecast?.length ? { kind: 'forecast', points: tr.forecast, title: w('Backlog trend and forecast'), legend: [[w('Backlog'), C.ink, false], [w('If nothing changes'), '#dc2626', true], [w('With this plan'), C.accent, true]] } : null,
       lines,
@@ -399,12 +401,19 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
   // The figures down the side, the picture beside them, the lines under it.
   let fy = 290;
   for (const fig of page.figures) {
+    // Small print under the figure (what the plan takes, the false positives): as many lines as it needs.
+    ctx.font = font(20);
+    const small = (fig.notes ?? []).flatMap((n) => wrap(ctx, n, 504));
+    const base = fig.small ? 108 : 150;
+    const height = base + small.length * 26 + (small.length ? 8 : 0);
     ctx.fillStyle = fig.key ? C.key : C.soft;
-    ctx.fillRect(X(80, 560), fy, 560, 150);
+    ctx.fillRect(X(80, 560), fy, 560, height);
     const after = lines(fig.label, 108, fy + 44, 504, { size: 24, colour: C.muted, lead: 30 });
-    text(fig.value, 108, Math.max(after + 36, fy + 112), { size: 54, weight: 600, colour: fig.key ? C.accent : C.ink });
-    if (fig.note) text(fig.note, 612, fy + 132, { size: 22, colour: C.muted, align: 'end' });
-    fy += 168;
+    const valueY = fig.small ? Math.max(after + 26, fy + 86) : Math.max(after + 36, fy + 112);
+    text(fig.value, 108, valueY, { size: fig.small ? 36 : 54, weight: 600, colour: fig.key ? C.accent : C.ink });
+    if (fig.note) text(fig.note, 612, valueY, { size: 22, colour: C.muted, align: 'end' });
+    small.forEach((row, i) => text(row, 108, fy + base + i * 26, { size: 20, colour: C.muted }));
+    fy += height + 14;
   }
   const left = page.figures.length ? 700 : 80;
   const width = W - left - 80;

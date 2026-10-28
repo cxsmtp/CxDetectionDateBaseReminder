@@ -68,6 +68,27 @@ export function trFigures(tr) {
   };
 }
 
+/** Which severities the plan takes, each whole or in part: "All Critical · All High · Medium: 12,000 of 80,000". */
+export function selectionLine(tr, L) {
+  const { w, num } = L;
+  return SEVERITIES.map((s) => {
+    const r = tr.rows?.[s];
+    if (!r?.backlog || !(r.selected > 0)) return '';
+    return r.selected >= r.backlog ? w('All {0}', w(s)) : w('{0}: {1} of {2}', w(s), num(r.selected), num(r.backlog));
+  }).filter(Boolean).join(' · ');
+}
+
+/** The false positives the plan takes (triaged, never remediated): one % for every severity counted, or each its own. */
+export function falsePositiveLine(tr, L) {
+  const { w, num } = L;
+  const counted = SEVERITIES.filter((s) => (tr.rows?.[s]?.selected ?? 0) + (tr.rows?.[s]?.future ?? 0) > 0);
+  const fps = [...new Set(counted.map((s) => tr.rows[s].fp))];
+  if (!fps.length) return '';
+  return fps.length === 1
+    ? w('{0}% taken as false positives: triaged, not remediated.', num(fps[0]))
+    : w('Taken as false positives, triaged and not remediated: {0}.', counted.map((s) => `${w(s)} ${num(tr.rows[s].fp)}%`).join(', '));
+}
+
 /** The one line that says which projects were counted, when the customer narrowed them. */
 function scopeLine(source, L) {
   const { w } = L;
@@ -158,14 +179,15 @@ function story(data, L) {
     cards.push(`<div class="card">
       <h3>${w('The next {0} months', num(months))}</h3>
       <table class="calc">
-        <tr><td>${w('Backlog to triage')}</td><td>${num(f.selected)}</td></tr>
-        <tr><td>${tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer each month with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace')}</td><td>+${num(f.future)}</td></tr>
+        <tr><td>${w('Backlog to triage')}<small class="sel">${selectionLine(tr, L)}</small></td><td>${num(f.selected)}</td></tr>
+        ${tr.ahead?.includeFuture === false ? '' : `<tr><td>${tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer each month with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace')}</td><td>+${num(f.future)}</td></tr>`}
         <tr><td>${w('More found by Fusion ({0}%)', num(tr.fusion ? tr.ahead?.fusionUpliftPercent ?? 0 : 0))}</td><td>+${num(f.fusionExtra)}</td></tr>
         <tr><td>${w('Fewer false positives with FAE ({0}%)', num(tr.ahead?.faePercent ?? 0))}</td><td>−${num(f.faeAvoided)}</td></tr>
         <tr class="sum"><td>${w('To triage')}</td><td>${num(f.toTriage)}</td></tr>
         <tr><td>${w('To remediate (true positives)')}</td><td>${num(f.truePositives)}</td></tr>
         <tr class="sum gold"><td>${w('Triage & remediation credits')}</td><td>${num(f.credits, 1)}</td></tr>
       </table>
+      ${falsePositiveLine(tr, L) ? `<p class="sub">${falsePositiveLine(tr, L)}</p>` : ''}
     </div>`);
   }
   if (data.fusion) {
@@ -424,7 +446,7 @@ h2{margin:0 0 12px;font-size:18px;font-weight:600} h3{margin:18px 0 6px;font-siz
 .sevs li{display:flex;align-items:center;gap:6px} .sevs i{width:8px;height:8px;border-radius:2px;display:inline-block} .sevs b{margin-inline-start:auto;font-variant-numeric:tabular-nums;font-weight:500}
 table.calc{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
 table.calc td{padding:4px 0;border:0;text-align:start} table.calc td:last-child{text-align:end;white-space:nowrap;padding-inline-start:12px}
-table.calc tr.sum td{border-top:1px solid var(--line);padding-top:7px;font-weight:600} table.calc tr.gold td{color:var(--gold)}
+table.calc tr.sum td{border-top:1px solid var(--line);padding-top:7px;font-weight:600} table.calc tr.gold td{color:var(--gold)} table.calc td small.sel{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:2px}
 .chart-title{margin-top:22px}
 .how summary{cursor:pointer;list-style:none;display:grid;gap:2px}.how summary::-webkit-details-marker{display:none}
 .how summary h2{display:inline;margin:0}.how summary h2::before{content:"▸ ";color:var(--muted)}.how details[open] summary h2::before{content:"▾ "}

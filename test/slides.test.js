@@ -16,10 +16,10 @@ function impactOf(projection, est) {
   return { tr, fusion, overall: overallImpact(tr, fusion) };
 }
 
-function reportData({ withFusion = true, withTr = true, withImpact = false } = {}) {
+function reportData({ withFusion = true, withTr = true, withImpact = false, plan = {} } = {}) {
   const { totalRows, fixedRows } = seriesRows(totals, fixed);
   const analysis = analyse(totalRows, fixedRows, 3);
-  const projection = trProjection(analysis, {}, { months: 12, fusion: withFusion });
+  const projection = trProjection(analysis, plan, { months: 12, fusion: withFusion });
   const est = fusionEstimate([{ id: 'x', name: 'Payments', loc: 25000, frequency: 'month' }, { id: 'y', name: 'Mobile', loc: 4000, frequency: 'week' }], { models: [{ id: 'm', name: 'Opus-4.7', creditsPer10k: 2.5 }], defaultScans: 2 });
   return {
     customer: 'Globex', organisation: 'Acme', generatedAt: '2026-10-09T10:00:00Z', months: 12, preparedBy: 'ana@acme.io',
@@ -41,8 +41,11 @@ test('three pages: triage & remediation with its forecast, then Fusion, then the
   const [tr, fusion, total, section, trend] = s.pages;
   assert.equal(section.title, 'Appendix – Calculations', 'the fourth slide opens the appendix');
   assert.equal(s.heading(tr), 'Globex: Triage & remediation');
-  assert.deepEqual(tr.figures.map((f) => f.label), ['Backlog today', 'Still to come, 2% fewer each month with AI', 'To triage', 'Triage & remediation credits']);
+  assert.deepEqual(tr.figures.map((f) => f.label), ['Total open vulnerabilities today', 'Still to come, 2% fewer each month with AI', 'To triage', 'Triage & remediation credits']);
   assert.equal(tr.figures[0].value, '152');
+  assert.equal(tr.figures[0].small, true, 'the total, small: what the plan takes comes next');
+  assert.deepEqual(tr.figures[2].notes, [`${Math.round(data.tr.totals.truePositives).toLocaleString()} to remediate`, 'All Critical · All High · All Medium · All Low']);
+  assert.deepEqual(tr.figures[3].notes, ['30% taken as false positives: triaged, not remediated.']);
   assert.equal(tr.chart.kind, 'forecast');
   assert.ok(tr.chart.points.length > 3, 'the backlog so far and over the next months');
   assert.match(tr.lines[0], /^Each month, new findings add [\d.]+% to the backlog and fixes take away [\d.]+%\.$/);
@@ -65,6 +68,15 @@ test('three pages: triage & remediation with its forecast, then Fusion, then the
   // The appendix: every number, step by step, as plain text.
   assert.deepEqual(s.appendix.map((x) => x.title), ['Backlog today', 'Still to come', 'More found by Fusion', 'Kept away by FAE', 'To triage', 'To remediate', 'Credits', 'Fusion credits', 'Total credits required']);
   assert.ok(s.appendix.every((x) => x.lines.length && x.lines.every((l) => !/[<>]|&amp;/.test(l.text))));
+});
+
+test('the plan in part: which severities are whole and which in part, each false positive %; no findings still to come when they are not counted', () => {
+  const s = slideContent(reportData({ plan: { selected: { Critical: null, High: null, Medium: 2, Low: 0 }, fpPercent: { Critical: 20, High: 30, Medium: 30, Low: 30 }, includeFuture: false } }));
+  const tr = s.pages[0];
+  assert.deepEqual(tr.figures.map((f) => f.label), ['Total open vulnerabilities today', 'To triage', 'Triage & remediation credits'], 'Still to come is left out, not shown as +0');
+  assert.equal(tr.figures[1].notes[1], 'All Critical · All High · Medium: 2 of 5');
+  assert.match(tr.subtitle, /^The backlog today, triaged and remediated over the next 12 months$/);
+  assert.deepEqual(tr.figures[2].notes, ['Taken as false positives, triaged and not remediated: Critical 20%, High 30%, Medium 30%.']);
 });
 
 test('a part that is not in the projection says so on its page; the wording follows the reader\'s language', () => {

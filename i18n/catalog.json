@@ -1125,6 +1125,12 @@
    "calculator"
   ]
  },
+ "{0}% taken as false positives: triaged, not remediated.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "{0}d": {
   "kind": "report",
   "seen": [
@@ -17346,6 +17352,12 @@
    "Dashboard › strong › Allocated vs used"
   ]
  },
+ "Taken as false positives, triaged and not remediated: {0}.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Tell each developer by email when I check or fix their findings": {
   "kind": "text",
   "seen": [
@@ -17672,6 +17684,12 @@
   "kind": "text",
   "seen": [
    "calculator"
+  ]
+ },
+ "The backlog today, triaged and remediated over the next {0} months": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "The browser (github.dev, GitLab…)": {
@@ -18819,6 +18837,12 @@
   "kind": "message",
   "seen": [
    "calculator"
+  ]
+ },
+ "Total open vulnerabilities today": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Total vulnerabilities": {
