@@ -10,7 +10,7 @@ import path from 'node:path';
 
 import { CLOC_LEFT_OUT, clocLines, parseCloc } from '../public/calculator/model.js';
 import { cleanFusionNew, cleanGitFrom, migrate, patchProfile, newProfile } from '../public/calculator/profiles.js';
-import { GIT_COUNT_LIMITS, KNOWN_LANGUAGES, cleanRepositories, countDirectory, countLines, countRepository, createGitCounter, gitSource, isBinary, languageOf, listRepositories, redact, repoAddress, sweepLeftovers } from '../src/fusion-git.js';
+import { GIT_COUNT_LIMITS, KNOWN_LANGUAGES, cleanRepositories, countDirectory, countLines, countRepository, createGitCounter, gitSource, isBinary, languageOf, listRepositories, redact, repoAddress, resolvePin, sweepLeftovers } from '../src/fusion-git.js';
 import { makeRepo, startGitHost } from './fake-git-host.js';
 
 const TOKEN = `ghp_${'a1B2'.repeat(9)}`;
@@ -164,6 +164,20 @@ test('one repository: its latest commit fetched, counted, and the temporary fold
   assert.deepEqual(parseCloc(JSON.stringify(Object.fromEntries(Object.entries(counted.languages).map(([l, v]) => [l, { nFiles: v.files, code: v.code }]))), 'claims-portal.json')[0].langs, langs);
   const develop = await countRepository({ url: `${host.url}/globex/broker-api` }, { source, tmpRoot });
   assert.equal(develop.branch, 'develop', 'its default branch, whatever it is called');
+});
+
+test('git connects to the addresses checked, not to a second look-up of the name', async () => {
+  assert.equal(resolvePin(repoAddress('https://git.example.com/acme/app'), ['203.0.113.7', '2001:db8::7']), 'git.example.com:443:203.0.113.7,[2001:db8::7]');
+  assert.equal(resolvePin(repoAddress('http://localhost:8123/acme/app'), ['127.0.0.1']), 'localhost:8123:127.0.0.1');
+  assert.equal(resolvePin(repoAddress('https://203.0.113.7/acme/app'), []), '', 'an address typed as such is already the one called');
+  const named = host.url.replace('127.0.0.1', 'localhost');
+  const counted = await countRepository({ url: `${named}/globex/claims-portal` }, { source: gitSource({ provider: 'github', address: named, token: TOKEN }), tmpRoot });
+  assert.equal(counted.name, 'claims-portal', 'a name still counts, through the pinned address');
+});
+
+test('the test host serves plain names only', async () => {
+  for (const bad of ['/..%2Fx/info/refs', '/%E0%A4%A', '/api/v3/orgs/..%2Foutside/repos']) assert.equal((await fetch(host.url + bad)).status, 400, bad);
+  assert.equal((await fetch(`${host.url}/api/v3/orgs/globex/repos`, { headers: { authorization: `Bearer ${TOKEN}` } })).status, 200, 'and still answers');
 });
 
 test('a refused token, a missing repository, a host not allowed, too big or too slow: said, the token never in it, and the folder gone', async () => {

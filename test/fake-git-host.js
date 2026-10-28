@@ -34,6 +34,11 @@ export async function startGitHost(root, { tokens = [], slow = 0 } = {}) {
   const seen = [];
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
+    // Plain names only: nothing encoded, no . or .. segments, so no path leaves `root`.
+    if (/%|(^|\/)\.\.?(\/|$)/.test(url.pathname)) {
+      res.writeHead(400);
+      return res.end();
+    }
     seen.push({ method: req.method, path: url.pathname, query: url.search, authorization: req.headers.authorization ?? '' });
     const api = url.pathname.startsWith('/api/v3/');
     const accepted = tokens.map((token) => (api ? `Bearer ${token}` : `Basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`));
@@ -42,7 +47,7 @@ export async function startGitHost(root, { tokens = [], slow = 0 } = {}) {
       res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="fake"', 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ message: 'Bad credentials' }));
     }
-    const org = /^\/api\/v3\/orgs\/([^/]+)\/repos$/.exec(url.pathname);
+    const org = /^\/api\/v3\/orgs\/([\w.-]+)\/repos$/.exec(url.pathname);
     if (org) {
       const dir = path.join(root, org[1]);
       if (!fs.existsSync(dir)) {
@@ -56,7 +61,7 @@ export async function startGitHost(root, { tokens = [], slow = 0 } = {}) {
     }
     // git's smart HTTP protocol, answered by git itself (a CGI program).
     const child = spawn('git', ['http-backend'], {
-      env: { ...process.env, GIT_PROJECT_ROOT: root, GIT_HTTP_EXPORT_ALL: '1', PATH_INFO: decodeURIComponent(url.pathname), QUERY_STRING: url.search.slice(1), REQUEST_METHOD: req.method, CONTENT_TYPE: req.headers['content-type'] ?? '', HTTP_CONTENT_ENCODING: req.headers['content-encoding'] ?? '', GIT_PROTOCOL: req.headers['git-protocol'] ?? '', REMOTE_ADDR: '127.0.0.1' },
+      env: { ...process.env, GIT_PROJECT_ROOT: root, GIT_HTTP_EXPORT_ALL: '1', PATH_INFO: url.pathname, QUERY_STRING: url.search.slice(1), REQUEST_METHOD: req.method, CONTENT_TYPE: req.headers['content-type'] ?? '', HTTP_CONTENT_ENCODING: req.headers['content-encoding'] ?? '', GIT_PROTOCOL: req.headers['git-protocol'] ?? '', REMOTE_ADDR: '127.0.0.1' },
     });
     req.pipe(child.stdin);
     let head = Buffer.alloc(0);

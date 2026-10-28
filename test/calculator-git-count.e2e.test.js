@@ -18,6 +18,7 @@ const PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const CONNECTION_TOKEN = `ghp_conn${'Q7w'.repeat(10)}`;
 const TYPED_TOKEN = `ghp_typed${'K3x'.repeat(10)}`;
+const WRONG_TOKEN = `ghp_${'wrong'.repeat(8)}`;
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'git-count-e2e-repos-'));
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-count-e2e-data-'));
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-count-e2e-tmp-'));
@@ -150,10 +151,10 @@ test('a token typed for one count: used for it, sent to its host as a header, an
     assert.ok(!other.seen.some((s) => s.query.includes(TYPED_TOKEN)), 'never in an address');
     assert.ok(!connected.seen.some((s) => s.authorization.includes(Buffer.from(`x-access-token:${TYPED_TOKEN}`).toString('base64')) || s.authorization.includes(TYPED_TOKEN)), 'never to another host');
     // A wrong token: said, without the token.
-    const wrong = await admin('POST', '/api/projections/git/count', { token: { ...token, token: 'ghp_wrong_123456' }, repositories: [`${other.url}/globex/policy-engine`] });
+    const wrong = await admin('POST', '/api/projections/git/count', { token: { ...token, token: WRONG_TOKEN }, repositories: [`${other.url}/globex/policy-engine`] });
     const failed = await follow(admin, wrong.body);
     assert.match(failed.repositories[0].error, /refused: check the token/);
-    assert.ok(!JSON.stringify(failed).includes('ghp_wrong_123456'));
+    assert.ok(!JSON.stringify(failed).includes(WRONG_TOKEN));
   } finally {
     await other.close();
   }

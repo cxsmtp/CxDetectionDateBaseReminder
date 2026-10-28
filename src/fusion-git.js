@@ -299,7 +299,7 @@ export async function countDirectory(dir, { fileBytes = GIT_COUNT_LIMITS.fileByt
     if (fs.statSync(file).size > fileBytes) count.skipped.large += 1;
     else {
       const content = fs.readFileSync(file);
-      count.add(relPath, content, createHash('sha1').update(content).digest('hex'));
+      count.add(relPath, content, createHash('sha256').update(content).digest('hex'));
     }
     onProgress(index + 1, found.length);
   }
@@ -402,12 +402,14 @@ function folderBytes(dir) {
 }
 
 /** git's environment for one fetch: the Authorization header (when there is one) through config variables only. */
-function gitEnv(authHeader, { http = false } = {}) {
+function gitEnv(authHeader, { http = false, pin = '' } = {}) {
   const env = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_ALLOW_PROTOCOL: http ? 'https:http' : 'https', GIT_LFS_SKIP_SMUDGE: '1' };
   // Nothing that would write the header out (git's traces), and no other settings passed down.
   for (const name of Object.keys(env)) if (/^GIT_(TRACE|CURL_VERBOSE|CONFIG_(COUNT|KEY_|VALUE_|PARAMETERS))/.test(name)) delete env[name];
   const config = [['credential.helper', ''], ['http.followRedirects', 'false'], ['core.askPass', '']];
   if (authHeader) config.push(['http.extraHeader', `Authorization: ${authHeader}`]);
+  // git connects to the addresses checked here, not to a second look-up of the name (git 2.37 and later).
+  if (pin) config.push(['http.curloptResolve', pin]);
   env.GIT_CONFIG_COUNT = String(config.length);
   config.forEach(([key, value], i) => Object.assign(env, { [`GIT_CONFIG_KEY_${i}`]: key, [`GIT_CONFIG_VALUE_${i}`]: value }));
   return env;
@@ -457,9 +459,9 @@ export function repoAddress(value) {
   return { url: `${url.protocol}//${url.host}/${parts.join('/')}`, host: url.host.toLowerCase(), hostname: url.hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1'), path: parts.join('/').replace(/\.git$/i, ''), name };
 }
 
-/** Never a host whose name leads to a link-local or cloud metadata address. */
+/** Never a host whose name leads to a link-local or cloud metadata address; the addresses it leads to ([] for an address typed as such). */
 async function checkResolved(hostname) {
-  if (net.isIP(hostname)) return;
+  if (net.isIP(hostname)) return [];
   let addresses = [];
   try {
     addresses = await dns.lookup(hostname, { all: true });
@@ -467,6 +469,14 @@ async function checkResolved(hostname) {
     throw fail(400, `${hostname} could not be found.`);
   }
   if (addresses.some((a) => blockedHost(a.address))) throw fail(400, `${hostname} points at a link-local or cloud metadata address, which is never called.`);
+  return addresses.map((a) => a.address);
+}
+
+/** curl's resolve entry that holds `address` to the checked `ips`: host:port:ip[,ip]. */
+export function resolvePin(address, ips) {
+  if (!ips.length) return '';
+  const port = new URL(address.url).port || (address.url.startsWith('http:') ? '80' : '443');
+  return `${address.hostname}:${port}:${ips.map((ip) => (ip.includes(':') ? `[${ip}]` : ip)).join(',')}`;
 }
 
 const TOKEN = /^[\x21-\x7e]{4,4096}$/;
@@ -654,9 +664,9 @@ function gitProblem(error, repo, secrets, limits) {
 export async function countRepository(repo, { source = null, allowHost = () => true, tmpRoot = os.tmpdir(), limits = GIT_COUNT_LIMITS, onProgress = () => {}, bin = 'git' } = {}) {
   const address = repoAddress(repo.url);
   if (!allowHost(address.hostname)) throw fail(400, `Repositories on ${address.hostname} are not counted: connect that host on the Beta page, or add it to SCM_ALLOWED_HOSTS.`);
-  await checkResolved(address.hostname);
+  const ips = await checkResolved(address.hostname);
   const secrets = source?.secrets ?? [];
-  const env = gitEnv(source?.authFor(address) ?? '', { http: address.url.startsWith('http:') });
+  const env = gitEnv(source?.authFor(address) ?? '', { http: address.url.startsWith('http:'), pin: resolvePin(address, ips) });
   const dir = fs.mkdtempSync(path.join(tmpRoot, TEMP_PREFIX));
   fs.chmodSync(dir, 0o700);
   const stop = new AbortController();
