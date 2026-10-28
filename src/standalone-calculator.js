@@ -63,6 +63,8 @@ export function standaloneMarkup(markup, { launcher = false } = {}) {
     ['<summary>Use the two Checkmarx One exports instead</summary>', launcher ? '<summary>Or the two Checkmarx One exports</summary>' : '<summary>The two Checkmarx One exports</summary>'],
     ['<p class="hint">For a prospect whose tenant this server is not connected to: drop their two weekly exports from Checkmarx One → Analytics on the boxes below.</p>', launcher ? '<p class="hint">Without an API key: drop the customer\'s two weekly exports from Checkmarx One → Analytics on the boxes below. <b>Load sample data</b> shows how it works.</p>' : '<p class="hint">Drop the customer\'s two weekly exports from Checkmarx One → Analytics on the boxes below, or click a box to choose the file. <b>Load sample data</b> shows how it works.</p>'],
     ['<p class="hint" id="calc-rows-empty">No projects yet. <strong>Read from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.</p>', launcher ? '<p class="hint" id="calc-rows-empty">No projects yet. Connect with an API key at the top, then <strong>Read from Checkmarx One</strong> lists every project in the tenant with its lines of code, criticality and how often it is scanned; or add projects by hand.</p>' : '<p class="hint" id="calc-rows-empty">No projects yet: add them by hand, with their lines of code. To read them from Checkmarx One with an API key, use the launcher, <code>cx-credits-calculator.mjs</code>.</p>'],
+    // Count from git: in the launcher, this computer's git fetches and counts (the file on its own hides it).
+    ['fetched from git into a temporary folder on this server (no history)', launcher ? 'fetched from git into a temporary folder on this computer (no history)' : 'fetched from git into a temporary folder on this server (no history)'],
   ];
   let out = markup;
   for (const [from, to] of swaps) {
@@ -252,7 +254,8 @@ export function buildCalculatorLauncher({ version = '', root = PUBLIC } = {}) {
 //   node cx-credits-calculator.mjs            opens the calculator in this computer's browser
 //   node cx-credits-calculator.mjs --port 8080 --no-open
 //
-// Needs Node.js 20 or later, nothing else. The page is served on this computer only (127.0.0.1), the API key
+// Needs Node.js 20 or later, and git only to count code lines from git (Fusion — new customer). The page is
+// served on this computer only (127.0.0.1), the API key
 // stays in this program's memory until it stops, and customers and reports are kept in the browser. Checkmarx
 // One is read with the same code as CxMissionZero's calculator. Behind a company proxy or TLS inspection, set
 // NODE_EXTRA_CA_CERTS to your company's root certificate.

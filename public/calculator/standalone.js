@@ -13,6 +13,7 @@ import { startHelpTips } from '../help-tips.js';
 const DB_NAME = 'cx-credits-calculator';
 const NAMES_KEY = 'cxcalc-names';
 const THEME_KEY = 'cxcalc-theme';
+const GIT_ONLY_LAUNCHER = 'This file on its own cannot reach git: upload cloc results, or count from git with the launcher (cx-credits-calculator.mjs).';
 
 /** The browser's database: customers and reports, each by id. Falls back to memory when it cannot be opened. */
 function openStore() {
@@ -127,6 +128,16 @@ function localApi(store, names, launcher = null) {
     ['POST', /^\/api\/projections\/(read|series)$/, async (body, m) => {
       if (launcher) return toLauncher(launcher, `/api/projections/${m[1]}`, { method: 'POST', body: JSON.stringify(body ?? {}) });
       throw fail(409, 'This calculator works from the two Checkmarx One exports: drop them below, or load the sample data.');
+    }],
+    // Counting code lines from git (Fusion — new customer): the launcher does it, with this computer's git.
+    ['GET', /^\/api\/projections\/git\/connections$/, async () => (launcher ? toLauncher(launcher, '/api/projections/git/connections') : { connections: [] })],
+    ['GET', /^\/api\/projections\/git\/count$/, async (_body, _m, query) => {
+      if (!launcher) throw fail(409, GIT_ONLY_LAUNCHER);
+      return toLauncher(launcher, `/api/projections/git/count?id=${encodeURIComponent(query.get('id') ?? '')}`);
+    }],
+    ['POST', /^\/api\/projections\/git\/(repositories|count)$/, async (body, m) => {
+      if (!launcher) throw fail(409, GIT_ONLY_LAUNCHER);
+      return toLauncher(launcher, `/api/projections/git/${m[1]}`, { method: 'POST', body: JSON.stringify(body ?? {}) });
     }],
     ['GET', /^\/api\/projections\/([^/]+)$/, async (_body, m) => ({ customer: await customer(decodeURIComponent(m[1])) })],
     ['PUT', /^\/api\/projections\/([^/]+)$/, async (body, m) => {
@@ -243,6 +254,8 @@ export function startStandalone({ samples = {} } = {}) {
     can: () => true,
     standalone: true,
     canRead: () => connected,
+    // Counting from git needs the launcher (its computer's git), not a Checkmarx One connection.
+    canGit: () => Boolean(launcher),
     sampleFile: async (name) => {
       const b64 = samples[name];
       if (!b64) throw new Error(`${name}: not in this file`);
