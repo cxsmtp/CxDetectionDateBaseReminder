@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 import { buildStandaloneCalculator, calculatorMarkup, standaloneMarkup, wrapModule } from '../src/standalone-calculator.js';
-import { newProfile, newReport, patchProfile } from '../public/calculator/profiles.js';
+import { newProfile, newReport, patchProfile, restoreProfile } from '../public/calculator/profiles.js';
 
 test('a module becomes a function scope: its named imports read from those before it, its exports returned', () => {
   const index = new Map([['calculator/model.js', 0], ['calculator/charts.js', 1]]);
@@ -70,6 +70,44 @@ test('customers and reports follow the same rules here and on the server', () =>
   const r = newReport({ customerId: p.id, customer: p.name, data: { tr: { totals: { credits: 100 } }, fusion: { totals: { credits: 50 } }, summary: { settings: { extraPercent: 10, bundleCredits: 100 } }, evil: { __proto__: { x: 1 } } } });
   assert.equal(r.totalCredits, 165);
   assert.equal(r.bundles, 2);
+});
+
+test('a restored backup goes through the same cleaners as a save, and the calculator escapes every figure it writes into a field', () => {
+  const bad = '"><b id=x>';
+  const saved = newProfile({ name: 'Acme', by: 'ana' });
+  const file = {
+    ...saved,
+    name: `Acme${bad}`,
+    stray: '<script>1</script>',
+    createdAt: bad,
+    fusion: { ...saved.fusion, models: [{ id: 'm1', name: 'opus', creditsPer10k: bad, source: 'manual' }], byFrequency: { daily: { scans: bad } } },
+    fusionNew: { ...saved.fusionNew, projects: [{ id: 'n1', name: 'web', locOverride: bad, scansOverride: bad }] },
+    totals: { extraPercent: bad, bundleCredits: bad },
+  };
+  const restored = restoreProfile(file);
+  assert.equal(restored.id, saved.id);
+  assert.equal(restored.fusion.models[0].creditsPer10k, null, 'not a number: nothing kept');
+  assert.equal(restored.stray, undefined, 'nothing the file adds is kept');
+  assert.match(restored.createdAt, /^\d{4}-\d{2}-\d{2}T/);
+  // Only free text (a name, which the page always escapes) may still hold it; no figure does.
+  const { name, ...figures } = restored;
+  assert.equal(name, `Acme${bad}`);
+  const kept = JSON.stringify(figures);
+  assert.ok(!kept.includes('<b'), kept.slice(0, 400));
+  assert.equal(restoreProfile({ id: 'x', fusion: 'nonsense' }).fusion.models.length, newProfile({}).fusion.models.length, 'a section that is not one: the defaults');
+  // The page writes the models table with the real renderModels: neither a restored nor a raw figure becomes markup.
+  const src = fs.readFileSync(new URL('../public/calculator/page.js', import.meta.url), 'utf8');
+  const body = src.slice(src.indexOf('  function renderModels() {'), src.indexOf('  function renderRules() {'));
+  const esc = (text) => String(text ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+  for (const fusion of [restored.fusion, file.fusion]) {
+    const els = {};
+    vm.runInNewContext(`${body}\nrenderModels();`, { fusion: () => fusion, $: (id) => (els[id] ??= {}), esc });
+    assert.match(els['calc-models'].innerHTML, /data-m="creditsPer10k"/);
+    assert.doesNotMatch(els['calc-models'].innerHTML, /<b[\s>]/);
+  }
+  // Every figure written into a value, placeholder or max is escaped (only the page's own fixed ids and words are not).
+  const raw = [...src.matchAll(/(?:value|placeholder|max)="\$\{(?!esc\()([^}]*)\}/g)].map((m) => m[1]);
+  assert.deepEqual([...new Set(raw)].sort(), ['k', 'q.id', "scanned === null ? 'Type them' : ''"]);
 });
 
 test('its content security policy runs exactly the scripts the file was built with, by hash, and no other', () => {

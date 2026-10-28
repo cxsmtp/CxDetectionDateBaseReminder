@@ -302,6 +302,19 @@ export function newProfile({ name, by = '', impact = {} } = {}) {
   return { id: newId(), name: text(name, 120) || 'New customer', planVersion: 4, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({ models: modelsNamed() }), fusionNew: cleanFusionNew({}), totals: totalsSettings({}), scope: cleanScope({}), impact: impactSettings(impact) };
 }
 
+/**
+ * A customer from a backup file, kept as if every section had just been saved: each one through the same
+ * cleaners as a save (a file can say anything), its id and dates checked, nothing else from the file kept.
+ */
+export function restoreProfile(value) {
+  const c = migrate(value && typeof value === 'object' ? value : {});
+  const fresh = newProfile({ name: c.name, by: c.createdBy });
+  const base = { ...fresh, id: text(c.id, 100) || fresh.id, createdAt: iso(c.createdAt) ?? fresh.createdAt };
+  // A section the file leaves out keeps a new customer's (its defaults); one it has is cleaned.
+  const section = (v) => (v && typeof v === 'object' ? v : undefined);
+  return patchProfile(base, { name: c.name, tr: section(c.tr), fusion: section(c.fusion), fusionNew: section(c.fusionNew), totals: section(c.totals), scope: section(c.scope), impact: section(c.impact) }, c.updatedBy ?? '');
+}
+
 /** A customer with what changed applied: the name, the T&R projection, the Fusion projection, the extra % and bundle size, the scope, the impact's assumptions (each optional). */
 export function patchProfile(profile, patch = {}, by = '') {
   const next = { ...profile };

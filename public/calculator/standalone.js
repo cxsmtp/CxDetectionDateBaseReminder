@@ -7,7 +7,7 @@
 
 import { initCalculator } from './page.js';
 import { impactSettings } from './model.js';
-import { MAX_PROFILES, MAX_REPORTS, fail, migrate, newProfile, newReport, patchProfile, reportMeta, summary } from './profiles.js';
+import { MAX_PROFILES, MAX_REPORTS, fail, iso, migrate, newId, newProfile, newReport, patchProfile, reportMeta, restoreProfile, summary, text } from './profiles.js';
 import { startHelpTips } from '../help-tips.js';
 
 const DB_NAME = 'cx-credits-calculator';
@@ -299,8 +299,9 @@ export function startStandalone({ samples = {} } = {}) {
       const data = JSON.parse(await file.text());
       if (data?.kind !== 'cx-credits-calculator' || !Array.isArray(data.customers) || !Array.isArray(data.reports)) throw new Error('That is not a backup of this calculator.');
       if (!confirm(`Restore ${data.customers.length} customer(s) and ${data.reports.length} report(s)?\n\nThose with the same id are replaced; the others here stay.`)) return;
-      for (const c of data.customers.slice(0, MAX_PROFILES)) if (c && typeof c.id === 'string') await store.put('customers', patchProfile(migrate(c), {}, c.updatedBy ?? ''));
-      for (const r of data.reports.slice(0, MAX_REPORTS)) if (r && typeof r.id === 'string') await store.put('reports', { ...newReport({ customerId: r.customerId, customer: r.customer, by: r.createdBy, data: r.data }), id: r.id, createdAt: r.createdAt ?? new Date().toISOString() });
+      // Every section through the same cleaners as a save: a backup file can say anything.
+      for (const c of data.customers.slice(0, MAX_PROFILES)) if (c && typeof c.id === 'string') await store.put('customers', restoreProfile(c));
+      for (const r of data.reports.slice(0, MAX_REPORTS)) if (r && typeof r.id === 'string') await store.put('reports', { ...newReport({ customerId: r.customerId, customer: r.customer, by: r.createdBy, data: r.data }), id: text(r.id, 100) || newId(), createdAt: iso(r.createdAt) ?? new Date().toISOString() });
       await calculator.load();
       toast('Restored.', 'ok');
     } catch (error) {
