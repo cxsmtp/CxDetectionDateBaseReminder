@@ -4,14 +4,19 @@ import { withinWindow } from '../window.js';
 /** FAE Flush's temporary copies ("<name>_FAE", tagged so): never part of the backlog anywhere else. */
 export const FAE_FLUSH_TAG = 'mz-fae-flush';
 
-/** Projects API: GET /api/projects (offset/limit paginated), without FAE Flush's copies. */
-export async function listProjects(client, { maxItems = 5000 } = {}) {
+/**
+ * Projects API: GET /api/projects (offset/limit paginated), without FAE Flush's copies.
+ * `stats.stopped` says the read stopped at `maxItems` with more projects possibly left.
+ */
+export async function listProjects(client, { maxItems = 5000, stats = null } = {}) {
   const projects = [];
+  let fetched = 0;
   for await (const project of client.paginate('/api/projects', {
     itemsKey: 'projects',
     limit: 100,
     maxItems,
   })) {
+    fetched += 1;
     if (project?.tags && Object.hasOwn(project.tags, FAE_FLUSH_TAG)) continue;
     projects.push({
       id: project.id,
@@ -25,7 +30,15 @@ export async function listProjects(client, { maxItems = 5000 } = {}) {
       criticality: project.criticality ?? null,
     });
   }
+  if (stats) stats.stopped = fetched >= maxItems;
   return projects;
+}
+
+/** How many projects the tenant has, as GET /api/projects says (FAE Flush's copies included); null when it does not say. */
+export async function countProjects(client) {
+  const page = await client.request('/api/projects', { query: { limit: 1, offset: 0 }, retries: 1 });
+  const total = Number(page?.filteredTotalCount ?? page?.totalCount);
+  return Number.isFinite(total) ? total : null;
 }
 
 /**

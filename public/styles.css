@@ -2947,6 +2947,29 @@ ol.calc-how li.calc-total { font-weight: 600; }
 .calc-terms { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 16px; }
 .calc-terms .field { margin-bottom: 0; flex: 1 1 200px; }
 .calc-source { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border-top: 1px solid var(--border); padding-top: 10px; }
+.calc-add-fusion { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.calc-add-fusion > b { font-size: 13px; }
+.calc-add-fusion .pill-check small { color: var(--muted); font-weight: 500; }
+/* Fusion — new customer: the cloc commands, the drop box, the languages and the projects. */
+.calc-cloc-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px 18px; margin: 4px 0 12px; }
+.calc-cloc-steps h3 { margin: 0 0 4px; font-size: 14px; }
+.calc-cloc-steps .calc-cmd-label { margin: 6px 0 4px; font-size: 13px; color: var(--muted); }
+.calc-fnew-table [data-n="loc"] { width: 11ch; max-width: none; }
+.calc-cmd { margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); font: 12px/1.5 var(--mono, ui-monospace, Consolas, monospace); white-space: pre-wrap; overflow-wrap: anywhere; }
+.calc-cloc-drop { border: 2px dashed var(--border); border-radius: 12px; padding: 14px 16px; text-align: center; }
+.calc-cloc-drop.drag { border-color: var(--accent); background: var(--accent-soft); }
+.calc-cloc-drop p { margin: 0 0 8px; }
+.calc-cloc-files { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0 0 8px; }
+.calc-cloc-files span { font-size: 12px; padding: 2px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); }
+.calc-cloc-files span.bad { border-color: var(--bad); color: var(--bad); }
+.calc-langs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.calc-langs button { font: inherit; font-size: 12px; padding: 2px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); cursor: pointer; min-height: 0; box-shadow: none; }
+.calc-langs button.out { text-decoration: line-through; color: var(--muted); background: var(--surface-2); }
+.calc-langs button em { font-style: normal; color: var(--muted); margin-inline-start: 4px; font-variant-numeric: tabular-nums; }
+.calc-fnew-table .calc-lang-line { display: block; font-size: 12px; color: var(--muted); }
+.calc-fnew-table .calc-lang-bar { display: flex; height: 6px; max-width: 220px; margin-top: 4px; border-radius: 3px; overflow: hidden; background: var(--surface-2); }
+.calc-fnew-table .calc-lang-bar i { display: block; height: 100%; }
+.calc-warn-note { border-inline-start-color: var(--warn, #b54708); background: color-mix(in srgb, var(--warn, #b54708) 10%, transparent); }
 .calc-source button { white-space: normal; max-width: 100%; }
 .calc-source-state { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; flex: 1 1 260px; min-width: 0; }
 .calc-source-state .status { margin: 0; overflow-wrap: anywhere; }
@@ -3025,6 +3048,16 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .calc-scope-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-width: 0; }
 .calc-scope-leave { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 8px 0 4px; }
 .calc-branches { white-space: nowrap; }
+/* A section folded until it is wanted (Fusion scans by criticality). */
+details.calc-fold > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+details.calc-fold > summary::-webkit-details-marker { display: none; }
+details.calc-fold > summary h2 { margin: 0; }
+details.calc-fold > summary h2::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--muted); transition: transform .15s; }
+details.calc-fold[open] > summary h2::before { transform: rotate(90deg); }
+details.calc-fold[open] > summary { margin-bottom: 8px; }
+details.calc-fold > summary .hint { margin: 0; }
+.calc-read-limit { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 13px; }
+.calc-read-limit input { width: 7.5em; text-align: end; font-variant-numeric: tabular-nums; }
 .calc-scope-label { font-size: 12px; font-weight: 500; color: var(--muted); }
 .calc-scope-summary { font-weight: 500; overflow-wrap: anywhere; }
 .calc-scope-summary.on { color: var(--accent); }
@@ -3044,7 +3077,6 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .calc-step b { font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .calc-step small { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
 .calc-step-key { border-color: var(--border-strong); background: var(--surface-2); }
-.calc-step-note { display: block; margin-top: 4px; font-style: italic; }
 .calc-step-gold { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: var(--accent-soft); }
 .calc-step-gold b { color: var(--accent); }
 .calc-op { align-self: center; color: var(--muted); font-size: 16px; padding: 0 2px; }
@@ -4139,3 +4171,5 @@ button.gv-sugg:hover:not(:disabled) { border-color: var(--accent); }
 
 /* Phone-only pieces (public/mobile.js); public/mobile.css shows them on a phone. */
 :root:not([data-phone]) :is(.m-more, .m-select, .m-sev, .m-scope-row, .m-sheet, .m-backdrop, .m-detail-head) { display: none !important; }
+[dir="rtl"] details.calc-fold > summary h2::before { content: "◂"; }
+[dir="rtl"] details.calc-fold[open] > summary h2::before { transform: rotate(-90deg); }

@@ -9,6 +9,7 @@ import {
   DEFAULT_TR,
   FREQUENCIES,
   LOOKBACKS,
+  MAX_PROJECTS,
   SEVERITIES,
   aheadSettings,
   amount,
@@ -18,11 +19,15 @@ import {
   fusionEstimate,
   fusionImpact,
   fusionSettings,
+  fusionTotal,
   impactSettings,
   inScope,
+  newCustomerEstimate,
   overallImpact,
+  parseCloc,
   sortProjects,
   planForecast,
+  readLimit,
   scopeActive,
   seriesRows,
   severityPlan,
@@ -37,6 +42,7 @@ import { SEVERITY_COLOURS, debtFixChart, forecastChart, severityCharts } from '.
 import { buildReport, reportFileName, wording } from './report.js';
 import { slidesFileName, slidesPdf } from './slides.js';
 import { allSections, fusionImpactSections, impactSections, sectionHtml } from './explain.js';
+import { cleanFusionNew } from './profiles.js';
 import { RTL, currentLanguage, t } from '../i18n.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines } from '../engines.js';
 
@@ -105,7 +111,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderCustomers() {
     $('calc-empty').hidden = c.customers.length > 0;
     $('calc-customer').innerHTML = c.customers.map((x) => `<option value="${esc(x.id)}"${x.id === c.open?.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
-    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-scope-apply', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches']) $(id).disabled = !c.open;
+    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-scope-apply', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches', 'calc-max-projects']) $(id).disabled = !c.open;
   }
 
   function renderOrg() {
@@ -291,8 +297,11 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const projection = trProjection(analysis, tr(), { months: horizon(), fusion: fusionOn() });
     return {
       analysis,
+      // The debt and fixing rates over the last 6 months, for the report, whatever the trend is averaged over.
+      recent: analyse(totalRows, fixedRows, 6),
       projection,
-      weekly: weeklyTrend(totalRows, fixedRows, 52),
+      // Week by week over the months the trend is averaged over, at least 6 (as far back as the data goes).
+      weekly: weeklyTrend(totalRows, fixedRows, Math.round(Math.max(6, tr().lookbackMonths) * 4.345)),
       forecast: planForecast(analysis, projection),
       bySeverity: severityPlan(analysis, projection),
     };
@@ -445,11 +454,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         <div class="calc-steps">
           ${step('Backlog today', num(P.selected), P.selected === P.backlog ? 'every open finding' : `of ${num(P.backlog)} open`, '', 'backlog')}
           <span class="calc-op" aria-hidden="true">+</span>
-          ${step('Still to come', num(P.future), !A.includeFuture ? 'not counted' : `<span>${A.aiDeclinePercent ? `${num(P.arrivals)} new a month now, ${num(A.aiDeclinePercent)}% fewer each month with AI, over ${num(months)} months` : `${num(P.arrivals)} new a month × ${num(months)} months`}</span>${P.selected < P.backlog ? ' <span class="calc-step-note">In the same share per severity as the backlog chosen.</span>' : ''}`, '', 'future')}
+          ${step('Still to come', num(P.future), !A.includeFuture ? 'not counted' : `over ${num(months)} months`, '', 'future')}
           <span class="calc-op" aria-hidden="true">+</span>
           ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? `${num(A.fusionUpliftPercent)}% more findings` : fusionOff() ? '0% · Fusion left out' : 'Fusion not in the projection', '', 'fusion')}
-          <span class="calc-op" aria-hidden="true">−</span>
-          ${step('Kept away by FAE', num(P.faeAvoided), `${num(A.faePercent)}% fewer false positives reported`, '', 'fae')}
           <span class="calc-op" aria-hidden="true">=</span>
           ${step('To triage', num(P.toTriage), `${num(P.truePositives)} to remediate`, 'calc-step-key', 'triage')}
           <span class="calc-op" aria-hidden="true">→</span>
@@ -457,9 +464,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         </div>
         <div class="calc-assume calc-edit">
           <label class="check"><input type="checkbox" data-ahead="includeFuture"${A.includeFuture ? ' checked' : ''} /> Count findings still to come</label>
-          <label class="calc-assume-num"><span>AI adoption: fewer new findings each month (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="aiDeclinePercent" value="${A.aiDeclinePercent}" /></label>
-          <label class="calc-assume-num"${fusionOff() ? ' title="Fusion is left out of this projection: tick Include Fusion projection at the top to count it."' : ''}><span>More found by Fusion (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="fusionUpliftPercent" value="${fusionOff() ? 0 : A.fusionUpliftPercent}"${fusionOff() ? ' disabled' : ''} /></label>
-          <label class="calc-assume-num"><span>FAE: fewer false positives (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="faePercent" value="${A.faePercent}" /></label>
+          <label class="calc-assume-num"><span>AI adoption: fewer new findings over a year (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="aiDeclinePercent" value="${A.aiDeclinePercent}" /></label>
+          <label class="calc-assume-num"${fusionOff() ? ' title="Fusion for the existing customer is left out of this projection: tick Add Fusion: Existing customer at the top to count it."' : ''}><span>More found by Fusion (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="fusionUpliftPercent" value="${fusionOff() ? 0 : A.fusionUpliftPercent}"${fusionOff() ? ' disabled' : ''} /></label>
           <button type="button" class="link" data-ahead-reset>Defaults</button>
         </div>
       </section>
@@ -521,14 +527,14 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
             ${SEVERITIES.map((s) => line(`<span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span>`, analysis.perSeverity[s])).join('')}
             ${line('Total', T, 'strong')}
           </tbody></table></div>
-        <p class="hint">Over the last ${num(tr().lookbackMonths)} months. Percentages: a share of today's backlog. The estimates (Fusion, FAE, false positives, credits) are set above, under What the projection counts and Customize per severity.</p>
+        <p class="hint">Over the last ${num(tr().lookbackMonths)} months. Percentages: a share of today's backlog. The estimates (Fusion, false positives, credits) are set above, under What the projection counts and Customize per severity.</p>
       </section>`;
   }
 
   // ---- "?": how each number is worked out, with the figures in -------------------------------
 
   const whyButton = (key) => `<button type="button" class="calc-why" data-why="${key}" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button>`;
-  const WHY = { backlog: ['backlog'], future: ['future'], fusion: ['fusion'], fae: ['fae'], triage: ['triage', 'remediate'], credits: ['credits'], 'fusion-credits': ['fusion-credits'], total: ['total'] };
+  const WHY = { backlog: ['backlog'], future: ['future'], fusion: ['fusion'], triage: ['triage', 'remediate'], credits: ['credits'], 'fusion-credits': ['fusion-credits'], total: ['total'] };
   const pop = document.createElement('div');
   pop.className = 'calc-pop';
   pop.setAttribute('role', 'dialog');
@@ -592,6 +598,14 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       total: debtFigures(t.analysis.total),
       spanMonths: t.analysis.spanMonths,
     },
+    recent: t.recent ? {
+      months: 6,
+      spanMonths: t.recent.spanMonths,
+      ...Object.fromEntries([...SEVERITIES, 'total'].map((s) => {
+        const x = s === 'total' ? t.recent.total : t.recent.perSeverity[s];
+        return [s, { arrivals: x.arrivals, fixedMonthly: x.fixedMonthly, addedPct: x.addedPct, fixedPct: x.fixedPct }];
+      })),
+    } : null,
   });
 
   /** How far along its track a slider's thumb is, for the filled part (0 is at the very start). */
@@ -646,7 +660,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       renderTr();
     }
     if (event.target.closest('[data-ahead-reset]')) {
-      c.open.tr = { ...tr(), includeFuture: DEFAULT_TR.includeFuture, fusionUpliftPercent: DEFAULT_TR.fusionUpliftPercent, faePercent: DEFAULT_TR.faePercent, aiDeclinePercent: DEFAULT_TR.aiDeclinePercent };
+      c.open.tr = { ...tr(), includeFuture: DEFAULT_TR.includeFuture, fusionUpliftPercent: DEFAULT_TR.fusionUpliftPercent, aiDeclinePercent: DEFAULT_TR.aiDeclinePercent };
       save({ tr: c.open.tr });
       renderTr();
     }
@@ -718,6 +732,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderModels();
     renderRules();
     renderProjects();
+    renderFusionNew();
   }
 
   function renderModels() {
@@ -743,6 +758,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       <td><input type="text" inputmode="numeric" class="calc-num" value="${rule.scans ?? ''}" data-r="scans" placeholder="${num(f.defaultScans)} (default)" aria-label="Fusion scans per project" /></td>
       <td><select data-r="model" aria-label="Model">${modelOptions(rule.model, defaultLabel())}</select></td></tr>`;
     $('calc-freq').innerHTML = FREQUENCIES.map((q) => ruleRow(q.id, q.label, rows.filter((p) => p.frequency === q.id).length, f.byFrequency[q.id], 'data-freq')).join('');
+    // Folded unless a criticality has its own number or model, so a plan made with it is never hidden.
+    if (CRITICALITIES.some((k) => f.byCriticality[k]?.scans != null || f.byCriticality[k]?.model)) $('calc-crit-fold').open = true;
     $('calc-crit').innerHTML = [...CRITICALITIES.map((k) => ruleRow(k, `${k}${k === 5 ? ' (most critical)' : k === 1 ? ' (least critical)' : ''}`, rows.filter((p) => p.criticality === k).length, f.byCriticality[k], 'data-crit'))].join('');
   }
 
@@ -837,6 +854,205 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   };
   $('calc-fusion-on').addEventListener('change', (event) => setFusionOn(event.target.checked));
   $('calc-fusion-include').addEventListener('click', () => setFusionOn(true));
+
+  // ---- Fusion — new customer: code not in Checkmarx One yet, its lines counted with cloc --------
+
+  /** The new customer tab's projects and choices (a customer saved before it has none yet). */
+  const fnew = () => {
+    if (c.open && !c.open.fusionNew) c.open.fusionNew = cleanFusionNew({});
+    return c.open?.fusionNew;
+  };
+  const fnewOff = () => fnew()?.optOut === true;
+  const fnewEstimate = () => newCustomerEstimate(fnew(), fusion());
+  const fnewCounts = (est = fnewEstimate()) => !fnewOff() && est.rows.some((r) => r.included && r.units);
+  const saveFnew = () => save({ fusionNew: fnew() });
+  const LANG_COLOURS = ['#2856c9', '#b45309', '#0d9488', '#7c3aed', '#be185d', '#0891b2', '#65a30d', '#ea580c'];
+
+  function fnewRowHtml(p, colourOf) {
+    const counted = p.languages.filter((l) => l.counted && l.lines > 0);
+    const left = p.languages.filter((l) => !l.counted).reduce((n, l) => n + l.lines, 0);
+    const total = counted.reduce((n, l) => n + l.lines, 0) || 1;
+    const typed = wholeNumber(p.locOverride) !== null;
+    return `<tr data-row="${esc(p.id)}" class="${p.included ? '' : 'calc-off'}">
+      <td><input type="checkbox" data-n="included"${p.included ? ' checked' : ''} aria-label="Include ${esc(p.name)}" /></td>
+      <td><span class="calc-name-cell"><input type="text" data-n="name" value="${esc(p.name)}" maxlength="200" aria-label="Project name" translate="no" /><button type="button" class="ghost calc-remove" data-remove-fnew>Remove</button></span>${p.file ? `<small class="hint" translate="no">${esc(p.file)}</small>` : ''}</td>
+      <td>${counted.length || left
+        ? `<span class="calc-lang-line" translate="no">${counted.slice(0, 3).map((l) => `${esc(l.name)} ${Math.round((l.lines / total) * 100)}%`).join(' · ')}${counted.length > 3 ? ` · +${counted.length - 3}` : ''}</span>${left ? `<span class="calc-lang-line">${esc(`${num(left)} lines not counted`)}</span>` : ''}<span class="calc-lang-bar">${counted.map((l) => `<i style="width:${((l.lines / total) * 100).toFixed(2)}%;background:${colourOf(l.name)}" title="${esc(`${l.name}: ${num(l.lines)}`)}"></i>`).join('')}</span>`
+        : '—'}</td>
+      <td><input type="text" inputmode="numeric" class="calc-num" data-n="loc" value="${typed ? p.locOverride : p.lines ?? ''}" placeholder="Type them" aria-label="Lines of code of ${esc(p.name)}" />${typed && p.languages.length ? `<small class="hint">cloc counted ${num(newCustomerEstimate({ ...fnew(), projects: [{ ...p, locOverride: null }] }, fusion()).rows[0]?.lines)} <button type="button" class="link" data-fnew-reset>Use it</button></small>` : ''}</td>
+      <td class="num" data-cell="units">${p.included && p.units ? num(p.units) : '—'}</td>
+      <td><input type="text" inputmode="numeric" class="calc-num" data-n="scansOverride" value="${p.scansOverride ?? ''}" placeholder="${num(p.scans)}" aria-label="Fusion scans for ${esc(p.name)}" /></td>
+      <td><select data-n="modelOverride" aria-label="Model for ${esc(p.name)}">${modelOptions(p.modelOverride, 'Automatic')}</select></td>
+      <td class="num" data-cell="credits">${p.included && p.units ? (p.credits === null ? '—' : num(p.credits, 1)) : '—'}</td>
+    </tr>`;
+  }
+
+  function renderFusionNew() {
+    if (!c.open) return;
+    const f = fnew();
+    const est = fnewEstimate();
+    $('calc-fusion-new-on').checked = !fnewOff();
+    $('calc-fnew-off-note').hidden = !fnewOff();
+    $('calc-fnew-scans').value = f.defaultScans;
+    const fallback = fusion().models.find((m) => m.id === fusion().defaultModel);
+    $('calc-fnew-model').innerHTML = modelOptions(f.defaultModel, fallback ? t('As the existing customer tab: {0}').replace('{0}', fallback.name || t('Unnamed model')) : 'No model yet');
+    // Every language found, most lines first: each one counted or left out with a click.
+    const langs = new Map();
+    for (const p of f.projects) for (const [lang, n] of Object.entries(p.langs ?? {})) langs.set(lang, (langs.get(lang) ?? 0) + (wholeNumber(n) ?? 0));
+    const order = [...langs].sort((a, b) => b[1] - a[1]).map(([lang]) => lang);
+    const colourOf = (lang) => LANG_COLOURS[Math.max(0, order.indexOf(lang)) % LANG_COLOURS.length];
+    const out = new Set(f.leftOut);
+    $('calc-fnew-langs').innerHTML = order.map((lang) => `<button type="button" class="m-flat${out.has(lang) ? ' out' : ''}" data-lang="${esc(lang)}" aria-pressed="${out.has(lang) ? 'false' : 'true'}" title="${out.has(lang) ? 'Not counted: click to count it' : 'Counted: click to leave it out'}"><span translate="no">${esc(lang)}</span><em>${num(langs.get(lang))}</em></button>`).join('');
+    // A project on both tabs is counted twice unless one of them is unticked.
+    const existing = new Set((fusionOff() ? [] : scoped().filter((p) => p.included !== false)).map((p) => String(p.name).toLowerCase()));
+    const twice = fnewOff() ? [] : est.rows.filter((r) => r.included && existing.has(String(r.name).toLowerCase())).map((r) => r.name);
+    $('calc-fnew-dup').hidden = !twice.length;
+    $('calc-fnew-dup').textContent = twice.length ? t('Also on the existing customer tab, so counted on both: {0}. Untick it on one of them unless it really is a second copy of the code.').replace('{0}', twice.join(', ')) : '';
+    const t = est.totals;
+    const kpi = (label, value, sub, cls = '') => `<div class="rp-kpi ${cls}"><span class="rp-tile-label">${esc(label)}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${sub}</span></div>`;
+    $('calc-fnew-kpis').innerHTML = f.projects.length
+      ? [
+          kpi('Projects', num(t.projects), t.unknownLines ? `<span class="calc-warn">Still without lines of code: ${num(t.unknownLines)}</span>` : 'Included, with lines of code'),
+          kpi('10K LOC units', num(t.units), `${num(t.lines)} code lines, each project rounded up`),
+          kpi('Fusion scans', num(t.scans), `Over ${num(est.settings.periodMonths)} months`),
+          kpi('Credits', num(t.credits, 1), t.unknownRate ? `<span class="calc-warn">Projects whose model has no credits per 10K LOC: ${num(t.unknownRate)}</span>` : `Over ${num(est.settings.periodMonths)} months`, 'calc-gold'),
+        ].join('')
+      : '';
+    $('calc-fnew-rows').innerHTML = est.rows.map((p) => fnewRowHtml(p, colourOf)).join('');
+    $('calc-fnew-empty').hidden = f.projects.length > 0;
+    renderSummary();
+  }
+
+  /** Totals and each row's figures while something is typed (the field keeps its place). */
+  function refreshFnewFigures() {
+    const est = fnewEstimate();
+    const byId = new Map(est.rows.map((r) => [r.id, r]));
+    for (const line of $('calc-fnew-rows').querySelectorAll('tr[data-row]')) {
+      const p = byId.get(line.dataset.row);
+      if (!p) continue;
+      line.querySelector('[data-cell="units"]').textContent = p.included && p.units ? num(p.units) : '—';
+      line.querySelector('[data-cell="credits"]').textContent = p.included && p.units ? (p.credits === null ? '—' : num(p.credits, 1)) : '—';
+      line.querySelector('[data-n="scansOverride"]').placeholder = num(p.scans);
+    }
+    renderSummary();
+  }
+
+  const setFnewOn = (on) => {
+    if (!c.open) return;
+    fnew().optOut = !on;
+    saveFnew();
+    renderFusionNew();
+  };
+  $('calc-fusion-new-on').addEventListener('change', (event) => setFnewOn(event.target.checked));
+  $('calc-fnew-include').addEventListener('click', () => setFnewOn(true));
+  $('calc-fnew-scans').addEventListener('input', (event) => {
+    if (!c.open) return;
+    const n = wholeNumber(event.target.value);
+    fnew().defaultScans = n === null ? fnew().defaultScans : Math.min(n, 10000);
+    refreshFnewFigures();
+    saveFnew();
+  });
+  $('calc-fnew-model').addEventListener('change', (event) => {
+    if (!c.open) return;
+    fnew().defaultModel = event.target.value || null;
+    saveFnew();
+    renderFusionNew();
+  });
+  $('calc-fnew-langs').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-lang]');
+    if (!button || !c.open) return;
+    const lang = button.dataset.lang;
+    const out = new Set(fnew().leftOut);
+    if (out.has(lang)) out.delete(lang);
+    else out.add(lang);
+    fnew().leftOut = [...out];
+    saveFnew();
+    renderFusionNew();
+  });
+
+  const fnewProject = (el) => fnew().projects.find((p) => p.id === el.closest('tr[data-row]')?.dataset.row);
+  $('calc-fnew-rows').addEventListener('input', (event) => {
+    const p = fnewProject(event.target);
+    const field = event.target.dataset.n;
+    if (!p || !field) return;
+    if (field === 'loc') p.locOverride = wholeNumber(event.target.value);
+    else if (field === 'scansOverride') p.scansOverride = wholeNumber(event.target.value);
+    else if (field === 'name') p.name = event.target.value.trim() || 'Unnamed project';
+    else return;
+    refreshFnewFigures();
+    saveFnew();
+  });
+  $('calc-fnew-rows').addEventListener('change', (event) => {
+    const p = fnewProject(event.target);
+    const field = event.target.dataset.n;
+    if (!p || !field) return;
+    if (field === 'included') p.included = event.target.checked;
+    else if (field === 'modelOverride') p.modelOverride = event.target.value || null;
+    else if (field === 'name') return renderFusionNew();
+    else return;
+    saveFnew();
+    renderFusionNew();
+  });
+  $('calc-fnew-rows').addEventListener('click', (event) => {
+    const p = fnewProject(event.target);
+    if (!p) return;
+    if (event.target.closest('[data-fnew-reset]')) p.locOverride = null;
+    else if (event.target.closest('[data-remove-fnew]')) fnew().projects = fnew().projects.filter((x) => x !== p);
+    else return;
+    saveFnew();
+    renderFusionNew();
+  });
+  $('calc-fnew-add').addEventListener('click', () => {
+    if (!c.open) return;
+    fnew().projects.push({ id: `new-${Date.now().toString(36)}`, name: 'New project', file: '', langs: {}, locOverride: null, included: true, scansOverride: null, modelOverride: null });
+    saveFnew();
+    renderFusionNew();
+    $('calc-fnew-rows').querySelector('tr:last-child [data-n="name"]')?.select();
+  });
+
+  /** The customer's cloc results: each file read here (nothing is sent anywhere but this customer's save). */
+  const MAX_CLOC_BYTES = 50 * 1024 * 1024;
+  async function readCloc(files) {
+    if (!c.open || !files.length) return;
+    const done = [];
+    let added = 0;
+    for (const file of files) {
+      try {
+        if (file.size > MAX_CLOC_BYTES) throw new Error(t('{0} is over 50 MB: run cloc without --by-file.').replace('{0}', file.name));
+        for (const found of parseCloc(await file.text(), file.name)) {
+          const same = fnew().projects.find((p) => String(p.name).toLowerCase() === String(found.name).toLowerCase());
+          if (same) Object.assign(same, { langs: found.langs, file: file.name, locOverride: null });
+          else fnew().projects.push({ id: `new-${Date.now().toString(36)}-${added}`, name: found.name, file: file.name, langs: found.langs, locOverride: null, included: true, scansOverride: null, modelOverride: null });
+          added += 1;
+        }
+        done.push(`<span translate="no">✓ ${esc(file.name)}</span>`);
+      } catch (error) {
+        const message = error.notCloc ? t('{0} is not a cloc report: run cloc with --json or --csv.').replace('{0}', file.name) : error.message;
+        done.push(`<span class="bad" title="${esc(message)}" translate="no">✗ ${esc(file.name)}</span>`);
+        toast(message, 'bad');
+      }
+    }
+    $('calc-cloc-files').innerHTML = done.join('');
+    setStatus('calc-cloc-status', added ? `${num(added)} project(s) read.` : '');
+    if (added) saveFnew();
+    renderFusionNew();
+  }
+  $('calc-cloc-pick').addEventListener('click', () => $('calc-cloc-file').click());
+  $('calc-cloc-file').addEventListener('change', (event) => {
+    readCloc([...event.target.files]);
+    event.target.value = '';
+  });
+  const drop = $('calc-cloc-drop');
+  drop.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    drop.classList.add('drag');
+  });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', (event) => {
+    event.preventDefault();
+    drop.classList.remove('drag');
+    readCloc([...(event.dataTransfer?.files ?? [])]);
+  });
 
   $('calc-rows-more-btn').addEventListener('click', () => {
     rowsShown += ROWS_PAGE;
@@ -1048,6 +1264,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-leave-no-findings').checked = sc.leaveOutNoFindings;
     // The branches the last read counted (ticked: every branch).
     $('calc-all-branches').checked = tr()?.totals?.meta?.branches === 'all';
+    $('calc-max-projects').value = num(sc.maxProjects);
     renderScopeSummary();
   }
 
@@ -1232,10 +1449,20 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   $('calc-scope-clear').addEventListener('click', () => {
     if (!c.open) return;
     // Every project: the picks go; the leave-out options stay as they are.
-    c.open.scope = cleanScope({ leaveOutNoCode: scope().leaveOutNoCode, leaveOutNoFindings: scope().leaveOutNoFindings });
+    c.open.scope = cleanScope({ leaveOutNoCode: scope().leaveOutNoCode, leaveOutNoFindings: scope().leaveOutNoFindings, maxProjects: scope().maxProjects });
     save({ scope: c.open.scope });
     renderScope();
     applyScope();
+  });
+
+  // How many of the tenant's projects a read takes (10,000 unless set): kept with the customer.
+  $('calc-max-projects').addEventListener('change', (event) => {
+    if (!c.open) return;
+    const typed = wholeNumber(event.target.value);
+    c.open.scope = cleanScope({ ...scope(), maxProjects: typed });
+    event.target.value = num(scope().maxProjects);
+    save({ scope: c.open.scope });
+    if (typed > MAX_PROJECTS) setStatus('calc-read-note', `At most ${num(MAX_PROJECTS)} projects are read at once.`, 'warn');
   });
 
   // ---- Reading Checkmarx One: both tabs come from the tenant's projects and their scans ----------
@@ -1277,7 +1504,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     setStatus('calc-read-note', 'Reading the projects…', 'muted');
     try {
       // One branch per project (its primary branch) unless "Every branch" is ticked.
-      readProgress(await api('/api/projections/read', { method: 'POST', body: JSON.stringify({ branches: $('calc-all-branches').checked ? 'all' : 'primary' }), quiet: true }));
+      readProgress(await api('/api/projections/read', { method: 'POST', body: JSON.stringify({ branches: $('calc-all-branches').checked ? 'all' : 'primary', maxProjects: readLimit(scope().maxProjects) }), quiet: true }));
       poll();
     } catch (error) {
       readProgress(null);
@@ -1359,6 +1586,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!body.tr) setStatus('calc-read-note', `Read ${num(read.length)} projects from Checkmarx One; none had a scan to read the findings of.`, 'warn');
     else if (read.length === 1) setStatus('calc-read-note', 'Read 1 project and its scans from Checkmarx One.', 'ok');
     else setStatus('calc-read-note', `Read ${num(read.length)} projects and their scans from Checkmarx One.`, 'ok');
+    // More projects than Projects to read: said, with how to read them all.
+    if (body.limited) setStatus('calc-read-note', body.limited.total ? `Read the first ${num(body.limited.read)} of ${num(body.limited.total)} projects in Checkmarx One: set Projects to read to ${num(body.limited.total)} or more and read again to count them all.` : `Read the first ${num(body.limited.read)} projects: Checkmarx One has more. Raise Projects to read and read again to count them all.`, 'warn');
     if (!body.models?.length && !f.models.length && !fusionOff()) toast('Checkmarx One did not say which Fusion models it offers: add them under Fusion models, with their credits per 10K LOC.', 'warn', 9000);
     if (gone === 1) toast('1 project read before is no longer in Checkmarx One: it was taken off.', 'warn');
     else if (gone) toast(`${num(gone)} projects read before are no longer in Checkmarx One: they were taken off.`, 'warn');
@@ -1431,10 +1660,14 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     gateImpact();
     $('calc-pdf').hidden = !(lastMade && lastMade.customerId === c.open?.id);
     if (!c.open) return;
-    const sum = creditSummary(c.trCredits, c.fusionCredits, totals());
+    const fn = fnewEstimate();
+    c.fusionNewCredits = fnewCounts(fn) ? fn.totals.credits : null;
+    // Fusion for the customer's projects in Checkmarx One and for its new code, together.
+    const sum = creditSummary(c.trCredits, fusionTotal({ totals: { credits: c.fusionCredits } }, { totals: { credits: c.fusionNewCredits } }), totals());
     $('calc-sum-tr').textContent = num(sum.tr, 1);
     $('calc-sum-tr-split').textContent = c.trSplit ? `${num(c.trSplit.backlogCredits, 1)} backlog + ${num(c.trSplit.aheadCredits, 1)} ahead` : '';
-    $('calc-sum-fusion').textContent = fusionOff() ? 'Left out' : num(sum.fusion, 1);
+    $('calc-sum-fusion').textContent = fusionOff() ? 'Left out' : num(c.fusionCredits, 1);
+    $('calc-sum-fusion-new').textContent = fnewOff() ? 'Left out' : num(c.fusionNewCredits, 1);
     $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.total, 1);
     $('calc-sum-extra').textContent = sum.extra ? `Includes ${num(sum.extra, 1)} extra` : '';
     $('calc-sum-bundles').textContent = sum.total ? num(sum.bundles) : '—';
@@ -1479,8 +1712,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   /** Fusion's impact: the projects counted on the Fusion tab, and what Fusion adds to triage & remediation. */
   function currentFusionImpact() {
     const est = estimate();
-    if (!fusionCounts(est)) return null;
-    return fusionImpact(est.rows, est.totals.credits, est.settings.periodMonths, impact(), trFigures()?.projection.rows ?? null);
+    const fn = fnewEstimate();
+    const parts = [fusionCounts(est) && est, fnewCounts(fn) && fn].filter(Boolean);
+    if (!parts.length) return null;
+    return fusionImpact(parts.flatMap((x) => x.rows), parts.reduce((n, x) => n + x.totals.credits, 0), est.settings.periodMonths, impact(), trFigures()?.projection.rows ?? null);
   }
 
   function renderImpact() {
@@ -1522,7 +1757,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const f = currentFusionImpact();
     const { w } = L;
     $('calc-impact-fusion-empty').hidden = Boolean(f);
-    $('calc-impact-fusion-empty').textContent = fusionOff() ? 'Fusion is left out of this projection: tick Include Fusion projection at the top to count it.' : 'No Fusion projects yet: add them, with their lines of code, on the Fusion tab.';
+    $('calc-impact-fusion-empty').textContent = fusionOff() ? 'Fusion for the existing customer is left out of this projection: tick Add Fusion: Existing customer at the top to count it.' : 'No Fusion projects yet: add them, with their lines of code, on the Fusion tabs.';
     if (!f) return ($('calc-impact-fusion').innerHTML = '');
     const cash = (n) => esc(money(n, f.settings.currency));
     $('calc-impact-fusion').innerHTML = [
@@ -1579,8 +1814,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const t = trFigures();
     const est = estimate();
     const fusionCounted = fusionCounts(est);
+    const fn = fnewEstimate();
+    const fnCounted = fnewCounts(fn);
     const who = me()?.user;
-    const summary = creditSummary(t ? t.projection.totals.credits : null, fusionCounted ? est.totals.credits : null, totals());
+    const summary = creditSummary(t ? t.projection.totals.credits : null, fusionTotal(fusionCounted ? est : null, fnCounted ? fn : null), totals());
     const meta = tr()?.totals?.meta ?? {};
     const sc = scope();
     return {
@@ -1620,7 +1857,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       impact: (() => {
         if (!impactOn()) return null;
         const trI = t ? trImpact(t.projection.rows, t.projection.months, impact()) : null;
-        const fuI = fusionCounted ? fusionImpact(est.rows, est.totals.credits, est.settings.periodMonths, impact(), t?.projection.rows ?? null) : null;
+        const fuI = currentFusionImpact();
         return trI || fuI ? { tr: trI, fusion: fuI, overall: overallImpact(trI, fuI) } : null;
       })(),
       fusion: fusionCounted
@@ -1637,10 +1874,23 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
             rows: est.rows.map((r) => ({ name: r.name, included: r.included, criticality: r.criticality, frequency: r.frequency, scansPerWeek: r.scansPerWeek, lines: r.lines, units: r.units, scans: r.scans, scansFrom: r.scansFrom, model: r.model, credits: r.credits })),
           }
         : null,
+      // Fusion for the customer's new code (not in Checkmarx One yet), its lines counted with cloc.
+      fusionNew: fnCounted
+        ? {
+            periodMonths: fn.settings.periodMonths,
+            defaultScans: fn.settings.defaultScans,
+            defaultModel: fn.settings.defaultModel,
+            models: fn.settings.models,
+            leftOut: fn.settings.leftOut,
+            byModel: fn.byModel,
+            totals: fn.totals,
+            rows: fn.rows.map((r) => ({ name: r.name, file: r.file, included: r.included, lines: r.lines, units: r.units, scans: r.scans, scansFrom: r.scansFrom, model: r.model, credits: r.credits, languages: r.languages.filter((l) => l.counted && l.lines > 0).slice(0, 6) })),
+          }
+        : null,
     };
   }
 
-  const hasData = () => Boolean(c.open?.tr?.totals || c.open?.fusion?.projects?.length);
+  const hasData = () => Boolean(c.open?.tr?.totals || c.open?.fusion?.projects?.length || c.open?.fusionNew?.projects?.length);
 
   /**
    * One click: read Checkmarx One first when nothing is read yet (or follow the read running), then
@@ -1682,7 +1932,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const button = $('calc-pdf');
     button.disabled = true;
     try {
-      const pdf = await slidesPdf({ ...data, generatedAt: report.createdAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr', look: appLook() });
+      // The appendix of calculations only when asked for (unticked unless the reader ticks it).
+      const pdf = await slidesPdf({ ...data, generatedAt: report.createdAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr', look: appLook(), calculations: $('calc-pdf-calculations').checked });
       download(pdf, slidesFileName(report.customer, report.createdAt));
       window.mzReportActivity?.('event', 'Downloaded the calculator PDF summary');
     } catch (error) {

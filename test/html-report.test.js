@@ -22,19 +22,58 @@ const risk = (i, severity) => ({
 
 const island = (html) => JSON.parse(html.match(/<script type="application\/json" id="report-data">([\s\S]*?)<\/script>/)[1]);
 
-test('the report shows the top 50 findings, worst severity then oldest, and says how many more exist', () => {
-  const risks = Array.from({ length: 60 }, (_, i) => risk(i, i % 3 ? 'HIGH' : 'CRITICAL'));
+test('the report shows the top 300 findings, 50 a page, worst severity then oldest, and says how many more exist', () => {
+  const risks = Array.from({ length: 360 }, (_, i) => risk(i, i % 3 ? 'HIGH' : 'CRITICAL'));
   const data = buildReportData(risks, { tenant: 't' });
   const top = selectTopFindings(data);
   const html = generateHtmlReport(data);
 
-  assert.equal(top.length, 50);
+  assert.equal(top.length, 300);
   assert.equal(top[0].severity, 'CRITICAL');
-  assert.equal(top[0].riskId, 'r57', 'oldest critical first');
-  assert.ok(top.slice(0, 20).every((f) => f.severity === 'CRITICAL'));
-  assert.equal((html.match(/<tr data-key=/g) ?? []).length, 50);
-  assert.match(html, /Showing 50 of 60 findings/);
+  assert.equal(top[0].riskId, 'r357', 'oldest critical first');
+  assert.ok(top.slice(0, 100).every((f) => f.severity === 'CRITICAL'));
+  assert.equal((html.match(/<tr data-key=/g) ?? []).length, 300);
+  assert.match(html, /Top 300 of 360/);
+  assert.match(html, /<table id="findings" data-tt="findings">/, 'the headings sort and filter every finding, not one page');
+  assert.match(html, /<nav class="pager" id="report-pager"/);
+  assert.deepEqual(island(html).paging, { top: 300, page: 50, total: 360, searchable: 360 });
   assert.ok(!html.slice(0, html.indexOf('<script')).includes('undefined'));
+});
+
+test('search and filters cover every finding: the rest are carried as data, up to what a report holds', () => {
+  const ids = (r) => ({ ...r, alternateId: `alt-${r.id}`, groupId: `g-${r.id}` });
+  const risks = [...Array.from({ length: 310 }, (_, i) => ids(risk(i, 'MEDIUM'))), ...Array.from({ length: 40 }, (_, i) => ids(risk(1000 + i, 'LOW')))];
+  const data = island(generateHtmlReport(buildReportData(risks, { tenant: 't' }), { sign: () => ({ exp: 1, grant: 'g' }) }));
+  assert.equal(data.findings.length, 300, 'the top rows');
+  assert.equal(data.more.length, 50, 'every other finding, searchable');
+  assert.ok(data.more.every((f) => !f.shown && Number.isFinite(f.age) && f.where && f.title && f.url !== undefined));
+  assert.ok(data.more.every((f) => f.grant === 'g'), 'signed, so Triage works once a search reaches them');
+  assert.ok(data.more.slice(-40).every((f) => f.severity === 'LOW'), 'worst first');
+  assert.deepEqual(new Set([...data.findings, ...data.more].map((f) => f.key)).size, 350, 'one key each');
+
+  // Past what a report holds (REPORT_SEARCHABLE): the least severe are left out, and the report says how many.
+  const many = Array.from({ length: 10050 }, (_, i) => risk(i, i < 20 ? 'HIGH' : 'LOW'));
+  const big = island(generateHtmlReport(buildReportData(many, { tenant: 't' })));
+  assert.equal(big.findings.length + big.more.length, 10000);
+  assert.deepEqual(big.paging, { top: 300, page: 50, total: 10050, searchable: 10000 });
+});
+
+test('the severity buttons count every finding in the report, not one page', () => {
+  const risks = [...Array.from({ length: 320 }, (_, i) => risk(i, 'CRITICAL')), ...Array.from({ length: 5 }, (_, i) => risk(500 + i, 'LOW'))];
+  const html = generateHtmlReport(buildReportData(risks, { tenant: 't' }));
+  assert.match(html, /data-filter-sev="" aria-pressed="true">All <em>325<\/em>/);
+  assert.match(html, /data-filter-sev="CRITICAL"[^>]*>.*Critical <em>320<\/em>/);
+  assert.match(html, /data-filter-sev="LOW"[^>]*>.*Low <em>5<\/em>/);
+});
+
+test('the report page draws a page at a time and the rows a search reaches, never polling them before', () => {
+  const script = generateHtmlReport(buildReportData([risk(1, 'HIGH')], { tenant: 't' })).match(/<script>([\s\S]*?)<\/script>/)[1];
+  // Rows beyond the top join the report (and its state checks) only once drawn.
+  assert.match(script, /function materialize\(f\) \{[^]*?findings\.push\(f\);[^]*?f\.shown = true;/);
+  // With no search or filter, the top rows; with any, every finding; 50 a page.
+  assert.match(script, /if \(!filtering\) list = list\.filter\(\(f\) => f\.top\);/);
+  assert.match(script, /tools\.sortAndFilter\('findings', pool, columns, draw\)/);
+  assert.match(script, /const slice = grouped\.slice\(from, from \+ PAGE\);/);
 });
 
 test('the report script parses and hostile finding text cannot break out of it', () => {
@@ -116,22 +155,23 @@ test('without a download link the button opens each project in Checkmarx One', (
   assert.ok(two.html.includes('Other &lt;b&gt;') && two.html.includes('Hi &lt;Ann&gt;'));
 });
 
-test('"Triage all critical / high" cover every critical and high finding, not only the 50 shown', () => {
+test('"Triage all critical / high" cover every critical and high finding, not only the 300 shown', () => {
   const risks = [
-    ...Array.from({ length: 30 }, (_, i) => risk(i, 'CRITICAL')),
-    ...Array.from({ length: 40 }, (_, i) => risk(100 + i, 'HIGH')),
-    ...Array.from({ length: 10 }, (_, i) => risk(200 + i, 'LOW')),
+    ...Array.from({ length: 200 }, (_, i) => risk(i, 'CRITICAL')),
+    ...Array.from({ length: 150 }, (_, i) => risk(1000 + i, 'HIGH')),
+    ...Array.from({ length: 10 }, (_, i) => risk(2000 + i, 'LOW')),
   ];
   const html = generateHtmlReport(buildReportData(risks, { tenant: 't' }));
   const data = island(html);
 
-  assert.equal((html.match(/<tr data-key=/g) ?? []).length, 50);
-  assert.equal(data.findings.filter((f) => f.shown).length, 50);
-  assert.equal(data.findings.filter((f) => f.severity === 'CRITICAL').length, 30);
-  assert.equal(data.findings.filter((f) => f.severity === 'HIGH').length, 40);
-  assert.equal(data.findings.filter((f) => f.severity === 'LOW').length, 0, 'low findings past the top 50 are not carried');
-  assert.match(html, /data-severity="CRITICAL"[^>]*>Triage all critical \(30\)/);
-  assert.match(html, /data-severity="HIGH"[^>]*>Triage all high \(40\)/);
+  assert.equal((html.match(/<tr data-key=/g) ?? []).length, 300);
+  assert.equal(data.findings.filter((f) => f.shown).length, 300);
+  assert.equal(data.findings.filter((f) => f.severity === 'CRITICAL').length, 200);
+  assert.equal(data.findings.filter((f) => f.severity === 'HIGH').length, 150);
+  assert.equal(data.findings.filter((f) => f.severity === 'LOW').length, 0, 'low findings past the top 300 are searched, not triaged in bulk');
+  assert.equal(data.more.filter((f) => f.severity === 'LOW').length, 10);
+  assert.match(html, /data-severity="CRITICAL"[^>]*>Triage all critical \(200\)/);
+  assert.match(html, /data-severity="HIGH"[^>]*>Triage all high \(150\)/);
 });
 
 test('Remediate runs through the reminder server only when the administrator allowed it', () => {
@@ -319,16 +359,16 @@ test('Remediate all, critical and high: confirmed findings, one per Checkmarx On
 test('the report’s look: command center with its accent and theme, or the classic look, and nothing unknown gets in', async () => {
   const data = { projects: [], generatedAt: '2026-10-14T00:00:00Z' };
   const classic = generateHtmlReport(data);
-  assert.match(classic, /<html lang="en">/);
+  assert.match(classic, /<html lang="en" data-theme="light">/);
   assert.doesNotMatch(classic, /The command-center look/);
   const next = generateHtmlReport(data, { look: { ui: 'nextgen', theme: 'light', accent: 'amber' } });
   assert.match(next, /<html lang="en" data-ui="nextgen" data-accent="amber" data-theme="light">/);
   assert.match(next, /The command-center look/);
   assert.match(next, /#8f5716/, 'the ochre (amber) accent’s ink');
   const odd = generateHtmlReport(data, { look: { ui: 'nextgen', theme: '"><script>', accent: '"><script>' } });
-  assert.match(odd, /<html lang="en" data-ui="nextgen" data-accent="indigo">/);
+  assert.match(odd, /<html lang="en" data-ui="nextgen" data-accent="indigo" data-theme="light">/);
   assert.doesNotMatch(odd, /"><script>/);
-  assert.match(generateHtmlReport(data, { look: { ui: 'classic', theme: 'dark' } }), /<html lang="en" data-theme="dark">/);
+  assert.match(generateHtmlReport(data, { look: { ui: 'classic', theme: 'dark' } }), /<html lang="en" data-theme="light">/, 'files open light, whatever the maker uses');
 });
 
 test('rows that are one Checkmarx One result sit together, in severity then age order otherwise', async () => {

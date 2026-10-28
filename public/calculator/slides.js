@@ -1,15 +1,16 @@
 // Cx Credits Calculator: the projection as a PDF to present, made in the browser from the data a
 // generated report keeps. Page 1: triage & remediation, the backlog and the findings still to
-// come. Page 2: Checkmarx Fusion. Page 3: the credits needed overall. Page 4: the trend and how each
-// number is calculated. Then an appendix with every calculation, step by step (src: explain.js).
+// come. Page 2: Checkmarx Fusion. Page 3: the credits needed overall. Page 4: the impact. Only when
+// the calculations are asked for: the trend and how each number is calculated, then an appendix with
+// every calculation, step by step (src: explain.js).
 //
 // Each page is drawn on a canvas (so every language's script and direction is drawn by the
 // browser), kept as a JPEG, and the three are written into a PDF here: no library, nothing sent.
 
-import { FREQUENCIES, HOURS_A_YEAR, SEVERITIES, aheadMonths, creditSummary } from './model.js';
+import { FREQUENCIES, HOURS_A_YEAR, SEVERITIES, aheadMonths, creditSummary, fusionTotal } from './model.js';
 import { allSections, moneyText } from './explain.js';
 import { forecastChart } from './charts.js';
-import { assumptionItems, reportFileName, trFigures, wording } from './report.js';
+import { assumptionItems, falsePositiveLine, reportFileName, scopeLines, trFigures, wording } from './report.js';
 import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../look.js';
 
 /** The page size in PDF points (16:9, as a presentation) and the drawing size in pixels. */
@@ -55,13 +56,14 @@ export function slidesFileName(customer, at) {
 
 /**
  * What each page says, in the reader's language: titles, figures and lines, with no drawing.
- * `data` is what generating the report saved (see page.js reportData()).
+ * `data` is what generating the report saved (see page.js reportData()). `calculations`: the appendix
+ * of calculations too (left out unless asked for).
  */
-export function slideContent(data, { t, lang = 'en' } = {}) {
+export function slideContent(data, { t, lang = 'en', calculations = false } = {}) {
   const L = wording({ t, lang });
   const { num } = L;
   const w = (...args) => plain(L.w(...args));
-  const sum = creditSummary(data.tr?.totals?.credits ?? null, data.fusion?.totals?.credits ?? null, data.summary?.settings);
+  const sum = creditSummary(data.tr?.totals?.credits ?? null, fusionTotal(data.fusion, data.fusionNew), data.summary?.settings);
   const customer = data.customer || L.t('Customer');
   const months = data.tr?.months ?? data.months ?? data.fusion?.periodMonths ?? 12;
   const pages = [];
@@ -74,16 +76,18 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
     const lines = [];
     if (Number.isFinite(a.addedPct) && Number.isFinite(a.fixedPct)) lines.push(w('Each month, new findings add {0}% to the backlog and fixes take away {1}%.', num(a.addedPct, 1), num(a.fixedPct, 1)));
     else if (Number.isFinite(tr.monthlyChange)) lines.push(tr.monthlyChange >= 0 ? w('The backlog grew by {0} a month on average recently.', num(tr.monthlyChange)) : w('The backlog shrank by {0} a month on average recently.', num(-tr.monthlyChange)));
-    if (tr.ahead?.includeFuture !== false && tr.ahead?.aiDeclinePercent) lines.push(w('New findings arrive at the pace of the last {0} months, then {1}% fewer each month as teams adopt AI.', num(tr.lookbackMonths), num(tr.ahead.aiDeclinePercent)));
+    if (tr.ahead?.includeFuture !== false && tr.ahead?.aiDeclinePercent) lines.push(w('New findings arrive at the pace of the last {0} months, falling by {1}% over a year as teams adopt AI.', num(tr.lookbackMonths), num(tr.ahead.aiDeclinePercent)));
     pages.push({
       kind: 'tr',
       title: w('Triage & remediation'),
-      subtitle: w('The backlog today and the findings still to come over the next {0} months', num(months)),
+      subtitle: tr.ahead?.includeFuture === false ? w('The backlog today, triaged and remediated over the next {0} months', num(months)) : w('The backlog today and the findings still to come over the next {0} months', num(months)),
       figures: [
-        { label: w('Backlog today'), value: num(f.backlog) },
-        { label: tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer each month with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace'), value: `+${num(f.future)}` },
-        { label: w('To triage'), value: num(f.toTriage), note: w('{0} to remediate', num(f.truePositives)) },
-        { label: w('Triage & remediation credits'), value: num(f.credits), key: true },
+        // Every open vulnerability today, small: what the plan takes from it comes next.
+        { label: w('Total open vulnerabilities today'), value: num(f.backlog), small: true },
+        // Still to come only when it is counted.
+        ...(tr.ahead?.includeFuture === false ? [] : [{ label: tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer over a year with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace'), value: `+${num(f.future)}` }]),
+        { label: w('To triage'), value: num(f.toTriage), notes: [w('{0} to remediate', num(f.truePositives)), ...scopeLines(tr, L).map(plain)] },
+        { label: w('Triage & remediation credits'), value: num(f.credits), key: true, notes: [plain(falsePositiveLine(tr, L))].filter(Boolean) },
       ],
       chart: tr.forecast?.length ? { kind: 'forecast', points: tr.forecast, title: w('Backlog trend and forecast'), legend: [[w('Backlog'), C.ink, false], [w('If nothing changes'), '#dc2626', true], [w('With this plan'), C.accent, true]] } : null,
       lines,
@@ -92,6 +96,9 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
 
   // 2. Checkmarx Fusion: the projects, their scans and the credits, by how often they are scanned.
   const fu = data.fusion;
+  const fn = data.fusionNew;
+  // The new customer's code (cloc): one line on the Fusion page, its own part of the total.
+  const newLine = fn ? [w('New customer (code counted with cloc): {0} projects, {1} lines, {2} Fusion scans, {3} credits.', num(fn.totals?.projects), num(fn.totals?.lines), num(fn.totals?.scans), num(fn.totals?.credits))] : [];
   if (fu) {
     const T = fu.totals ?? {};
     const label = (id) => w(FREQUENCIES.find((x) => x.id === id)?.label ?? '—');
@@ -108,7 +115,22 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
         { label: w('Fusion credits'), value: num(T.credits), key: true },
       ],
       bars: bars.length ? { title: w('Fusion credits by how often projects are scanned'), items: bars } : null,
-      lines: models.length ? [`${w('Models')}: ${models.join('; ')}`] : [],
+      lines: [...(models.length ? [`${w('Models')}: ${models.join('; ')}`] : []), ...newLine],
+    });
+  } else if (fn) {
+    const T = fn.totals ?? {};
+    pages.push({
+      kind: 'fusion',
+      title: w('Checkmarx Fusion'),
+      subtitle: w('Fusion — new customer: code counted with cloc'),
+      figures: [
+        { label: w('Projects'), value: num(T.projects) },
+        { label: w('Lines of code'), value: num(T.lines) },
+        { label: w('Fusion scans over {0} months', num(fn.periodMonths)), value: num(T.scans) },
+        { label: w('Fusion credits'), value: num(T.credits), key: true },
+      ],
+      bars: null,
+      lines: [],
     });
   } else pages.push({ kind: 'fusion', title: w('Checkmarx Fusion'), subtitle: '', figures: [], lines: [w('Fusion is not in this projection.')] });
 
@@ -117,7 +139,8 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
   const parts = [
     f && { label: w('Backlog today'), value: f.backlogCredits, colour: C.ink },
     f && f.aheadCredits > 0 && { label: w('Findings ahead'), value: f.aheadCredits, colour: C.accent },
-    fu && { label: w('Fusion scans'), value: fu.totals?.credits ?? 0, colour: C.fusion },
+    fu && { label: fn ? w('Fusion — existing customer') : w('Fusion scans'), value: fu.totals?.credits ?? 0, colour: C.fusion },
+    fn && { label: w('Fusion — new customer'), value: fn.totals?.credits ?? 0, colour: '#b7791f' },
     sum.extra > 0 && { label: w('Extra credits'), value: sum.extra, colour: '#9aa1ab' },
   ].filter((p) => p && p.value > 0).map((p) => ({ ...p, text: num(p.value) }));
   pages.push({
@@ -162,6 +185,19 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
     });
   }
 
+  const made = new Date(data.generatedAt ?? Date.now()).toLocaleDateString(L.locale, { day: 'numeric', month: 'long', year: 'numeric' });
+  const content = {
+    customer,
+    eyebrow: data.organisation ? plain(data.organisation) : w('Checkmarx credits projection'),
+    footer: data.preparedBy ? w('Made {0} by {1}', made, data.preparedBy) : w('Made {0}', made),
+    pages,
+    appendix: [],
+    appendixTitle: w('Appendix: how each number is calculated'),
+    of: (i, total = pages.length) => `${i + 1} / ${total}`,
+    heading: (page) => `${customer}: ${page.title}`,
+  };
+  if (!calculations) return content;
+
   // 5. The appendix begins: what it holds, and on which pages (filled in once the pages are laid out).
   pages.push({
     kind: 'section',
@@ -183,16 +219,16 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
     const monthly = T.arrivals ?? (paced ? (T.future ?? 0) / paced : 0);
     const chosen = SEVERITIES.filter((x) => (tr.rows?.[x]?.selected ?? 0) > 0);
     calc.push({ label: w('Backlog today'), formula: `${chosen.map((x) => num(tr.rows[x].selected)).join(' + ') || '0'} = ${num(T.selected)} (${w('of {0} open', num(T.backlog))})` });
-    calc.push({ label: w('Still to come'), formula: A.includeFuture === false ? '0' : `${num(monthly)} × ${num(paced, 2)} = ${num(T.future)}` });
+    if (A.includeFuture !== false) calc.push({ label: w('Still to come'), formula: `${num(monthly)} × ${num(paced, 2)} = ${num(T.future)}` });
     calc.push({ label: w('More found by Fusion'), formula: tr.fusion ? `${num(A.fusionUpliftPercent)}% × (${num(T.selected)} + ${num(T.future)}) = ${num(T.fusionExtra)}` : '0' });
-    calc.push({ label: w('Kept away by FAE'), formula: `≤ ${num(A.faePercent)}% × (${num(T.future)} + ${num(T.fusionExtra)}) = ${num(T.faeAvoided)}` });
-    calc.push({ label: w('To triage'), formula: `${num(T.selected)} + ${num(T.future)} + ${num(T.fusionExtra)} − ${num(T.faeAvoided)} = ${num(T.toTriage)}` });
+    calc.push({ label: w('To triage'), formula: `${[T.selected, ...(A.includeFuture !== false ? [T.future] : []), ...(tr.fusion ? [T.fusionExtra] : [])].map((n) => num(n)).join(' + ')} = ${num(T.toTriage)}` });
     const fps = [...new Set(SEVERITIES.filter((x) => (tr.rows?.[x]?.selected ?? 0) + (tr.rows?.[x]?.future ?? 0) > 0).map((x) => tr.rows[x].fp))];
     const reported = T.selected + T.future + T.fusionExtra;
     calc.push({ label: w('To remediate (true positives)'), formula: fps.length === 1 ? `${num(reported)} × ${num(100 - fps[0])}% = ${num(T.truePositives)}` : `${SEVERITIES.filter((x) => tr.rows?.[x]?.truePositives > 0).map((x) => num(tr.rows[x].truePositives)).join(' + ')} = ${num(T.truePositives)}` });
     calc.push({ label: w('Triage & remediation credits'), formula: `${num(T.triageCredits)} + ${num(T.remediationCredits)} = ${num(T.credits)}` });
   }
-  if (fu) calc.push({ label: w('Fusion credits'), formula: `Σ ${w('10K units × scans')} × ${w('Credits per 10K LOC')} = ${num(fu.totals?.credits)}` });
+  if (fu) calc.push({ label: fn ? w('Fusion — existing customer') : w('Fusion credits'), formula: `Σ ${w('10K units × scans')} × ${w('Credits per 10K LOC')} = ${num(fu.totals?.credits)}` });
+  if (fn) calc.push({ label: w('Fusion — new customer'), formula: `Σ ${w('10K units × scans')} × ${w('Credits per 10K LOC')} = ${num(fn.totals?.credits)}` });
   calc.push({ label: w('Total credits required'), formula: `${sum.tr !== null && sum.fusion !== null ? `${num(sum.tr)} + ${num(sum.fusion)} = ` : ''}${num(sum.base)}${sum.extra ? ` + ${num(sum.settings.extraPercent, 2)}% = ${num(sum.total)}` : ''}; ${num(sum.total)} ÷ ${num(sum.settings.bundleCredits)} = ${num(sum.exactBundles, 2)} → ${num(sum.bundles)}` });
   const an = (x) => tr?.analysis?.[x] ?? {};
   pages.push({
@@ -211,19 +247,8 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
   });
 
   // The appendix: every calculation, step by step, as the report's "How each number is calculated".
-  const appendix = allSections(data, L).map((x) => ({ title: plain(x.title), lines: x.lines.map((l) => ({ text: plain(l.text), sub: Boolean(l.sub), total: Boolean(l.total) })) }));
-
-  const made = new Date(data.generatedAt ?? Date.now()).toLocaleDateString(L.locale, { day: 'numeric', month: 'long', year: 'numeric' });
-  return {
-    customer,
-    eyebrow: data.organisation ? plain(data.organisation) : w('Checkmarx credits projection'),
-    footer: data.preparedBy ? w('Made {0} by {1}', made, data.preparedBy) : w('Made {0}', made),
-    pages,
-    appendix,
-    appendixTitle: w('Appendix: how each number is calculated'),
-    of: (i, total = pages.length) => `${i + 1} / ${total}`,
-    heading: (page) => `${customer}: ${page.title}`,
-  };
+  content.appendix = allSections(data, L).filter((x) => x.key !== 'future' || data.tr?.ahead?.includeFuture !== false).map((x) => ({ title: plain(x.title), lines: x.lines.map((l) => ({ text: plain(l.text), sub: Boolean(l.sub), total: Boolean(l.total) })) }));
+  return content;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -374,14 +399,25 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
 
   // The figures down the side, the picture beside them, the lines under it.
   let fy = 290;
-  for (const fig of page.figures) {
+  // Small print under a figure (to remediate, what is included and excluded, the false positives): as many lines
+  // as it needs. When the column would run into the footer, the figures close up a little.
+  ctx.font = font(20);
+  const notesOf = page.figures.map((fig) => (fig.notes ?? []).flatMap((n) => wrap(ctx, n, 504)));
+  const sizes = (compact) => page.figures.map((fig, i) => (fig.small ? 108 : compact ? 134 : 150) + notesOf[i].length * (compact ? 24 : 26) + (notesOf[i].length ? 8 : 0));
+  const compact = sizes(false).reduce((a, h) => a + h + 14, fy) > H - 80;
+  const heights = sizes(compact);
+  page.figures.forEach((fig, i) => {
+    const small = notesOf[i];
+    const base = fig.small ? 108 : compact ? 134 : 150;
     ctx.fillStyle = fig.key ? C.key : C.soft;
-    ctx.fillRect(X(80, 560), fy, 560, 150);
+    ctx.fillRect(X(80, 560), fy, 560, heights[i]);
     const after = lines(fig.label, 108, fy + 44, 504, { size: 24, colour: C.muted, lead: 30 });
-    text(fig.value, 108, Math.max(after + 36, fy + 112), { size: 54, weight: 600, colour: fig.key ? C.accent : C.ink });
-    if (fig.note) text(fig.note, 612, fy + 132, { size: 22, colour: C.muted, align: 'end' });
-    fy += 168;
-  }
+    const valueY = fig.small ? Math.max(after + 26, fy + 86) : Math.max(after + (compact ? 30 : 36), fy + (compact ? 100 : 112));
+    text(fig.value, 108, valueY, { size: fig.small ? 36 : compact ? 48 : 54, weight: 600, colour: fig.key ? C.accent : C.ink });
+    if (fig.note) text(fig.note, 612, valueY, { size: 22, colour: C.muted, align: 'end' });
+    small.forEach((row, j) => text(row, 108, fy + base + j * (compact ? 24 : 26), { size: 20, colour: C.muted }));
+    fy += heights[i] + (compact ? 10 : 14);
+  });
   const left = page.figures.length ? 700 : 80;
   const width = W - left - 80;
   let y = 300;
@@ -477,9 +513,9 @@ export function numberContents(all) {
 }
 
 /** The pages as JPEGs, drawn in the reader's language and direction. */
-export async function drawSlides(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
+export async function drawSlides(data, { t, lang = 'en', dir = 'ltr', look, calculations = false } = {}) {
   useLook(look);
-  const content = slideContent(data, { t, lang });
+  const content = slideContent(data, { t, lang, calculations });
   // A face is fetched only once something uses it: ask for the weights the pages draw with.
   await Promise.all([400, 600].map((weight) => document.fonts?.load(`${weight} 28px ${FONT}`))).catch(() => {});
   await document.fonts?.ready;

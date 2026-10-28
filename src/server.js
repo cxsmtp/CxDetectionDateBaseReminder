@@ -53,12 +53,12 @@ import { impactSummary } from './impact-summary.js';
 import { TERMINAL, closure, newerThan, rescanRequest, verificationResult } from './verification.js';
 import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
-import { BULK_SEVERITIES, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
+import { BULK_SEVERITIES, REPORT_SEARCHABLE, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { reportI18n, reportWords } from './report-i18n.js';
 import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
 import { buildCalculatorLauncher, buildStandaloneCalculator } from './standalone-calculator.js';
 import { reportFileName as projectionFileName } from '../public/calculator/report.js';
-import { globMatch } from '../public/calculator/model.js';
+import { MAX_PROJECTS, globMatch, readLimit } from '../public/calculator/model.js';
 import { buildReminder, buildReportData, buildReportEmail, buildTemplateData } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -810,6 +810,8 @@ app.use('/api/diagnostics/client-error', express.json({ limit: '16kb' }));
 // Govern (beta): small JSON bodies, except a CSV import (at most 1 MiB of CSV, in JSON).
 app.use('/api/govern/csv', express.json({ limit: '2mb' }));
 app.use('/api/govern', express.json({ limit: '64kb' }));
+// A calculator customer or report with tens of thousands of projects (MAX_PROFILE_BYTES, MAX_REPORT_BYTES).
+app.use('/api/projections', express.json({ limit: '40mb' }));
 app.use(express.json({ limit: '4mb' }));
 
 /**
@@ -4458,7 +4460,7 @@ app.post(
     const reads = tenancy.current().projectionReads;
     Promise.all([
       // One branch per project (its primary branch) unless every branch is asked for.
-      readTenant(client, { branches: branchScopeOf(req.body?.branches), onProgress: (step, done, total) => Object.assign(job, { step, done, total }) }),
+      readTenant(client, { branches: branchScopeOf(req.body?.branches), maxProjects: readLimit(req.body?.maxProjects), onProgress: (step, done, total) => Object.assign(job, { step, done, total }) }),
       readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null })),
     ])
       .then(([{ perProject, ...tenant }, offer]) => {
@@ -4480,7 +4482,7 @@ app.get('/api/projections/read', requireCalculator, (req, res) => {
 app.post('/api/projections/series', requireCalculator, (req, res) => {
   const read = projectionReads.get();
   if (!read?.weeks?.length) return res.status(409).json({ error: 'Read Checkmarx One first: the scope is worked out from the last read.' });
-  const ids = Array.isArray(req.body?.projectIds) ? req.body.projectIds.slice(0, 5000).map((id) => String(id).slice(0, 100)) : [];
+  const ids = Array.isArray(req.body?.projectIds) ? req.body.projectIds.slice(0, MAX_PROJECTS).map((id) => String(id).slice(0, 100)) : [];
   // The engines whose findings count (SAST and SCA unless more are ticked).
   res.json(seriesFor(read, ids, cleanEngines(req.body?.engines).length ? cleanEngines(req.body.engines) : DEFAULT_ENGINES));
 });
@@ -4490,7 +4492,7 @@ app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) =>
 app.put('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
   const body = req.body ?? {};
   const patch = {};
-  for (const key of ['name', 'tr', 'fusion', 'totals', 'scope', 'impact']) if (body[key] !== undefined) patch[key] = body[key];
+  for (const key of ['name', 'tr', 'fusion', 'fusionNew', 'totals', 'scope', 'impact']) if (body[key] !== undefined) patch[key] = body[key];
   res.json({ customer: projections.update(String(req.params.id), patch, req.user.email) });
 }));
 app.delete('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
@@ -4509,7 +4511,7 @@ app.post(
   asyncRoute(async (req, res) => {
     const client = req.session.client ?? integrationSession()?.client;
     if (!client) return res.status(409).json({ error: 'Connect to Checkmarx One first (Settings → Checkmarx One), or add each project by hand.' });
-    const [{ perProject, ...tenant }, offer] = await Promise.all([readTenant(client, { branches: branchScopeOf(req.body?.branches) }), readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null }))]);
+    const [{ perProject, ...tenant }, offer] = await Promise.all([readTenant(client, { branches: branchScopeOf(req.body?.branches), maxProjects: readLimit(req.body?.maxProjects) }), readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null }))]);
     projectionReads.save(perProject);
     res.json({ ...tenant, ...offer });
   }),
@@ -8770,10 +8772,16 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   const ranked = selectTopFindings(reportData, Infinity);
   const findings = ranked.slice(0, REPORT_TOP_N);
   const bulkFindings = ranked.slice(REPORT_TOP_N).filter((f) => BULK_SEVERITIES.includes(f.severity));
+  // The rest the report can search and filter (drawn when reached), up to what it holds: they get AI ids too,
+  // so Triage works on them; one scan's results are read once whatever the number of findings.
+  const moreFindings = ranked
+    .slice(REPORT_TOP_N)
+    .filter((f) => !BULK_SEVERITIES.includes(f.severity))
+    .slice(0, Math.max(0, REPORT_SEARCHABLE - findings.length - bulkFindings.length));
   const scanIdOf = (finding) => initiatorsByProject[finding.projectId]?.scanId ?? '';
   // The AI ids from each scan's result ids, kept and shared for 30 minutes (a scan's ids never change):
   // a report built again, or after a credit check, reads no scan again.
-  await resolveAiIds(session.client, [...findings, ...bulkFindings], scanIdOf);
+  await resolveAiIds(session.client, [...findings, ...bulkFindings, ...moreFindings], scanIdOf);
   // Where each shown finding is in its repository: the report's "Open in IDE" and "Apply fix in my workspace".
   // Code paths are read only for the scans of the findings shown, and remembered.
   const resultsCache = new Map();
@@ -8824,6 +8832,7 @@ async function buildInteractiveReport(session, risks, { buckets = [], settings, 
   const html = generateHtmlReport(reportData, {
     findings,
     bulkFindings,
+    moreFindings,
     i18n,
     relayUrl,
     remediationViaRelay: true,

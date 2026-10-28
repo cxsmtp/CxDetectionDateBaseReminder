@@ -2,15 +2,14 @@
 // server (src/projections.js, in the data folder) and in the standalone calculator (in the browser). No
 // Node or browser APIs beyond crypto and TextEncoder, so both can use it.
 
-import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, aheadSettings, cleanScope, creditSummary, fusionSettings, impactSettings, modelsNamed, totalsSettings, wholeNumber } from './model.js';
+import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, MAX_CLOC_LANGUAGES, MAX_PROJECTS, aheadSettings, cleanScope, creditSummary, fusionSettings, fusionTotal, impactSettings, modelsNamed, newCustomerSettings, totalsSettings, wholeNumber } from './model.js';
 import { DEFAULT_ENGINES, cleanEngines } from '../engines.js';
 
 export const MAX_PROFILES = 200;
-/** One profile, saved: the two exports' weekly series fit well inside this. */
-export const MAX_PROFILE_BYTES = 3 * 1024 * 1024;
+/** One profile, saved: about 550 bytes a project read, so 50,000 projects and the weekly series fit inside this. */
+export const MAX_PROFILE_BYTES = 32 * 1024 * 1024;
 export const MAX_REPORTS = 500;
-export const MAX_REPORT_BYTES = 4 * 1024 * 1024;
-export const MAX_PROJECTS = 5000;
+export const MAX_REPORT_BYTES = 32 * 1024 * 1024;
 const SEVERITIES = ['Critical', 'High', 'Medium', 'Low', 'Info'];
 const PLAN = ['Critical', 'High', 'Medium', 'Low'];
 const FREQ_IDS = new Set(FREQUENCIES.map((f) => f.id));
@@ -130,8 +129,44 @@ export function cleanFusion(value) {
   return { ...settings, readAt: iso(v.readAt), projects };
 }
 
-/** A profile from MZ-01.00.61 (its à la carte calculator state): the exports and plan carry over. */
+/**
+ * Fusion for a new customer: projects whose lines of code were counted with cloc (each language's code
+ * lines), or typed, with their own scans and model. The models are the Fusion page's, so a model is kept
+ * by id only.
+ */
+export function cleanFusionNew(value) {
+  const v = value && typeof value === 'object' ? value : {};
+  const projects = (Array.isArray(v.projects) ? v.projects : []).slice(0, MAX_PROJECTS).map((p) => ({
+    id: text(p?.id, 100) || `new-${newId().slice(0, 8)}`,
+    name: text(p?.name, 200) || 'Unnamed project',
+    file: text(p?.file, 200),
+    langs: Object.fromEntries(
+      Object.entries(p?.langs && typeof p.langs === 'object' ? p.langs : {})
+        .slice(0, MAX_CLOC_LANGUAGES)
+        .map(([lang, n]) => [text(lang, 60), wholeNumber(n) ?? 0])
+        .filter(([lang]) => lang && !['__proto__', 'constructor', 'prototype'].includes(lang)),
+    ),
+    locOverride: wholeNumber(p?.locOverride),
+    included: p?.included !== false,
+    scansOverride: wholeNumber(p?.scansOverride),
+    modelOverride: typeof p?.modelOverride === 'string' && p.modelOverride ? text(p.modelOverride, 60) : null,
+  }));
+  return { ...newCustomerSettings(v), projects };
+}
+
+/**
+ * A profile saved before, brought up to date. MZ-01.01.03: new findings a month are averaged over 12 months
+ * by default, not 3 (a quarter's pace said too little about a year's); a customer on the old default follows.
+ */
 export function migrate(profile) {
+  const before = migrateToV3(profile);
+  if (before.planVersion !== 3) return before;
+  const old = before.tr && Number(before.tr.lookbackMonths) === 3;
+  return { ...before, planVersion: 4, tr: old ? { ...before.tr, lookbackMonths: DEFAULT_TR.lookbackMonths } : before.tr };
+}
+
+/** A profile from MZ-01.00.61 (its à la carte calculator state): the exports and plan carry over. */
+function migrateToV3(profile) {
   // MZ-01.00.69: Fusion's default extra findings went from 20% to 5%; a profile still on the old default follows.
   if (profile.planVersion === 2) {
     const old = profile.tr && Number(profile.tr.fusionUpliftPercent) === 20;
@@ -165,6 +200,7 @@ export const summary = (p) => ({
   updatedBy: p.updatedBy,
   hasTr: Boolean(p.tr?.totals && p.tr?.fixed),
   fusionProjects: p.fusion?.projects?.length ?? 0,
+  fusionNewProjects: p.fusionNew?.projects?.length ?? 0,
 });
 
 /** A report's figures, kept as data only: strings, numbers, booleans and nulls, nested a little. */
@@ -189,7 +225,7 @@ export function cleanReportData(value, depth = 0) {
 /** A new customer, its projections empty and its impact from the organisation's defaults. */
 export function newProfile({ name, by = '', impact = {} } = {}) {
   const now = new Date().toISOString();
-  return { id: newId(), name: text(name, 120) || 'New customer', planVersion: 3, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({ models: modelsNamed() }), totals: totalsSettings({}), scope: cleanScope({}), impact: impactSettings(impact) };
+  return { id: newId(), name: text(name, 120) || 'New customer', planVersion: 4, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({ models: modelsNamed() }), fusionNew: cleanFusionNew({}), totals: totalsSettings({}), scope: cleanScope({}), impact: impactSettings(impact) };
 }
 
 /** A customer with what changed applied: the name, the T&R projection, the Fusion projection, the extra % and bundle size, the scope, the impact's assumptions (each optional). */
@@ -198,13 +234,14 @@ export function patchProfile(profile, patch = {}, by = '') {
   if (patch.name !== undefined) next.name = text(patch.name, 120) || next.name;
   if (patch.tr !== undefined) next.tr = cleanTr(patch.tr);
   if (patch.fusion !== undefined) next.fusion = cleanFusion(patch.fusion);
+  if (patch.fusionNew !== undefined) next.fusionNew = cleanFusionNew(patch.fusionNew);
   if (patch.totals !== undefined) next.totals = totalsSettings(patch.totals);
   if (patch.scope !== undefined) next.scope = cleanScope(patch.scope);
   // The impact's assumptions: minutes by hand, the hourly cost, the credit price, the currency.
   if (patch.impact !== undefined) next.impact = impactSettings(patch.impact);
   next.updatedAt = new Date().toISOString();
   next.updatedBy = text(by, 254);
-  if (bytes(next) > MAX_PROFILE_BYTES) throw fail(413, 'This customer is too large to save (over 3 MB). Use exports covering fewer weeks.');
+  if (bytes(next) > MAX_PROFILE_BYTES) throw fail(413, `This customer is too large to save (over ${MAX_PROFILE_BYTES / 1024 / 1024} MB): read fewer projects (Projects to read, at the top).`);
   return next;
 }
 
@@ -218,12 +255,13 @@ export function newReport({ customerId, customer, by = '', data }) {
     createdAt: new Date().toISOString(),
     createdBy: text(by, 254),
     trCredits: finite(clean?.tr?.totals?.credits, null),
-    fusionCredits: finite(clean?.fusion?.totals?.credits, null),
+    // Fusion for the customer's projects in Checkmarx One and for its new code (cloc), together.
+    fusionCredits: fusionTotal(clean?.fusion, clean?.fusionNew),
     data: clean,
   };
   const sum = creditSummary(report.trCredits, report.fusionCredits, clean?.summary?.settings);
   Object.assign(report, { extraPercent: sum.settings.extraPercent, bundleCredits: sum.settings.bundleCredits, totalCredits: sum.total, bundles: sum.bundles });
-  if (bytes(report) > MAX_REPORT_BYTES) throw fail(413, 'This report is too large to keep (over 4 MB).');
+  if (bytes(report) > MAX_REPORT_BYTES) throw fail(413, `This report is too large to keep (over ${MAX_REPORT_BYTES / 1024 / 1024} MB): read fewer projects (Projects to read, at the top).`);
   return report;
 }
 

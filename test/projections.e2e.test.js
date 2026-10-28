@@ -116,8 +116,8 @@ test('a customer is saved as it is worked on, and opens again as it was left', a
   assert.deepEqual(opened.tr.totals.bySeverity.High, [10, 12]);
   assert.equal(opened.tr.selected.High, 6);
   assert.equal(opened.tr.fpPercent.High, 20);
-  assert.equal(opened.tr.lookbackMonths, 3, '"Latest" is gone: the trend is always read over months');
-  assert.deepEqual([opened.tr.selected.Medium, opened.tr.includeFuture, opened.tr.fusionUpliftPercent, opened.tr.faePercent, opened.tr.aiDeclinePercent], [null, true, 5, 10, 2], 'not chosen: every open finding; and the defaults for what is ahead');
+  assert.equal(opened.tr.lookbackMonths, 12, '"Latest" is gone: the trend is always read over months, 12 unless chosen');
+  assert.deepEqual([opened.tr.selected.Medium, opened.tr.includeFuture, opened.tr.fusionUpliftPercent, opened.tr.aiDeclinePercent], [null, true, 5, 2], 'not chosen: every open finding; and the defaults for what is ahead');
   assert.equal((await ana('PUT', `/api/projections/${customerId}`, { name: 'Globex — renewal' })).body.customer.name, 'Globex — renewal');
   assert.equal((await ana('PUT', '/api/projections/nope', { name: 'x' })).status, 404);
 });
@@ -200,7 +200,7 @@ test('one read in the background fills both tabs from Checkmarx One: the backlog
   assert.equal((await uma('POST', '/api/projections/series', { projectIds: mobile })).status, 403);
   const scope = await ana('PUT', `/api/projections/${customerId}`, { scope: { applications: ['Mobile', '<b>'], names: ['web-*'], frequencies: ['month', 'hourly'], criticalities: [5, 9] } });
   assert.equal(scope.status, 200, scope.text);
-  assert.deepEqual((await ana('GET', `/api/projections/${customerId}`)).body.customer.scope, { applications: ['Mobile', '<b>'], projects: [], groups: [], initiators: [], names: ['web-*'], frequencies: ['month'], criticalities: [5], leaveOutNoCode: true, leaveOutNoFindings: false });
+  assert.deepEqual((await ana('GET', `/api/projections/${customerId}`)).body.customer.scope, { applications: ['Mobile', '<b>'], projects: [], groups: [], initiators: [], names: ['web-*'], frequencies: ['month'], criticalities: [5], leaveOutNoCode: true, leaveOutNoFindings: false, maxProjects: 10000 });
 });
 
 test('a report is emailed as its file, to the addresses typed, and only when it is one', async () => {

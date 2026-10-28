@@ -210,7 +210,26 @@ export function limitsFor(automation, severity) {
   return automation.severityLimits?.[severity] ?? [];
 }
 
-const glob = (pattern) => new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`, 'i');
+/** A name pattern (`*` any run, `?` one character, any case), matched in linear time: no regex to backtrack on. */
+export function glob(pattern) {
+  const p = pattern.toLowerCase();
+  const test = (name) => {
+    const s = String(name ?? '').toLowerCase();
+    let i = 0;
+    let j = 0;
+    let star = -1;
+    let mark = 0;
+    while (i < s.length) {
+      if (j < p.length && (p[j] === '?' || p[j] === s[i])) { i++; j++; }
+      else if (j < p.length && p[j] === '*') { star = j++; mark = i; }
+      else if (star >= 0) { j = star + 1; i = ++mark; }
+      else return false;
+    }
+    while (p[j] === '*') j++;
+    return j === p.length;
+  };
+  return { test };
+}
 
 /**
  * The projects reminders cover (→ Focus): those in a named application, with a named tag (key, or key:value)

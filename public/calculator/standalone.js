@@ -131,7 +131,7 @@ function localApi(store, names, launcher = null) {
     ['GET', /^\/api\/projections\/([^/]+)$/, async (_body, m) => ({ customer: await customer(decodeURIComponent(m[1])) })],
     ['PUT', /^\/api\/projections\/([^/]+)$/, async (body, m) => {
       const patch = {};
-      for (const key of ['name', 'tr', 'fusion', 'totals', 'scope', 'impact']) if (body?.[key] !== undefined) patch[key] = body[key];
+      for (const key of ['name', 'tr', 'fusion', 'fusionNew', 'totals', 'scope', 'impact']) if (body?.[key] !== undefined) patch[key] = body[key];
       const next = patchProfile(await customer(decodeURIComponent(m[1])), patch, names().preparedBy);
       await store.put('customers', next);
       return { customer: summary(next) };
@@ -173,14 +173,16 @@ export function startStandalone({ samples = {} } = {}) {
   const showError = (id, error) => setStatus(id, error.message, 'error');
   const fmtDateTime = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
 
-  // The theme: as the computer has it, or light or dark as chosen here.
+  // The theme: light to start with, or light or dark as chosen here.
   const applyTheme = (theme) => {
     if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
     else delete document.documentElement.dataset.theme;
   };
   try {
-    applyTheme(localStorage.getItem(THEME_KEY));
-  } catch {}
+    applyTheme(localStorage.getItem(THEME_KEY) || 'light');
+  } catch {
+    applyTheme('light');
+  }
   $('sa-theme').addEventListener('click', () => {
     const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
     const next = dark ? 'light' : 'dark';

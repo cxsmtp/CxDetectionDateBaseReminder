@@ -87,7 +87,7 @@ test('not offered until email is set up and tested; asking then sends nothing', 
   await sleep(300);
   assert.equal(mailTo('dev@acme.io').length, 0);
   assert.match((await accessLog()).join('\n'), /Password reset asked for dev@acme\.io: no link sent \(email or the server address is not set up\)/);
-  await admin('PUT', '/api/settings', { smtp: { host: '127.0.0.1', port: smtp.port, secure: false, requireAuth: true, user: 'mz@acme.io', password: 'x', rejectUnauthorized: false, fromAddress: 'mz@acme.io', fromName: 'MissionZero' } });
+  await admin('PUT', '/api/settings', { smtp: { host: '127.0.0.1', port: smtp.port, secure: false, requireAuth: false, rejectUnauthorized: false, fromAddress: 'mz@acme.io', fromName: 'MissionZero' } });
   assert.equal((await admin('POST', '/api/settings/connections/check', { rollback: false })).body.smtp.ok, true);
   assert.equal((await stranger('GET', '/api/session')).body.passwordReset, true);
 });

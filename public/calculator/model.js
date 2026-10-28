@@ -8,7 +8,7 @@
 //
 // Ahead: over the projection period, the findings still to come at the pace of the lookback
 // (arrivals: what the backlog grew by, plus what was fixed meanwhile), the extra findings Fusion
-// reports once it scans the code, and those FAE keeps from being reported (false positives only).
+// reports once it scans the code.
 //
 // Fusion: one Fusion scan of a project costs its model's credits per 10K lines of code, with each
 // project rounded up to whole 10K units on its own (12,000 lines are 2 units). How many Fusion
@@ -20,16 +20,19 @@ export const DEFAULT_TR = Object.freeze({
   triageCost: { Critical: 1, High: 1, Medium: 1, Low: 1 },
   remediationCost: { Critical: 3, High: 3, Medium: 3, Low: 3 },
   fpPercent: { Critical: 30, High: 30, Medium: 30, Low: 30 },
-  lookbackMonths: 3,
+  lookbackMonths: 12,
   includeFuture: true,
   fusionUpliftPercent: 5,
-  faePercent: 10,
-  // New findings fall as teams adopt AI (assist, triage, remediation): this much fewer each month.
+  // New findings fall as teams adopt AI (assist, triage, remediation): this much fewer over a year.
   aiDeclinePercent: 2,
 });
 // The trend is always read over months (a single week says too little to project from).
 export const LOOKBACKS = [3, 6, 9, 12];
 export const UNIT_LOC = 10000;
+// Projects one read from Checkmarx One takes: 10,000 unless the customer sets another number, never
+// more than MAX_PROJECTS (also the most a customer or a report keeps).
+export const DEFAULT_READ_PROJECTS = 10_000;
+export const MAX_PROJECTS = 50_000;
 
 /** A whole number ≥ 0 from whatever was typed or read; null when there is none. */
 export function wholeNumber(value) {
@@ -46,6 +49,12 @@ export function amount(value) {
 }
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+
+/** How many projects a read takes: the number set (1 to MAX_PROJECTS), else DEFAULT_READ_PROJECTS. */
+export function readLimit(value) {
+  const n = wholeNumber(value);
+  return n ? clamp(n, 1, MAX_PROJECTS) : DEFAULT_READ_PROJECTS;
+}
 const monthKey = (iso) => String(iso).slice(0, 7);
 
 // ---------------------------------------------------------------------------------------------
@@ -167,17 +176,16 @@ export function aheadSettings(value = {}) {
   return {
     includeFuture: v.includeFuture !== false,
     fusionUpliftPercent: pct(v.fusionUpliftPercent, DEFAULT_TR.fusionUpliftPercent, 300),
-    faePercent: pct(v.faePercent, DEFAULT_TR.faePercent, 100),
-    aiDeclinePercent: pct(v.aiDeclinePercent, DEFAULT_TR.aiDeclinePercent, 20),
+    aiDeclinePercent: pct(v.aiDeclinePercent, DEFAULT_TR.aiDeclinePercent, 90),
   };
 }
 
 /**
- * How many months' worth of new findings arrive over `months` when each month brings
- * `declinePercent` fewer than the one before (the first at today's pace): 12 at 0%, about 10.9 at 2%.
+ * How many months' worth of new findings arrive over `months` when they fall by `declinePercent`
+ * over a year, a little each month (the first at today's pace): 12 at 0%, about 11.9 at 2%.
  */
 export function aheadMonths(months, declinePercent = 0) {
-  const keep = 1 - clamp(Number(declinePercent) || 0, 0, 100) / 100;
+  const keep = (1 - clamp(Number(declinePercent) || 0, 0, 100) / 100) ** (1 / 12);
   let total = 0;
   for (let m = 0; m < months; m += 1) total += keep ** m;
   return total;
@@ -185,9 +193,7 @@ export function aheadMonths(months, declinePercent = 0) {
 
 /**
  * The credits over the projection period, per severity: the backlog chosen now, the findings still
- * to come at the lookback's pace, the extra Fusion reports (when Fusion is part of it) on both,
- * less the false positives FAE keeps from being reported. FAE never removes more than the false
- * positives among the new findings, so true positives (what remediation pays for) stay the same.
+ * to come at the lookback's pace, and the extra Fusion reports (when Fusion is part of it) on both.
  * `plan` = the saved T&R plan; `months` the projection period; `fusion` whether Fusion is in it.
  */
 export function trProjection(analysis, plan = {}, { months = 12, fusion = false } = {}) {
@@ -196,7 +202,7 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false 
   const period = clamp(Number(months) || 12, 1, 60);
   const paced = aheadMonths(period, ahead.aiDeclinePercent);
   const rows = {};
-  const keys = ['backlog', 'selected', 'arrivals', 'future', 'fusionExtra', 'faeAvoided', 'toTriage', 'truePositives', 'triageCredits', 'remediationCredits', 'credits', 'backlogCredits', 'aheadCredits', 'backlogAfter'];
+  const keys = ['backlog', 'selected', 'arrivals', 'future', 'fusionExtra', 'toTriage', 'truePositives', 'triageCredits', 'remediationCredits', 'credits', 'backlogCredits', 'aheadCredits', 'backlogAfter'];
   const totals = Object.fromEntries(keys.map((k) => [k, 0]));
   for (const s of SEVERITIES) {
     const backlog = analysis?.perSeverity[s].current ?? 0;
@@ -209,15 +215,13 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false 
     const arrivals = ahead.includeFuture ? (analysis?.perSeverity[s].arrivals ?? 0) * share : 0;
     const future = arrivals * paced;
     const fusionExtra = fusion ? ((chosen + future) * ahead.fusionUpliftPercent) / 100 : 0;
-    const fresh = future + fusionExtra;
-    const faeAvoided = Math.min((fresh * ahead.faePercent) / 100, (fresh * fp) / 100);
-    const reported = chosen + fresh;
-    const toTriage = reported - faeAvoided;
+    const reported = chosen + future + fusionExtra;
+    const toTriage = reported;
     const truePositives = reported * (1 - fp / 100);
     const triageCredits = toTriage * triageCost;
     const remediationCredits = truePositives * remediationCost;
     const backlogCredits = chosen * triageCost + chosen * (1 - fp / 100) * remediationCost;
-    const row = { backlog, selected: chosen, share, arrivals, future, fusionExtra, faeAvoided, toTriage, truePositives, triageCost, fp, remediationCost, triageCredits, remediationCredits, credits: triageCredits + remediationCredits, backlogCredits, aheadCredits: triageCredits + remediationCredits - backlogCredits, backlogAfter: backlog - chosen };
+    const row = { backlog, selected: chosen, share, arrivals, future, fusionExtra, toTriage, truePositives, triageCost, fp, remediationCost, triageCredits, remediationCredits, credits: triageCredits + remediationCredits, backlogCredits, aheadCredits: triageCredits + remediationCredits - backlogCredits, backlogAfter: backlog - chosen };
     rows[s] = row;
     for (const k of keys) totals[k] += row[k];
   }
@@ -496,6 +500,173 @@ export function fusionEstimate(projects = [], value = {}) {
   return { settings, rows, totals, byFrequency, byModel };
 }
 
+// --- Fusion for a new customer: code not in Checkmarx One yet, its lines counted with cloc -------
+//
+// The customer runs cloc (github.com/AlDanial/cloc, Count Lines of Code) on each repository and sends
+// the report: per language, its files, blank, comment and code lines. Only code lines count, and only
+// for languages Fusion scans: documentation, data and markup are left out (the reader can change that).
+
+/** Languages cloc reports that are not code Fusion scans: left out unless the reader counts them. */
+export const CLOC_LEFT_OUT = Object.freeze(['JSON', 'YAML', 'Markdown', 'XML', 'CSV', 'Text', 'SVG', 'HTML']);
+export const MAX_CLOC_LANGUAGES = 80;
+/** Fusion scans a new customer's project is given over the period, until the reader says otherwise. */
+export const NEW_CUSTOMER_SCANS = 12;
+const CLOC_META = new Set(['header', 'SUM', 'by_file', 'by_lang']);
+
+/** "C:\\code\\payments-api.json" → "payments-api". */
+export const clocName = (fileName) => String(fileName ?? '').split(/[\\/]/).pop().replace(/\.(json|csv|txt)$/i, '').replace(/\.cloc$/i, '').trim() || 'Project';
+
+/** One CSV line's fields (cloc quotes a field that has a comma or a quote in it). */
+function csvFields(line) {
+  const out = [];
+  let cur = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') (cur += '"'), (i += 1);
+      else if (ch === '"') quoted = false;
+      else cur += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') out.push(cur), (cur = '');
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map((f) => f.trim());
+}
+
+/**
+ * Files of several repositories (cloc --by-file run on the folder that holds them): grouped by the first
+ * folder under what they all share, each group a project.
+ */
+function byTopFolder(files) {
+  const split = files.map((f) => ({ ...f, parts: String(f.path).replace(/\\/g, '/').replace(/^\.\//, '').split('/').filter(Boolean) }));
+  const dirs = split.map((f) => f.parts.slice(0, -1));
+  let common = 0;
+  while (dirs.length && dirs.every((d) => d.length > common && d[common] === dirs[0][common])) common += 1;
+  const groups = new Map();
+  for (const f of split) {
+    // A file straight in the shared folder belongs to a project named after that folder.
+    const name = f.parts.length - 1 > common ? f.parts[common] : f.parts[common - 1] ?? 'Project';
+    if (!groups.has(name)) groups.set(name, {});
+    const langs = groups.get(name);
+    langs[f.language] = (langs[f.language] ?? 0) + f.code;
+  }
+  return [...groups].map(([name, langs]) => ({ name, langs }));
+}
+
+const codeOf = (v) => wholeNumber(v?.code) ?? 0;
+
+/**
+ * A cloc report as projects: [{ name, langs: { Language: code lines } }]. Reads --json and --csv, for one
+ * repository (a project named after the file) or --by-file over many (one project per top folder).
+ * Throws with what is wrong when the file is not a cloc report.
+ */
+export function parseCloc(text, fileName = '') {
+  const source = String(text ?? '').replace(/^\uFEFF/, '').trim();
+  const name = clocName(fileName);
+  const notCloc = () => Object.assign(new Error(`${fileName || 'This file'} is not a cloc report: run cloc with --json or --csv.`), { notCloc: true });
+  if (source.startsWith('{')) {
+    let json;
+    try {
+      json = JSON.parse(source);
+    } catch {
+      throw notCloc();
+    }
+    const table = json.by_lang && typeof json.by_lang === 'object' ? json.by_lang : json;
+    const entries = Object.entries(table).filter(([key, v]) => !CLOC_META.has(key) && v && typeof v === 'object' && 'code' in v);
+    if (!entries.length) throw notCloc();
+    // --by-file: the keys are files, each naming its language.
+    if (entries.every(([, v]) => typeof v.language === 'string')) {
+      return byTopFolder(entries.map(([path, v]) => ({ path, language: v.language, code: codeOf(v) })));
+    }
+    return [{ name, langs: Object.fromEntries(entries.map(([lang, v]) => [lang, codeOf(v)])) }];
+  }
+  const lines = source.split(/\r?\n/).filter((l) => l.trim());
+  const head = csvFields(lines[0] ?? '').map((h) => h.toLowerCase());
+  const at = (key) => head.indexOf(key);
+  if (at('language') < 0 || at('code') < 0) throw notCloc();
+  const rows = lines.slice(1).map(csvFields).filter((r) => r[at('language')] && r[at('language')] !== 'SUM');
+  if (at('filename') >= 0) {
+    return byTopFolder(rows.map((r) => ({ path: r[at('filename')], language: r[at('language')], code: wholeNumber(r[at('code')]) ?? 0 })));
+  }
+  return [{ name, langs: Object.fromEntries(rows.map((r) => [r[at('language')], wholeNumber(r[at('code')]) ?? 0])) }];
+}
+
+/** A new customer's project's lines: typed, else its code lines in the languages counted. */
+export function clocLines(project, leftOut = CLOC_LEFT_OUT) {
+  const typed = wholeNumber(project?.locOverride);
+  if (typed !== null) return typed;
+  const out = new Set(leftOut);
+  const langs = project?.langs && typeof project.langs === 'object' ? project.langs : {};
+  const keys = Object.keys(langs);
+  return keys.length ? keys.filter((l) => !out.has(l)).reduce((n, l) => n + (wholeNumber(langs[l]) ?? 0), 0) : null;
+}
+
+/** The new customer page's own choices, made safe to compute with (the models are the Fusion page's). */
+export function newCustomerSettings(value = {}) {
+  const v = value && typeof value === 'object' ? value : {};
+  const scans = wholeNumber(v.defaultScans);
+  return {
+    defaultScans: scans === null ? NEW_CUSTOMER_SCANS : Math.min(scans, 10000),
+    defaultModel: typeof v.defaultModel === 'string' && v.defaultModel ? v.defaultModel.slice(0, 60) : null,
+    leftOut: Array.isArray(v.leftOut) ? [...new Set(v.leftOut.map((l) => String(l ?? '').trim().slice(0, 60)).filter(Boolean))].slice(0, MAX_CLOC_LANGUAGES) : [...CLOC_LEFT_OUT],
+    optOut: v.optOut === true,
+  };
+}
+
+/**
+ * A new customer's Fusion need over the period, the same way as a customer's in Checkmarx One: each
+ * project's lines rounded up to whole 10K units, × its Fusion scans, × its model's credits per 10K.
+ * `fusionValue` gives the models and the period (the Fusion page's).
+ */
+export function newCustomerEstimate(value = {}, fusionValue = {}) {
+  const fusion = fusionSettings(fusionValue);
+  const own = newCustomerSettings(value);
+  const models = new Map(fusion.models.map((m) => [m.id, m]));
+  const defaultModel = models.has(own.defaultModel) ? own.defaultModel : fusion.defaultModel;
+  const projects = Array.isArray(value?.projects) ? value.projects : [];
+  const rows = projects.map((p) => {
+    const lines = clocLines(p, own.leftOut);
+    const included = p.included !== false;
+    const units = unitsOf(lines);
+    const override = wholeNumber(p.scansOverride);
+    const scans = override ?? own.defaultScans;
+    const model = p.modelOverride && models.has(p.modelOverride) ? p.modelOverride : defaultModel;
+    const rate = models.get(model)?.creditsPer10k ?? null;
+    const credits = included && units && rate !== null ? units * scans * rate : included && units && scans ? null : 0;
+    const out = new Set(own.leftOut);
+    const languages = Object.entries(p.langs ?? {})
+      .map(([name, n]) => ({ name, lines: wholeNumber(n) ?? 0, counted: !out.has(name) }))
+      .sort((a, b) => b.lines - a.lines);
+    return { ...p, lines, included, units, scans, scansFrom: override !== null ? 'project' : 'default', model, rate, credits, languages, unknownLines: lines === null, unknownRate: included && units > 0 && scans > 0 && rate === null };
+  });
+  const counted = rows.filter((r) => r.included && r.units);
+  const totals = {
+    projects: counted.length,
+    lines: counted.reduce((a, r) => a + r.lines, 0),
+    units: counted.reduce((a, r) => a + r.units, 0),
+    scans: counted.reduce((a, r) => a + r.scans, 0),
+    unitScans: counted.reduce((a, r) => a + r.units * r.scans, 0),
+    credits: counted.reduce((a, r) => a + (r.credits ?? 0), 0),
+    unknownLines: rows.filter((r) => r.included && r.unknownLines).length,
+    unknownRate: rows.filter((r) => r.unknownRate).length,
+  };
+  const byModel = fusion.models.map((m) => {
+    const mine = counted.filter((r) => r.model === m.id);
+    return { id: m.id, name: m.name, rate: m.creditsPer10k, projects: mine.length, unitScans: mine.reduce((a, r) => a + r.units * r.scans, 0), credits: mine.reduce((a, r) => a + (r.credits ?? 0), 0) };
+  });
+  return { settings: { ...own, defaultModel, periodMonths: fusion.periodMonths, models: fusion.models }, rows, totals, byModel };
+}
+
+/** Both Fusion parts' credits (the customer's projects in Checkmarx One, and its new code): null when neither counts. */
+export function fusionTotal(existing, fresh) {
+  const value = (x) => (Number.isFinite(Number(x?.totals?.credits)) && x?.totals?.credits !== null ? Number(x.totals.credits) : null);
+  const a = value(existing);
+  const b = value(fresh);
+  return a === null && b === null ? null : (a ?? 0) + (b ?? 0);
+}
+
 // --- Credits required: both parts, the extra asked for on top, and the bundles that buys --------
 
 export const BUNDLE_CREDITS = 10000;
@@ -546,7 +717,7 @@ export function cleanScope(value = {}) {
   return {
     applications: list(v.applications, 200),
     // Projects picked one by one, by id.
-    projects: list(v.projects, 200, 5000),
+    projects: list(v.projects, 200, MAX_PROJECTS),
     groups: list(v.groups, 200),
     initiators: list(v.initiators, 254),
     names: list(v.names, 100, 20),
@@ -555,6 +726,8 @@ export function cleanScope(value = {}) {
     // Projects whose latest scan counted no lines of code are left out unless kept; those with no open finding, when asked.
     leaveOutNoCode: v.leaveOutNoCode !== false,
     leaveOutNoFindings: v.leaveOutNoFindings === true,
+    // How many of the tenant's projects a read takes.
+    maxProjects: readLimit(v.maxProjects),
   };
 }
 

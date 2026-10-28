@@ -7,6 +7,7 @@ import { deriveConnection } from './cxone/endpoints.js';
 import { branchScopeOf } from './cxone/branches.js';
 import { DEFAULT_ENGINES, cleanEngines } from './engines.js';
 import { TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
+import { MAX_PROJECTS, readLimit } from '../public/calculator/model.js';
 
 /**
  * The standalone Cx Credits Calculator's launcher (cx-credits-calculator.mjs, built by
@@ -28,7 +29,8 @@ async function body(req) {
   const parts = [];
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > 64 * 1024) throw Object.assign(new Error('Too large.'), { status: 413 });
+    // A scope's project ids: up to MAX_PROJECTS of them.
+    if (size > 8 * 1024 * 1024) throw Object.assign(new Error('Too large.'), { status: 413 });
     parts.push(chunk);
   }
   if (!parts.length) return {};
@@ -86,7 +88,7 @@ export async function startLauncher({ html, port = 0, host = '127.0.0.1', open =
       state.job = job;
       const client = state.client;
       Promise.all([
-        readTenant(client, { branches: branchScopeOf(input?.branches), onProgress: (step, done, total) => Object.assign(job, { step, done, total }) }),
+        readTenant(client, { branches: branchScopeOf(input?.branches), maxProjects: readLimit(input?.maxProjects), onProgress: (step, done, total) => Object.assign(job, { step, done, total }) }),
         readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null })),
       ])
         .then(([{ perProject, ...tenant }, offer]) => {
@@ -103,7 +105,7 @@ export async function startLauncher({ html, port = 0, host = '127.0.0.1', open =
     'POST /api/projections/series': (input) => {
       const read = state.read.get();
       if (!read?.weeks?.length) throw Object.assign(new Error('Read Checkmarx One first: the scope is worked out from the last read.'), { status: 409 });
-      const ids = Array.isArray(input?.projectIds) ? input.projectIds.slice(0, 5000).map((id) => String(id).slice(0, 100)) : [];
+      const ids = Array.isArray(input?.projectIds) ? input.projectIds.slice(0, MAX_PROJECTS).map((id) => String(id).slice(0, 100)) : [];
       return seriesFor(read, ids, cleanEngines(input?.engines).length ? cleanEngines(input.engines) : DEFAULT_ENGINES);
     },
   };

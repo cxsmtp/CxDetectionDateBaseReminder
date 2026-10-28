@@ -215,7 +215,12 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     $('flush-perm-note').hidden = allowed();
     for (const id of ['flush-preview', 'flush-start', 'flush-pause']) $(id).hidden = !allowed();
     if (!view?.connected) setStatus('flush-status', 'The server is not connected to Checkmarx One: an Admin connects it under Settings → Checkmarx One.', 'error');
-    else if (view.previewError) setStatus('flush-status', `Checking the projects did not finish: ${view.previewError}`, 'error');
+    else if (view.previewError) {
+      // The words translated, Checkmarx One's own reason as it said it.
+      const status = $('flush-status');
+      status.className = 'status error';
+      status.innerHTML = `<span>${esc('Checking the projects did not finish:')}</span> <span translate="no">${esc(view.previewError)}</span>`;
+    }
     else if (view.previewing) setStatus('flush-status', 'Checking every project: its latest scan, whether its code is kept, and its results To verify…');
     else {
       setStatus('flush-status', '');
@@ -604,7 +609,7 @@ export function initFaeFlush({ api, $, esc, toast, showError, setStatus, can, fm
     try {
       const { checks } = await post('/api/fae-flush/test', { projectId });
       const mark = (ok) => (ok === true ? '<span class="pill ok">✓</span>' : ok === false ? '<span class="pill warn">✗</span>' : '<span class="pill muted">?</span>');
-      out.querySelector('tbody').innerHTML = checks.map((c) => `<tr><td>${mark(c.ok)} <span>${esc(c.check)}</span></td><td class="hint" translate="no">${esc(c.detail)}</td></tr>`).join('');
+      out.querySelector('tbody').innerHTML = checks.map((c) => `<tr><td>${mark(c.ok)} <span>${esc(c.check)}</span></td><td class="hint">${esc(c.detail)}</td></tr>`).join('');
     } catch (error) {
       out.querySelector('tbody').innerHTML = `<tr><td colspan="2" translate="no">${esc(error.message)}</td></tr>`;
     }

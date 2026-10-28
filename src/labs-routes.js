@@ -64,7 +64,10 @@ export function registerLabsRoutes(app, d) {
 
   /** A fetch failed in the running tenant. */
   function noteFetchFailed(error) {
-    tenancy.current().state.workbenchError = { at: new Date().toISOString(), message: String(error?.message ?? error ?? '').slice(0, 300) };
+    // Checkmarx One's own answers (they carry a status) are shown; anything else stays in the server log.
+    const expected = Number.isInteger(error?.status) && error.status >= 400 && error.status < 600;
+    const message = expected ? String(error.message ?? '').slice(0, 300) : 'Something went wrong on the server. The details are in its log.';
+    tenancy.current().state.workbenchError = { at: new Date().toISOString(), message };
   }
 
   /** The Checkmarx One credits the running tenant has just read. */

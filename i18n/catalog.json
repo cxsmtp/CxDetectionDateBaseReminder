@@ -13,10 +13,58 @@
    "calculator report"
   ]
  },
+ ". A file for one repository is a project named after the file; rename it below. A project of the same name is replaced.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  ".env file applied": {
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "· code counted with cloc": {
+  "kind": "text",
+  "seen": [
+   "first start › small › How often they are scanned",
+   "sign in › small › How often they are scanned",
+   "Dashboard › small › How often they are scanned"
+  ]
+ },
+ "· projects in Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "first start › small › How often they are scanned",
+   "sign in › small › How often they are scanned",
+   "Dashboard › small › How often they are scanned"
+  ]
+ },
+ "‹ Previous": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "“FAE Flush” is a Beta feature: your role needs “Beta features” until an Admin makes it final.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "“FAE Flush” is a Beta feature: your role needs “Beta features”.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "“FAE Flush” needs its activation code (Settings → Activation codes).": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "\"Secure connection from the start\" does not match the port, so the connection stalled.": {
@@ -29,6 +77,14 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "(.json or .csv), or": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
  "({0} = {1} results)": {
@@ -155,6 +211,12 @@
   "kind": "text",
   "seen": [
    "calculator"
+  ]
+ },
+ "{0} beyond the top {1}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "{0} bundles of {1} credits": {
@@ -443,10 +505,22 @@
    "interactive HTML report"
   ]
  },
+ "{0} is not a cloc report: run cloc with --json or --csv.": {
+  "kind": "text",
+  "seen": [
+   "calculator (runtime)"
+  ]
+ },
  "{0} is not a git checkout (it has no .git folder), so the change cannot be reviewed or undone with git. Apply the fix to it anyway?": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "{0} is over 50 MB: run cloc without --by-file.": {
+  "kind": "text",
+  "seen": [
+   "calculator (runtime)"
   ]
  },
  "{0} left of {1} allocated, {2} used · needs {3} for {4} Checkmarx One results ({5} findings — rows that share one result are triaged, and charged, once) still to triage (critical, high) · {6} more needed than allocated — allocate it on purpose": {
@@ -531,6 +605,12 @@
    "Dashboard › div › Get started · 1 of 6 done",
    "Dashboard (advanced) › div › Get started · 1 of 6 done",
    "connection: cxone › div › Get started · 1 of 6 done"
+  ]
+ },
+ "{0} of {1} findings match": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "{0} of {1} left": {
@@ -695,6 +775,12 @@
    "message"
   ]
  },
+ "{0} project(s) read.": {
+  "kind": "text",
+  "seen": [
+   "calculator (runtime)"
+  ]
+ },
  "{0} projects": {
   "kind": "attr:label",
   "seen": [
@@ -767,6 +853,18 @@
   "kind": "text",
   "seen": [
    "calculator › triage & remediation"
+  ]
+ },
+ "{0} projects, {1} scans at a time (≈ {2} h). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Not exploitable in the project itself, with a comment naming the FAE scan.": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "{0} projects, {1} scans at a time (≈ {2} h). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Proposed not exploitable in the project itself, with a comment naming the FAE scan.": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "{0} remediation credit used, {1} left": {
@@ -1045,6 +1143,12 @@
    "calculator report"
   ]
  },
+ "{0}% false positives": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "{0}% fewer false positives reported": {
   "kind": "text",
   "seen": [
@@ -1055,6 +1159,12 @@
   "kind": "text",
   "seen": [
    "calculator"
+  ]
+ },
+ "{0}% taken as false positives: triaged, not remediated.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "{0}d": {
@@ -1958,6 +2068,14 @@
    "Dashboard › button › Extra credits"
   ]
  },
+ "Add Fusion:": {
+  "kind": "text",
+  "seen": [
+   "first start › b › How often they are scanned",
+   "sign in › b › How often they are scanned",
+   "Dashboard › b › How often they are scanned"
+  ]
+ },
  "Add people and give each the role they need.": {
   "kind": "attr:title",
   "seen": [
@@ -2000,6 +2118,12 @@
   "kind": "message",
   "seen": [
    "settings › handsoff › Hands-off: set it up once, then leave it"
+  ]
+ },
+ "add-fusion|New customer": {
+  "kind": "text",
+  "seen": [
+   "calculator › label › Add Fusion:"
   ]
  },
  "Add, change and remove users and roles — never beyond their own permissions.": {
@@ -2494,6 +2618,14 @@
    "access › button › Roles & permissions",
    "access › people › button › Roles & permissions",
    "access › roles › button › Roles & permissions"
+  ]
+ },
+ "AI adoption: fewer new findings over a year (%)": {
+  "kind": "text",
+  "seen": [
+   "calculator › read › span › What the projection counts",
+   "calculator › scoped › span › What the projection counts",
+   "calculator › scoped triage › span › What the projection counts"
   ]
  },
  "AI check & fix": {
@@ -3044,6 +3176,12 @@
    "interactive HTML report"
   ]
  },
+ "Also on the existing customer tab, so counted on both: {0}. Untick it on one of them unless it really is a second copy of the code.": {
+  "kind": "text",
+  "seen": [
+   "calculator (runtime)"
+  ]
+ },
  "Also open an issue in the repository": {
   "kind": "text",
   "seen": [
@@ -3158,6 +3296,12 @@
    "access › span › Roles & permissions",
    "access › people › span › Roles & permissions",
    "access › roles › span › Roles & permissions"
+  ]
+ },
+ "answered: continue": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "Any age": {
@@ -3390,6 +3534,12 @@
    "busy line"
   ]
  },
+ "As the existing customer tab: {0}": {
+  "kind": "text",
+  "seen": [
+   "calculator (runtime)"
+  ]
+ },
  "Ask the administrator": {
   "kind": "report",
   "seen": [
@@ -3463,6 +3613,12 @@
    "first start › label › Update & recovery",
    "sign in › label › Update & recovery",
    "Dashboard › label › Update & recovery"
+  ]
+ },
+ "At most {0} projects are read at once.": {
+  "kind": "text",
+  "seen": [
+   "calculator (runtime)"
   ]
  },
  "At most 10 addresses at a time.": {
@@ -3778,6 +3934,12 @@
    "calculator"
   ]
  },
+ "Backlog chosen + still to come + found by Fusion:": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (calculator ?, report, PDF appendix)"
+  ]
+ },
  "Backlog history: {0} to {1}.": {
   "kind": "report",
   "seen": [
@@ -3916,6 +4078,12 @@
    "first start › a",
    "first start › h2 › Beta features",
    "first start › div"
+  ]
+ },
+ "Beyond the top {0}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Bitbucket": {
@@ -4639,6 +4807,12 @@
    "busy line"
   ]
  },
+ "Checking the projects did not finish:": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
+  ]
+ },
  "Checking the registry for published versions…": {
   "kind": "message",
   "seen": [
@@ -4761,6 +4935,18 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Checkmarx One groups results by attack vector here, and these results have no attack vector id: scan the project again for one.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "Checkmarx One groups results by attack vector here, and this result has no attack vector id: scan the project again for one.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "Checkmarx One had a problem answering.": {
@@ -4965,6 +5151,14 @@
    "Dashboard › summary › Columns"
   ]
  },
+ "choose files": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › button › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › button › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "Choose files to replace it": {
   "kind": "message",
   "seen": [
@@ -5005,6 +5199,12 @@
    "first start › button › Developers",
    "first start › button › Activity log",
    "sign in › button › Developers"
+  ]
+ },
+ "Clear all": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Clear every choice made for this customer and read Checkmarx One again": {
@@ -5099,6 +5299,18 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Code lines (counted with cloc)": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Code lines counted with cloc, without blank and comment lines.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Collapse all": {
@@ -5973,6 +6185,14 @@
    "Dashboard › option › Fusion scans: what each project needs"
   ]
  },
+ "CSV works too (": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "Currency": {
   "kind": "text",
   "seen": [
@@ -6052,6 +6272,18 @@
   ]
  },
  "Cx Credits Calculator → Fusion": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Cx Credits Calculator → Fusion — existing customer": {
+  "kind": "text",
+  "seen": [
+   "Jump to › span"
+  ]
+ },
+ "Cx Credits Calculator → Fusion — new customer": {
   "kind": "text",
   "seen": [
    "Jump to › span"
@@ -6205,6 +6437,12 @@
    "interactive HTML report"
   ]
  },
+ "Data source": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Date of that project's latest scan": {
   "kind": "text",
   "seen": [
@@ -6339,6 +6577,12 @@
    "calculator › applied › span › The last 3 months, week by week"
   ]
  },
+ "Debt rate ({0}-month average)": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Decline and sign out": {
   "kind": "text",
   "seen": [
@@ -6454,6 +6698,12 @@
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
+  ]
+ },
+ "Deleting the _FAE projects did not finish": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "Deleting the customer…": {
@@ -6751,6 +7001,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Drop cloc results here": {
+  "kind": "text",
+  "seen": [
+   "first start › b › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › b › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › b › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
  "Due ≤ {0}d": {
@@ -7519,12 +7777,26 @@
    "Dashboard › input › Developer addresses"
   ]
  },
+ "Excluded: {0}": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Executive": {
   "kind": "text",
   "seen": [
    "first start › button",
    "sign in › button",
    "Dashboard › button"
+  ]
+ },
+ "Existing customer": {
+  "kind": "text",
+  "seen": [
+   "first start › label › How often they are scanned",
+   "sign in › label › How often they are scanned",
+   "Dashboard › label › How often they are scanned"
   ]
  },
  "Exit customer view": {
@@ -7627,6 +7899,18 @@
   "kind": "attr:aria-label",
   "seen": [
    "reports › triage | credits › allocated vs used"
+  ]
+ },
+ "FAE Flush <span class=\"badge warn\" data-beta-badge=\"faeFlush\" hidden=\"\">Beta</span>": {
+  "kind": "html",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "FAE Flush <span class=\"badge warn\" data-beta-badge=\"faeFlush\">Beta</span>": {
+  "kind": "html",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "FAE keeps {0}% of the new findings from being reported, among the false positives only.": {
@@ -8111,6 +8395,12 @@
    "interactive HTML report"
   ]
  },
+ "Fixing rate ({0}-month average)": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Follow every tracked scope down to zero": {
   "kind": "attr:title",
   "seen": [
@@ -8181,6 +8471,12 @@
   ]
  },
  "For an internal relay addressed by IP, ask for its certificate name, or turn off \"Check the mail server's certificate\" for that relay only.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "For an internal relay that takes mail without a sign-in, untick \"Server needs a user name and password\".": {
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
@@ -8362,6 +8658,60 @@
    "first start › button › Fusion: what one scan of each project costs",
    "sign in › button › Fusion: what one scan of each project costs",
    "Dashboard › button › Fusion: what one scan of each project costs"
+  ]
+ },
+ "Fusion — existing": {
+  "kind": "text",
+  "seen": [
+   "first start › span › How often they are scanned",
+   "sign in › span › How often they are scanned",
+   "Dashboard › span › How often they are scanned"
+  ]
+ },
+ "Fusion — existing customer": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
+ "Fusion — existing customer: what each project needs": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Fusion — existing customer: what each project needs",
+   "sign in › h2 › Fusion — existing customer: what each project needs",
+   "Dashboard › h2 › Fusion — existing customer: what each project needs"
+  ]
+ },
+ "Fusion — new": {
+  "kind": "text",
+  "seen": [
+   "first start › span › How often they are scanned",
+   "sign in › span › How often they are scanned",
+   "Dashboard › span › How often they are scanned"
+  ]
+ },
+ "Fusion — new customer": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
+ "Fusion — new customer: code counted with cloc": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Fusion — new customer: code not in Checkmarx One yet": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › h2 › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › h2 › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
  "Fusion credits": {
@@ -9089,6 +9439,14 @@
    "Dashboard › p › Your profile"
   ]
  },
+ "How it is counted": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › How it is counted",
+   "sign in › h2 › How it is counted",
+   "Dashboard › h2 › How it is counted"
+  ]
+ },
  "How many days each severity has to be fixed, counted from when the finding was first detected. The Dashboard shows what is past its SLA and what is due within {0} days, in total and for each project. Findings triaged as not exploitable have no SLA. {1} means no SLA for that severity.": {
   "kind": "text",
   "seen": [
@@ -9101,6 +9459,12 @@
   "kind": "text",
   "seen": [
    "calculator"
+  ]
+ },
+ "How many of the tenant's projects a read takes: {0} unless you set another number, up to {1}. A tenant with more projects is read only in part, and the read says so.": {
+  "kind": "attr:title",
+  "seen": [
+   "calculator › label"
   ]
  },
  "How often it is scanned": {
@@ -9535,6 +9899,14 @@
    "Dashboard › button › Projects"
   ]
  },
+ "Include it": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Fusion — existing customer: what each project needs",
+   "first start › button › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › button › Fusion — existing customer: what each project needs"
+  ]
+ },
  "Include none": {
   "kind": "text",
   "seen": [
@@ -9551,12 +9923,24 @@
    "Dashboard › label › HTTPS"
   ]
  },
+ "Include the calculations in the PDF": {
+  "kind": "text",
+  "seen": [
+   "calculator › label"
+  ]
+ },
  "Included, with lines of code": {
   "kind": "text",
   "seen": [
    "projections › new › span › Fusion: what one scan of each project costs",
    "projections › fusion › span › Fusion: what one scan of each project costs",
    "projections › none included › span › Fusion: what one scan of each project costs"
+  ]
+ },
+ "Included: {0}": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Includes {0} extra": {
@@ -9965,6 +10349,14 @@
    "access › button › Roles & permissions",
    "access › people › button › Roles & permissions",
    "access › roles › button › Roles & permissions"
+  ]
+ },
+ "Languages found. A crossed-out one is not counted (not code Fusion scans): click a language to count it, or to leave it out.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › How it is counted",
+   "sign in › p › How it is counted",
+   "Dashboard › p › How it is counted"
   ]
  },
  "Last {0} days": {
@@ -10547,6 +10939,12 @@
    "interactive HTML report"
   ]
  },
+ "Mark, continue, skip or retry.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
  "Match usernames <span class=\"badge warn\" data-beta-badge=\"identityMatching\">Beta</span>": {
   "kind": "html",
   "seen": [
@@ -11039,6 +11437,18 @@
    "Dashboard › button"
   ]
  },
+ "New customer (code counted with cloc): {0} projects, {1} lines, {2} Fusion scans, {3} credits.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "New customer: code lines counted with cloc, without blank and comment lines; not counted: {0}.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "new file": {
   "kind": "report",
   "seen": [
@@ -11049,6 +11459,12 @@
   "kind": "text",
   "seen": [
    "calculator"
+  ]
+ },
+ "New findings arrive at the pace of the last {0} months, falling by {1}% over a year as teams adopt AI.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "New findings keep arriving at the pace of the last {0} months.": {
@@ -11093,6 +11509,12 @@
    "credits › overview › span"
   ]
  },
+ "New vulnerabilities reported a month, as a share of the backlog, averaged over the last {0} months": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Newer": {
   "kind": "text",
   "seen": [
@@ -11107,6 +11529,12 @@
    "first start › button › People",
    "sign in › button › People",
    "Dashboard › button › People"
+  ]
+ },
+ "Next ›": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Next round": {
@@ -11253,6 +11681,14 @@
    "impact › p › Time to fix, AI-assisted and by hand",
    "impact › exec › p › Time to fix, AI-assisted and by hand",
    "impact › detail › p › Time to fix, AI-assisted and by hand"
+  ]
+ },
+ "No Fusion projects yet: add them, with their lines of code, on the Fusion tabs.": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › p",
+   "calculator › triage & remediation › p",
+   "calculator › scope › p"
   ]
  },
  "No high findings": {
@@ -11422,10 +11858,24 @@
    "credits › projects › p › By project, in this period"
   ]
  },
+ "No project yet.": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
  "No projects yet. <strong>Read from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.": {
   "kind": "html",
   "seen": [
    "calculator"
+  ]
+ },
+ "No projects yet. Drop the customer's cloc results above, or add a project by hand.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › How it is counted",
+   "sign in › p › How it is counted",
+   "Dashboard › p › How it is counted"
   ]
  },
  "No readings yet.": {
@@ -11467,12 +11917,24 @@
    "help › case › p › Support queue"
   ]
  },
+ "No run has marked anything yet.": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
  "No runs yet.": {
   "kind": "text",
   "seen": [
    "settings › p › Automation",
    "logs › p › Automation",
    "logs › activity › p › Automation"
+  ]
+ },
+ "No SAST scan": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
   ]
  },
  "No severities": {
@@ -11623,6 +12085,12 @@
    "Dashboard › option › Submit a support case"
   ]
  },
+ "Not a repository scan (or it does not say)": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
+  ]
+ },
  "Not accepted yet.": {
   "kind": "message",
   "seen": [
@@ -11717,6 +12185,12 @@
    "interactive HTML report"
   ]
  },
+ "Not listed for this project: its name may differ on this tenant": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
+  ]
+ },
  "Not on this computer yet? Clone and open:": {
   "kind": "report",
   "seen": [
@@ -11729,10 +12203,22 @@
    "interactive HTML report"
   ]
  },
+ "Not read": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
+  ]
+ },
  "Not read yet": {
   "kind": "text",
   "seen": [
    "calculator › triage & remediation"
+  ]
+ },
+ "Not said": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
   ]
  },
  "Not saved:": {
@@ -11761,6 +12247,12 @@
    "beta › span › GitLab not set up",
    "beta › span › Azure DevOps not set up",
    "beta › span › Bitbucket not set up"
+  ]
+ },
+ "Not testable without doing it: the first run shows it": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
   ]
  },
  "Not unlocked": {
@@ -11814,6 +12306,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Nothing marked yet: the value shows here after a run marks false positives.": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "Nothing matches these filters.": {
@@ -12076,6 +12574,14 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "On Windows with Podman (Windows cmd, one line):": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "On: emailed on the first day of each month, for the month before.": {
   "kind": "message",
   "seen": [
@@ -12096,6 +12602,14 @@
    "reports › detail › label › Weekly",
    "reports › detail › overview › label › Weekly",
    "reports › detail › remind › label › Weekly"
+  ]
+ },
+ "One file per repository": {
+  "kind": "text",
+  "seen": [
+   "first start › h3 › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › h3 › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › h3 › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
  "One per project": {
@@ -12372,6 +12886,12 @@
    "calculator report"
   ]
  },
+ "open vulnerabilities in scope": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Open vulnerabilities of every severity, in the period chosen above": {
   "kind": "text",
   "seen": [
@@ -12414,6 +12934,14 @@
    "Dashboard › p › Only these projects or people — optional"
   ]
  },
+ "Optional: open it only to plan scans by how critical projects are": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion scans by criticality ?Optional: open it only to plan scans by how critica",
+   "sign in › span › Fusion scans by criticality ?Optional: open it only to plan scans by how critica",
+   "Dashboard › span › Fusion scans by criticality ?Optional: open it only to plan scans by how critica"
+  ]
+ },
  "Or ask the mail administrator to allow relaying from the address MissionZero runs on.": {
   "kind": "message",
   "seen": [
@@ -12454,12 +12982,28 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "Or many repositories in one file": {
+  "kind": "text",
+  "seen": [
+   "first start › h3 › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › h3 › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › h3 › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "Or use your organisation's certificate:": {
   "kind": "text",
   "seen": [
    "first start › p › HTTPS",
    "sign in › p › HTTPS",
    "Dashboard › p › HTTPS"
+  ]
+ },
+ "Or with cloc installed:": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
  "Organisation": {
@@ -12532,6 +13076,20 @@
    "calculator › sample data › span"
   ]
  },
+ "Over {0} months, falling by {1}% over a year as teams adopt AI: {2} months' worth.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (calculator ?, report, PDF appendix)"
+  ]
+ },
+ "Over the last {0} months. Percentages: a share of today's backlog. The estimates (Fusion, false positives, credits) are set above, under What the projection counts and Customize per severity.": {
+  "kind": "text",
+  "seen": [
+   "calculator › read › p › Debt added against fixes",
+   "calculator › scoped › p › Debt added against fixes",
+   "calculator › scoped triage › p › Debt added against fixes"
+  ]
+ },
  "Overrides — one <code>username = email</code> per line": {
   "kind": "html",
   "seen": [
@@ -12560,6 +13118,12 @@
    "audit › span › Credit audit log",
    "audit › log › span › Credit audit log",
    "audit › checks › span › Credit audit log"
+  ]
+ },
+ "Pages": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Pages can be framed by another site and used to trick clicks.": {
@@ -13207,6 +13771,12 @@
    "Dashboard › label › Fetch"
   ]
  },
+ "Projects to read": {
+  "kind": "text",
+  "seen": [
+   "calculator › label"
+  ]
+ },
  "Projects whose model has no credits per {0}K LOC: {1}": {
   "kind": "text",
   "seen": [
@@ -13288,6 +13858,12 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Putting the marked results back to To verify did not finish": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "Putting the previous certificate back…": {
@@ -13406,6 +13982,18 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Read the first {0} of {1} projects in Checkmarx One: set Projects to read to {2} or more and read again to count them all.": {
+  "kind": "text",
+  "seen": [
+   "calculator (runtime)"
+  ]
+ },
+ "Read the first {0} projects: Checkmarx One has more. Raise Projects to read and read again to count them all.": {
+  "kind": "text",
+  "seen": [
+   "calculator (runtime)"
   ]
  },
  "Read the server's answer below: it usually names the problem.": {
@@ -14407,6 +14995,14 @@
    "interactive HTML report"
   ]
  },
+ "Run on the folder that holds them; each folder in it becomes a project:": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "Run once now": {
   "kind": "text",
   "seen": [
@@ -14774,6 +15370,18 @@
    "first start › span › Credit audit log",
    "sign in › span › Credit audit log",
    "Dashboard › span › Credit audit log"
+  ]
+ },
+ "Search every finding": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
+ "Search every finding: query, file, project": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
   ]
  },
  "Search findings": {
@@ -16578,6 +17186,12 @@
    "message"
   ]
  },
+ "Starting FAE Flush did not finish": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
  "Starting the next round…": {
   "kind": "busy",
   "seen": [
@@ -16674,6 +17288,12 @@
   "kind": "text",
   "seen": [
    "calculator"
+  ]
+ },
+ "Still to come, {0}% fewer over a year with AI": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Still to come, at the current pace": {
@@ -16978,6 +17598,12 @@
    "Dashboard › strong › Allocated vs used"
   ]
  },
+ "Taken as false positives, triaged and not remediated: {0}.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Tell each developer by email when I check or fix their findings": {
   "kind": "text",
   "seen": [
@@ -17214,6 +17840,12 @@
    "logs › activity › span › Available variables"
   ]
  },
+ "The {0} least severe findings after the first {1} are not in this report.": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "The address people use to reach this app from their emailed report.": {
   "kind": "text",
   "seen": [
@@ -17300,6 +17932,12 @@
    "calculator"
   ]
  },
+ "The backlog today, triaged and remediated over the next {0} months": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "The browser (github.dev, GitLab…)": {
   "kind": "report",
   "seen": [
@@ -17382,6 +18020,14 @@
    "first start › p › Fusion scans by criticality",
    "sign in › p › Fusion scans by criticality",
    "Dashboard › p › Fusion scans by criticality"
+  ]
+ },
+ "The customer counts their lines of code with <b>cloc</b>, a free open-source tool (Count Lines of Code), and sends you the result files. Only the counts leave their machine: no code does. Each project's code lines are rounded up to whole {0}K units, and one Fusion scan costs its model's credits per {1}K LOC, as on the existing customer tab; the models are that tab's.": {
+  "kind": "html",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
  "The Dashboard's Remind panel links straight to it.": {
@@ -17596,6 +18242,12 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "The mail server offers no encrypted connection, and MissionZero never sends a sign-in without one.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "The mail server only accepts a sign-in over an encrypted connection.": {
   "kind": "message",
   "seen": [
@@ -17720,6 +18372,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "The pages to present: triage & remediation, Fusion, the credits needed overall and the impact": {
+  "kind": "attr:title",
+  "seen": [
+   "calculator › label"
   ]
  },
  "The passwords do not match.": {
@@ -17880,6 +18538,12 @@
    "calculator report"
   ]
  },
+ "The true positives among everything reported:": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (calculator ?, report, PDF appendix)"
+  ]
+ },
  "The way to Mission Zero": {
   "kind": "attr:aria-label",
   "seen": [
@@ -17942,6 +18606,18 @@
    "first start › span › Roles & permissions",
    "sign in › span › Roles & permissions",
    "Dashboard › span › Roles & permissions"
+  ]
+ },
+ "There is no FAE Flush to undo.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "There is no FAE Flush with _FAE projects.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "These logs do not capture any sensitive information at all: no names, email addresses, passwords, keys, tokens, hosts, URLs, findings or code. Only feature names, counts, timings, status codes and error types, and project ids replaced by one-way codes.": {
@@ -18059,6 +18735,14 @@
    "logs › activity › b › HTTPS"
   ]
  },
+ "This part is left out of the projection (Add Fusion: New customer is unticked): none of it is counted in the credits or the report. The projects below are kept.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "This report does not say which reminder server to use. Enter its address to connect.": {
   "kind": "report",
   "seen": [
@@ -18157,6 +18841,28 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Tick them in the list below: try a few first. — at {0} scans at once.": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "Ticked: Fusion for code that is not in Checkmarx One yet, its lines counted with cloc (the Fusion — new customer tab), is in the credits and the report. Unticked: left out; its projects are kept.": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › label › How often they are scanned",
+   "sign in › label › How often they are scanned",
+   "Dashboard › label › How often they are scanned"
+  ]
+ },
+ "Ticked: Fusion for the customer's projects in Checkmarx One is projected: its credits, and the findings it adds to Triage & remediation. Unticked: none of it is counted, Triage & remediation's \"More found by Fusion\" is {0}%, and the report leaves it out. Its settings are kept.": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › label › How often they are scanned",
+   "sign in › label › How often they are scanned",
+   "Dashboard › label › How often they are scanned"
   ]
  },
  "Time": {
@@ -18369,6 +19075,12 @@
    "Jump to › group"
   ]
  },
+ "Top {0} of {1}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "top {0} shown (worst severity, then oldest)": {
   "kind": "report",
   "seen": [
@@ -18401,6 +19113,12 @@
   "kind": "message",
   "seen": [
    "calculator"
+  ]
+ },
+ "Total open vulnerabilities today": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Total vulnerabilities": {
@@ -18657,6 +19375,18 @@
    "calculator › applied › td › Final matrix"
   ]
  },
+ "True positives, after {0}% false positives": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "True positives, after each severity's false positives": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Truthy only when more than one project is covered": {
   "kind": "text",
   "seen": [
@@ -18861,6 +19591,12 @@
   "kind": "text",
   "seen": [
    "Beta › Code authors › confidence badge: low confidence"
+  ]
+ },
+ "Unticked: the PDF summary has the pages to present only. Ticked: the appendix too, with the trend and every number worked out step by step.": {
+  "kind": "attr:title",
+  "seen": [
+   "calculator › label"
   ]
  },
  "Until": {
@@ -19793,6 +20529,12 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "Vulnerabilities fixed a month, as a share of the backlog, averaged over the last {0} months": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Vulnerability report": {
   "kind": "report",
   "seen": [
@@ -20161,6 +20903,12 @@
    "Dashboard › span › Bitbucket"
   ]
  },
+ "Worst severity first, then oldest · {0} a page · search and filters cover all {1}": {
+  "kind": "report",
+  "seen": [
+   "interactive HTML report"
+  ]
+ },
  "Worth checking in the file:": {
   "kind": "message",
   "seen": [
@@ -20369,6 +21117,12 @@
    "first start › a",
    "first start › h2 › Your profile",
    "sign in › a"
+  ]
+ },
+ "Your role does not allow this (needs “Checkmarx One integration”).": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "Your tools": {

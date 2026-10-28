@@ -14,11 +14,11 @@ import { randomUUID } from 'node:crypto';
 
 import { mapWithConcurrency } from './cxone/client.js';
 import { DEFAULT_ENGINES, cleanEngines, engineOf, engineScope } from './engines.js';
-import { getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
+import { countProjects, getLastScans, lastScanDate, listApplications, listProjects } from './cxone/projects.js';
 import { BRANCH_HOW, branchOf, primaryScans } from './cxone/branches.js';
-import { CRITICALITIES, amount, frequencyOf, modelsNamed, wholeNumber } from '../public/calculator/model.js';
+import { CRITICALITIES, DEFAULT_READ_PROJECTS, amount, frequencyOf, modelsNamed, readLimit, wholeNumber } from '../public/calculator/model.js';
 import { modelChoices } from './fusion-usage.js';
-import { MAX_PROFILES, MAX_PROJECTS, MAX_REPORTS, cleanFusion, cleanReportData, cleanTr, fail, finite, iso, migrate, newProfile, newReport, patchProfile, reportMeta, summary, text } from '../public/calculator/profiles.js';
+import { MAX_PROFILES, MAX_REPORTS, cleanFusion, cleanReportData, cleanTr, fail, finite, iso, migrate, newProfile, newReport, patchProfile, reportMeta, summary, text } from '../public/calculator/profiles.js';
 
 // The rules for customers and reports are shared with the standalone calculator (public/calculator/profiles.js).
 export { MAX_PROFILES, MAX_PROFILE_BYTES, MAX_REPORTS, MAX_REPORT_BYTES, cleanFusion, cleanReportData, cleanTr } from '../public/calculator/profiles.js';
@@ -272,28 +272,35 @@ export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks =
     scansUsed += timeline.length;
     const own = { e: {}, scans: timeline.length };
     const ownOf = (engine) => (own.e[engine] ??= { t: blank(), f: blank() });
-    let k = 0;
-    for (let w = 0; w < ends.length; w += 1) {
-      while (k + 1 < timeline.length && at(timeline[k + 1]) <= ends[w]) k += 1;
-      if (at(timeline[k]) > ends[w]) continue;
-      for (const [engine, { total }] of Object.entries(perEngine(summaries.get(timeline[k].id)))) {
+    // Each engine on its own timeline: the scans that ran it. A scan that ran only some engines (a SAST-only
+    // scan between full ones) leaves the others' last results standing, rather than counting them fixed and
+    // then new again. A scan that does not say which engines it ran is taken to have run those it reports.
+    const ranOf = (scan) => (Array.isArray(scan.engines) && scan.engines.length ? new Set(scan.engines.map(engineOf)) : null);
+    const engines = new Set(timeline.flatMap((scan) => Object.keys(perEngine(summaries.get(scan.id)))));
+    for (const engine of engines) {
+      const line = timeline.filter((scan) => engine === 'ALL' || (ranOf(scan)?.has(engine) ?? engine in perEngine(summaries.get(scan.id))));
+      if (!line.length) continue;
+      const of = (scan) => perEngine(summaries.get(scan.id))[engine] ?? { total: zeros(), fresh: zeros() };
+      let k = 0;
+      for (let w = 0; w < ends.length; w += 1) {
+        while (k + 1 < line.length && at(line[k + 1]) <= ends[w]) k += 1;
+        if (at(line[k]) > ends[w]) continue;
+        const { total } = of(line[k]);
         const mine = ownOf(engine);
         for (const s of SEVERITIES) {
           mine.t[s][w] += total[s];
           if (counted(engine, scope)) totals[s][w] += total[s];
         }
       }
-    }
-    for (let i = 1; i < timeline.length; i += 1) {
-      const t = at(timeline[i]);
-      const w = ends.findIndex((end) => t <= end && t > end - 7 * DAY);
-      if (w === -1) continue;
-      const prev = perEngine(summaries.get(timeline[i - 1].id));
-      const next = perEngine(summaries.get(timeline[i].id));
-      // Each engine on its own: what its scan before reported, plus what it found new, less what it reports now.
-      for (const engine of new Set([...Object.keys(prev), ...Object.keys(next)])) {
+      for (let i = 1; i < line.length; i += 1) {
+        const t = at(line[i]);
+        const w = ends.findIndex((end) => t <= end && t > end - 7 * DAY);
+        if (w === -1) continue;
+        const prev = of(line[i - 1]);
+        const next = of(line[i]);
+        // What this engine's scan before reported, plus what it found new, less what it reports now.
         for (const s of SEVERITIES) {
-          const gone = Math.max(0, (prev[engine]?.total[s] ?? 0) + (next[engine]?.fresh[s] ?? 0) - (next[engine]?.total[s] ?? 0));
+          const gone = Math.max(0, (prev.total[s] ?? 0) + (next.fresh[s] ?? 0) - (next.total[s] ?? 0));
           if (!gone) continue;
           ownOf(engine).f[s][w] += gone;
           if (counted(engine, scope)) fixed[s][w] += gone;
@@ -388,9 +395,15 @@ export class TenantReadStore {
  * scanned in the last year (counted project by project); for triage & remediation, the backlog
  * and fixes week by week over the last `weeks` weeks, from the same scans' summaries.
  * `onProgress(step, done, total)` follows it: "projects" (each project's scans and lines of code), then "summaries".
+ * `maxProjects`: how many of the tenant's projects it takes (DEFAULT_READ_PROJECTS unless set; `limited` says when there were more).
  */
-export async function readTenant(client, { concurrency = 8, now = Date.now(), weeks = 52, onProgress = () => {}, branches = 'primary' } = {}) {
-  const [projects, applications] = await Promise.all([listProjects(client).then((list) => list.slice(0, MAX_PROJECTS)), listApplications(client).catch(() => [])]);
+export async function readTenant(client, { concurrency = 8, now = Date.now(), weeks = 52, onProgress = () => {}, branches = 'primary', maxProjects = DEFAULT_READ_PROJECTS } = {}) {
+  const limit = readLimit(maxProjects);
+  const listed = {};
+  const [projects, applications] = await Promise.all([listProjects(client, { maxItems: limit, stats: listed }), listApplications(client).catch(() => [])]);
+  // Stopped at the limit: how many there are, so the page can say what was left out.
+  const total = listed.stopped ? await countProjects(client).catch(() => null) : null;
+  const limited = listed.stopped && (total === null || total > projects.length) ? { read: projects.length, limit, total } : null;
   // Each project's applications, by name (a project may be in several).
   const appsOf = new Map();
   for (const app of applications) for (const id of app.projectIds) appsOf.set(id, [...(appsOf.get(id) ?? []), app.name]);
@@ -466,9 +479,10 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
     rows[i].openByEngine = Object.fromEntries(Object.entries(perEngine(summary)).map(([engine, { total }]) => [engine, SEVERITIES.reduce((n, s) => n + (total[s] ?? 0), 0)]));
   });
   const readAt = new Date(now).toISOString();
-  const meta = { source: 'cxone', readAt, projects: projects.length, scans: weekly.scans, engines: weekly.engines, engineSplit: true, branches: branches === 'all' ? 'all' : 'primary' };
+  const meta = { source: 'cxone', readAt, projects: projects.length, ...(limited ? { projectsLimit: limit, projectsTotal: total } : {}), scans: weekly.scans, engines: weekly.engines, engineSplit: true, branches: branches === 'all' ? 'all' : 'primary' };
   return {
     projects: rows,
+    limited,
     applications: [...new Set(applications.map((a) => a.name))].sort((a, b) => a.localeCompare(b)),
     tr: summaries.size ? { totals: { ...weekly.totals, meta }, fixed: { ...weekly.fixed, meta } } : null,
     readAt,

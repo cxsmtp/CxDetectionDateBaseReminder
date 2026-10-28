@@ -16,10 +16,10 @@ function impactOf(projection, est) {
   return { tr, fusion, overall: overallImpact(tr, fusion) };
 }
 
-function reportData({ withFusion = true, withTr = true, withImpact = false } = {}) {
+function reportData({ withFusion = true, withTr = true, withImpact = false, plan = {} } = {}) {
   const { totalRows, fixedRows } = seriesRows(totals, fixed);
   const analysis = analyse(totalRows, fixedRows, 3);
-  const projection = trProjection(analysis, {}, { months: 12, fusion: withFusion });
+  const projection = trProjection(analysis, plan, { months: 12, fusion: withFusion });
   const est = fusionEstimate([{ id: 'x', name: 'Payments', loc: 25000, frequency: 'month' }, { id: 'y', name: 'Mobile', loc: 4000, frequency: 'week' }], { models: [{ id: 'm', name: 'Opus-4.7', creditsPer10k: 2.5 }], defaultScans: 2 });
   return {
     customer: 'Globex', organisation: 'Acme', generatedAt: '2026-10-09T10:00:00Z', months: 12, preparedBy: 'ana@acme.io',
@@ -32,13 +32,20 @@ function reportData({ withFusion = true, withTr = true, withImpact = false } = {
 
 test('three pages: triage & remediation with its forecast, then Fusion, then the credits needed overall', () => {
   const data = reportData();
-  const s = slideContent(data);
+  // Unless the calculations are asked for, the pages to present only.
+  const lean = slideContent(data);
+  assert.deepEqual(lean.pages.map((p) => p.kind), ['tr', 'fusion', 'total']);
+  assert.deepEqual(lean.appendix, []);
+  const s = slideContent(data, { calculations: true });
   assert.deepEqual(s.pages.map((p) => p.kind), ['tr', 'fusion', 'total', 'section', 'trend']);
   const [tr, fusion, total, section, trend] = s.pages;
   assert.equal(section.title, 'Appendix – Calculations', 'the fourth slide opens the appendix');
   assert.equal(s.heading(tr), 'Globex: Triage & remediation');
-  assert.deepEqual(tr.figures.map((f) => f.label), ['Backlog today', 'Still to come, 2% fewer each month with AI', 'To triage', 'Triage & remediation credits']);
+  assert.deepEqual(tr.figures.map((f) => f.label), ['Total open vulnerabilities today', 'Still to come, 2% fewer over a year with AI', 'To triage', 'Triage & remediation credits']);
   assert.equal(tr.figures[0].value, '152');
+  assert.equal(tr.figures[0].small, true, 'the total, small: what the plan takes comes next');
+  assert.deepEqual(tr.figures[2].notes, [`${Math.round(data.tr.totals.truePositives).toLocaleString()} to remediate`, 'Included: Critical 16 · High 130 · Medium 5 · Low 1']);
+  assert.deepEqual(tr.figures[3].notes, ['30% taken as false positives: triaged, not remediated.']);
   assert.equal(tr.chart.kind, 'forecast');
   assert.ok(tr.chart.points.length > 3, 'the backlog so far and over the next months');
   assert.match(tr.lines[0], /^Each month, new findings add [\d.]+% to the backlog and fixes take away [\d.]+%\.$/);
@@ -56,11 +63,20 @@ test('three pages: triage & remediation with its forecast, then Fusion, then the
   assert.equal(trend.trend.rows.at(-1)[1], '152');
   const T = data.tr.totals;
   const toTriage = trend.calc.find((c) => c.label === 'To triage');
-  assert.equal(toTriage.formula, `${Math.round(T.selected).toLocaleString()} + ${Math.round(T.future).toLocaleString()} + ${Math.round(T.fusionExtra).toLocaleString()} − ${Math.round(T.faeAvoided).toLocaleString()} = ${Math.round(T.toTriage).toLocaleString()}`);
+  assert.equal(toTriage.formula, `${Math.round(T.selected).toLocaleString()} + ${Math.round(T.future).toLocaleString()} + ${Math.round(T.fusionExtra).toLocaleString()} = ${Math.round(T.toTriage).toLocaleString()}`);
   assert.ok(trend.calc.some((c) => c.label === 'Total credits required' && c.formula.includes(`→ ${data.summary.bundles}`)));
   // The appendix: every number, step by step, as plain text.
-  assert.deepEqual(s.appendix.map((x) => x.title), ['Backlog today', 'Still to come', 'More found by Fusion', 'Kept away by FAE', 'To triage', 'To remediate', 'Credits', 'Fusion credits', 'Total credits required']);
+  assert.deepEqual(s.appendix.map((x) => x.title), ['Backlog today', 'Still to come', 'More found by Fusion', 'To triage', 'To remediate', 'Credits', 'Fusion credits', 'Total credits required']);
   assert.ok(s.appendix.every((x) => x.lines.length && x.lines.every((l) => !/[<>]|&amp;/.test(l.text))));
+});
+
+test('the plan in part: which severities are whole and which in part, each false positive %; no findings still to come when they are not counted', () => {
+  const s = slideContent(reportData({ plan: { selected: { Critical: null, High: null, Medium: 2, Low: 0 }, fpPercent: { Critical: 20, High: 30, Medium: 30, Low: 30 }, includeFuture: false } }));
+  const tr = s.pages[0];
+  assert.deepEqual(tr.figures.map((f) => f.label), ['Total open vulnerabilities today', 'To triage', 'Triage & remediation credits'], 'Still to come is left out, not shown as +0');
+  assert.deepEqual(tr.figures[1].notes.slice(1), ['Included: Critical 16 · High 130 · Medium 2', 'Excluded: Medium 3 · Low 1'], 'what is left out, by severity; none left out of a severity: not said');
+  assert.match(tr.subtitle, /^The backlog today, triaged and remediated over the next 12 months$/);
+  assert.deepEqual(tr.figures[2].notes, ['Taken as false positives, triaged and not remediated: Critical 20%, High 30%, Medium 30%.']);
 });
 
 test('a part that is not in the projection says so on its page; the wording follows the reader\'s language', () => {
@@ -89,7 +105,7 @@ test('the PDF: one picture filling each 16:9 page, with a cross-reference table 
 });
 
 test('the fourth slide opens the appendix and says on which pages its parts are', () => {
-  const s = slideContent(reportData());
+  const s = slideContent(reportData(), { calculations: true });
   // As the PDF lays them out: the five pages, then the step-by-step appendix over two pages.
   const all = [...s.pages, { kind: 'appendix' }, { kind: 'appendix' }];
   numberContents(all);
@@ -100,7 +116,8 @@ test('the fourth slide opens the appendix and says on which pages its parts are'
 
 test('with the impact worked out, slide 4 is what the credits give back and the appendix follows it', () => {
   const data = reportData({ withImpact: true });
-  const s = slideContent(data);
+  assert.deepEqual(slideContent(data).pages.map((p) => p.kind), ['tr', 'fusion', 'total', 'impact'], 'no appendix unless asked for');
+  const s = slideContent(data, { calculations: true });
   assert.deepEqual(s.pages.map((p) => p.kind), ['tr', 'fusion', 'total', 'impact', 'section', 'trend']);
   const impact = s.pages[3];
   const o = data.impact.overall;

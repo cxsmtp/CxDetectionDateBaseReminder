@@ -52,3 +52,14 @@ test('a column of numbers compares: >10, <=5, =0', () => {
   setTableState('t2', { col: 0, dir: 'desc', filter: [0, null] });
   assert.deepEqual(sortAndFilter('t2', rows, cols).map((r) => r.n), [12, 5, 0, null], 'largest first, empty last');
 });
+
+test('a table drawn a page at a time keeps what is picked on its headings under its renderer\'s key', async () => {
+  // The heading's funnel and arrows store the reader's choice under keyOf(table); the renderer reads it with
+  // sortAndFilter(key): for a paged table (data-tt) they must be the same key, or a filter shows but does nothing.
+  const fs = await import('node:fs');
+  const source = fs.readFileSync(new URL('../public/table-tools.js', import.meta.url), 'utf8');
+  assert.match(source, /const keyOf = \(table\) => \{\n\s*if \(table\.dataset\.tt\) return table\.dataset\.tt;/);
+  setTableState('paged-key', { filter: [0, { values: ['b'] }] });
+  assert.deepEqual(sortAndFilter('paged-key', [{ v: 'a' }, { v: 'b' }], [(r) => r.v]).map((r) => r.v), ['b']);
+  assert.equal(tableFiltered('paged-key'), true);
+});

@@ -2502,6 +2502,121 @@ function reportMain() {
     updateBulk();
   };
 
+  // ---- Rows drawn when reached: a search, a filter or a page beyond the top ones ----
+  // The other findings the report can search (DATA.more) join the report only once one is drawn,
+  // so nothing asks the server about them until then; rows of one result are still triaged together.
+  const more = Array.isArray(DATA.more) ? DATA.more : [];
+  for (const f of findings) f.top = Boolean(f.shown);
+  for (const f of more) {
+    if (f.aiUnavailable) continue;
+    if (!sameResult.has(resultKey(f))) sameResult.set(resultKey(f), []);
+    sameResult.get(resultKey(f)).push(f);
+  }
+  const ENGINE_WORDS = { SAST: 'Code', SCA: 'Open-source package', KICS: 'Configuration', IAC: 'Configuration', CONTAINERS: 'Container', APISEC: 'API', SECRETS: 'Secret', 'SECRET-DETECTION': 'Secret' };
+  const engineWord = (scanner) => (ENGINE_WORDS[scanner] ? L(ENGINE_WORDS[scanner]) : scanner || '—');
+  const stateWord = (state) => STATE_LABELS[state] || (state ? state.replace(/_/g, ' ').toLowerCase() : '—');
+  const ageWord = (f) => (Number.isFinite(f.age) ? `${f.age}d` : '—');
+  const cell = (className, label, ...children) => {
+    const td = el('td', { className }, ...children);
+    if (label) td.dataset.label = L(label);
+    return td;
+  };
+
+  /** One finding's row, as the server writes the top ones (html-report.js findingRow). */
+  function buildRow(f) {
+    const severity = f.severity || 'UNKNOWN';
+    const url = /^https?:\/\//i.test(f.url || '') ? f.url : '';
+    const tr = el('tr', { id: `row-${f.key}` });
+    tr.dataset.key = f.key;
+    tr.dataset.sev = severity;
+    const title = url ? el('a', { href: url, target: '_blank', rel: 'noopener', textContent: f.title }) : el('span', { textContent: f.title });
+    title.setAttribute('translate', 'no');
+    const sub = el('span', { textContent: `${f.projectName || ''}${f.where ? ` · ${f.where}` : ''}` });
+    sub.setAttribute('translate', 'no');
+    const sev = cell('sev-cell', '', el('span', { className: `sev sev-${severity.toLowerCase()}`, textContent: severity }));
+    sev.dataset.ttSort = String(SEVERITY_ORDER.length + 1 - severityRank(f));
+    const type = cell('meta-cell', 'Type', engineWord(f.scanner));
+    type.title = f.scanner || '';
+    const stateLabel = el('span', { className: 'state-label', textContent: stateWord(f.state) });
+    stateLabel.dataset.i18nCtx = 'verdict';
+    const ai = cell('ai-cell', 'Triage result');
+    const actions = cell('actions-cell', '');
+    if (f.aiUnavailable) {
+      const engine = String(f.scanner || '').toUpperCase();
+      const chip = el('span', { className: 'chip chip-muted', textContent: L('Manual fix'), title: f.aiUnavailable });
+      const short = engine && !['SAST', 'SCA'].includes(engine)
+        ? L('No AI for {0} findings — fix it in Checkmarx One', ['KICS', 'IAC'].includes(engine) ? 'IaC' : engine)
+        : L('AI not available — fix it in Checkmarx One');
+      ai.append(chip, el('div', { className: 'sub', textContent: short }));
+      if (url) {
+        const link = el('a', { className: 'btn btn-small btn-outline', href: url, target: '_blank', rel: 'noopener', textContent: L('Fix in Checkmarx One'), title: L('AI Triage and Remediation are not available for this finding: fix it in Checkmarx One') });
+        link.dataset.action = 'remediate-link';
+        actions.append(link);
+      }
+    } else {
+      ai.textContent = '—';
+      const triageBtn = el('button', { type: 'button', className: 'btn btn-small', textContent: L('Triage') });
+      triageBtn.dataset.action = 'triage';
+      actions.append(triageBtn);
+      if (config.remediateHere) {
+        const fix = el('button', { type: 'button', className: 'btn btn-small btn-outline', textContent: L('Remediate') });
+        fix.dataset.action = 'remediate';
+        if (f.state !== 'CONFIRMED') {
+          fix.disabled = true;
+          fix.title = L('Remediate works once triage has confirmed this finding (state Confirmed).');
+        }
+        actions.append(' ', fix);
+      } else if (url) {
+        const link = el('a', { className: 'btn btn-small btn-outline', href: url, target: '_blank', rel: 'noopener', textContent: L('Remediate') });
+        link.dataset.action = 'remediate-link';
+        actions.append(' ', link);
+      }
+    }
+    actions.append(el('div', { className: 'fix-cell' }));
+    tr.append(
+      sev,
+      cell('finding', '', el('div', { className: 'finding-title' }, title, el('span', { className: 'beyond-tag', textContent: L('Beyond the top {0}', DATA.paging?.top ?? '') })), el('div', { className: 'sub' }, sub)),
+      type,
+      cell('meta-cell', 'Age', ageWord(f)),
+      cell('state-cell', 'State', stateLabel, el('div', { className: 'state-why' })),
+      ai,
+      actions,
+    );
+    return tr;
+  }
+
+  /** The finding's row, drawn (and joined to the report) the first time it is reached. */
+  function materialize(f) {
+    let tr = row(f);
+    if (tr) return tr;
+    if (!byKey.has(f.key)) {
+      findings.push(f);
+      byKey.set(f.key, f);
+    }
+    f.shown = true;
+    tr = buildRow(f);
+    $('findings').tBodies[0].append(tr);
+    const box = tr.querySelector('.actions-cell');
+    box.insertBefore(rowTools(f), box.querySelector('.fix-cell'));
+    const tools = rowButtons[rowButtons.length - 1];
+    syncApplyFix(f, tools.fix);
+    if (tools.open) tools.open.textContent = defaultIde() === 'web' ? L('Open in the browser') : L('Open in {0}', nameOf(OPENERS, defaultIde()));
+    tools.fix.textContent = defaultFix() === 'git' ? L('Apply AI fix (git apply)') : L('Apply AI fix');
+    if (f.triage || f.triagedAt || f.noRecord || (f.state && f.state !== 'TO_VERIFY')) renderTriage(f);
+    if (f.remediation) renderRemediation(f);
+    return tr;
+  }
+
+  reportRows = {
+    items: [...findings, ...more],
+    materialize,
+    row,
+    engineWord,
+    stateWord,
+    ageWord,
+    paging: DATA.paging || { top: findings.length, page: 50, total: findings.length, searchable: findings.length },
+  };
+
   autoConnect();
 }
 
@@ -2523,32 +2638,145 @@ function applyLabels() {
   }
 }
 
-// Filters: severity, text and "only what AI can act on". Rows the report hides
-// itself (triaged not exploitable) stay hidden whatever the filter says.
+// Filters: severity, text, "only what AI can act on" and the headings' own (public/table-tools.js), over
+// every finding the report can search; with none of them, the top findings. Shown a page at a time.
+// Rows the report hides itself (triaged not exploitable) stay hidden whatever the filters say.
+let reportRows = null;
 let refilter = () => {};
 function reportFilters() {
   const bar = document.getElementById('report-filters');
-  if (!bar) return;
-  const rows = [...document.querySelectorAll('#findings tbody tr[data-key]')];
+  const table = document.getElementById('findings');
+  if (!bar || !table || !reportRows) return;
   const search = document.getElementById('report-search');
   const actionable = document.getElementById('report-actionable');
   const count = document.getElementById('filter-count');
+  const scope = document.getElementById('report-scope');
+  const pager = document.getElementById('report-pager');
+  const { items, engineWord, stateWord, ageWord, paging } = reportRows;
+  // Each finding's row once drawn (rows are hidden, never removed): looked up thousands of times a draw.
+  const rows = new Map([...table.tBodies[0].rows].filter((tr) => tr.dataset.key).map((tr) => [tr.dataset.key, tr]));
+  const row = (f) => rows.get(f.key) ?? null;
+  const materialize = (f) => {
+    if (!rows.has(f.key)) rows.set(f.key, reportRows.materialize(f));
+    return rows.get(f.key);
+  };
+  const PAGE = Math.max(1, Number(paging.page) || 50);
+  const fmt = (n) => Number(n).toLocaleString();
   let severity = '';
-  const text = new Map(rows.map((tr) => [tr, tr.querySelector('.finding')?.textContent.toLowerCase() ?? '']));
-  function apply() {
+  let page = 1;
+
+  // What each heading sorts and filters by: the row's own text once it is drawn, else the same from its data.
+  const cellText = (f, i) => row(f)?.cells[i]?.textContent.replace(/\s+/g, ' ').trim();
+  const SEV_RANK = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+  const columns = [
+    { value: (f) => SEV_RANK.length - (SEV_RANK.includes(f.severity) ? SEV_RANK.indexOf(f.severity) : SEV_RANK.length), text: (f) => f.severity || '' },
+    { value: (f) => f.title || '', text: (f) => cellText(f, 1) ?? `${f.title || ''} ${f.projectName || ''} ${f.where || ''}` },
+    (f) => cellText(f, 2) ?? engineWord(f.scanner),
+    { value: (f) => (Number.isFinite(f.age) ? f.age : row(f) ? Number.parseInt(cellText(f, 3), 10) || null : null), text: (f) => cellText(f, 3) ?? ageWord(f) },
+    (f) => row(f)?.querySelector('.state-label')?.textContent.trim() ?? stateWord(f.state),
+    (f) => {
+      const tr = row(f);
+      if (!tr) return f.aiUnavailable ? L('Manual fix') : '—';
+      return (tr.querySelector('.ai-cell .chip') ?? tr.cells[5])?.textContent.replace(/\s+/g, ' ').trim() || '—';
+    },
+    null,
+  ];
+  // The top rows know their age from the page; drawn rows carry it in their data.
+  for (const f of items) if (!Number.isFinite(f.age) && row(f)) f.age = Number.parseInt(cellText(f, 3), 10);
+  const searchText = (f) => (row(f)?.querySelector('.finding')?.textContent ?? `${f.title || ''} ${f.projectName || ''} ${f.where || ''}`).toLowerCase();
+  const canAct = (f) => {
+    const tr = row(f);
+    return tr ? Boolean(tr.querySelector('[data-action="triage"]:not(:disabled), [data-action="remediate"]:not(:disabled)')) : !f.aiUnavailable;
+  };
+
+  function draw() {
+    const tools = window.MZTableTools;
     const words = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    let shown = 0;
-    for (const tr of rows) {
-      const match =
-        (!severity || tr.dataset.sev === severity) &&
-        words.every((w) => text.get(tr).includes(w)) &&
-        (!actionable.checked || Boolean(tr.querySelector('[data-action="triage"]:not(:disabled), [data-action="remediate"]:not(:disabled)')));
-      tr.classList.toggle('filtered-out', !match);
-      if (match && !tr.hidden) shown += 1;
+    const headed = Boolean(tools?.tableFiltered('findings'));
+    const filtering = Boolean(severity || words.length || actionable.checked || headed);
+    const pool = items.filter((f) => !f.hidden && (!severity || f.severity === severity) && words.every((w) => searchText(f).includes(w)) && (!actionable.checked || canAct(f)));
+    let list = tools ? tools.sortAndFilter('findings', pool, columns, draw) : pool;
+    if (!filtering) list = list.filter((f) => f.top);
+    // Rows of one Checkmarx One result stay side by side.
+    const grouped = [];
+    const placed = new Set();
+    for (const f of list) {
+      if (placed.has(f)) continue;
+      const label = row(f)?.dataset.result;
+      const group = label ? list.filter((g) => row(g)?.dataset.result === label) : [f];
+      for (const g of group) if (!placed.has(g)) (placed.add(g), grouped.push(g));
     }
-    const filtering = severity || words.length || actionable.checked;
-    count.textContent = filtering ? L('{0} of {1} shown', shown, rows.filter((tr) => !tr.hidden).length) : '';
+    const pages = Math.max(1, Math.ceil(grouped.length / PAGE));
+    page = Math.min(Math.max(1, page), pages);
+    const from = (page - 1) * PAGE;
+    const slice = grouped.slice(from, from + PAGE);
+    const onPage = new Set(slice.map((f) => materialize(f)));
+    const tbody = table.tBodies[0];
+    for (const tr of tbody.rows) tr.classList.toggle('paged-out', !onPage.has(tr));
+    for (const tr of onPage) tbody.append(tr);
+
+    const beyond = grouped.filter((f) => !f.top).length;
+    const total = Number(paging.total) || items.length;
+    const searchable = Number(paging.searchable) || items.length;
+    const left = total - searchable;
+    count.textContent = '';
+    scope.replaceChildren();
+    const pill = (text, warn) => Object.assign(document.createElement('span'), { className: `scope-pill${warn ? ' warn' : ''}`, textContent: text });
+    const words2 = (text) => Object.assign(document.createElement('span'), { textContent: text });
+    if (filtering) {
+      scope.append(words2(L('{0} of {1} findings match', fmt(grouped.length), fmt(searchable))));
+      if (beyond) scope.append(pill(L('{0} beyond the top {1}', fmt(beyond), fmt(paging.top)), true));
+    } else if (total > paging.top) {
+      scope.append(pill(L('Top {0} of {1}', fmt(paging.top), fmt(total))), words2(L('Worst severity first, then oldest · {0} a page · search and filters cover all {1}', PAGE, fmt(searchable))));
+    }
+    if (left > 0) scope.append(words2(L('The {0} least severe findings after the first {1} are not in this report.', fmt(left), fmt(searchable))));
+    if (filtering) {
+      const clear = Object.assign(document.createElement('button'), { type: 'button', className: 'link', textContent: L('Clear all') });
+      clear.addEventListener('click', () => {
+        severity = '';
+        search.value = '';
+        actionable.checked = false;
+        for (const b of bar.querySelectorAll('[data-filter-sev]')) {
+          b.classList.toggle('on', !b.dataset.filterSev);
+          b.setAttribute('aria-pressed', String(!b.dataset.filterSev));
+        }
+        for (let c = 0; c < columns.length; c += 1) tools?.setTableState('findings', { filter: [c, null] });
+        again();
+      });
+      scope.append(clear);
+    }
+
+    pager.replaceChildren();
+    pager.hidden = grouped.length <= PAGE;
+    if (!pager.hidden) {
+      const button = (label, target, { current = false, disabled = false } = {}) => {
+        const b = Object.assign(document.createElement('button'), { type: 'button', textContent: label, disabled });
+        if (current) b.setAttribute('aria-current', 'page');
+        b.addEventListener('click', () => {
+          page = target;
+          draw();
+          table.scrollIntoView({ block: 'start' });
+        });
+        return b;
+      };
+      const nav = document.createElement('span');
+      nav.className = 'pages';
+      nav.append(button(L('‹ Previous'), page - 1, { disabled: page === 1 }));
+      let last = 0;
+      for (let p = 1; p <= pages; p += 1) {
+        if (p !== 1 && p !== pages && Math.abs(p - page) > 2) continue;
+        if (p - last > 1) nav.append(Object.assign(document.createElement('span'), { className: 'gap', textContent: '…' }));
+        nav.append(button(String(p), p, { current: p === page }));
+        last = p;
+      }
+      nav.append(button(L('Next ›'), page + 1, { disabled: page === pages }));
+      pager.append(words2(L('{0}–{1} of {2}', fmt(from + 1), fmt(from + slice.length), fmt(grouped.length))), nav);
+    }
   }
+  const again = () => {
+    page = 1;
+    draw();
+  };
   bar.addEventListener('click', (event) => {
     const button = event.target.closest('[data-filter-sev]');
     if (!button) return;
@@ -2557,11 +2785,14 @@ function reportFilters() {
       b.classList.toggle('on', b === button);
       b.setAttribute('aria-pressed', String(b === button));
     }
-    apply();
+    again();
   });
-  search.addEventListener('input', apply);
-  actionable.addEventListener('change', apply);
-  refilter = apply;
+  search.addEventListener('input', again);
+  actionable.addEventListener('change', again);
+  // The headings' sorting and filters arrive with their module (after this script): draw again then.
+  window.MZReportTableReady = draw;
+  refilter = draw;
+  draw();
 }
 
 // The report starts once its language is known: the translator (in the report) calls
