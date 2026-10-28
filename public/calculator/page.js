@@ -5,6 +5,7 @@
 // charts.js; the downloaded report report.js.
 
 import {
+  BUNDLE_CREDITS,
   CRITICALITIES,
   DEFAULT_TR,
   FREQUENCIES,
@@ -1825,6 +1826,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-fusion-new-on').checked = n.fusionNewOn;
     $('calc-extra').value = n.extraPercent || '';
     $('calc-bundle').value = n.bundleCredits;
+    // The bundle size is 10,000 for nearly every customer: its box shows only when changed, or asked for.
+    $('calc-bundle-size').textContent = `${num(n.bundleCredits)} credits each`;
+    if (Number(n.bundleCredits) !== BUNDLE_CREDITS) $('calc-bundle-item').hidden = false;
+    $('calc-bundle-change').hidden = !$('calc-bundle-item').hidden;
     renderHorizon();
     renderScope();
   }
@@ -2140,8 +2145,13 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const sum = creditSummary(c.trCredits, fusionTotal({ totals: { credits: c.fusionCredits } }, { totals: { credits: c.fusionNewCredits } }), totals());
     $('calc-sum-tr').textContent = num(sum.tr, 1);
     $('calc-sum-tr-split').textContent = c.trSplit ? `${num(c.trSplit.backlogCredits, 1)} backlog + ${num(c.trSplit.aheadCredits, 1)} ahead` : '';
-    $('calc-sum-fusion').textContent = fusionOff() ? 'Left out' : num(c.fusionCredits, 1);
-    $('calc-sum-fusion-new').textContent = fnewOff() ? 'Left out' : num(c.fusionNewCredits, 1);
+    // One Fusion tile, for the part that applies to this customer (ticked, with projects counted): both
+    // added up when both do, with the split under it.
+    const existing = c.fusionCredits !== null && c.fusionCredits !== undefined;
+    const fresh = c.fusionNewCredits !== null && c.fusionNewCredits !== undefined;
+    $('calc-sum-fusion-label').textContent = existing && !fresh ? 'Fusion — existing' : fresh && !existing ? 'Fusion — new' : 'Fusion';
+    $('calc-sum-fusion').textContent = existing || fresh ? num((c.fusionCredits ?? 0) + (c.fusionNewCredits ?? 0), 1) : fusionOff() && fnewOff() ? 'Left out' : '—';
+    $('calc-sum-fusion-split').textContent = existing && fresh ? `${num(c.fusionCredits, 1)} existing + ${num(c.fusionNewCredits, 1)} new` : '';
     $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.total, 1);
     $('calc-sum-extra').textContent = sum.extra ? `Includes ${num(sum.extra, 1)} extra` : '';
     $('calc-sum-bundles').textContent = sum.total ? num(sum.bundles) : '—';
@@ -2274,6 +2284,11 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   // The extra % and the credits per bundle wait for Apply too.
   $('calc-extra').addEventListener('input', (event) => c.open && setNext({ extraPercent: event.target.value }, { redraw: false }));
+  $('calc-bundle-change').addEventListener('click', () => {
+    $('calc-bundle-item').hidden = false;
+    $('calc-bundle-change').hidden = true;
+    $('calc-bundle').focus();
+  });
   $('calc-bundle').addEventListener('input', (event) => c.open && setNext({ bundleCredits: event.target.value }, { redraw: false }));
   $('calc-extra').addEventListener('change', (event) => (event.target.value = next().extraPercent || ''));
   $('calc-bundle').addEventListener('change', (event) => (event.target.value = next().bundleCredits));
