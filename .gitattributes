@@ -1,0 +1,3 @@
+# cloc-fusion's one-file page is handed out only when it matches its SHA-256 (src/cloc-fusion/origin.js):
+# kept byte for byte, never given other line ends on checkout.
+src/cloc-fusion/cloc-fusion.html -text

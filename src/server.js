@@ -57,7 +57,7 @@ import { BULK_SEVERITIES, REPORT_SEARCHABLE, REPORT_TOP_N, generateHtmlReport, s
 import { reportI18n, reportWords } from './report-i18n.js';
 import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
 import { buildCalculatorLauncher, buildStandaloneCalculator } from './standalone-calculator.js';
-import { connectionSource, createGitCounter, gitSource, listRepositories, sweepLeftovers } from './fusion-git.js';
+import { CLOC_FUSION, GIT_COUNT_LIMITS, clocFusionPage, connectionSource, createGitCounter, gitSource, listOrganizations, listRepositories, sweepLeftovers } from './fusion-git.js';
 import { reportFileName as projectionFileName } from '../public/calculator/report.js';
 import { MAX_PROJECTS, cleanOrigins, globMatch, readLimit } from '../public/calculator/model.js';
 import { buildReminder, buildReportData, buildReportEmail, buildTemplateData } from './reminder.js';
@@ -4489,73 +4489,129 @@ app.post('/api/projections/series', requireCalculator, (req, res) => {
 });
 
 /**
- * Fusion — new customer, Count from git (src/fusion-git.js): a customer's repositories counted on this
- * server, from one of the Admin's git connections (by id: its token stays here) or a token typed for one
- * count (used for that request and the count it starts, never kept, logged or sent back). Only the hosts
- * repositories may be cloned from (cloneHostAllowed: the public hosts, the connected ones, SCM_ALLOWED_HOSTS).
+ * Fusion — new customer, Count from git (src/fusion-git.js, with cloc-fusion's engine): a customer's repositories
+ * discovered across the Admin's git connections (by id: their tokens stay here) and a token typed for one run (used
+ * for those requests and the run they start, never kept, logged or sent back), then measured on this server: code
+ * lines, commits on the default branch, change frequency and developers. Only the hosts repositories may be cloned
+ * from (cloneHostAllowed: the public hosts, the connected ones, SCM_ALLOWED_HOSTS), and the platforms' API hosts.
  */
 const gitCounter = createGitCounter({ allowHost: (host) => cloneHostAllowed(host), log: (line) => console.error(line) });
 sweepLeftovers();
-/** The Admin's git connections a count may use: each set's hosts with a token (src/scm/instances.js). */
+/** The Admin's git connections a run may use: each set's hosts with a token (src/scm/instances.js). */
 function countConnections(settings = settingsStore.get()) {
   const out = [];
   for (const set of gitSets(settings)) {
     for (const provider of SCM_PROVIDERS) {
       const cfg = provider === 'github' ? set.github : set.scm[provider];
       if (!cfg?.token) continue;
+      const id = `${provider}-${set.n}`;
       let source;
       try {
-        source = connectionSource(provider, cfg);
+        source = connectionSource(provider, cfg, id);
       } catch {
-        continue; // an address the count may not call (http, link-local…): not offered
+        continue; // an address the run may not call (http, link-local…): not offered
       }
-      const owner = provider === 'github' ? cfg.org : provider === 'gitlab' ? cfg.group : provider === 'azure' ? '' : cfg.workspace;
-      out.push({ id: `${provider}-${set.n}`, provider, label: SCM_LABELS[provider], host: source.gitHost, owner: String(owner ?? ''), source });
+      const owner = provider === 'github' ? cfg.org : provider === 'gitlab' ? cfg.group : provider === 'azure' ? source.engine.defaultOrg : cfg.workspace;
+      out.push({ id, provider, label: SCM_LABELS[provider], host: source.gitHost, owner: String(owner ?? ''), source });
     }
   }
   return out;
 }
-/** Where the code is, from what the page sent: a connection's id, or {provider, address, token}. */
-function countSource(body) {
-  if (body?.connection) {
-    const found = countConnections().find((x) => x.id === String(body.connection));
-    if (!found) throw Object.assign(new Error('That git connection is no longer set up: choose another, or give a token.'), { status: 404 });
-    return found.source;
-  }
+const countFail = (message, status = 400) => Object.assign(new Error(message), { status });
+/** The token typed for this run, as a source: on a host connected or allowed by the Admin only. */
+function typedCountSource(body) {
   const typed = body?.token && typeof body.token === 'object' ? body.token : null;
-  if (!typed) throw Object.assign(new Error('Choose where the code is: one of the git connections, or a token.'), { status: 400 });
-  const source = gitSource({ provider: String(typed.provider ?? ''), address: String(typed.address ?? ''), token: String(typed.token ?? '') });
-  if (!cloneHostAllowed(source.gitHost.replace(/:\d+$/, ''))) throw Object.assign(new Error(`Repositories on ${source.gitHost} are not counted: connect that host on the Beta page, or add it to SCM_ALLOWED_HOSTS.`), { status: 400 });
+  if (!typed) return null;
+  const source = gitSource({ provider: String(typed.provider ?? ''), address: String(typed.address ?? ''), token: String(typed.token ?? ''), key: 'token' });
+  if (!cloneHostAllowed(source.gitHost.replace(/:\d+$/, ''))) throw countFail(`Repositories on ${source.gitHost} are not counted: connect that host on the Beta page, or add it to SCM_ALLOWED_HOSTS.`);
   return source;
 }
+/**
+ * Where the code is, from what the page sent: the Admin's connections by id (`connections`: ids, or {id, orgs,
+ * everything}; `connection`: one id, as before) and the token typed (`token`: {provider, address, token, orgs,
+ * everything}). Each source with what to list of it; at least one.
+ */
+function countSources(body) {
+  const known = countConnections();
+  const asked = [...(Array.isArray(body?.connections) ? body.connections : []), ...(body?.connection ? [{ id: body.connection, orgs: body.owner !== undefined ? [body.owner] : undefined }] : [])].slice(0, 50);
+  const out = [];
+  for (const item of asked) {
+    const id = String((typeof item === 'object' && item ? item.id : item) ?? '');
+    const found = known.find((x) => x.id === id);
+    if (!found) throw countFail('That git connection is no longer set up: choose another, or give a token.', 404);
+    if (!out.some((s) => s.source.key === id)) out.push({ source: found.source, owner: found.owner, orgs: item?.orgs, everything: item?.everything === true });
+  }
+  const typed = typedCountSource(body);
+  if (typed) out.push({ source: typed, owner: '', orgs: body.token.orgs ?? (body.owner !== undefined ? [body.owner] : undefined), everything: body.token.everything === true });
+  if (!out.length) throw countFail('Choose where the code is: one of the git connections, or a token.');
+  return out;
+}
+const gitAnswer = (res, error, otherwise) => res.status(error.status ?? 500).json({ error: error.status ? error.message : otherwise });
 app.get('/api/projections/git/connections', requireCalculator, (req, res) => {
   // Names, hosts and kinds only: never a token, nor the address a token is kept for beyond its host.
-  res.json({ connections: countConnections().map(({ id, provider, label, host, owner }) => ({ id, provider, label, host, owner })) });
+  res.json({
+    connections: countConnections().map(({ id, provider, label, host, owner }) => ({ id, provider, label, host, owner })),
+    limits: { repositories: GIT_COUNT_LIMITS.repositories, windowDays: GIT_COUNT_LIMITS.windowDays },
+    clocFusion: { version: CLOC_FUSION.version, sha256: CLOC_FUSION.sha256 },
+  });
 });
-app.post('/api/projections/git/repositories', requireCalculator, asyncRoute(async (req, res) => {
+/** Step 2: each source's organizations (who its token signed in as, and what it can list). */
+app.post('/api/projections/git/organizations', requireCalculator, asyncRoute(async (req, res) => {
   try {
-    const source = countSource(req.body);
-    res.json(await listRepositories(source, req.body?.owner));
+    const sources = countSources(req.body);
+    const found = await Promise.all(sources.map(({ source, owner }) => listOrganizations(source, { allowHost: cloneHostAllowed, defaultOrg: owner }).catch((error) => ({ source: source.key, label: source.label, host: source.gitHost, who: '', organizations: owner ? [{ id: owner, label: owner }] : [], problem: error.status ? error.message : 'The organizations could not be listed.' }))));
+    res.json({ sources: found });
   } catch (error) {
-    res.status(error.status ?? 500).json({ error: error.status ? error.message : 'The repositories could not be listed.' });
+    gitAnswer(res, error, 'The organizations could not be listed.');
   }
 }));
+/** Step 2: the repositories of the organizations picked (or of everything a token can see), each once. */
+app.post('/api/projections/git/repositories', requireCalculator, asyncRoute(async (req, res) => {
+  try {
+    const sources = countSources(req.body);
+    const lists = await Promise.all(sources.map(({ source, owner, orgs, everything }) => {
+      const picked = Array.isArray(orgs) ? orgs : orgs ? [orgs] : owner ? [owner] : [];
+      return listRepositories(source, { orgs: picked.map(String).filter(Boolean), everything }, { allowHost: cloneHostAllowed }).catch((error) => {
+        if (sources.length === 1) throw error;
+        return { repositories: [], more: false, problems: [{ source: source.key, org: '', error: error.status ? error.message : 'The repositories could not be listed.' }] };
+      });
+    }));
+    const seen = new Set();
+    const repositories = lists.flatMap((l) => l.repositories).filter((r) => !seen.has(r.url.toLowerCase()) && seen.add(r.url.toLowerCase()));
+    res.json({ repositories: repositories.slice(0, GIT_COUNT_LIMITS.listed), more: lists.some((l) => l.more) || repositories.length > GIT_COUNT_LIMITS.listed, problems: lists.flatMap((l) => l.problems) });
+  } catch (error) {
+    gitAnswer(res, error, 'The repositories could not be listed.');
+  }
+}));
+/** Step 3: measure the repositories ticked and pasted, in the background; followed with GET. */
 app.post('/api/projections/git/count', requireCalculator, asyncRoute(async (req, res) => {
   try {
-    const source = countSource(req.body);
-    const job = await gitCounter.start(req.user.email, { source, repositories: req.body?.repositories });
-    audit.record({ type: 'settings', outcome: 'changed', reason: `Cx Credits Calculator: code lines of ${job.repositories.length} repositor${job.repositories.length === 1 ? 'y' : 'ies'} counted from git on ${source.gitHost} (${req.body?.connection ? `the Admin's ${source.label} connection` : 'a token typed for this count'}).`, actor: { kind: 'user', user: req.user.email, ip: clientIp(req) } });
+    const sources = countSources(req.body);
+    const job = await gitCounter.start(req.user.email, { sources: new Map(sources.map(({ source }) => [source.key, source])), repositories: req.body?.repositories, engine: String(req.body?.engine ?? 'auto') });
+    const hosts = [...new Set(sources.map(({ source }) => source.gitHost))].join(', ');
+    const admins = [...new Set(sources.filter(({ source }) => source.key !== 'token').map(({ source }) => source.label))];
+    const how = [...(admins.length ? [`the Admin's ${admins.join(', ')} connection(s)`] : []), ...(sources.some(({ source }) => source.key === 'token') ? ['a token typed for this run'] : [])].join(' and ');
+    audit.record({ type: 'settings', outcome: 'changed', reason: `Cx Credits Calculator: ${job.repositories.length} repositor${job.repositories.length === 1 ? 'y' : 'ies'} measured from git (cloc-fusion ${CLOC_FUSION.version}, ${job.engine} engine) on ${hosts} (${how}).`, actor: { kind: 'user', user: req.user.email, ip: clientIp(req) } });
     res.status(202).json(job);
   } catch (error) {
-    res.status(error.status ?? 500).json({ error: error.status ? error.message : 'The count could not be started.' });
+    gitAnswer(res, error, 'The count could not be started.');
   }
 }));
 app.get('/api/projections/git/count', requireCalculator, (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
-    res.json(gitCounter.view(req.user.email, req.query.id));
+    res.json(gitCounter.view(req.user.email, req.query.id, { after: req.query.after }));
   } catch (error) {
-    res.status(error.status ?? 500).json({ error: error.message });
+    gitAnswer(res, error, 'The count could not be read.');
+  }
+});
+/** cloc-fusion's one-file page (src/cloc-fusion/cloc-fusion.html), checked against its SHA-256: the tab saves it. */
+app.get('/api/projections/git/cloc-fusion', requireCalculator, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    res.json(clocFusionPage());
+  } catch (error) {
+    gitAnswer(res, error, 'cloc-fusion could not be read.');
   }
 });
 app.get('/api/projections/:id', requireCalculator, calculatorRoute((req, res) => {
