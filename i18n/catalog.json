@@ -15,6 +15,18 @@
    "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
+ ", and send you": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ ", or": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  ", rounded up": {
   "kind": "report",
   "seen": [
@@ -29,10 +41,58 @@
    "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
+ ". Each repository it measured becomes a project, with its lines by language, commits, change frequency and developers; a project with the same address, or the same name, is replaced.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  ".env file applied": {
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "· {0} commits · {1} to {2} times a week · {3} developers": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "· {0} commits · About once a month · {1} developers": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "· {0} commits · About once a year · {1} developers": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "· {0} commits · About once in {1} months · {2} developers": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "· {0} commits · About once in {1} weeks · {2} developers": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "· {0} commits · More than {1} times a week · {2} developers": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "· {0} commits · Not in the last year · {1} developers": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "· code counted with cloc": {
@@ -103,6 +163,12 @@
    "reports › detail › remind › span › Weekly"
   ]
  },
+ "({0} commits in {1} days)": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
+  ]
+ },
  "({0} per remediation)": {
   "kind": "text",
   "seen": [
@@ -131,6 +197,12 @@
    "interactive HTML report"
   ]
  },
+ "(Download JSON on its report). It holds counts and names of repositories, never code or tokens; its list of contributors is not read here.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "(not set)": {
   "kind": "text",
   "seen": [
@@ -153,6 +225,12 @@
    "first start › span › Update & recovery",
    "sign in › span › Update & recovery",
    "Dashboard › span › Update & recovery"
+  ]
+ },
+ "(the file above; no install, nothing sent anywhere but their own git hosts), add their connections with a read-only token, press": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "{0} — building the report…": {
@@ -181,12 +259,10 @@
    "Dashboard › h3 › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
- "{0} · Which repositories": {
+ "{0} · Which organizations and repositories": {
   "kind": "text",
   "seen": [
-   "first start › h3 › Fusion — new customer: code not in Checkmarx One yet",
-   "sign in › h3 › Fusion — new customer: code not in Checkmarx One yet",
-   "Dashboard › h3 › Fusion — new customer: code not in Checkmarx One yet"
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "{0} (default)": {
@@ -309,6 +385,24 @@
    "message"
   ]
  },
+ "{0} code lines, each project rounded up": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "{0} commits in {1} days": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "{0} commits in the last {1} days": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "{0} confirmed to remediate ({1} credits)": {
   "kind": "message",
   "seen": [
@@ -375,12 +469,6 @@
    "calculator report"
   ]
  },
- "{0} credits each": {
-  "kind": "text",
-  "seen": [
-   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
-  ]
- },
  "{0} critical/high finding needs a manual fix in Checkmarx One (AI Triage covers SAST and SCA only).": {
   "kind": "report",
   "seen": [
@@ -423,6 +511,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "{0} developers in the last {1} days": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "{0} email(s):": {
@@ -609,6 +703,12 @@
    "calculator (runtime)"
   ]
  },
+ "{0} is not a cloc-fusion report: use cloc-fusion-report.json from cloc-fusion's output.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "{0} is not a git checkout (it has no .git folder), so the change cannot be reviewed or undone with git. Apply the fix to it anyway?": {
   "kind": "report",
   "seen": [
@@ -619,6 +719,12 @@
   "kind": "text",
   "seen": [
    "calculator (runtime)"
+  ]
+ },
+ "{0} is over 64 MB.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "{0} KB": {
@@ -937,6 +1043,12 @@
    "credits › overview › span"
   ]
  },
+ "{0} projects counted from git or read from a cloc-fusion report: their commits on the default branch in the last year set how often they change, and that change frequency sets their Fusion scans, as for a Checkmarx One project scanned that often:": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
+  ]
+ },
  "{0} projects counted.": {
   "kind": "message",
   "seen": [
@@ -975,6 +1087,18 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "{0} projects with Fusion scans set for them.": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
+  ]
+ },
+ "{0} projects without a known change frequency: {1} Fusion scans each (the default).": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
   ]
  },
  "{0} projects without a model rate are not counted": {
@@ -1251,6 +1375,18 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "{0}: {1} projects, {2} Fusion scans each by the Fusion tab's rule, {3} in all": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
+  ]
+ },
+ "{0}: {1} repositories read (cloc-fusion {2}), {3} not measured there; developers in the last 90 days across it: {4}.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "{0}: Checkmarx credits projection": {
@@ -1756,6 +1892,12 @@
    "Dashboard › label › Age"
   ]
  },
+ "✓ {0} lines ·": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "✓ Already remediated": {
   "kind": "report",
   "seen": [
@@ -1940,6 +2082,12 @@
    "Dashboard › p › GitLab"
   ]
  },
+ "A project counted from git or read from a cloc-fusion report knows how often it changes (commits on its default branch): it gets the Fusion scans of that change frequency from the Fusion — existing customer tab, as a Checkmarx One project scanned that often does. Scans typed for a project win.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "A rescan proves the fixes (Reports → Verify)": {
   "kind": "attr:title",
   "seen": [
@@ -1982,12 +2130,10 @@
    "Dashboard › li › HTTPS"
   ]
  },
- "A token for this count only": {
+ "A token for this run only": {
   "kind": "text",
   "seen": [
-   "calculator › new › b › Fusion — new customer: code not in Checkmarx One yet",
-   "calculator › triage & remediation › b › Fusion — new customer: code not in Checkmarx One yet",
-   "calculator › customize › b › Fusion — new customer: code not in Checkmarx One yet"
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "A token is made for one organisation: use the one it was created in.": {
@@ -2364,12 +2510,10 @@
    "settings › handsoff › Hands-off: set it up once, then leave it"
   ]
  },
- "add-fusion|· code counted from git or cloc": {
+ "add-fusion|· code counted from git, cloc-fusion or cloc": {
   "kind": "text",
   "seen": [
-   "first start › small › Every scan origin",
-   "sign in › small › Every scan origin",
-   "Dashboard › small › Every scan origin"
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "add-fusion|New customer": {
@@ -2378,12 +2522,10 @@
    "calculator › label › Add Fusion:"
   ]
  },
- "add-fusion|Ticked: Fusion for code that is not in Checkmarx One yet, its lines counted from git or with cloc (the Fusion — new customer tab), is in the credits and the report. Unticked: left out; its projects are kept.": {
+ "add-fusion|Ticked: Fusion for code that is not in Checkmarx One yet, its lines counted from git, read from a cloc-fusion report or counted with cloc (the Fusion — new customer tab), is in the credits and the report. Unticked: left out; its projects are kept.": {
   "kind": "attr:title",
   "seen": [
-   "first start › label › Every scan origin",
-   "sign in › label › Every scan origin",
-   "Dashboard › label › Every scan origin"
+   "calculator (MZ-01.01.05: the Add Fusion pill)"
   ]
  },
  "Add, change and remove users and roles — never beyond their own permissions.": {
@@ -3899,10 +4041,10 @@
    "calculator (runtime)"
   ]
  },
- "At most {0} repositories a count: tick fewer, and count the rest after.": {
+ "At most {0} repositories a run: tick fewer, and count the rest after.": {
   "kind": "text",
   "seen": [
-   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "At most 10 addresses at a time.": {
@@ -4071,6 +4213,12 @@
   "kind": "text",
   "seen": [
    "Settings › HTTPS › Free certificate from Let's Encrypt"
+  ]
+ },
+ "Automatic: git when it is installed": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Automation": {
@@ -4728,6 +4876,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Change frequency": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Change how scan initiators are resolved to addresses.": {
@@ -5471,6 +5625,12 @@
    "Dashboard › remind › button › Developers"
   ]
  },
+ "choose the file": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "Choose the git host: GitHub, GitLab, Azure DevOps or Bitbucket.": {
   "kind": "text",
   "seen": [
@@ -5527,6 +5687,36 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "cloc counted {0}": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "cloc-fusion could not be read.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: a message from the server or the one-file calculator, cloc-fusion's engine)"
+  ]
+ },
+ "cloc-fusion counted {0}": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "cloc-fusion is not in this file.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: a message from the server or the one-file calculator, cloc-fusion's engine)"
+  ]
+ },
+ "cloc-fusion, one HTML file with nothing to install: it measures every repository the customer's own token can see, in their browser, and its report imports here (Import a cloc-fusion report).": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Clones each repository once (cached), with that host's token for private ones — works for any host: Azure DevOps and Bitbucket Cloud (no blame API), GitLab, GitHub…": {
@@ -5603,16 +5793,16 @@
    "interactive HTML report"
   ]
  },
- "Code lines (counted with cloc)": {
+ "Code lines (no blank or comment lines)": {
   "kind": "report",
   "seen": [
-   "calculator report"
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
   ]
  },
- "Code lines counted with cloc, without blank and comment lines.": {
+ "Code lines without blank and comment lines: counted from git with cloc-fusion's engine, read from a cloc-fusion report, or counted with cloc.": {
   "kind": "report",
   "seen": [
-   "calculator report"
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
   ]
  },
  "Code repository (webhook)": {
@@ -5651,6 +5841,12 @@
    "first start › strong › Match usernames to email addresses",
    "sign in › strong › Match usernames to email addresses",
    "Dashboard › strong › Match usernames to email addresses"
+  ]
+ },
+ "Committed in the last {0} days, each once, bots left out": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Companion not running": {
@@ -6111,12 +6307,10 @@
    "Dashboard › span › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
- "Count the customer's code lines one of two ways. Either way, each repository becomes a project below, counted the same way: code lines only, no blank or comment lines. Each project's code lines are rounded up to whole {0}K units, and one Fusion scan costs its model's credits per {1}K LOC, as on the existing customer tab; the models are that tab's.": {
+ "Count the customer's code lines one of three ways. Each way, each repository becomes a project below, counted the same way: code lines only, no blank or comment lines. Counted from git or read from a cloc-fusion report, a project also says how often it changes, which sets its Fusion scans, and how many people work on it. Each project's code lines are rounded up to whole {0}K units, and one Fusion scan costs its model's credits per {1}K LOC, as on the existing customer tab; the models are that tab's.": {
   "kind": "text",
   "seen": [
-   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
-   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
-   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Counted by the last scan (SAST scan metadata)": {
@@ -6141,24 +6335,40 @@
    "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
+ "Counted from git {0}": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "Counted: click to leave it out": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "Counted: it is a project below.": {
   "kind": "text",
   "seen": [
    "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
- "Counting again replaces a project of the same name; <b>Count again</b> on a git project re-reads its latest commit.": {
+ "Counting again replaces a project of the same repository (or, for one without, the same name); <b>Count again</b> on a git project measures it again at its latest commit.": {
   "kind": "html",
   "seen": [
-   "first start › p › How it is counted",
-   "sign in › p › How it is counted",
-   "Dashboard › p › How it is counted"
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Counting one credit per result…": {
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Counting…": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Counting… {0} of {1} files": {
@@ -7178,6 +7388,18 @@
    "Dashboard › h2 › Developers"
   ]
  },
+ "Developers (90 days)": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
+  ]
+ },
+ "Developers in the last 90 days (added up per project)": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
+  ]
+ },
  "Developers who ran a scan are often shown by their code-host username. Pick the host, run its methods side by side on your own usernames, and keep the matches you trust.": {
   "kind": "text",
   "seen": [
@@ -7271,6 +7493,12 @@
    "first start › button › State folder & backups",
    "sign in › button › State folder & backups",
    "Dashboard › button › State folder & backups"
+  ]
+ },
+ "Download cloc-fusion": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Download CSV": {
@@ -7387,6 +7615,12 @@
    "Dashboard › b › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
+ "Drop cloc-fusion-report.json here": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "Due ≤ {0}d": {
   "kind": "text",
   "seen": [
@@ -7449,12 +7683,16 @@
    "Dashboard › option › Hands-off: set it up once, then leave it"
   ]
  },
- "Each one's default branch, latest commit.": {
+ "Each one's default branch: its code lines, its commits in the last {0} days (so how often it changes) and the people who committed in the last {1} days.": {
   "kind": "text",
   "seen": [
-   "first start › span › Fusion — new customer: code not in Checkmarx One yet",
-   "sign in › span › Fusion — new customer: code not in Checkmarx One yet",
-   "Dashboard › span › Fusion — new customer: code not in Checkmarx One yet"
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "Each one's organizations, groups or workspaces, and Everything this token can see.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Each person receives only their own projects…": {
@@ -7721,6 +7959,18 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "empty": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "Engine": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Enhancement": {
@@ -8165,6 +8415,12 @@
    "Dashboard › p › Automation"
   ]
  },
+ "Everything this token can see": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "Everything, including the Checkmarx One and email integrations, the utility-wide credit budget, and backups.": {
   "kind": "attr:title",
   "seen": [
@@ -8413,10 +8669,16 @@
    "connection: cxone › strong › Get started · 1 of 6 done"
   ]
  },
- "Fetching the latest commit…": {
+ "Fetching the default branch…": {
   "kind": "text",
   "seen": [
-   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "Fetching the files to count…": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Fewer false positives with FAE ({0}%)": {
@@ -8469,6 +8731,12 @@
    "first start › input › Allocated vs used",
    "sign in › input › Allocated vs used",
    "Dashboard › input › Allocated vs used"
+  ]
+ },
+ "Filter the repositories": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Final matrix": {
@@ -8529,6 +8797,12 @@
    "Dashboard › button › Email the authors of vulnerable code"
   ]
  },
+ "Find organizations": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "Find the developer who last changed each vulnerable line, and email them the findings in their code.": {
   "kind": "text",
   "seen": [
@@ -8567,6 +8841,12 @@
    "settings › span › Available variables",
    "logs › span › Available variables",
    "logs › activity › span › Available variables"
+  ]
+ },
+ "Finding the organizations…": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Finding who wrote the vulnerable code…": {
@@ -8940,6 +9220,12 @@
    "Dashboard › p › Your branding"
   ]
  },
+ "fork": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "Format": {
   "kind": "text",
   "seen": [
@@ -9118,10 +9404,16 @@
    "Dashboard › button"
   ]
  },
- "Fusion — new customer: code counted with cloc": {
+ "Fusion — new customer credits": {
   "kind": "report",
   "seen": [
-   "calculator report"
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
+  ]
+ },
+ "Fusion — new customer: code counted from git, a cloc-fusion report or cloc": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
   ]
  },
  "Fusion — new customer: code not in Checkmarx One yet": {
@@ -9214,6 +9506,24 @@
    "first start › th › Fusion scans by how often projects are scanned",
    "first start › th › Fusion scans by criticality",
    "sign in › th › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "Fusion scans per project, when how often it changes is not known": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "Fusion scans: {0} a project (how often each one changes is not known).": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
+  ]
+ },
+ "Fusion scans: {0} projects by how often they change (commits on the default branch, as on the Fusion tab), {1} at the default of {2}, {3} set for the project.": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
   ]
  },
  "Fusion scans: what each project needs": {
@@ -9387,10 +9697,28 @@
    "Dashboard › narrow › h3"
   ]
  },
+ "Git is not installed on this computer: install it from https://git-scm.com, or choose the API engine.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: a message from the server or the one-file calculator, cloc-fusion's engine)"
+  ]
+ },
  "Git is not installed on this computer: install it from https://git-scm.com, then count again.": {
   "kind": "text",
   "seen": [
    "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "Git is not installed on this computer: install it from https://git-scm.com, then count again. (Addresses pasted are counted with git.)": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: a message from the server or the one-file calculator, cloc-fusion's engine)"
+  ]
+ },
+ "Git stopped.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: a message from the server or the one-file calculator, cloc-fusion's engine)"
   ]
  },
  "Git: not connected": {
@@ -9399,6 +9727,12 @@
    "Dashboard › button",
    "Dashboard (advanced) › button",
    "connection: cxone › button"
+  ]
+ },
+ "git: shallow clones": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "GitHub": {
@@ -9537,10 +9871,10 @@
    "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
- "Give the organisation or group.": {
+ "Give the organisation or group, or tick Everything this token can see.": {
   "kind": "text",
   "seen": [
-   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+   "calculator (MZ-01.01.05: a message from the server or the one-file calculator, cloc-fusion's engine)"
   ]
  },
  "Give the report a name.": {
@@ -9555,10 +9889,10 @@
    "message"
   ]
  },
- "Give the workspace (or the project key on Bitbucket Data Center).": {
+ "Give the workspace (or the project key on Bitbucket Data Center), or tick Everything this token can see.": {
   "kind": "text",
   "seen": [
-   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+   "calculator (MZ-01.01.05: a message from the server or the one-file calculator, cloc-fusion's engine)"
   ]
  },
  "Give this project more credits": {
@@ -9923,12 +10257,10 @@
    "Dashboard › h2 › How it is counted"
   ]
  },
- "How it is counted: each repository's latest commit is fetched from git into a temporary folder on this server (no history), its files read where git keeps them, counted, and the folder deleted at once. Lines are counted as cloc counts them: by each file's language, without blank lines or comments, with no cloc to install, so totals may differ slightly from cloc's. Up to {0} repositories a count, {1} GB each; files git marks as binary, and over {2} MB, are skipped.": {
+ "How it is measured, with cloc-fusion's engine: each repository's default branch is fetched from git into a temporary folder on this server, back to a year ago and without file contents but those counted (or read from the platform's API as an archive), counted, and the folder deleted at once. Lines are counted as cloc counts them: by each file's language, without blank lines or comments; dependencies, build output and generated files are left out. Commits are those on the default branch in the last {0} days, merges left out: how often a repository changes sets its Fusion scans. Developers are the people who committed in the last {1} days, bots left out, counted once across the run: only the counts are kept, never a name or an email. Up to {2} repositories a run, {3} GB each; files git marks as binary, and over {4} MB, are skipped.": {
   "kind": "text",
   "seen": [
-   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
-   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
-   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "How many days each severity has to be fixed, counted from when the finding was first detected. The Dashboard shows what is past its SLA and what is due within {0} days, in total and for each project. Findings triaged as not exploitable have no SLA. {1} means no SLA for that severity.": {
@@ -10317,6 +10649,12 @@
    "first start › h3 › AI Triage & Remediation from reports",
    "sign in › h3 › AI Triage & Remediation from reports",
    "Dashboard › h3 › AI Triage & Remediation from reports"
+  ]
+ },
+ "Import a cloc-fusion report": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "In a .env file: SMTP_USER and SMTP_PASS. A blank value keeps what is set now, so a password never set stays empty.": {
@@ -10926,6 +11264,12 @@
    "logs › activity › span › Hands-off: set it up once, then leave it"
   ]
  },
+ "Last commit": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "Last month": {
   "kind": "text",
   "seen": [
@@ -11130,12 +11474,10 @@
    "sign in › a"
   ]
  },
- "List its repositories": {
+ "List repositories": {
   "kind": "text",
   "seen": [
-   "first start › button › Fusion — new customer: code not in Checkmarx One yet",
-   "sign in › button › Fusion — new customer: code not in Checkmarx One yet",
-   "Dashboard › button › Fusion — new customer: code not in Checkmarx One yet"
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Listing the repositories…": {
@@ -11844,6 +12186,12 @@
    "Dashboard › option › People"
   ]
  },
+ "My own repositories": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "my report": {
   "kind": "report",
   "seen": [
@@ -11990,16 +12338,40 @@
    "Dashboard › button"
   ]
  },
- "New customer (code counted with cloc): {0} projects, {1} lines, {2} Fusion scans, {3} credits.": {
+ "New customer (code counted from git, a cloc-fusion report or cloc): {0} projects, {1} lines, {2} Fusion scans, {3} credits.": {
   "kind": "report",
   "seen": [
-   "calculator report"
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
   ]
  },
- "New customer: code lines counted with cloc, without blank and comment lines; not counted: {0}.": {
+ "New customer developers in the last 90 days: {0} (added up per project).": {
   "kind": "report",
   "seen": [
-   "calculator report"
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
+  ]
+ },
+ "New customer Fusion scans: {0} a project (how often each one changes is not known).": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
+  ]
+ },
+ "New customer Fusion scans: {0} projects by how often they change (commits on the default branch), {1} at the default of {2}, {3} set for the project.": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
+  ]
+ },
+ "New customer: a project whose change frequency is known (commits on its default branch in the last year) gets the Fusion scans of that frequency, as a Checkmarx One project scanned that often does on the Fusion tab.": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
+  ]
+ },
+ "New customer: code lines without blank and comment lines (counted from git with cloc-fusion's engine, read from a cloc-fusion report, or counted with cloc); not counted: {0}.": {
+  "kind": "report",
+  "seen": [
+   "calculator report (MZ-01.01.05: the projection report, the PDF and how it is worked out)"
   ]
  },
  "new file": {
@@ -12354,6 +12726,12 @@
    "message"
   ]
  },
+ "No organizations listed: type one below, or tick Everything this token can see.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "No pool size set": {
   "kind": "text",
   "seen": [
@@ -12423,12 +12801,10 @@
    "calculator"
   ]
  },
- "No projects yet. Count the customer's repositories from git or drop their cloc results above, or add a project by hand.": {
+ "No projects yet. Count the customer's repositories from git, import a cloc-fusion report or drop their cloc results above, or add a project by hand.": {
   "kind": "text",
   "seen": [
-   "first start › p › How it is counted",
-   "sign in › p › How it is counted",
-   "Dashboard › p › How it is counted"
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "No projects yet. Drop the customer's cloc results above, or add a project by hand.": {
@@ -12736,6 +13112,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Not counted: click to count it": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Not counted: something went wrong.": {
@@ -13071,6 +13453,12 @@
    "reports › small",
    "credits › small",
    "credits › overview › small"
+  ]
+ },
+ "of {0} · {1} not counted": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "of {0} open": {
@@ -13605,6 +13993,12 @@
    "Dashboard › span › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
+ "Or type an organisation or group": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "Or use your organisation's certificate:": {
   "kind": "text",
   "seen": [
@@ -13649,14 +14043,6 @@
   "kind": "busy",
   "seen": [
    "busy line"
-  ]
- },
- "Organisation or group": {
-  "kind": "text",
-  "seen": [
-   "first start › span › Fusion — new customer: code not in Checkmarx One yet",
-   "sign in › span › Fusion — new customer: code not in Checkmarx One yet",
-   "Dashboard › span › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
  "origin|From": {
@@ -13709,6 +14095,12 @@
    "calculator › new › span",
    "calculator › triage & remediation › span",
    "calculator › sample data › span"
+  ]
+ },
+ "Over {0} months · {1} by change frequency": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Over {0} months, falling by {1}% over a year as teams adopt AI: {2} months' worth.": {
@@ -14295,12 +14687,6 @@
    "first start › span"
   ]
  },
- "Project (empty: every project)": {
-  "kind": "text",
-  "seen": [
-   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
-  ]
- },
  "Project link — <code>{baseUrl} {projectId}</code>": {
   "kind": "html",
   "seen": [
@@ -14709,6 +15095,18 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Reading its archive…": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
+ "Reading its commits…": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Reading projects from Checkmarx One…": {
@@ -15350,6 +15748,12 @@
    "settings › b › HTTPS",
    "logs › b › HTTPS",
    "logs › activity › b › HTTPS"
+  ]
+ },
+ "Repositories": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Repositories for commit authors — workspace/repo (Cloud) or PROJECT/repo, one per line": {
@@ -17540,6 +17944,12 @@
    "Dashboard › option › Credit audit log"
   ]
  },
+ "signed in as {0}": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "Signed in with": {
   "kind": "text",
   "seen": [
@@ -18737,6 +19147,18 @@
    "Dashboard › label"
   ]
  },
+ "The copy of cloc-fusion here does not match its checksum: it is not handed out.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: a message from the server or the one-file calculator, cloc-fusion's engine)"
+  ]
+ },
+ "The count could not be read.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: a message from the server or the one-file calculator, cloc-fusion's engine)"
+  ]
+ },
  "The count could not be started.": {
   "kind": "text",
   "seen": [
@@ -18881,6 +19303,12 @@
   "kind": "message",
   "seen": [
    "calculator"
+  ]
+ },
+ "The git engine needs git {0} or later on this computer: update git, or choose the API engine.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: a message from the server or the one-file calculator, cloc-fusion's engine)"
   ]
  },
  "The git host accepted the token, but it lacks a permission this needs.": {
@@ -19149,6 +19577,12 @@
    "message"
   ]
  },
+ "The organizations could not be listed.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: a message from the server or the one-file calculator, cloc-fusion's engine)"
+  ]
+ },
  "The pages to present: triage & remediation, Fusion, the credits needed overall and the impact": {
   "kind": "attr:title",
   "seen": [
@@ -19167,6 +19601,12 @@
    "help › raised › p › Submit a support case",
    "help › mine › p › Submit a support case",
    "help › filtered › p › Submit a support case"
+  ]
+ },
+ "The platform's API: archives, no git": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "The port is not a valid number.": {
@@ -19455,10 +19895,16 @@
    "Dashboard › label › Projection reports"
   ]
  },
- "This file on its own cannot reach git: upload cloc results, or count from git with the launcher (cx-credits-calculator.mjs).": {
+ "This file on its own cannot reach git: download cloc-fusion (the button on this tab) and import its report, upload cloc results, or count from git with the launcher (cx-credits-calculator.mjs).": {
   "kind": "text",
   "seen": [
-   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+   "calculator (MZ-01.01.05: a message from the server or the one-file calculator, cloc-fusion's engine)"
+  ]
+ },
+ "This file on its own cannot reach git. Download cloc-fusion above: it measures the customer's repositories where the code is, with their own token, and its report imports here (Import a cloc-fusion report). Or count from git with the launcher (<code>cx-credits-calculator.mjs</code>).": {
+  "kind": "html",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "This is almost always a company proxy or firewall with an old certificate: ask your network team to renew it or to exclude *.checkmarx.net from HTTPS inspection.": {
@@ -19618,6 +20064,12 @@
    "Dashboard › option › Hands-off: set it up once, then leave it"
   ]
  },
+ "Tick all shown": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "Tick at least one finding with an author.": {
   "kind": "message",
   "seen": [
@@ -19628,6 +20080,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Tick one or more: the Admin's git connections (the same tokens as Checkmarx One's code repository connections and Code authors), a token for this run, or both.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Tick or paste at least one repository.": {
@@ -19652,6 +20110,12 @@
   "kind": "text",
   "seen": [
    "Labs → FAE Flush"
+  ]
+ },
+ "Tick where the code is first ({0} · Where the code is).": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "Ticked: Fusion for code that is not in Checkmarx One yet, its lines counted with cloc (the Fusion — new customer tab), is in the credits and the report. Unticked: left out; its projects are kept.": {
@@ -20770,12 +21234,10 @@
    "credits › projects › span › Credit pool"
   ]
  },
- "Used for this count only, then forgotten: never saved with the customer, never written to a log or shown again, and sent only to this host, as a header. Give a read-only token (GitHub: <i>Contents: read</i>; GitLab: <i>read_repository</i>; Azure DevOps: <i>Code (Read)</i>; Bitbucket: <i>Repositories: Read</i>).": {
+ "Used for this run only, then forgotten: never saved with the customer, never written to a log or shown again, and sent only to this host, as a header. Give a read-only token (GitHub: <i>Contents: read</i>, and <i>read:org</i> to list organizations; GitLab: <i>read_api</i> and <i>read_repository</i>; Azure DevOps: <i>Code (Read)</i>, and <i>User Profile (Read)</i> to list organizations; Bitbucket: <i>Repositories: Read</i>).": {
   "kind": "html",
   "seen": [
-   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
-   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
-   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
   ]
  },
  "User": {
@@ -21560,6 +22022,12 @@
    "Dashboard › span › Fusion scans: what each project needs"
   ]
  },
+ "When the code must not leave the customer, or they have many organizations: they open": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.05: cloc-fusion's engine on Fusion — new customer)"
+  ]
+ },
  "When the code must not leave the customer: they run": {
   "kind": "text",
   "seen": [
@@ -21782,12 +22250,6 @@
    "first start › span › Bitbucket",
    "sign in › span › Bitbucket",
    "Dashboard › span › Bitbucket"
-  ]
- },
- "Workspace (or project key)": {
-  "kind": "text",
-  "seen": [
-   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Worst severity first, then oldest · {0} a page · search and filters cover all {1}": {
