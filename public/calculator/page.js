@@ -919,7 +919,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!p.frequency) return '—';
     const a = p.activity ?? {};
     const last = a.lastCommitAt ? `<small>Last commit <time datetime="${esc(a.lastCommitAt)}" translate="no">${esc(new Date(a.lastCommitAt).toLocaleDateString())}</time></small>` : '';
-    return `<span class="calc-freq">${esc(FREQ_LABEL[p.frequency] ?? '—')}<small>${esc(`${num(a.commits)} commits in ${num(a.windowDays)} days`)}</small>${last}</span>`;
+    const devs = p.devs90 === null || p.devs90 === undefined ? '' : `<small>${esc(`${num(p.devs90)} developers in the last 90 days`)}</small>`;
+    return `<span class="calc-freq">${esc(FREQ_LABEL[p.frequency] ?? '—')}<small>${esc(`${num(a.commits)} commits in ${num(a.windowDays)} days`)}</small>${devs}${last}</span>`;
   }
 
   function fnewRowHtml(p, colourOf) {
@@ -935,10 +936,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       <td>${counted.length || left
         ? `<span class="calc-lang-line" translate="no">${counted.slice(0, 3).map((l) => `${esc(l.name)} ${Math.round((l.lines / total) * 100)}%`).join(' · ')}${counted.length > 3 ? ` · +${counted.length - 3}` : ''}</span>${left ? `<span class="calc-lang-line">${esc(`${num(left)} lines not counted`)}</span>` : ''}<span class="calc-lang-bar">${counted.map((l) => `<i style="width:${((l.lines / total) * 100).toFixed(2)}%;background:${colourOf(l.name)}" title="${esc(`${l.name}: ${num(l.lines)}`)}"></i>`).join('')}</span>`
         : '—'}</td>
-      <td><input type="text" inputmode="numeric" class="calc-num" data-n="loc" value="${typed ? p.locOverride : p.lines ?? ''}" placeholder="Type them" aria-label="Lines of code of ${esc(p.name)}" />${typed && p.languages.length ? `<small class="hint">${countedBy} ${num(newCustomerEstimate({ ...fnew(), projects: [{ ...p, locOverride: null }] }, fusion()).rows[0]?.lines)} <button type="button" class="link" data-fnew-reset>Use it</button></small>` : ''}</td>
+      <td><input type="text" inputmode="numeric" class="calc-num" data-n="loc" value="${typed ? p.locOverride : p.lines ?? ''}" placeholder="Type them" aria-label="Lines of code of ${esc(p.name)}" /><small class="hint calc-units">10K LOC units <b data-cell="units">${p.included && p.units ? num(p.units) : '—'}</b></small>${typed && p.languages.length ? `<small class="hint">${countedBy} ${num(newCustomerEstimate({ ...fnew(), projects: [{ ...p, locOverride: null }] }, fusion()).rows[0]?.lines)} <button type="button" class="link" data-fnew-reset>Use it</button></small>` : ''}</td>
       <td>${fnewFrequencyHtml(p)}</td>
-      <td class="num">${p.devs90 === null || p.devs90 === undefined ? '—' : num(p.devs90)}</td>
-      <td class="num" data-cell="units">${p.included && p.units ? num(p.units) : '—'}</td>
       <td><input type="text" inputmode="numeric" class="calc-num" data-n="scansOverride" value="${p.scansOverride ?? ''}" placeholder="${num(p.scans)}" aria-label="Fusion scans for ${esc(p.name)}" /><span class="calc-scans-from" data-cell="from">${esc(FROM_NEW[p.scansFrom] ?? '')}</span></td>
       <td><select data-n="modelOverride" aria-label="Model for ${esc(p.name)}">${modelOptions(p.modelOverride, 'Automatic')}</select></td>
       <td class="num" data-cell="credits">${p.included && p.units ? (p.credits === null ? '—' : num(p.credits, 1)) : '—'}</td>

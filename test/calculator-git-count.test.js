@@ -285,10 +285,13 @@ test('the page: Count from git across connections and organizations, Import a cl
   assert.match(html, /id="calc-cf-download">Download cloc-fusion<\/button>/);
   assert.match(html, /id="calc-git-orgs-find">Find organizations<\/button>/);
   assert.match(html, /<option value="api">The platform's API: archives, no git<\/option>/);
-  assert.match(html, /<th>Lines of code<\/th><th>Change frequency<\/th><th>Developers \(90 days\)<\/th>/);
+  // Developers and 10K units sit inside Change frequency and Lines of code, so the table fits a 1440 screen.
+  assert.match(html, /<th>Lines of code<\/th><th>Change frequency<\/th><th>Fusion scans<\/th>/);
   assert.match(html, /<input type="password" id="calc-git-secret" spellcheck="false" autocomplete="off" \/>/);
   assert.match(html, /id="calc-git-offline" hidden>This file on its own cannot reach git/);
   const page = fs.readFileSync(new URL('../public/calculator/page.js', import.meta.url), 'utf8');
+  assert.match(page, /developers in the last 90 days/);
+  assert.match(page, /10K LOC units <b data-cell="units">/);
   assert.match(page, /data-fnew-recount>Count again</);
   assert.match(page, /gitOn = \(\) => !standalone \|\| canGit\(\)/);
   // The file on its own: the steps and how the server measures are hidden, only the note that it cannot is shown.

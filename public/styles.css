@@ -3041,6 +3041,9 @@ ol.calc-how li.calc-total { font-weight: 600; }
 .calc-cloc-steps h3 { margin: 0 0 4px; font-size: 14px; }
 .calc-cloc-steps .calc-cmd-label { margin: 6px 0 4px; font-size: 13px; color: var(--muted); }
 .calc-fnew-table [data-n="loc"] { width: 11ch; max-width: none; }
+.calc-fnew-table .calc-units { display: block; white-space: nowrap; }
+.calc-fnew-table [data-n="name"] { width: 14ch; }
+.calc-fnew-table .calc-lang-line { max-width: 22ch; }
 .calc-cmd { margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); font: 12px/1.5 var(--mono, ui-monospace, Consolas, monospace); white-space: pre-wrap; overflow-wrap: anywhere; }
 .calc-cloc-drop { border: 2px dashed var(--border); border-radius: 12px; padding: 14px 16px; text-align: center; }
 .calc-cloc-drop.drag { border-color: var(--accent); background: var(--accent-soft); }
