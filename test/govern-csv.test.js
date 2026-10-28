@@ -52,6 +52,12 @@ test('absent columns leave fields unchanged; unknown headers are refused; versio
   assert.match(stale.errors[0].error, /changed since this file was exported/);
   const enforce = validateCsv('entity_type,entity_id,mode\nuser,u1,enforce\n', { budgets, exemptions, canEnforce: false });
   assert.match(enforce.errors[0].error, /Enforce/);
+  // An Enforce budget made to restrict more needs govern.enforce too; narrowing it does not.
+  const wider = validateCsv(`entity_type,entity_id,max_targets,hold_until_released\nproject,'-p2,10000,true\n`, { budgets, exemptions, canEnforce: false });
+  assert.equal(wider.errors[0].error, 'Only someone allowed to enforce budgets can change what an Enforce budget restricts.');
+  assert.equal(wider.plan.length, 0);
+  assert.equal(validateCsv(`entity_type,entity_id,max_targets\nproject,'-p2,10000\n`, { budgets, exemptions, canEnforce: true }).errors.length, 0);
+  assert.deepEqual(validateCsv(`entity_type,entity_id,max_targets,hold_until_released\nproject,'-p2,3,false\n`, { budgets, exemptions, canEnforce: false }).errors, []);
   const create = validateCsv('entity_type,entity_id,amount,exempt,exempt_reason\nproject,p7,3,true,shared\n', { budgets, exemptions, entityExists: (t, id) => id === 'p7' });
   assert.equal(create.summary.create, 1);
   assert.equal(create.plan[0].exempt.reason, 'shared');

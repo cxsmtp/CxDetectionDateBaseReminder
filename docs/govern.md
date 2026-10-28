@@ -50,8 +50,8 @@ Eight permissions, in the group **Govern** on People & roles. The built-in roles
 | **See Govern** (`govern.view`) | Every tab but Settings: the tenant's credits, every budget, what each one used, restrictions, alerts, attribution; Diagnose a figure; export the budgets. | ✓ | ✓ | ✓ | |
 | **Ask for credits** (`govern.request`) | Ask for credits for oneself, or for a project, group or application. Without See Govern: only one's own usage, budget and requests. | ✓ | ✓ | ✓ | ✓ |
 | **Approve credit requests** (`govern.approve`) | Approve (all or part, until a date or for good), deny with a reason, ask a question. | ✓ | ✓ | | |
-| **Manage budgets** (`govern.budgets`) | Create, change, import and delete budgets and exemptions (in Monitor); Run now. | ✓ | ✓ | | |
-| **Enforce budgets** (`govern.enforce`) | Switch a budget to Enforce, and confirm a restriction that reaches more targets than the budget's limit; Run now. | ✓ | ✓ | | |
+| **Manage budgets** (`govern.budgets`) | Create, change, import and delete budgets and exemptions (in Monitor); on an Enforce budget, only what makes it restrict less; Run now. | ✓ | ✓ | | |
+| **Enforce budgets** (`govern.enforce`) | Switch a budget to Enforce, change what an Enforce budget restricts, and confirm a restriction that reaches more targets than the budget's limit; Run now. | ✓ | ✓ | | |
 | **Restore restrictions** (`govern.restore`) | Put back at once what Govern took, with a grace. | ✓ | ✓ | | |
 | **Decide attribution** (`govern.attribution`) | Map a name to someone, reject a match for good, ignore a shared account, clear a decision. | ✓ | ✓ | | |
 | **Govern settings** (`govern.settings`) | The cycle, what Enforce takes away, AI-only groups, notifications (email, webhook and its secret), the permission check; Run now. Of the built-in roles, the Admin's alone. | ✓ | | | |
@@ -107,7 +107,7 @@ One row per budget: **Who** (with its level), **Period**, **Budget** (top-ups in
 
 The line under a name also says when a budget is in grace after a restore, when its figure is from an earlier poll (the last one failed), and when it is an estimate.
 
-**Monitor and Enforce.** **Monitor** (the default) counts and warns. **Enforce** also restricts at the limit ([what it restricts](#what-enforce-restricts)); switching a budget to Enforce needs **Enforce budgets** and records who did it and when. Switching it back to Monitor, pausing it, exempting it or deleting it lifts its restrictions in the background.
+**Monitor and Enforce.** **Monitor** (the default) counts and warns. **Enforce** also restricts at the limit ([what it restricts](#what-enforce-restricts)); switching a budget to Enforce needs **Enforce budgets** and records who did it and when. So does anything that makes an Enforce budget restrict more (from MZ-01.01.05), by edit, bulk edit or CSV: a higher **Most targets restricted at once**, fewer credits, turning on **Count group members**, **Count subgroups**, **Count usage from before the period** or **Hold until released**, making it **Active** again after a pause, or a different period or dates. Without it, Manage budgets may still narrow an Enforce budget (fewer targets, more credits, an option switched off), pause it, change its notes and warning threshold, or switch it to Monitor. Switching it back to Monitor, pausing it, exempting it or deleting it lifts its restrictions in the background.
 
 **A budget** (New budget, or a row's side panel; Manage budgets):
 - **Who**: a user, group, project or application, picked from what Govern last read of Checkmarx One. One budget per entity.
