@@ -8476,6 +8476,12 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
+ "For an internal relay that takes mail without a sign-in, untick \"Server needs a user name and password\".": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
  "For an internal relay with a self-signed certificate, turn off \"Check the mail server's certificate\" (SMTP_REJECT_UNAUTHORIZED=false).": {
   "kind": "message",
   "seen": [
@@ -18231,6 +18237,12 @@
   ]
  },
  "The mail server name is not a plain host name.": {
+  "kind": "message",
+  "seen": [
+   "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "The mail server offers no encrypted connection, and MissionZero never sends a sign-in without one.": {
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"

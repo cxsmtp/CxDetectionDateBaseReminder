@@ -45,6 +45,7 @@ test('mail server: the usual failures each get their own explanation', () => {
     [{ code: 'EENVELOPE', response: '550 5.7.1 Unable to relay' }, { ...office, host: 'relay.acme.io', requireAuth: false }, 'smtp.relay-denied'],
     [{ code: 'EENVELOPE', response: '550 5.1.1 <nobody@acme.io>: Recipient address rejected: User unknown' }, office, 'smtp.recipient'],
     [{ code: 'EMESSAGE', responseCode: 421, response: '421 4.7.0 Too many connections, try again later' }, office, 'smtp.busy'],
+    [{ code: 'ETLS', message: 'Error upgrading connection with STARTTLS', response: '502 5.5.1 Unrecognized command' }, { ...office, host: 'relay.acme.io', port: 25 }, 'smtp.no-starttls'],
     [{ code: 'EPROTOCOL', message: 'Greeting never received' }, { ...office, port: 993 }, 'smtp.greeting'],
     [{ code: 'EPROTOCOL', message: 'Something odd' }, office, 'smtp.unknown'],
   ];

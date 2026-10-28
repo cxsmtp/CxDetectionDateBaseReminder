@@ -62,6 +62,11 @@ test('focus: named applications, tags or projects (any of them), less those left
   assert.deepEqual(ids({ tags: ['team:web'] }), ['3'], 'key:value, either case');
   assert.deepEqual(ids({ tags: ['tier'] }), ['3'], 'a key alone');
   assert.deepEqual(ids({ exclude: ['demo-?'] }), ['1', '2', '3', '4']);
+  assert.deepEqual(ids({ projects: ['*a*b*'] }), ['2'], 'stars match runs; the rest must match in order');
+  assert.deepEqual(ids({ projects: ['*-API', 'PAY*'] }), ['1', '2'], 'any case');
+  const started = Date.now();
+  focusProjects([{ id: 'x', name: 'a'.repeat(60), tags: {} }], { projects: ['*a*a*a*a*a*a*a*a*a*a*ab'] });
+  assert.ok(Date.now() - started < 200, 'many stars do not backtrack for seconds');
   assert.deepEqual(mergeAutomation(DEFAULT_AUTOMATION, { focus: { projects: 'a, b,,a', exclude: ['  c '] } }).focus, { applications: [], tags: [], projects: ['a', 'b'], exclude: ['c'] });
 });
 

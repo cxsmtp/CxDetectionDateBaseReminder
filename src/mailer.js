@@ -97,6 +97,8 @@ export function buildTransport(smtp) {
     host: smtp.host,
     port: smtp.port,
     secure: Boolean(smtp.secure),
+    // A login is never sent in clear: without TLS from the start, STARTTLS must be offered and taken.
+    requireTLS: !smtp.secure && Boolean(smtp.requireAuth && smtp.user),
     auth: smtp.requireAuth && smtp.user ? { user: smtp.user, pass: normalizePassword(smtp) } : undefined,
     tls: { rejectUnauthorized: verifiesCertificate(smtp) },
     connectionTimeout: 15_000,

@@ -123,6 +123,10 @@ These are the same sentences the page shows.
 1. Check "Secure connection from the start": on for port 465, off for 587, 25 and 2525.
 2. The server may only accept connections from known addresses: ask its administrator to allow the address MissionZero sends from.
 
+**The mail server offers no encrypted connection, and MissionZero never sends a sign-in without one.**
+1. Use port 587 with "Secure connection from the start" off (it upgrades with STARTTLS), or port 465 with it on.
+2. For an internal relay that takes mail without a sign-in, untick "Server needs a user name and password".
+
 **The mail server only accepts a sign-in over an encrypted connection.**
 1. Use port 587 with "Secure connection from the start" off (it upgrades with STARTTLS), or port 465 with it on.
 

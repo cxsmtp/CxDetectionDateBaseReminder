@@ -72,6 +72,13 @@ test('the mail server certificate is checked unless an Admin explicitly turned i
   const warn = t.mock.method(console, 'warn', () => {});
   const on = buildTransport({ host: 'smtp.acme.test', port: 587, rejectUnauthorized: true });
   assert.equal(on.options.tls.rejectUnauthorized, true);
+  assert.equal(on.options.requireTLS, false, 'no login: a relay without TLS still works');
+  const login = buildTransport({ host: 'smtp.acme.test', port: 587, user: 'u', password: PASSWORD, requireAuth: true });
+  assert.equal(login.options.requireTLS, true, 'a login is never sent before STARTTLS');
+  login.close();
+  const tls = buildTransport({ host: 'smtp.acme.test', port: 465, secure: true, user: 'u', password: PASSWORD, requireAuth: true });
+  assert.equal(tls.options.requireTLS, false, 'already TLS from the start');
+  tls.close();
   on.close();
   assert.equal(warn.mock.callCount(), 0);
 

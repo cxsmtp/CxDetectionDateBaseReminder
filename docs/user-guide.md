@@ -577,7 +577,7 @@ How the server reaches Checkmarx One: directly, or through your company's proxy 
 | --- | --- |
 | Host, Port | Your mail server. Port and TLS mode are paired: picking port 465 turns on **Secure connection from the start**, and 587 / 25 / 2525 turn it off. |
 | Secure connection from the start (port 465) | On only for port 465. |
-| Server needs a user name and password | Usually on. |
+| Server needs a user name and password | Usually on. The user name and password are only ever sent over an encrypted connection: on port 587, 25 or 2525 the server must offer STARTTLS, or the test says so (from MZ-01.01.03). |
 | Check the mail server's certificate | Leave on. Turn off only for an internal relay with a self-signed certificate. |
 | Username, Password | The sending account. The password is stored on the server and never shown again. Changing the host clears it: type it again for the new server. |
 | From name, From address | Who the reminders come from. A blank address uses the username. |

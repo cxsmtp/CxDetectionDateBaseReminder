@@ -162,6 +162,12 @@ export function explainSmtp(error, smtp = {}) {
       'The server may only accept connections from known addresses: ask its administrator to allow the address MissionZero sends from.',
     ]);
   }
+  if (/does not support required STARTTLS|upgrading connection with STARTTLS/i.test(text)) {
+    return H('smtp.no-starttls', 'The mail server offers no encrypted connection, and MissionZero never sends a sign-in without one.', [
+      'Use port 587 with "Secure connection from the start" off (it upgrades with STARTTLS), or port 465 with it on.',
+      'For an internal relay that takes mail without a sign-in, untick "Server needs a user name and password".',
+    ]);
+  }
   if (/must issue a STARTTLS|STARTTLS is required|5\.7\.0 .*TLS/i.test(text)) {
     return H('smtp.starttls-required', 'The mail server only accepts a sign-in over an encrypted connection.', [
       'Use port 587 with "Secure connection from the start" off (it upgrades with STARTTLS), or port 465 with it on.',
