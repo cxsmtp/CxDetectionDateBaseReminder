@@ -56,7 +56,7 @@ export function trSections(tr, L) {
       future.push(line(w('{0}: {1} × {2}% = {3} a month', name(s), num(an(s).arrivals), num(pctOf(share)), num(arrivals)), true));
     }
     const monthly = T.arrivals ?? SEVERITIES.reduce((sum, s) => sum + (rows[s]?.arrivals ?? an(s).arrivals ?? 0), 0);
-    future.push(line(A.aiDeclinePercent ? w('Over {0} months, each {1}% below the one before: {2} months\' worth.', num(months), num(A.aiDeclinePercent), num(paced, 2)) : w('Over {0} months at today\'s pace: {1} months\' worth.', num(months), num(paced, 2))));
+    future.push(line(A.aiDeclinePercent ? w('Over {0} months, falling by {1}% over a year as teams adopt AI: {2} months\' worth.', num(months), num(A.aiDeclinePercent), num(paced, 2)) : w('Over {0} months at today\'s pace: {1} months\' worth.', num(months), num(paced, 2))));
     future.push(line(w('{0} a month × {1} = {2}.', num(monthly), num(paced, 2), num(T.future))));
   }
   sections.push({ key: 'future', title: w('Still to come'), lines: future });
@@ -70,30 +70,16 @@ export function trSections(tr, L) {
   });
 
   sections.push({
-    key: 'fae',
-    title: w('Kept away by FAE'),
-    lines: [
-      line(w('FAE keeps {0}% of the new findings (still to come and found by Fusion) from being reported, never more than their false positives:', num(A.faePercent))),
-      ...list.map((s) => {
-        const r = rows[s] ?? {};
-        const fresh = (r.future ?? 0) + (r.fusionExtra ?? 0);
-        return line(w('{0}: {1}% × {2} = {3}', name(s), num(Math.min(A.faePercent ?? 0, r.fp ?? 0)), num(fresh), num(r.faeAvoided)), true);
-      }),
-      total(T.faeAvoided),
-    ],
-  });
-
-  sections.push({
     key: 'triage',
     title: w('To triage'),
-    lines: [line(w('Backlog chosen + still to come + found by Fusion − kept away by FAE:')), line(`${num(T.selected)} + ${num(T.future)} + ${num(T.fusionExtra)} − ${num(T.faeAvoided)} = ${num(T.toTriage)}`, true)],
+    lines: [line(w('Backlog chosen + still to come + found by Fusion:')), line(`${num(T.selected)} + ${num(T.future)} + ${num(T.fusionExtra)} = ${num(T.toTriage)}`, true)],
   });
 
   sections.push({
     key: 'remediate',
     title: w('To remediate'),
     lines: [
-      line(w('The true positives among everything reported (FAE removes false positives only):')),
+      line(w('The true positives among everything reported:')),
       ...list.map((s) => {
         const r = rows[s] ?? {};
         return line(w('{0}: {1} × {2}% = {3}', name(s), num((r.selected ?? 0) + (r.future ?? 0) + (r.fusionExtra ?? 0)), num(100 - (r.fp ?? 0)), num(r.truePositives)), true);

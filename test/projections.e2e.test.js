@@ -116,8 +116,8 @@ test('a customer is saved as it is worked on, and opens again as it was left', a
   assert.deepEqual(opened.tr.totals.bySeverity.High, [10, 12]);
   assert.equal(opened.tr.selected.High, 6);
   assert.equal(opened.tr.fpPercent.High, 20);
-  assert.equal(opened.tr.lookbackMonths, 3, '"Latest" is gone: the trend is always read over months');
-  assert.deepEqual([opened.tr.selected.Medium, opened.tr.includeFuture, opened.tr.fusionUpliftPercent, opened.tr.faePercent, opened.tr.aiDeclinePercent], [null, true, 5, 10, 2], 'not chosen: every open finding; and the defaults for what is ahead');
+  assert.equal(opened.tr.lookbackMonths, 12, '"Latest" is gone: the trend is always read over months, 12 unless chosen');
+  assert.deepEqual([opened.tr.selected.Medium, opened.tr.includeFuture, opened.tr.fusionUpliftPercent, opened.tr.aiDeclinePercent], [null, true, 5, 2], 'not chosen: every open finding; and the defaults for what is ahead');
   assert.equal((await ana('PUT', `/api/projections/${customerId}`, { name: 'Globex — renewal' })).body.customer.name, 'Globex — renewal');
   assert.equal((await ana('PUT', '/api/projections/nope', { name: 'x' })).status, 404);
 });

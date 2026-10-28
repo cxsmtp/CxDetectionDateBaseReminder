@@ -154,8 +154,19 @@ export function cleanFusionNew(value) {
   return { ...newCustomerSettings(v), projects };
 }
 
-/** A profile from MZ-01.00.61 (its à la carte calculator state): the exports and plan carry over. */
+/**
+ * A profile saved before, brought up to date. MZ-01.01.03: new findings a month are averaged over 12 months
+ * by default, not 3 (a quarter's pace said too little about a year's); a customer on the old default follows.
+ */
 export function migrate(profile) {
+  const before = migrateToV3(profile);
+  if (before.planVersion !== 3) return before;
+  const old = before.tr && Number(before.tr.lookbackMonths) === 3;
+  return { ...before, planVersion: 4, tr: old ? { ...before.tr, lookbackMonths: DEFAULT_TR.lookbackMonths } : before.tr };
+}
+
+/** A profile from MZ-01.00.61 (its à la carte calculator state): the exports and plan carry over. */
+function migrateToV3(profile) {
   // MZ-01.00.69: Fusion's default extra findings went from 20% to 5%; a profile still on the old default follows.
   if (profile.planVersion === 2) {
     const old = profile.tr && Number(profile.tr.fusionUpliftPercent) === 20;
@@ -214,7 +225,7 @@ export function cleanReportData(value, depth = 0) {
 /** A new customer, its projections empty and its impact from the organisation's defaults. */
 export function newProfile({ name, by = '', impact = {} } = {}) {
   const now = new Date().toISOString();
-  return { id: newId(), name: text(name, 120) || 'New customer', planVersion: 3, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({ models: modelsNamed() }), fusionNew: cleanFusionNew({}), totals: totalsSettings({}), scope: cleanScope({}), impact: impactSettings(impact) };
+  return { id: newId(), name: text(name, 120) || 'New customer', planVersion: 4, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({ models: modelsNamed() }), fusionNew: cleanFusionNew({}), totals: totalsSettings({}), scope: cleanScope({}), impact: impactSettings(impact) };
 }
 
 /** A customer with what changed applied: the name, the T&R projection, the Fusion projection, the extra % and bundle size, the scope, the impact's assumptions (each optional). */

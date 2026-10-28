@@ -185,7 +185,7 @@ test('what is kept of what the page sends: numbers, dates, known choices and sho
   assert.equal('Bogus' in t.totals.bySeverity, false);
   assert.equal(t.selected.High, 0);
   assert.equal(t.fpPercent.High, 100);
-  assert.equal(t.lookbackMonths, 3);
+  assert.equal(t.lookbackMonths, 12);
   assert.equal('script' in t, false);
   const f = cleanFusion({ periodMonths: 999, combine: 'evil', models: [{ id: 'm', name: '<img>', creditsPer10k: '2.5' }], byFrequency: { month: { scans: '4', model: 'nope' } }, projects: [{ name: 'Typed', locOverride: '12,000', frequency: 'hourly', criticality: 9, modelOverride: 'nope' }] });
   assert.equal(f.periodMonths, 60);
@@ -482,7 +482,7 @@ test('the organisation name: given with the terms, kept when they change, one cl
   assert.equal(cleanName('x'.repeat(300)).length, 120);
 });
 
-test('what is ahead: findings still to come at the trend, more from Fusion, fewer false positives with FAE', () => {
+test('what is ahead: findings still to come at the trend, and more from Fusion', () => {
   const { totalRows, fixedRows } = seriesRows(totals, fixed);
   const quarter = analyse(totalRows, fixedRows, 3);
   // High grew 100 → 130 in 91 days with 7 fixed: 37 new findings over 2.99 months.
@@ -498,11 +498,13 @@ test('what is ahead: findings still to come at the trend, more from Fusion, fewe
   assert.equal(backlogOnly.totals.aheadCredits, 0);
   assert.ok(Math.abs(backlogOnly.totals.credits - trCost(quarter, { selected: { Critical: 16, High: 130, Medium: 5, Low: 1 } }).totals.credits) < 1e-9, 'the same credits as the backlog plan');
 
-  // 12 months ahead, Fusion in the projection: +5% of (backlog + still to come), FAE takes 10% of the new ones (30% are false positives).
-  // New findings fall 2% a month as AI is adopted: the first month at today's pace, then 0.98, 0.98², …
+  // 12 months ahead, Fusion in the projection: +5% of (backlog + still to come).
+  // New findings fall 2% over a year as AI is adopted, a little each month: the first month at today's pace.
+  const keep = 0.98 ** (1 / 12);
   assert.equal(aheadMonths(12, 0), 12);
-  assert.ok(Math.abs(aheadMonths(12, 2) - (1 - 0.98 ** 12) / 0.02) < 1e-9);
-  assert.ok(Math.abs(aheadMonths(3, 2) - (1 + 0.98 + 0.98 ** 2)) < 1e-9);
+  assert.ok(Math.abs(aheadMonths(12, 2) - (1 - keep ** 12) / (1 - keep)) < 1e-9);
+  assert.ok(Math.abs(aheadMonths(3, 2) - (1 + keep + keep ** 2)) < 1e-9);
+  assert.ok(aheadMonths(12, 2) > 11.8 && aheadMonths(12, 2) < 12, '2% a year: a little under 12 months\' worth');
   const p = trProjection(quarter, {}, { months: 12, fusion: true });
   const high = p.rows.High;
   const future = (37 / months) * aheadMonths(12, 2);
@@ -510,14 +512,11 @@ test('what is ahead: findings still to come at the trend, more from Fusion, fewe
   assert.ok(Math.abs(p.paced - aheadMonths(12, 2)) < 1e-9);
   assert.ok(Math.abs(trProjection(quarter, { aiDeclinePercent: 0 }, { months: 12 }).rows.High.future - (37 / months) * 12) < 1e-9, 'at 0%: today\'s pace every month');
   assert.ok(Math.abs(high.fusionExtra - (130 + future) * 0.05) < 1e-9);
-  assert.ok(Math.abs(high.faeAvoided - (future + high.fusionExtra) * 0.1) < 1e-9);
-  assert.ok(Math.abs(high.toTriage - (130 + future + high.fusionExtra - high.faeAvoided)) < 1e-9);
-  assert.ok(Math.abs(high.truePositives - (130 + future + high.fusionExtra) * 0.7) < 1e-9, 'FAE removes false positives only');
+  assert.equal(high.faeAvoided, undefined, 'no FAE in the projection');
+  assert.ok(Math.abs(high.toTriage - (130 + future + high.fusionExtra)) < 1e-9);
+  assert.ok(Math.abs(high.truePositives - (130 + future + high.fusionExtra) * 0.7) < 1e-9);
   assert.ok(Math.abs(high.credits - (high.toTriage * 1 + high.truePositives * 3)) < 1e-9);
   assert.ok(Math.abs(p.totals.backlogCredits + p.totals.aheadCredits - p.totals.credits) < 1e-9);
-  // FAE never takes more than the false positives: at 0% false positives it takes none.
-  const clean = trProjection(quarter, { fpPercent: { High: 0 }, faePercent: 50 }, { months: 12, fusion: true });
-  assert.equal(clean.rows.High.faeAvoided, 0);
   // Without Fusion, nothing more found by it.
   assert.equal(trProjection(quarter, {}, { months: 12 }).totals.fusionExtra, 0);
 
@@ -577,7 +576,7 @@ test('which projects count: applications, groups, people, names with wildcards, 
   assert.equal(scopeActive({ groups: ['g'] }), true);
 });
 
-test('a customer from before: nothing chosen becomes every open finding, and "Latest" becomes 3 months', () => {
+test('a customer from before: nothing chosen becomes every open finding, "Latest" and the old 3-month default become 12 months', () => {
   const file = path.join(tmp('calc-old-'), 'projections.json');
   fs.writeFileSync(file, JSON.stringify({ profiles: [
     { id: 'a', name: 'Untouched', tr: { totals, fixed, selected: { Critical: 0, High: 0, Medium: 0, Low: 0 }, lookbackMonths: 0 } },
@@ -587,7 +586,9 @@ test('a customer from before: nothing chosen becomes every open finding, and "La
   ] }));
   const store = new ProjectionStore({ file });
   assert.deepEqual(store.get('a').tr.selected, { Critical: null, High: null, Medium: null, Low: null });
-  assert.equal(store.get('a').tr.lookbackMonths, 3);
+  assert.equal(store.get('a').tr.lookbackMonths, 12);
+  assert.equal(store.get('c').tr.lookbackMonths, 12, 'on the old 3-month default: 12 now');
+  assert.equal(store.get('c').planVersion, 4);
   assert.deepEqual(store.get('b').tr.selected, { Critical: 4, High: 0, Medium: 0, Low: 0 }, 'a plan someone made is kept');
   assert.equal(store.get('b').tr.lookbackMonths, 6);
   // MZ-01.00.69: Fusion's default went from 20% to 5%. A plan on the old default follows; one typed in is kept.
@@ -596,8 +597,8 @@ test('a customer from before: nothing chosen becomes every open finding, and "La
   assert.equal(aheadSettings(store.get('a').tr).fusionUpliftPercent, 5, 'and one from before 1.0.67, which had none: the default');
   const fresh = store.create({ name: 'New', by: 'x' });
   assert.deepEqual(fresh.tr.selected, { Critical: null, High: null, Medium: null, Low: null });
-  assert.deepEqual([fresh.tr.includeFuture, fresh.tr.fusionUpliftPercent, fresh.tr.faePercent, fresh.tr.aiDeclinePercent], [true, 5, 10, 2]);
-  assert.deepEqual(cleanTr({ fusionUpliftPercent: 9999, faePercent: -4, includeFuture: false, aiDeclinePercent: 50 }), { ...cleanTr({}), fusionUpliftPercent: 300, faePercent: 10, includeFuture: false, aiDeclinePercent: 20 }, 'capped, and what is not a number is the default');
+  assert.deepEqual([fresh.tr.includeFuture, fresh.tr.fusionUpliftPercent, fresh.tr.aiDeclinePercent, fresh.tr.lookbackMonths, 'faePercent' in fresh.tr], [true, 5, 2, 12, false]);
+  assert.deepEqual(cleanTr({ fusionUpliftPercent: 9999, includeFuture: false, aiDeclinePercent: 120 }), { ...cleanTr({}), fusionUpliftPercent: 300, includeFuture: false, aiDeclinePercent: 90 }, 'capped, and what is not a number is the default');
 });
 
 test('each project\'s weeks are kept on the server, and any set of them added up', () => {
@@ -640,15 +641,16 @@ test('the report says the answer first, that it comes from live Checkmarx One da
   assert.match(html, /The trend is measured over the last 3 months; the projection covers the next 12 months\./);
   const T = data.tr.totals;
   const n = (x) => Math.round(x).toLocaleString();
-  assert.ok(html.includes(`${n(T.selected)} + ${n(T.future)} + ${n(T.fusionExtra)} − ${n(T.faeAvoided)} = ${n(T.toTriage)}`), 'to triage, worked out');
+  assert.ok(html.includes(`${n(T.selected)} + ${n(T.future)} + ${n(T.fusionExtra)} = ${n(T.toTriage)}`), 'to triage, worked out');
+  assert.ok(!/FAE/.test(html), 'no FAE anywhere in the report');
   assert.ok(html.includes(`÷ 10,000 credits a bundle = ${(data.summary.total / 10000).toLocaleString(undefined, { maximumFractionDigits: 2 })}, rounded up to ${data.summary.bundles} bundles.`));
-  assert.ok(at('Total credits required') > 0 && at('Total credits required') < at('Read live from Checkmarx One'), 'the answer first');
-  assert.ok(at('Read live from Checkmarx One') < at('How we got there') && at('How we got there') < at('Assumptions') && at('Assumptions') < at('Appendix: every figure'));
+  assert.ok(at('Total credits required') > 0 && at('Total credits required') < at('How we got there'), 'the answer first');
+  assert.ok(at('How we got there') < at('Assumptions') && at('Assumptions') < at('Appendix: every figure'));
+  assert.ok(at('Read live from Checkmarx One') > at('Appendix: every figure') && at('<details class="live">') > 0, 'where the data comes from: at the end, closed');
   assert.match(html, new RegExp(`<b class="big">${Math.round(summary.total).toLocaleString('en')}</b>`));
   assert.match(html, /77 scans/);
   assert.match(html, /Projects counted: Applications: Payments/);
   assert.match(html, /More found by Fusion \(5%\)/);
-  assert.match(html, /Fewer false positives with FAE \(10%\)/);
   assert.match(html, /class="bar"/);
   assert.doesNotMatch(html, /<script/i);
   // A report made before MZ-01.00.67 (backlog only, old forecast) still opens.

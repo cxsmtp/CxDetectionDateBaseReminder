@@ -8,7 +8,7 @@
 //
 // Ahead: over the projection period, the findings still to come at the pace of the lookback
 // (arrivals: what the backlog grew by, plus what was fixed meanwhile), the extra findings Fusion
-// reports once it scans the code, and those FAE keeps from being reported (false positives only).
+// reports once it scans the code.
 //
 // Fusion: one Fusion scan of a project costs its model's credits per 10K lines of code, with each
 // project rounded up to whole 10K units on its own (12,000 lines are 2 units). How many Fusion
@@ -20,11 +20,10 @@ export const DEFAULT_TR = Object.freeze({
   triageCost: { Critical: 1, High: 1, Medium: 1, Low: 1 },
   remediationCost: { Critical: 3, High: 3, Medium: 3, Low: 3 },
   fpPercent: { Critical: 30, High: 30, Medium: 30, Low: 30 },
-  lookbackMonths: 3,
+  lookbackMonths: 12,
   includeFuture: true,
   fusionUpliftPercent: 5,
-  faePercent: 10,
-  // New findings fall as teams adopt AI (assist, triage, remediation): this much fewer each month.
+  // New findings fall as teams adopt AI (assist, triage, remediation): this much fewer over a year.
   aiDeclinePercent: 2,
 });
 // The trend is always read over months (a single week says too little to project from).
@@ -177,17 +176,16 @@ export function aheadSettings(value = {}) {
   return {
     includeFuture: v.includeFuture !== false,
     fusionUpliftPercent: pct(v.fusionUpliftPercent, DEFAULT_TR.fusionUpliftPercent, 300),
-    faePercent: pct(v.faePercent, DEFAULT_TR.faePercent, 100),
-    aiDeclinePercent: pct(v.aiDeclinePercent, DEFAULT_TR.aiDeclinePercent, 20),
+    aiDeclinePercent: pct(v.aiDeclinePercent, DEFAULT_TR.aiDeclinePercent, 90),
   };
 }
 
 /**
- * How many months' worth of new findings arrive over `months` when each month brings
- * `declinePercent` fewer than the one before (the first at today's pace): 12 at 0%, about 10.9 at 2%.
+ * How many months' worth of new findings arrive over `months` when they fall by `declinePercent`
+ * over a year, a little each month (the first at today's pace): 12 at 0%, about 11.9 at 2%.
  */
 export function aheadMonths(months, declinePercent = 0) {
-  const keep = 1 - clamp(Number(declinePercent) || 0, 0, 100) / 100;
+  const keep = (1 - clamp(Number(declinePercent) || 0, 0, 100) / 100) ** (1 / 12);
   let total = 0;
   for (let m = 0; m < months; m += 1) total += keep ** m;
   return total;
@@ -195,9 +193,7 @@ export function aheadMonths(months, declinePercent = 0) {
 
 /**
  * The credits over the projection period, per severity: the backlog chosen now, the findings still
- * to come at the lookback's pace, the extra Fusion reports (when Fusion is part of it) on both,
- * less the false positives FAE keeps from being reported. FAE never removes more than the false
- * positives among the new findings, so true positives (what remediation pays for) stay the same.
+ * to come at the lookback's pace, and the extra Fusion reports (when Fusion is part of it) on both.
  * `plan` = the saved T&R plan; `months` the projection period; `fusion` whether Fusion is in it.
  */
 export function trProjection(analysis, plan = {}, { months = 12, fusion = false } = {}) {
@@ -206,7 +202,7 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false 
   const period = clamp(Number(months) || 12, 1, 60);
   const paced = aheadMonths(period, ahead.aiDeclinePercent);
   const rows = {};
-  const keys = ['backlog', 'selected', 'arrivals', 'future', 'fusionExtra', 'faeAvoided', 'toTriage', 'truePositives', 'triageCredits', 'remediationCredits', 'credits', 'backlogCredits', 'aheadCredits', 'backlogAfter'];
+  const keys = ['backlog', 'selected', 'arrivals', 'future', 'fusionExtra', 'toTriage', 'truePositives', 'triageCredits', 'remediationCredits', 'credits', 'backlogCredits', 'aheadCredits', 'backlogAfter'];
   const totals = Object.fromEntries(keys.map((k) => [k, 0]));
   for (const s of SEVERITIES) {
     const backlog = analysis?.perSeverity[s].current ?? 0;
@@ -219,15 +215,13 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false 
     const arrivals = ahead.includeFuture ? (analysis?.perSeverity[s].arrivals ?? 0) * share : 0;
     const future = arrivals * paced;
     const fusionExtra = fusion ? ((chosen + future) * ahead.fusionUpliftPercent) / 100 : 0;
-    const fresh = future + fusionExtra;
-    const faeAvoided = Math.min((fresh * ahead.faePercent) / 100, (fresh * fp) / 100);
-    const reported = chosen + fresh;
-    const toTriage = reported - faeAvoided;
+    const reported = chosen + future + fusionExtra;
+    const toTriage = reported;
     const truePositives = reported * (1 - fp / 100);
     const triageCredits = toTriage * triageCost;
     const remediationCredits = truePositives * remediationCost;
     const backlogCredits = chosen * triageCost + chosen * (1 - fp / 100) * remediationCost;
-    const row = { backlog, selected: chosen, share, arrivals, future, fusionExtra, faeAvoided, toTriage, truePositives, triageCost, fp, remediationCost, triageCredits, remediationCredits, credits: triageCredits + remediationCredits, backlogCredits, aheadCredits: triageCredits + remediationCredits - backlogCredits, backlogAfter: backlog - chosen };
+    const row = { backlog, selected: chosen, share, arrivals, future, fusionExtra, toTriage, truePositives, triageCost, fp, remediationCost, triageCredits, remediationCredits, credits: triageCredits + remediationCredits, backlogCredits, aheadCredits: triageCredits + remediationCredits - backlogCredits, backlogAfter: backlog - chosen };
     rows[s] = row;
     for (const k of keys) totals[k] += row[k];
   }

@@ -3048,6 +3048,14 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .calc-scope-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-width: 0; }
 .calc-scope-leave { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 8px 0 4px; }
 .calc-branches { white-space: nowrap; }
+/* A section folded until it is wanted (Fusion scans by criticality). */
+details.calc-fold > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+details.calc-fold > summary::-webkit-details-marker { display: none; }
+details.calc-fold > summary h2 { margin: 0; }
+details.calc-fold > summary h2::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--muted); transition: transform .15s; }
+details.calc-fold[open] > summary h2::before { transform: rotate(90deg); }
+details.calc-fold[open] > summary { margin-bottom: 8px; }
+details.calc-fold > summary .hint { margin: 0; }
 .calc-read-limit { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 13px; }
 .calc-read-limit input { width: 7.5em; text-align: end; font-variant-numeric: tabular-nums; }
 .calc-scope-label { font-size: 12px; font-weight: 500; color: var(--muted); }
@@ -4163,3 +4171,5 @@ button.gv-sugg:hover:not(:disabled) { border-color: var(--accent); }
 
 /* Phone-only pieces (public/mobile.js); public/mobile.css shows them on a phone. */
 :root:not([data-phone]) :is(.m-more, .m-select, .m-sev, .m-scope-row, .m-sheet, .m-backdrop, .m-detail-head) { display: none !important; }
+[dir="rtl"] details.calc-fold > summary h2::before { content: "◂"; }
+[dir="rtl"] details.calc-fold[open] > summary h2::before { transform: rotate(-90deg); }

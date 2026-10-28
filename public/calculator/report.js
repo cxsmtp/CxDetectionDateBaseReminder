@@ -57,7 +57,6 @@ export function trFigures(tr) {
     selected: v('selected'),
     future: v('future'),
     fusionExtra: v('fusionExtra'),
-    faeAvoided: v('faeAvoided'),
     toTriage: v('toTriage', v('selected')),
     truePositives: v('truePositives'),
     triageCredits: v('triageCredits'),
@@ -68,14 +67,13 @@ export function trFigures(tr) {
   };
 }
 
-/** Which severities the plan takes, each whole or in part: "All Critical · All High · Medium: 12,000 of 80,000". */
-export function selectionLine(tr, L) {
+/** The open vulnerabilities the plan takes, and those it leaves, per severity: "Included: Critical 17,449 · High 92,786" (none: ''). */
+export function scopeLines(tr, L) {
   const { w, num } = L;
-  return SEVERITIES.map((s) => {
-    const r = tr.rows?.[s];
-    if (!r?.backlog || !(r.selected > 0)) return '';
-    return r.selected >= r.backlog ? w('All {0}', w(s)) : w('{0}: {1} of {2}', w(s), num(r.selected), num(r.backlog));
-  }).filter(Boolean).join(' · ');
+  const part = (n) => SEVERITIES.map((s) => [s, n(tr.rows?.[s] ?? {})]).filter(([, x]) => x > 0).map(([s, x]) => `${w(s)} ${num(x)}`).join(' · ');
+  const included = part((r) => r.selected ?? 0);
+  const excluded = part((r) => (r.backlog ?? 0) - (r.selected ?? 0));
+  return [included && w('Included: {0}', included), excluded && w('Excluded: {0}', excluded)].filter(Boolean);
 }
 
 /** The false positives the plan takes (triaged, never remediated): one % for every severity counted, or each its own. */
@@ -158,7 +156,8 @@ function provenance(data, L) {
     out.noCode > 0 && w('Left out: {0} projects whose latest scan counted no lines of code.', num(out.noCode)),
     out.noFindings > 0 && w('Left out: {0} projects with no open findings.', num(out.noFindings)),
   ].filter(Boolean).map((t) => `<p class="sub">${t}</p>`).join('');
-  return `<section class="live"><span class="live-dot" aria-hidden="true"></span><div><p>${line}</p>${tr?.lookbackMonths ? `<p class="sub">${w('The trend is measured over the last {0} months of that data, week by week, and carried forward.', num(tr.lookbackMonths))}</p>` : ''}${engines}${branches}${leftOut}${scopeLine(src, L)}</div></section>`;
+  // At the end, closed: what the data is and how it was read, for whoever wants it.
+  return `<details class="live"><summary><span class="live-dot" aria-hidden="true"></span>${w('Data source')}</summary><div><p>${line}</p>${tr?.lookbackMonths ? `<p class="sub">${w('The trend is measured over the last {0} months of that data, week by week, and carried forward.', num(tr.lookbackMonths))}</p>` : ''}${engines}${branches}${leftOut}${scopeLine(src, L)}</div></details>`;
 }
 
 /** How the number was reached: today, what is ahead, and Fusion. */
@@ -169,20 +168,17 @@ function story(data, L) {
   if (tr) {
     const f = trFigures(tr);
     const months = tr.months ?? data.months ?? 12;
-    const a = tr.analysis?.total ?? {};
     cards.push(`<div class="card">
       <h3>${w('Today')}</h3>
-      <p class="figure">${num(f.backlog)} <span>${w('open vulnerabilities')}</span></p>
-      <ul class="sevs">${SEVERITIES.map((s) => `<li><i style="background:${SEVERITY_COLOURS[s]}"></i>${w(s)} <b>${num(tr.rows?.[s]?.backlog)}</b></li>`).join('')}</ul>
-      ${Number.isFinite(a.arrivals) ? `<p class="sub">${w('{0} new a month; {1} fixed over the last {2} months.', num(a.arrivals), pct(a.fixRate).replace(/^\+/, ''), num(tr.lookbackMonths))}</p>` : ''}
+      <p class="figure">${num(f.selected)} <span>${w('open vulnerabilities in scope')}</span></p>
+      ${scopeLines(tr, L).map((x) => `<p class="sub">${x}</p>`).join('')}
     </div>`);
     cards.push(`<div class="card">
       <h3>${w('The next {0} months', num(months))}</h3>
       <table class="calc">
-        <tr><td>${w('Backlog to triage')}<small class="sel">${selectionLine(tr, L)}</small></td><td>${num(f.selected)}</td></tr>
-        ${tr.ahead?.includeFuture === false ? '' : `<tr><td>${tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer each month with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace')}</td><td>+${num(f.future)}</td></tr>`}
+        <tr><td>${w('Backlog to triage')}</td><td>${num(f.selected)}</td></tr>
+        ${tr.ahead?.includeFuture === false ? '' : `<tr><td>${tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer over a year with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace')}</td><td>+${num(f.future)}</td></tr>`}
         <tr><td>${w('More found by Fusion ({0}%)', num(tr.fusion ? tr.ahead?.fusionUpliftPercent ?? 0 : 0))}</td><td>+${num(f.fusionExtra)}</td></tr>
-        <tr><td>${w('Fewer false positives with FAE ({0}%)', num(tr.ahead?.faePercent ?? 0))}</td><td>−${num(f.faeAvoided)}</td></tr>
         <tr class="sum"><td>${w('To triage')}</td><td>${num(f.toTriage)}</td></tr>
         <tr><td>${w('To remediate (true positives)')}</td><td>${num(f.truePositives)}</td></tr>
         <tr class="sum gold"><td>${w('Triage & remediation credits')}</td><td>${num(f.credits, 1)}</td></tr>
@@ -299,10 +295,9 @@ export function assumptionItems(data, sum, L) {
     if (tr.ahead) {
       if (!tr.ahead.includeFuture) items.push(w('Findings still to come are not counted.'));
       else if (Number.isFinite(tr.totals?.selected) && tr.totals.selected < tr.totals.backlog) items.push(w('New findings are counted in the same share per severity as the backlog chosen.'));
-      else if (tr.ahead.aiDeclinePercent) items.push(w('New findings arrive at the pace of the last {0} months, then {1}% fewer each month as teams adopt AI.', num(tr.lookbackMonths), num(tr.ahead.aiDeclinePercent)));
+      else if (tr.ahead.aiDeclinePercent) items.push(w('New findings arrive at the pace of the last {0} months, falling by {1}% over a year as teams adopt AI.', num(tr.lookbackMonths), num(tr.ahead.aiDeclinePercent)));
       else items.push(w('New findings keep arriving at the pace of the last {0} months.', num(tr.lookbackMonths)));
       if (tr.fusion) items.push(w('Fusion reports {0}% more findings than today.', num(tr.ahead.fusionUpliftPercent)));
-      items.push(w('FAE keeps {0}% of the new findings from being reported, among the false positives only.', num(tr.ahead.faePercent)));
     }
   }
   if (data.fusion || data.fusionNew) items.push(w("Each project's lines of code are rounded up to whole 10K units on their own; one scan costs its model's credits per 10K LOC."));
@@ -314,7 +309,8 @@ export function assumptionItems(data, sum, L) {
 
 /** How every number is calculated, with the figures in: closed until the reader opens it. */
 function calculations(data, L) {
-  const sections = allSections(data, L);
+  // Findings still to come not counted: no section for them (the page's ? still says so).
+  const sections = allSections(data, L).filter((x) => x.key !== 'future' || data.tr?.ahead?.includeFuture !== false);
   return `<section class="how"><details><summary><h2>${L.w('How each number is calculated')}</h2><span class="sub">${L.w('Every step, with the figures in. Select to open.')}</span></summary>
   ${sections.map((x) => `<h3>${x.title}</h3>${sectionHtml(x)}`).join('')}
 </details></section>`;
@@ -334,6 +330,10 @@ function trAppendix(tr, L) {
   const hasDebtFix = Number.isFinite(tr.analysis?.total?.fixedMonthly);
   const signed = (v) => (!Number.isFinite(v) ? '—' : Math.round(v) > 0 ? `+${num(v)}` : Math.round(v) < 0 ? `−${num(-v)}` : '0');
   const hasWeeklyDebt = tr.weekly?.some((x) => x.addedRate !== undefined);
+  // True positives: what is left once the false positives are taken out, one % for every severity counted or each its own.
+  const fpOf = [...new Set(rows.filter((r) => (r.toTriage ?? r.selected) > 0).map((r) => r.fp))];
+  const oneFp = fpOf.length === 1 ? fpOf[0] : null;
+  const tpLabel = oneFp !== null ? w('True positives, after {0}% false positives', num(oneFp)) : w('True positives, after each severity\'s false positives');
   return `<section class="appendix">
   <h2>${w('Triage & remediation')}</h2>
   <p class="sub">${w('Backlog as of {0}, against {1}.', esc(date(tr.asOf)), esc(date(tr.previousDate)))}</p>
@@ -341,21 +341,12 @@ function trAppendix(tr, L) {
     <thead><tr><th>${w('By severity')}</th>${SEVERITIES.map((s) => `<th><i class="dot" style="background:${SEVERITY_COLOURS[s]}"></i>${w(s)}</th>`).join('')}<th>${w('Total')}</th></tr></thead>
     <tbody>
       <tr><td>${w('Current backlog')}</td>${cell((r) => num(r.backlog))}<td>${num(f.backlog)}</td></tr>
-      ${hasDebtFix ? `<tr class="muted"><td>${w('Added a month')}</td>${SEVERITIES.map((s) => `<td>${num(an(s).arrivals)}</td>`).join('')}<td>${num(tr.analysis?.total?.arrivals)}</td></tr>
-      <tr class="muted"><td>${w('Fixed a month')}</td>${SEVERITIES.map((s) => `<td>${num(an(s).fixedMonthly)}</td>`).join('')}<td>${num(tr.analysis?.total?.fixedMonthly)}</td></tr>
-      <tr class="muted"><td>${w('Change a month')}</td>${SEVERITIES.map((s) => `<td>${signed(an(s).netMonthly)}</td>`).join('')}<td>${signed(tr.analysis?.total?.netMonthly)}</td></tr>`
+      ${hasDebtFix ? `<tr class="muted"><td>${w('Change a month')}</td>${SEVERITIES.map((s) => `<td>${signed(an(s).netMonthly)}</td>`).join('')}<td>${signed(tr.analysis?.total?.netMonthly)}</td></tr>`
     : `<tr class="muted"><td>${w('Debt increase')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).debtRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.debtRate)}</td></tr>
-      <tr class="muted"><td>${w('Fix rate')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).fixRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.fixRate)}</td></tr>
-      ${hasAhead ? `<tr class="muted"><td>${w('New findings a month')}</td>${SEVERITIES.map((s) => `<td>${num(an(s).arrivals)}</td>`).join('')}<td>${num(tr.analysis?.total?.arrivals)}</td></tr>` : ''}`}
+      <tr class="muted"><td>${w('Fix rate')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).fixRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.fixRate)}</td></tr>`}
       <tr><td>${w('Backlog to triage')}</td>${cell((r) => num(r.selected))}<td>${num(f.selected)}</td></tr>
-      ${hasAhead ? `<tr><td>${w('Still to come')}</td>${cell((r) => num(r.future))}<td>${num(f.future)}</td></tr>
-      <tr><td>${w('More found by Fusion')}</td>${cell((r) => num(r.fusionExtra))}<td>${num(f.fusionExtra)}</td></tr>
-      <tr class="muted"><td>${w('Kept away by FAE')}</td>${cell((r) => signed(-r.faeAvoided))}<td>${signed(-f.faeAvoided)}</td></tr>
-      <tr class="strong"><td>${w('To triage')}</td>${cell((r) => num(r.toTriage))}<td>${num(f.toTriage)}</td></tr>` : ''}
-      <tr class="muted"><td>${w('Credits per triage')}</td>${cell((r) => num(r.triageCost, 2))}<td>—</td></tr>
-      <tr class="muted"><td>${w('False positives (estimated)')}</td>${cell((r) => `${num(r.fp)}%`)}<td>—</td></tr>
-      <tr><td>${w('True positives (estimated)')}</td>${cell((r) => num(r.truePositives))}<td>${num(f.truePositives)}</td></tr>
-      <tr class="muted"><td>${w('Credits per remediation')}</td>${cell((r) => num(r.remediationCost, 2))}<td>—</td></tr>
+      ${hasAhead ? `<tr class="strong"><td>${w('To triage')}</td>${cell((r) => num(r.toTriage))}<td>${num(f.toTriage)}</td></tr>` : ''}
+      <tr><td>${tpLabel}</td>${cell((r) => `${num(r.truePositives)}${oneFp === null && r.toTriage > 0 ? `<small class="fp">${w('{0}% false positives', num(r.fp))}</small>` : ''}`)}<td>${num(f.truePositives)}</td></tr>
       <tr><td>${w('Triage credits')}</td>${cell((r) => num(r.triageCredits, 1))}<td>${num(f.triageCredits, 1)}</td></tr>
       <tr><td>${w('Remediation credits')}</td>${cell((r) => num(r.remediationCredits, 1))}<td>${num(f.remediationCredits, 1)}</td></tr>
       <tr class="gold"><td>${w('Credits')}</td>${cell((r) => num(r.credits, 1))}<td>${num(f.credits, 1)}</td></tr>
@@ -433,9 +424,10 @@ h2{margin:0 0 12px;font-size:18px;font-weight:600} h3{margin:18px 0 6px;font-siz
 .bar span{display:block;height:100%;min-width:3px}
 .keys{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0;padding:0;list-style:none;font-size:13px}
 .keys li{display:inline-flex;align-items:center;gap:7px} .keys i{width:10px;height:10px;border-radius:3px;display:inline-block} .keys span{color:var(--muted)} .keys b{font-variant-numeric:tabular-nums}
-.live{display:flex;gap:12px;align-items:flex-start;background:var(--soft);border-color:var(--soft-line);padding:14px 18px}
-.live p{margin:0} .live .sub{margin-top:4px}
-.live-dot{flex:none;width:9px;height:9px;margin-top:6px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 4px rgb(22 163 74 / .18)}
+.live{margin:18px 0 0;border:1px solid var(--soft-line);border-radius:10px;padding:10px 16px;font-size:13px;color:var(--muted)}
+.live summary{cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:600;color:var(--ink)}
+.live[open] summary{margin-bottom:8px} .live p{margin:0} .live .sub{margin-top:4px}
+.live-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 3px rgb(22 163 74 / .18)}
 .scope{margin:6px 0 0;font-size:13px}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(270px,100%),1fr));gap:12px}
 .card{border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
@@ -446,7 +438,7 @@ h2{margin:0 0 12px;font-size:18px;font-weight:600} h3{margin:18px 0 6px;font-siz
 .sevs li{display:flex;align-items:center;gap:6px} .sevs i{width:8px;height:8px;border-radius:2px;display:inline-block} .sevs b{margin-inline-start:auto;font-variant-numeric:tabular-nums;font-weight:500}
 table.calc{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
 table.calc td{padding:4px 0;border:0;text-align:start} table.calc td:last-child{text-align:end;white-space:nowrap;padding-inline-start:12px}
-table.calc tr.sum td{border-top:1px solid var(--line);padding-top:7px;font-weight:600} table.calc tr.gold td{color:var(--gold)} table.calc td small.sel{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:2px}
+table.calc tr.sum td{border-top:1px solid var(--line);padding-top:7px;font-weight:600} table.calc tr.gold td{color:var(--gold)} table.calc td small.sel{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:2px} td small.fp{display:block;color:var(--muted);font-size:11px}
 .chart-title{margin-top:22px}
 .how summary{cursor:pointer;list-style:none;display:grid;gap:2px}.how summary::-webkit-details-marker{display:none}
 .how summary h2{display:inline;margin:0}.how summary h2::before{content:"▸ ";color:var(--muted)}.how details[open] summary h2::before{content:"▾ "}
@@ -562,7 +554,6 @@ export function buildReport(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
 </header>
 <main>
 ${answer(data, sum, L)}
-${provenance(data, L)}
 ${story(data, L)}
 ${impactSection(data, L)}
 ${assumptions(data, sum, L)}
@@ -571,6 +562,7 @@ ${data.tr ? trAppendix(data.tr, L) : ''}
 ${data.fusion ? fusionAppendix(data.fusion, L) : ''}
 ${data.fusionNew ? fusionNewAppendix(data.fusionNew, L) : ''}
 ${calculations(data, L)}
+${provenance(data, L)}
 </main>
 <footer>${w("An estimate made with CxMissionZero's Cx Credits Calculator from Checkmarx One data and the assumptions above. Credit rates and the credits actually used are set by Checkmarx and your agreement with them.")}${data.tr?.history?.length ? ` ${w('Backlog history: {0} to {1}.', esc(monthLabel(data.tr.history[0].month)), esc(monthLabel(data.tr.history[data.tr.history.length - 1].month)))}` : ''}</footer>
 </body></html>`;

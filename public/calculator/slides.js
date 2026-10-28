@@ -10,7 +10,7 @@
 import { FREQUENCIES, HOURS_A_YEAR, SEVERITIES, aheadMonths, creditSummary, fusionTotal } from './model.js';
 import { allSections, moneyText } from './explain.js';
 import { forecastChart } from './charts.js';
-import { assumptionItems, falsePositiveLine, reportFileName, selectionLine, trFigures, wording } from './report.js';
+import { assumptionItems, falsePositiveLine, reportFileName, scopeLines, trFigures, wording } from './report.js';
 import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../look.js';
 
 /** The page size in PDF points (16:9, as a presentation) and the drawing size in pixels. */
@@ -76,7 +76,7 @@ export function slideContent(data, { t, lang = 'en', calculations = false } = {}
     const lines = [];
     if (Number.isFinite(a.addedPct) && Number.isFinite(a.fixedPct)) lines.push(w('Each month, new findings add {0}% to the backlog and fixes take away {1}%.', num(a.addedPct, 1), num(a.fixedPct, 1)));
     else if (Number.isFinite(tr.monthlyChange)) lines.push(tr.monthlyChange >= 0 ? w('The backlog grew by {0} a month on average recently.', num(tr.monthlyChange)) : w('The backlog shrank by {0} a month on average recently.', num(-tr.monthlyChange)));
-    if (tr.ahead?.includeFuture !== false && tr.ahead?.aiDeclinePercent) lines.push(w('New findings arrive at the pace of the last {0} months, then {1}% fewer each month as teams adopt AI.', num(tr.lookbackMonths), num(tr.ahead.aiDeclinePercent)));
+    if (tr.ahead?.includeFuture !== false && tr.ahead?.aiDeclinePercent) lines.push(w('New findings arrive at the pace of the last {0} months, falling by {1}% over a year as teams adopt AI.', num(tr.lookbackMonths), num(tr.ahead.aiDeclinePercent)));
     pages.push({
       kind: 'tr',
       title: w('Triage & remediation'),
@@ -85,8 +85,8 @@ export function slideContent(data, { t, lang = 'en', calculations = false } = {}
         // Every open vulnerability today, small: what the plan takes from it comes next.
         { label: w('Total open vulnerabilities today'), value: num(f.backlog), small: true },
         // Still to come only when it is counted.
-        ...(tr.ahead?.includeFuture === false ? [] : [{ label: tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer each month with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace'), value: `+${num(f.future)}` }]),
-        { label: w('To triage'), value: num(f.toTriage), notes: [w('{0} to remediate', num(f.truePositives)), plain(selectionLine(tr, L))].filter(Boolean) },
+        ...(tr.ahead?.includeFuture === false ? [] : [{ label: tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer over a year with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace'), value: `+${num(f.future)}` }]),
+        { label: w('To triage'), value: num(f.toTriage), notes: [w('{0} to remediate', num(f.truePositives)), ...scopeLines(tr, L).map(plain)] },
         { label: w('Triage & remediation credits'), value: num(f.credits), key: true, notes: [plain(falsePositiveLine(tr, L))].filter(Boolean) },
       ],
       chart: tr.forecast?.length ? { kind: 'forecast', points: tr.forecast, title: w('Backlog trend and forecast'), legend: [[w('Backlog'), C.ink, false], [w('If nothing changes'), '#dc2626', true], [w('With this plan'), C.accent, true]] } : null,
@@ -219,10 +219,9 @@ export function slideContent(data, { t, lang = 'en', calculations = false } = {}
     const monthly = T.arrivals ?? (paced ? (T.future ?? 0) / paced : 0);
     const chosen = SEVERITIES.filter((x) => (tr.rows?.[x]?.selected ?? 0) > 0);
     calc.push({ label: w('Backlog today'), formula: `${chosen.map((x) => num(tr.rows[x].selected)).join(' + ') || '0'} = ${num(T.selected)} (${w('of {0} open', num(T.backlog))})` });
-    calc.push({ label: w('Still to come'), formula: A.includeFuture === false ? '0' : `${num(monthly)} × ${num(paced, 2)} = ${num(T.future)}` });
+    if (A.includeFuture !== false) calc.push({ label: w('Still to come'), formula: `${num(monthly)} × ${num(paced, 2)} = ${num(T.future)}` });
     calc.push({ label: w('More found by Fusion'), formula: tr.fusion ? `${num(A.fusionUpliftPercent)}% × (${num(T.selected)} + ${num(T.future)}) = ${num(T.fusionExtra)}` : '0' });
-    calc.push({ label: w('Kept away by FAE'), formula: `≤ ${num(A.faePercent)}% × (${num(T.future)} + ${num(T.fusionExtra)}) = ${num(T.faeAvoided)}` });
-    calc.push({ label: w('To triage'), formula: `${num(T.selected)} + ${num(T.future)} + ${num(T.fusionExtra)} − ${num(T.faeAvoided)} = ${num(T.toTriage)}` });
+    calc.push({ label: w('To triage'), formula: `${[T.selected, ...(A.includeFuture !== false ? [T.future] : []), ...(tr.fusion ? [T.fusionExtra] : [])].map((n) => num(n)).join(' + ')} = ${num(T.toTriage)}` });
     const fps = [...new Set(SEVERITIES.filter((x) => (tr.rows?.[x]?.selected ?? 0) + (tr.rows?.[x]?.future ?? 0) > 0).map((x) => tr.rows[x].fp))];
     const reported = T.selected + T.future + T.fusionExtra;
     calc.push({ label: w('To remediate (true positives)'), formula: fps.length === 1 ? `${num(reported)} × ${num(100 - fps[0])}% = ${num(T.truePositives)}` : `${SEVERITIES.filter((x) => tr.rows?.[x]?.truePositives > 0).map((x) => num(tr.rows[x].truePositives)).join(' + ')} = ${num(T.truePositives)}` });
@@ -248,7 +247,7 @@ export function slideContent(data, { t, lang = 'en', calculations = false } = {}
   });
 
   // The appendix: every calculation, step by step, as the report's "How each number is calculated".
-  content.appendix = allSections(data, L).map((x) => ({ title: plain(x.title), lines: x.lines.map((l) => ({ text: plain(l.text), sub: Boolean(l.sub), total: Boolean(l.total) })) }));
+  content.appendix = allSections(data, L).filter((x) => x.key !== 'future' || data.tr?.ahead?.includeFuture !== false).map((x) => ({ title: plain(x.title), lines: x.lines.map((l) => ({ text: plain(l.text), sub: Boolean(l.sub), total: Boolean(l.total) })) }));
   return content;
 }
 

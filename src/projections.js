@@ -272,28 +272,35 @@ export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks =
     scansUsed += timeline.length;
     const own = { e: {}, scans: timeline.length };
     const ownOf = (engine) => (own.e[engine] ??= { t: blank(), f: blank() });
-    let k = 0;
-    for (let w = 0; w < ends.length; w += 1) {
-      while (k + 1 < timeline.length && at(timeline[k + 1]) <= ends[w]) k += 1;
-      if (at(timeline[k]) > ends[w]) continue;
-      for (const [engine, { total }] of Object.entries(perEngine(summaries.get(timeline[k].id)))) {
+    // Each engine on its own timeline: the scans that ran it. A scan that ran only some engines (a SAST-only
+    // scan between full ones) leaves the others' last results standing, rather than counting them fixed and
+    // then new again. A scan that does not say which engines it ran is taken to have run those it reports.
+    const ranOf = (scan) => (Array.isArray(scan.engines) && scan.engines.length ? new Set(scan.engines.map(engineOf)) : null);
+    const engines = new Set(timeline.flatMap((scan) => Object.keys(perEngine(summaries.get(scan.id)))));
+    for (const engine of engines) {
+      const line = timeline.filter((scan) => engine === 'ALL' || (ranOf(scan)?.has(engine) ?? engine in perEngine(summaries.get(scan.id))));
+      if (!line.length) continue;
+      const of = (scan) => perEngine(summaries.get(scan.id))[engine] ?? { total: zeros(), fresh: zeros() };
+      let k = 0;
+      for (let w = 0; w < ends.length; w += 1) {
+        while (k + 1 < line.length && at(line[k + 1]) <= ends[w]) k += 1;
+        if (at(line[k]) > ends[w]) continue;
+        const { total } = of(line[k]);
         const mine = ownOf(engine);
         for (const s of SEVERITIES) {
           mine.t[s][w] += total[s];
           if (counted(engine, scope)) totals[s][w] += total[s];
         }
       }
-    }
-    for (let i = 1; i < timeline.length; i += 1) {
-      const t = at(timeline[i]);
-      const w = ends.findIndex((end) => t <= end && t > end - 7 * DAY);
-      if (w === -1) continue;
-      const prev = perEngine(summaries.get(timeline[i - 1].id));
-      const next = perEngine(summaries.get(timeline[i].id));
-      // Each engine on its own: what its scan before reported, plus what it found new, less what it reports now.
-      for (const engine of new Set([...Object.keys(prev), ...Object.keys(next)])) {
+      for (let i = 1; i < line.length; i += 1) {
+        const t = at(line[i]);
+        const w = ends.findIndex((end) => t <= end && t > end - 7 * DAY);
+        if (w === -1) continue;
+        const prev = of(line[i - 1]);
+        const next = of(line[i]);
+        // What this engine's scan before reported, plus what it found new, less what it reports now.
         for (const s of SEVERITIES) {
-          const gone = Math.max(0, (prev[engine]?.total[s] ?? 0) + (next[engine]?.fresh[s] ?? 0) - (next[engine]?.total[s] ?? 0));
+          const gone = Math.max(0, (prev.total[s] ?? 0) + (next.fresh[s] ?? 0) - (next.total[s] ?? 0));
           if (!gone) continue;
           ownOf(engine).f[s][w] += gone;
           if (counted(engine, scope)) fixed[s][w] += gone;
