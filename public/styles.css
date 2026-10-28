@@ -3086,6 +3086,27 @@ ol.calc-how li.calc-total { font-weight: 600; }
 .calc-git-state { color: var(--muted); font-size: 12px; text-align: end; }
 .calc-git-state.done { color: var(--ok); }
 .calc-git-state.bad { color: var(--bad); }
+/* Count from git with cloc-fusion's engine: organizations per source, the run's figures, the download. */
+.calc-cf-bar { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 0 0 12px; }
+.calc-cf-bar .hint { flex: 1 1 320px; margin: 0; font-size: 12px; }
+.calc-cf-sum { color: var(--muted); overflow-wrap: anywhere; }
+.calc-git-sub { margin: 0 0 6px; font-size: 12px; }
+.calc-git-orgs { display: grid; gap: 8px; margin: 8px 0; }
+.calc-git-org-set { margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.calc-git-org-set legend { padding: 0 4px; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.calc-git-org-set .calc-git-org-list { display: flex; flex-wrap: wrap; gap: 4px 14px; max-height: 160px; overflow: auto; font-size: 13px; }
+.calc-git-org-set label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.calc-git-org-set .calc-git-everything { display: flex; margin: 0 0 6px; font-weight: 600; }
+.calc-git-org-set input[type="text"] { width: 100%; margin-top: 6px; }
+.calc-git-org-set .calc-warn { display: block; margin-top: 4px; font-size: 12px; }
+.calc-git-filter { flex: 0 1 200px; min-width: 120px; padding: 2px 8px; font-size: 12px; }
+.calc-git-repos label.calc-git-hidden { display: none; }
+.calc-git-run { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-end; margin: 10px 0 4px; }
+.calc-git-run .field { flex: 0 1 260px; min-width: 0; margin: 0; }
+.calc-git-run .field select { width: 100%; }
+.calc-git-summary { margin: 0 0 10px; }
+.calc-git-progress { max-height: 420px; overflow: auto; }
+.calc-fnew-table .calc-freq small, .calc-fnew-table .calc-scans-from { display: block; color: var(--muted); font-size: 11px; }
 .calc-fnew-table .calc-from .link { display: block; margin-top: 2px; font-size: 12px; }
 @media (max-width: 640px) {
   .calc-git-row { grid-template-columns: minmax(0, 1fr); }

@@ -18,6 +18,23 @@ const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 
 // The modules, each after those it imports.
 const MODULES = ['engines.js', 'look.js', 'i18n.js', 'help-tips.js', 'calculator/model.js', 'calculator/charts.js', 'calculator/explain.js', 'calculator/report.js', 'calculator/slides.js', 'calculator/profiles.js', 'calculator/page.js', 'calculator/standalone.js'];
 const SAMPLES = ['Total_Vulnerabilities_by_Severity.xlsx', 'Fixed_Vulnerabilities_by_Severity.xlsx'];
+/** cloc-fusion's one-file page (vendored with its engine, scripts/sync-cloc-fusion.mjs), from the repository's root. */
+export const CLOC_FUSION_PAGE = 'src/cloc-fusion/cloc-fusion.html';
+
+/**
+ * cloc-fusion's page as data inside the calculator's own file, for its Download cloc-fusion button: base64 in JSON,
+ * in a script element that never runs (opaque, so nothing in it can close the element or be read as this page's
+ * own markup, styles or addresses), checked against the SHA-256 noted when it was copied in.
+ */
+export function clocFusionData() {
+  const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const bytes = fs.readFileSync(path.join(repo, CLOC_FUSION_PAGE));
+  const origin = fs.readFileSync(path.join(repo, 'src', 'cloc-fusion', 'origin.js'), 'utf8');
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  if (!origin.includes(`sha256: "${sha256}"`)) throw new Error(`${CLOC_FUSION_PAGE} does not match the SHA-256 in src/cloc-fusion/origin.js: copy it again with scripts/sync-cloc-fusion.mjs`);
+  const version = /version: "([^"]+)"/.exec(origin)?.[1] ?? '';
+  return JSON.stringify({ file: 'cloc-fusion.html', version, sha256, bytes: bytes.length, base64: bytes.toString('base64') });
+}
 
 const IMPORT = /^import\s*\{([^}]*)\}\s*from\s*'([^']+)';?[ \t]*$/gm;
 const EXPORT_DECL = /^export\s+(async\s+function\*?|function\*?|const|let|class)\s+([A-Za-z_$][\w$]*)/gm;
@@ -63,8 +80,8 @@ export function standaloneMarkup(markup, { launcher = false } = {}) {
     ['<summary>Use the two Checkmarx One exports instead</summary>', launcher ? '<summary>Or the two Checkmarx One exports</summary>' : '<summary>The two Checkmarx One exports</summary>'],
     ['<p class="hint">For a prospect whose tenant this server is not connected to: drop their two weekly exports from Checkmarx One → Analytics on the boxes below.</p>', launcher ? '<p class="hint">Without an API key: drop the customer\'s two weekly exports from Checkmarx One → Analytics on the boxes below. <b>Load sample data</b> shows how it works.</p>' : '<p class="hint">Drop the customer\'s two weekly exports from Checkmarx One → Analytics on the boxes below, or click a box to choose the file. <b>Load sample data</b> shows how it works.</p>'],
     ['<p class="hint" id="calc-rows-empty">No projects yet. <strong>Read from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.</p>', launcher ? '<p class="hint" id="calc-rows-empty">No projects yet. Connect with an API key at the top, then <strong>Read from Checkmarx One</strong> lists every project in the tenant with its lines of code, criticality and how often it is scanned; or add projects by hand.</p>' : '<p class="hint" id="calc-rows-empty">No projects yet: add them by hand, with their lines of code. To read them from Checkmarx One with an API key, use the launcher, <code>cx-credits-calculator.mjs</code>.</p>'],
-    // Count from git: in the launcher, this computer's git fetches and counts (the file on its own hides it).
-    ['fetched from git into a temporary folder on this server (no history)', launcher ? 'fetched from git into a temporary folder on this computer (no history)' : 'fetched from git into a temporary folder on this server (no history)'],
+    // Count from git: in the launcher, this computer's git fetches and counts (the file on its own says it cannot, and points to cloc-fusion).
+    ['is fetched from git into a temporary folder on this server,', launcher ? 'is fetched from git into a temporary folder on this computer,' : 'is fetched from git into a temporary folder on this server,'],
   ];
   let out = markup;
   for (const [from, to] of swaps) {
@@ -169,7 +186,7 @@ ${standaloneMarkup(calculatorMarkup(read('index.html')), { launcher })}
 </div>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <script>${gate}</script>
-${launcher ? `<script type="application/json" id="cx-launcher">"__CALCULATOR_LAUNCHER__"</script>\n<script>${launcherConfig}</script>` : ''}
+${launcher ? `<script type="application/json" id="cx-launcher">"__CALCULATOR_LAUNCHER__"</script>\n<script>${launcherConfig}</script>` : `<script type="application/json" id="cx-cloc-fusion">${clocFusionData()}</script>`}
 ${vendor}
 <script type="module">${main}</script>
 </body>
@@ -246,6 +263,8 @@ export function buildCalculatorLauncher({ version = '', root = PUBLIC } = {}) {
   if (cache.has(key)) return cache.get(key);
   const repo = path.resolve(SRC, '..');
   const files = Object.fromEntries(moduleGraph(path.join(SRC, 'calculator-launcher.js')).map((file) => [path.relative(repo, file).split(path.sep).join('/'), fs.readFileSync(file, 'utf8')]));
+  // cloc-fusion's one-file page, which the launcher hands out (checked against its SHA-256 there, as here).
+  files[CLOC_FUSION_PAGE] = fs.readFileSync(path.join(repo, CLOC_FUSION_PAGE), 'utf8');
   const html = buildStandaloneCalculator({ version, root, launcher: true });
   const label = version ? `MZ-${version.split('.').map((n) => n.padStart(2, '0')).join('.')}` : '';
   const text = `#!/usr/bin/env node

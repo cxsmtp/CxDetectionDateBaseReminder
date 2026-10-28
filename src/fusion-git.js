@@ -1,335 +1,84 @@
 /**
- * Fusion — new customer, Count from git (public/calculator/page.js): a customer's repositories counted
- * the way cloc counts them, straight from git, with no cloc installed. Each repository's default branch
- * is fetched at its latest commit only (no history) into a folder of its own under the temporary folder,
- * its files read where git keeps them (no checkout), counted by language without blank and comment lines,
- * and the folder deleted at once, also when the count fails or takes too long.
+ * Fusion — new customer, Count from git (public/calculator/page.js), with cloc-fusion's engine (src/cloc-fusion/,
+ * vendored from cloc-fusion 1.3.2): a customer's repositories discovered across connections and organizations,
+ * then measured where they are kept. For each repository: its code lines by language, counted the way cloc counts
+ * them; the commits on its default branch in the last 365 days (merges left out) and so its change frequency; the
+ * date of its last commit; and how many people committed to it in the last 90 days (bots left out). Two engines:
+ * git (a bare, blob-less clone of the default branch back to the start of the window, into a folder of its own,
+ * deleted at once) and the platform's API (the branch's archive, read in memory, and its commit list).
  *
- * Where the code is: one of the Admin's git connections (src/scm/, by id: its token never leaves the
- * server), or a token typed for one count. Either way the token goes to its own host only, as an
- * Authorization header (git gets it through the environment, never on a command line, in an address or
- * on disk), and is in no answer, log line or error. Used by CxMissionZero (src/server.js) and by the
- * standalone calculator's launcher (src/calculator-launcher.js), so only Node.js and relative imports.
+ * Where the code is: the Admin's git connections (src/scm/, by id: their tokens never leave the server), or a
+ * token typed for one run. Either way the token goes to its own host only, as an Authorization header (git gets it
+ * through the environment, scoped to the repository's origin, never on a command line, in an address or on disk),
+ * and is in no answer, log line or error. CxMissionZero's hardening stays around the engine: hosts on the allowed
+ * list only, names that lead to link-local or cloud metadata addresses refused and git and the API client held to
+ * the addresses checked, no redirects for git (by hand, credentials dropped, for the API), counts seen only by
+ * whoever started them, and temporary folders swept after a crash. Names and emails of the people who committed are
+ * never kept: each repository keeps a count, and a run its count of different people (by a salted hash, in memory).
+ * Used by CxMissionZero (src/server.js) and the standalone calculator's launcher (src/calculator-launcher.js), so
+ * only Node.js and relative imports.
  */
 
 import { execFile, spawn } from 'node:child_process';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import dnsCallback from 'node:dns';
 import dns from 'node:dns/promises';
 import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 
-import { ScmClient } from './scm/client.js';
-import { azureOrgKey, normalizeAzureOrgUrl } from './scm/azure-url.js';
+import { azureOrgKey, azureOrgName, normalizeAzureOrgUrl } from './scm/azure-url.js';
 import { blockedHost, outboundUrlProblem } from './outbound-url.js';
+import { providerOf } from './cloc-fusion/providers/index.js';
+import { allOrgIds, classifyRepos, dedupeRepos } from './cloc-fusion/discover.js';
+import { commitStats, parseLsTree, safeBranch as engineBranch } from './cloc-fusion/git.js';
+import { analyzeRepoApi } from './cloc-fusion/apiengine.js';
+import { LocTally, selectFiles } from './cloc-fusion/loc.js';
+import { DEV_WINDOW_DAYS, contributorKey, isBot } from './cloc-fusion/commits.js';
+import { FREQUENCIES, frequencyOf } from './cloc-fusion/fusion.js';
+import { pool } from './cloc-fusion/pool.js';
+import { HttpError } from './cloc-fusion/http.js';
+import { CLOC_FUSION } from './cloc-fusion/origin.js';
+
+export { CLOC_FUSION };
 
 export const GIT_COUNT_LIMITS = Object.freeze({
-  repositories: 50,
+  repositories: 1000,
   repoBytes: 2 * 1024 * 1024 * 1024,
   fileBytes: 1024 * 1024,
   timeoutMs: 10 * 60_000,
-  concurrency: 2,
-  listed: 1000,
+  concurrency: 4,
+  listed: 10_000,
+  windowDays: 365,
 });
 export const GIT_PROVIDERS = ['github', 'gitlab', 'azure', 'bitbucket'];
+export const ENGINES = ['auto', 'git', 'api'];
 const LABELS = { github: 'GitHub', gitlab: 'GitLab', azure: 'Azure DevOps', bitbucket: 'Bitbucket' };
 const TEMP_PREFIX = 'mz-git-count-';
+const DAY = 86_400_000;
+// The categories counted toward a repository's lines when nothing is left out (cloc-fusion's default).
+const COUNTED = ['code', 'markup', 'iac'];
+// The platforms' own API and download hosts, beside the git hosts: called by the API engine only.
+const PUBLIC_API_HOSTS = ['api.github.com', 'codeload.github.com', 'api.bitbucket.org'];
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
-
-// ---- Languages, as cloc names them, and how each writes comments ---------------------------------
-
-// Comment syntax by family: line comments, block comments ([open, close]), quotes (a comment marker
-// inside a string is not one), and quotes that run over several lines.
-const C = { line: ['//'], block: [['/*', '*/']], quotes: ['"', "'"] };
-const C_TICK = { ...C, quotes: ['"', "'", '`'], multi: ['`'] };
-const HASH = { line: ['#'], quotes: ['"', "'"] };
-const MARKUP = { block: [['<!--', '-->']] };
-const NONE = {};
-
-const SYNTAX = {
-  C, 'C++': C, 'C/C++ Header': C, 'C#': C, Java: C, Kotlin: C, Scala: C, Groovy: C, Gradle: C, Dart: C, 'Objective-C': C, 'Objective-C++': C,
-  Solidity: C, 'Protocol Buffers': C, 'Apex Class': C, 'Apex Trigger': C, Zig: { line: ['//'], quotes: ['"', "'"] }, ActionScript: C,
-  JavaScript: C_TICK, TypeScript: C_TICK, JSX: C_TICK, Go: { ...C, quotes: ['"', "'", '`'], multi: ['`'], raw: ['`'] },
-  Rust: { ...C, quotes: ['"'] }, Swift: { ...C, quotes: ['"'] }, 'Verilog-SystemVerilog': C,
-  PHP: { line: ['//', '#'], block: [['/*', '*/']], quotes: ['"', "'"] },
-  CSS: { block: [['/*', '*/']], quotes: ['"', "'"] }, SCSS: C, LESS: C, Sass: C,
-  Python: { line: ['#'], block: [['"""', '"""'], ["'''", "'''"]], quotes: ['"', "'"] }, Cython: { line: ['#'], block: [['"""', '"""'], ["'''", "'''"]], quotes: ['"', "'"] },
-  Ruby: { ...HASH, atStart: [['=begin', '=end']] }, Perl: { ...HASH, atStart: [['=pod', '=cut'], ['=head1', '=cut'], ['=head2', '=cut'], ['=begin', '=cut'], ['=over', '=cut']] },
-  'Bourne Shell': HASH, 'Bourne Again Shell': HASH, zsh: HASH, 'Fish Shell': HASH, make: HASH, Dockerfile: HASH, YAML: HASH, TOML: HASH, R: HASH,
-  Elixir: HASH, Properties: { line: ['#', '!'] }, Starlark: HASH, GraphQL: HASH, Nim: HASH, CMake: { ...HASH, block: [['#[[', ']]']] },
-  Julia: { ...HASH, block: [['#=', '=#']] }, CoffeeScript: { ...HASH, block: [['###', '###']] }, PowerShell: { ...HASH, block: [['<#', '#>']] },
-  HCL: { line: ['#', '//'], block: [['/*', '*/']], quotes: ['"'] }, INI: { line: [';', '#'] },
-  SQL: { line: ['--'], block: [['/*', '*/']], quotes: ["'", '"'], raw: ["'"] }, Lua: { line: ['--'], block: [['--[[', ']]']], quotes: ['"', "'"] },
-  Haskell: { line: ['--'], block: [['{-', '-}']], quotes: ['"'] }, Elm: { line: ['--'], block: [['{-', '-}']], quotes: ['"'] }, VHDL: { line: ['--'], quotes: ['"'] },
-  Erlang: { line: ['%'], quotes: ['"'] }, Clojure: { line: [';'], quotes: ['"'] }, ClojureScript: { line: [';'], quotes: ['"'] }, ClojureC: { line: [';'], quotes: ['"'] },
-  'F#': { line: ['//'], block: [['(*', '*)']], quotes: ['"'] }, 'F# Script': { line: ['//'], block: [['(*', '*)']], quotes: ['"'] }, OCaml: { block: [['(*', '*)']], quotes: ['"'] },
-  Pascal: { line: ['//'], block: [['{', '}'], ['(*', '*)']], quotes: ["'"], raw: ["'"] },
-  'Visual Basic .NET': { line: ["'"], quotes: ['"'], raw: ['"'], lineStart: /^rem(\s|$)/i }, 'Visual Basic Script': { line: ["'"], quotes: ['"'], raw: ['"'], lineStart: /^rem(\s|$)/i },
-  'DOS Batch': { lineStart: /^(@?rem(\s|$)|::)/i },
-  'Fortran 77': { line: ['!'], columnOne: /^[cC*!]/ }, 'Fortran 90': { line: ['!'] }, 'Fortran 95': { line: ['!'] },
-  COBOL: { line: ['*>'], columnOne: /^.{6}[*/]/ }, Assembly: { line: [';', '//'], block: [['/*', '*/']], lineStart: /^[#@]/ }, ABAP: { line: ['"'], columnOne: /^\*/ },
-  HTML: MARKUP, XML: MARKUP, SVG: MARKUP, XAML: MARKUP, XSD: MARKUP, XSLT: MARKUP, Maven: MARKUP, 'MSBuild script': MARKUP, Markdown: MARKUP,
-  'Vuejs Component': { line: ['//'], block: [['<!--', '-->'], ['/*', '*/']] }, Svelte: { line: ['//'], block: [['<!--', '-->'], ['/*', '*/']] },
-  Razor: { line: ['//'], block: [['@*', '*@'], ['<!--', '-->'], ['/*', '*/']] }, JSP: { line: ['//'], block: [['<%--', '--%>'], ['<!--', '-->'], ['/*', '*/']] },
-  'ASP.NET': { block: [['<%--', '--%>'], ['<!--', '-->']] }, Handlebars: { block: [['{{!--', '--}}'], ['{{!', '}}'], ['<!--', '-->']] }, Mustache: { block: [['{{!', '}}'], ['<!--', '-->']] },
-  Twig: { block: [['{#', '#}'], ['<!--', '-->']] }, ERB: { block: [['<%#', '%>'], ['<!--', '-->']] }, EJS: { block: [['<%#', '%>'], ['<!--', '-->']] },
-  JSON: NONE, CSV: NONE, Text: NONE,
-};
-
-const EXTENSIONS = {
-  c: 'C', cpp: 'C++', cc: 'C++', cxx: 'C++', 'c++': 'C++', h: 'C/C++ Header', hpp: 'C/C++ Header', hh: 'C/C++ Header', hxx: 'C/C++ Header', cs: 'C#',
-  java: 'Java', kt: 'Kotlin', kts: 'Kotlin', scala: 'Scala', sc: 'Scala', groovy: 'Groovy', gvy: 'Groovy', gradle: 'Gradle', 'gradle.kts': 'Gradle', dart: 'Dart',
-  m: 'Objective-C', mm: 'Objective-C++', sol: 'Solidity', proto: 'Protocol Buffers', cls: 'Apex Class', trigger: 'Apex Trigger', zig: 'Zig', as: 'ActionScript',
-  js: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript', ts: 'TypeScript', tsx: 'TypeScript', mts: 'TypeScript', cts: 'TypeScript', jsx: 'JSX', go: 'Go', rs: 'Rust', swift: 'Swift',
-  v: 'Verilog-SystemVerilog', sv: 'Verilog-SystemVerilog', svh: 'Verilog-SystemVerilog', vhd: 'VHDL', vhdl: 'VHDL',
-  php: 'PHP', css: 'CSS', scss: 'SCSS', less: 'LESS', sass: 'Sass', py: 'Python', pyw: 'Python', pyx: 'Cython', rb: 'Ruby', pl: 'Perl', pm: 'Perl',
-  sh: 'Bourne Shell', bash: 'Bourne Again Shell', zsh: 'zsh', fish: 'Fish Shell', mk: 'make', dockerfile: 'Dockerfile', yml: 'YAML', yaml: 'YAML', toml: 'TOML', r: 'R',
-  ex: 'Elixir', exs: 'Elixir', properties: 'Properties', bzl: 'Starlark', graphql: 'GraphQL', gql: 'GraphQL', nim: 'Nim', cmake: 'CMake', jl: 'Julia', coffee: 'CoffeeScript',
-  ps1: 'PowerShell', psm1: 'PowerShell', psd1: 'PowerShell', tf: 'HCL', tfvars: 'HCL', hcl: 'HCL', ini: 'INI', sql: 'SQL', lua: 'Lua', hs: 'Haskell', elm: 'Elm',
-  erl: 'Erlang', hrl: 'Erlang', clj: 'Clojure', cljs: 'ClojureScript', cljc: 'ClojureC', fs: 'F#', fsi: 'F#', fsx: 'F# Script', ml: 'OCaml', mli: 'OCaml', pas: 'Pascal', dpr: 'Pascal',
-  vb: 'Visual Basic .NET', vbs: 'Visual Basic Script', bat: 'DOS Batch', cmd: 'DOS Batch', f: 'Fortran 77', for: 'Fortran 77', f77: 'Fortran 77', f90: 'Fortran 90', f95: 'Fortran 95',
-  cbl: 'COBOL', cob: 'COBOL', cpy: 'COBOL', asm: 'Assembly', s: 'Assembly', abap: 'ABAP',
-  html: 'HTML', htm: 'HTML', xhtml: 'HTML', xml: 'XML', svg: 'SVG', xaml: 'XAML', xsd: 'XSD', xsl: 'XSLT', xslt: 'XSLT', csproj: 'MSBuild script', vbproj: 'MSBuild script', props: 'MSBuild script', targets: 'MSBuild script',
-  md: 'Markdown', markdown: 'Markdown', vue: 'Vuejs Component', svelte: 'Svelte', cshtml: 'Razor', razor: 'Razor', jsp: 'JSP', jspf: 'JSP', aspx: 'ASP.NET', ascx: 'ASP.NET', asax: 'ASP.NET', asmx: 'ASP.NET', master: 'ASP.NET',
-  hbs: 'Handlebars', handlebars: 'Handlebars', mustache: 'Mustache', twig: 'Twig', erb: 'ERB', ejs: 'EJS', json: 'JSON', csv: 'CSV', txt: 'Text',
-};
-const FILE_NAMES = {
-  dockerfile: 'Dockerfile', makefile: 'make', gnumakefile: 'make', 'cmakelists.txt': 'CMake', 'pom.xml': 'Maven', jenkinsfile: 'Groovy',
-  rakefile: 'Ruby', gemfile: 'Ruby', podfile: 'Ruby', vagrantfile: 'Ruby',
-};
-// Bazel's files, by their exact names (a "build" script is not one).
-const EXACT_NAMES = { BUILD: 'Starlark', 'BUILD.bazel': 'Starlark', WORKSPACE: 'Starlark', 'WORKSPACE.bazel': 'Starlark' };
-const SHEBANG = [[/python/, 'Python'], [/node|deno/, 'JavaScript'], [/bash/, 'Bourne Again Shell'], [/zsh/, 'zsh'], [/perl/, 'Perl'], [/ruby/, 'Ruby'], [/\bsh\b/, 'Bourne Shell']];
-
-const own = (table, key) => Object.hasOwn(table, key);
-
-/** The languages this counter knows, as cloc names them. */
-export const KNOWN_LANGUAGES = Object.freeze(Object.keys(SYNTAX).sort());
-
-/**
- * A file's language by its name, as cloc names it ('' when not a language counted). `firstLine`: a
- * file with no extension is read by its #! line (#!/usr/bin/env python …).
- */
-export function languageOf(filePath, firstLine = '') {
-  const name = String(filePath ?? '').split('/').pop();
-  if (own(EXACT_NAMES, name)) return EXACT_NAMES[name];
-  const base = name.toLowerCase();
-  if (own(FILE_NAMES, base)) return FILE_NAMES[base];
-  if (base.startsWith('dockerfile.')) return 'Dockerfile';
-  const parts = base.split('.');
-  if (parts.length > 2 && own(EXTENSIONS, parts.slice(-2).join('.'))) return EXTENSIONS[parts.slice(-2).join('.')];
-  if (parts.length > 1 && parts[0] !== '') return own(EXTENSIONS, parts.at(-1)) ? EXTENSIONS[parts.at(-1)] : '';
-  if (parts.length === 1 && String(firstLine).startsWith('#!')) return SHEBANG.find(([re]) => re.test(firstLine))?.[1] ?? '';
-  return '';
-}
-
-/** Binary as git decides it: a NUL byte in the first 8,000 bytes. */
-export const isBinary = (buffer) => buffer.subarray(0, 8000).includes(0);
-
-const SPECIALS = new Map();
-/** The characters at which something may start (a comment or a string) in this syntax. */
-function specialsOf(spec) {
-  if (!SPECIALS.has(spec)) {
-    const marks = [...(spec.line ?? []), ...(spec.block ?? []).map(([open]) => open), ...(spec.quotes ?? [])];
-    const chars = [...new Set(marks.map((m) => m[0]))].map((ch) => ch.replace(/[\\\]^-]/g, '\\$&')).join('');
-    SPECIALS.set(spec, chars ? new RegExp(`[${chars}]`, 'g') : null);
-  }
-  return SPECIALS.get(spec);
-}
-
-/**
- * One file's lines, as cloc counts them: blank (only white space, also inside a comment), comment
- * (nothing but comments) and code (anything else). A comment marker inside a string is not one.
- */
-export function countLines(text, language) {
-  const spec = own(SYNTAX, language) ? SYNTAX[language] : NONE;
-  const lines = String(text ?? '').split(/\r\n|\n|\r/);
-  if (lines.length && lines.at(-1) === '') lines.pop();
-  const special = specialsOf(spec);
-  const out = { code: 0, comment: 0, blank: 0 };
-  let block = null;
-  let quote = null;
-  for (const raw of lines) {
-    if (!raw.trim()) {
-      out.blank += 1;
-      continue;
-    }
-    if (!block && !quote) {
-      if ((spec.columnOne && spec.columnOne.test(raw)) || (spec.lineStart && spec.lineStart.test(raw.trim()))) {
-        out.comment += 1;
-        continue;
-      }
-      const start = spec.atStart?.find(([open]) => raw.startsWith(open));
-      if (start) {
-        block = start[1];
-        out.comment += 1;
-        continue;
-      }
-    } else if (block && spec.atStart?.some(([, close]) => close === block) && raw.startsWith(block)) {
-      block = null;
-      out.comment += 1;
-      continue;
-    }
-    let code = false;
-    let comment = false;
-    let i = 0;
-    while (i < raw.length) {
-      if (block) {
-        comment = true;
-        // Ruby's =begin … =end and Perl's POD close at the start of a line only.
-        const end = spec.atStart?.some(([, close]) => close === block) ? -1 : raw.indexOf(block, i);
-        if (end < 0) break;
-        i = end + block.length;
-        block = null;
-        continue;
-      }
-      if (quote) {
-        code = true;
-        const escapes = !(spec.raw ?? []).includes(quote);
-        let j = i;
-        while (j < raw.length && !raw.startsWith(quote, j)) j += escapes && raw[j] === '\\' ? 2 : 1;
-        if (j >= raw.length) {
-          i = raw.length;
-          break;
-        }
-        i = j + quote.length;
-        quote = null;
-        continue;
-      }
-      if (!special) {
-        code = true;
-        break;
-      }
-      special.lastIndex = i;
-      const hit = special.exec(raw);
-      const at = hit ? hit.index : raw.length;
-      if (at > i && raw.slice(i, at).trim()) code = true;
-      if (!hit) break;
-      i = at;
-      const open = spec.block?.find(([o]) => raw.startsWith(o, i));
-      if (open) {
-        block = open[1];
-        comment = true;
-        i += open[0].length;
-        continue;
-      }
-      if (spec.line?.some((m) => raw.startsWith(m, i))) {
-        comment = true;
-        break;
-      }
-      const q = spec.quotes?.find((m) => raw.startsWith(m, i));
-      if (q) {
-        quote = q;
-        code = true;
-        i += q.length;
-        continue;
-      }
-      code = true;
-      i += 1;
-    }
-    // A string that is not closed ends with its line, unless its quotes may run on.
-    if (quote && !(spec.multi ?? []).includes(quote)) quote = null;
-    if (code) out.code += 1;
-    else if (comment) out.comment += 1;
-    else out.code += 1;
-  }
-  return out;
-}
-
-/** Counts files as they come, the way cloc adds them up: by language, each file's content once. */
-function tally() {
-  const languages = {};
-  const seen = new Set();
-  const skipped = { binary: 0, large: 0, duplicate: 0 };
-  let files = 0;
-  return {
-    languages,
-    skipped,
-    get files() {
-      return files;
-    },
-    /** `key`: what makes two files the same content (git's object id, or a hash). */
-    add(filePath, buffer, key = '') {
-      if (key && seen.has(key)) return (skipped.duplicate += 1);
-      if (key) seen.add(key);
-      if (isBinary(buffer)) return (skipped.binary += 1);
-      const text = buffer.toString('utf8');
-      const language = languageOf(filePath, text.slice(0, 200).split('\n')[0]);
-      if (!language) return 0;
-      const { code } = countLines(text, language);
-      const entry = (languages[language] ??= { files: 0, code: 0 });
-      entry.files += 1;
-      entry.code += code;
-      files += 1;
-      return 1;
-    },
-    result() {
-      const sorted = Object.fromEntries(Object.entries(languages).sort((a, b) => b[1].code - a[1].code));
-      return { lines: Object.values(languages).reduce((n, l) => n + l.code, 0), languages: sorted, files, skipped };
-    },
-  };
-}
-
-/** A file worth reading: a language this counter knows by its name, or none yet (a #! line may say). */
-const candidate = (filePath) => {
-  const base = filePath.split('/').pop();
-  return Boolean(languageOf(filePath)) || !base.includes('.');
-};
-
-/**
- * A folder's code lines, as a repository's are counted (for a folder on this computer, and the tests):
- * {lines, languages: {Language: {files, code}}, files, skipped}. .git and symbolic links are left out.
- */
-export async function countDirectory(dir, { fileBytes = GIT_COUNT_LIMITS.fileBytes, onProgress = () => {} } = {}) {
-  const found = [];
-  const walk = (folder, rel) => {
-    for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
-      if (entry.name === '.git') continue;
-      const relPath = rel ? `${rel}/${entry.name}` : entry.name;
-      if (entry.isDirectory()) walk(path.join(folder, entry.name), relPath);
-      else if (entry.isFile() && candidate(relPath)) found.push(relPath);
-    }
-  };
-  walk(dir, '');
-  const count = tally();
-  for (const [index, relPath] of found.entries()) {
-    const file = path.join(dir, relPath);
-    if (fs.statSync(file).size > fileBytes) count.skipped.large += 1;
-    else {
-      const content = fs.readFileSync(file);
-      count.add(relPath, content, createHash('sha256').update(content).digest('hex'));
-    }
-    onProgress(index + 1, found.length);
-  }
-  return count.result();
-}
 
 // ---- git ---------------------------------------------------------------------------------------
 
 /** Run git; resolves its output. `signal` stops it (time limit, size limit). */
-function git(args, { env, signal, maxBuffer = 64 * 1024 * 1024, bin = 'git' } = {}) {
+function git(args, { env, signal, maxBuffer = 64 * 1024 * 1024, bin = 'git', input } = {}) {
   return new Promise((resolve, reject) => {
-    execFile(bin, args, { env, signal, maxBuffer, encoding: 'buffer', windowsHide: true }, (error, stdout, stderr) => {
+    const child = execFile(bin, args, { env, signal, maxBuffer, encoding: 'buffer', windowsHide: true }, (error, stdout, stderr) => {
       if (error) return reject(Object.assign(error, { stderr: stderr?.toString('utf8') ?? '' }));
       resolve(stdout);
     });
+    child.stdin?.on('error', () => {});
+    child.stdin?.end(input);
   });
-}
-
-/** The tree at HEAD: each file's object id, size and path (symbolic links and submodules left out). */
-async function listTree(dir, opts) {
-  const out = (await git(['-C', dir, 'ls-tree', '-r', '-z', '-l', '--full-tree', 'HEAD'], { ...opts, maxBuffer: 512 * 1024 * 1024 })).toString('utf8');
-  const entries = [];
-  for (const item of out.split('\0')) {
-    const tab = item.indexOf('\t');
-    if (tab < 0) continue;
-    const [mode, type, oid, size] = item.slice(0, tab).trim().split(/\s+/);
-    if (type !== 'blob' || mode === '120000') continue;
-    entries.push({ oid, size: Number(size), path: item.slice(tab + 1) });
-  }
-  return entries;
 }
 
 /** Each object's content, read from git's own store as git hands them over (git cat-file --batch). */
@@ -401,13 +150,17 @@ function folderBytes(dir) {
   return total;
 }
 
-/** git's environment for one fetch: the Authorization header (when there is one) through config variables only. */
-function gitEnv(authHeader, { http = false, pin = '' } = {}) {
-  const env = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_ALLOW_PROTOCOL: http ? 'https:http' : 'https', GIT_LFS_SKIP_SMUDGE: '1' };
+/**
+ * git's environment for one repository: the Authorization header (when there is one) through config variables
+ * only, for the repository's own origin (http.<origin>/.extraHeader, so not for any other host git might be sent
+ * to), no credential helper or prompt, no redirects, and the addresses checked (http.curloptResolve).
+ */
+export function gitEnv(authHeader, { http: plain = false, pin = '', origin = '' } = {}) {
+  const env = { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never', GIT_ASKPASS: '', SSH_ASKPASS: '', GIT_ALLOW_PROTOCOL: plain ? 'https:http' : 'https', GIT_LFS_SKIP_SMUDGE: '1' };
   // Nothing that would write the header out (git's traces), and no other settings passed down.
-  for (const name of Object.keys(env)) if (/^GIT_(TRACE|CURL_VERBOSE|CONFIG_(COUNT|KEY_|VALUE_|PARAMETERS))/.test(name)) delete env[name];
+  for (const name of Object.keys(env)) if (/^GIT_(TRACE|CURL_VERBOSE|CONFIG_(COUNT|KEY_|VALUE_|PARAMETERS)|DIR$|WORK_TREE$|SSH_COMMAND$)/.test(name)) delete env[name];
   const config = [['credential.helper', ''], ['http.followRedirects', 'false'], ['core.askPass', '']];
-  if (authHeader) config.push(['http.extraHeader', `Authorization: ${authHeader}`]);
+  if (authHeader) config.push([origin ? `http.${origin}/.extraHeader` : 'http.extraHeader', `Authorization: ${authHeader}`]);
   // git connects to the addresses checked here, not to a second look-up of the name (git 2.37 and later).
   if (pin) config.push(['http.curloptResolve', pin]);
   env.GIT_CONFIG_COUNT = String(config.length);
@@ -423,6 +176,26 @@ export async function gitMissing(bin = 'git') {
   } catch (error) {
     return error.code === 'ENOENT' ? 'Git is not installed on this computer: install it from https://git-scm.com, then count again.' : `Git could not be started: ${String(error.message).split('\n')[0]}`;
   }
+}
+
+/** git's version as [major, minor], or null when it is not there. */
+async function gitVersionOf(bin = 'git') {
+  try {
+    const m = /(\d+)\.(\d+)/.exec((await git(['--version'], { bin })).toString('utf8'));
+    return m ? [Number(m[1]), Number(m[2])] : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The engine a run uses: git when git 2.31 or later is here (auto), else the platforms' APIs. */
+export async function chooseEngine(requested = 'auto', bin = 'git') {
+  const wanted = ENGINES.includes(requested) ? requested : 'auto';
+  if (wanted === 'api') return 'api';
+  const v = await gitVersionOf(bin);
+  const ok = Boolean(v && (v[0] > 2 || (v[0] === 2 && v[1] >= 31)));
+  if (wanted === 'git' && !ok) throw fail(409, v ? 'The git engine needs git 2.31 or later on this computer: update git, or choose the API engine.' : 'Git is not installed on this computer: install it from https://git-scm.com, or choose the API engine.');
+  return ok ? 'git' : 'api';
 }
 
 // ---- Addresses and tokens -----------------------------------------------------------------------
@@ -456,7 +229,7 @@ export function repoAddress(value) {
   const parts = url.pathname.split('/').filter(Boolean);
   if (parts.length < 2 || parts.some((p) => p === '..' || p === '.' || !SEGMENT.test(p))) throw fail(400, `Not a repository address: ${url.host}${url.pathname.slice(0, 80)}`);
   const name = decodeURIComponent(parts.at(-1)).replace(/\.git$/i, '') || 'Project';
-  return { url: `${url.protocol}//${url.host}/${parts.join('/')}`, host: url.host.toLowerCase(), hostname: url.hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1'), path: parts.join('/').replace(/\.git$/i, ''), name };
+  return { url: `${url.protocol}//${url.host}/${parts.join('/')}`, host: url.host.toLowerCase(), hostname: url.hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1'), path: decodeURIComponent(parts.join('/')).replace(/\.git$/i, ''), name, origin: `${url.protocol}//${url.host}` };
 }
 
 /** Never a host whose name leads to a link-local or cloud metadata address; the addresses it leads to ([] for an address typed as such). */
@@ -479,16 +252,58 @@ export function resolvePin(address, ips) {
   return `${address.hostname}:${port}:${ips.map((ip) => (ip.includes(':') ? `[${ip}]` : ip)).join(',')}`;
 }
 
+/** A name look-up for the API client's connections that never hands back a link-local or metadata address. */
+function safeLookup(hostname, options, callback) {
+  dnsCallback.lookup(hostname, { ...options, all: true }, (error, addresses) => {
+    if (error) return callback(error);
+    if (!addresses.length || addresses.some((a) => blockedHost(a.address))) return callback(Object.assign(new Error(`${hostname} points at a link-local or cloud metadata address, which is never called.`), { code: 'EBLOCKED' }));
+    if (options?.all) return callback(null, addresses);
+    callback(null, addresses[0].address, addresses[0].family);
+  });
+}
+
+/**
+ * The API engine's fetch: each call (and each hop of a redirect, which cloc-fusion's client follows by hand,
+ * credentials dropped off its own origin) checked first: https only (plain http only to this computer), a host
+ * `allowHost(hostname)` allows, and a connection made to the address checked (the look-up refuses link-local and
+ * metadata addresses), not to a second look-up. `signal` stops it with the repository's time limit.
+ */
+export function guardedFetch({ allowHost = () => true, signal = null } = {}) {
+  return async function fetchGuarded(input, init = {}) {
+    const url = new URL(String(input));
+    // Refusals are cloc-fusion's own error, so its client says them at once instead of trying again.
+    const problem = outboundUrlProblem(url.href);
+    if (problem) throw new HttpError(`The address ${url.host} ${problem}.`, { status: 400 });
+    const hostname = url.hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1');
+    if (!allowHost(hostname)) throw new HttpError(`${hostname} is not a host this server calls: connect it on the Beta page, or add it to SCM_ALLOWED_HOSTS.`, { status: 400 });
+    const signals = [init.signal, signal].filter(Boolean);
+    const stop = signals.length > 1 ? AbortSignal.any(signals) : signals[0];
+    const lib = url.protocol === 'https:' ? https : http;
+    return new Promise((resolve, reject) => {
+      const req = lib.request(url, { method: init.method ?? 'GET', headers: init.headers ?? {}, signal: stop, lookup: safeLookup }, (res) => {
+        const headers = new Headers();
+        for (const [key, value] of Object.entries(res.headers)) for (const one of [].concat(value ?? [])) headers.append(key, String(one));
+        const empty = [204, 205, 304].includes(res.statusCode) || (init.method ?? 'GET') === 'HEAD';
+        if (empty) res.resume();
+        resolve(new Response(empty ? null : Readable.toWeb(res), { status: res.statusCode, statusText: res.statusMessage, headers }));
+      });
+      req.on('error', (error) => reject(error.code === 'EBLOCKED' ? new HttpError(error.message, { status: 400 }) : error));
+      req.end(init.body);
+    });
+  };
+}
+
 const TOKEN = /^[\x21-\x7e]{4,4096}$/;
 const b64 = (text) => Buffer.from(text).toString('base64');
 
 /**
- * Where the code is, from a host, its address and a token: the API to list repositories with, the git
- * host the token belongs to, and the Authorization header for each. `token` may be "user:password"
- * for Bitbucket (an app password). The token itself stays inside the object returned (in `secrets`,
- * for redaction): nothing here writes it anywhere.
+ * Where the code is, from a host, its address and a token: the API to discover repositories with (cloc-fusion's
+ * provider and connection), the git host the token belongs to, and the Authorization header for each. `token` may
+ * be "user:password" for Bitbucket (an app password). The token itself stays inside the object returned (in
+ * `secrets`, for redaction, and `secret`, for cloc-fusion's client): nothing here writes it anywhere. `key` names
+ * the source in a run ('token', or the Admin's connection's id).
  */
-export function gitSource({ provider, address = '', token = '' } = {}) {
+export function gitSource({ provider, address = '', token = '', key = 'token' } = {}) {
   if (!GIT_PROVIDERS.includes(provider)) throw fail(400, 'Choose the git host: GitHub, GitLab, Azure DevOps or Bitbucket.');
   const secret = String(token ?? '').trim();
   if (!TOKEN.test(secret)) throw fail(400, secret ? 'That token has spaces or characters a token does not have: paste it again.' : 'Paste the token.');
@@ -510,163 +325,272 @@ export function gitSource({ provider, address = '', token = '' } = {}) {
   let source;
   if (provider === 'github') {
     const cloud = host === 'github.com' || host === 'api.github.com';
-    source = { apiUrl: cloud ? 'https://api.github.com' : `${origin}${base.replace(/\/api\/v3$/, '')}/api/v3`, gitHost: cloud ? 'github.com' : host, apiAuth: `Bearer ${secret}`, cloneAuth: `Basic ${b64(`x-access-token:${secret}`)}` };
+    const apiUrl = cloud ? 'https://api.github.com' : `${origin}${base.replace(/\/api\/v3$/, '')}/api/v3`;
+    source = { apiUrl, gitHost: cloud ? 'github.com' : host, apiAuth: `Bearer ${secret}`, cloneAuth: `Basic ${b64(`x-access-token:${secret}`)}`, engine: { provider: 'github', apiUrl, method: 'pat' } };
   } else if (provider === 'gitlab') {
-    source = { apiUrl: `${origin}${base.replace(/\/api\/v4$/, '')}/api/v4`, gitHost: host, apiAuth: `Bearer ${secret}`, cloneAuth: `Basic ${b64(`oauth2:${secret}`)}` };
+    const apiUrl = `${origin}${base.replace(/\/api\/v4$/, '')}/api/v4`;
+    source = { apiUrl, gitHost: host, apiAuth: `Bearer ${secret}`, cloneAuth: `Basic ${b64(`oauth2:${secret}`)}`, engine: { provider: 'gitlab', apiUrl, method: 'pat' } };
   } else if (provider === 'azure') {
     const auth = `Basic ${b64(`:${secret}`)}`;
-    source = { apiUrl: `${origin}${base}`, gitHost: host, apiAuth: auth, cloneAuth: auth, org: azureOrgKey(`${origin}${base}`) };
+    const orgUrl = `${origin}${base}`;
+    const cloud = host === 'dev.azure.com';
+    const parts = base.split('/').filter(Boolean);
+    // Services: the organisations live under https://dev.azure.com; Server: the collections under its address.
+    const apiUrl = cloud ? 'https://dev.azure.com' : `${origin}${parts.length ? `/${parts.slice(0, -1).join('/')}` : ''}`;
+    source = { apiUrl: orgUrl, gitHost: host, apiAuth: auth, cloneAuth: auth, org: azureOrgKey(orgUrl), engine: { provider: 'azure', apiUrl, method: 'pat', defaultOrg: cloud ? azureOrgName(orgUrl) : parts.at(-1) ?? '' } };
   } else {
     const cloud = host === 'bitbucket.org' || host === 'api.bitbucket.org';
     const pair = secret.includes(':') ? `Basic ${b64(secret)}` : '';
+    const apiUrl = cloud ? 'https://api.bitbucket.org/2.0' : `${origin}${base.replace(/\/rest\/api\/1\.0$/, '')}`;
     source = {
-      apiUrl: cloud ? 'https://api.bitbucket.org/2.0' : `${origin}${base.replace(/\/rest\/api\/1\.0$/, '')}`,
+      apiUrl,
       gitHost: cloud ? 'bitbucket.org' : host,
       apiAuth: pair || `Bearer ${secret}`,
       cloneAuth: pair || (cloud ? `Basic ${b64(`x-token-auth:${secret}`)}` : `Bearer ${secret}`),
       cloud,
+      engine: { provider: cloud ? 'bitbucket' : 'bitbucket-server', apiUrl, method: pair ? 'app-password' : cloud ? 'access-token' : 'http-token' },
     };
   }
   const secrets = [secret, source.apiAuth, source.cloneAuth, ...[source.apiAuth, source.cloneAuth].map((a) => a.replace(/^\w+ /, ''))];
+  // Azure DevOps organisations this token may be sent to over git: its own, and each one its account lists.
+  const orgs = new Set(source.org ? [source.org] : []);
   return {
+    key: String(key),
     provider,
     label: LABELS[provider],
     ...source,
     secrets,
-    /** The header for cloning `repo` ({host, url}): only on the token's own host (an Azure DevOps token: its own organisation). */
+    /** What cloc-fusion's client takes (the header it sends is replaced by `apiAuth`, so the two never differ). */
+    secret: splitPair(secret),
+    apiHost: new URL(source.engine.apiUrl).hostname.toLowerCase(),
+    /** The header for cloning `repo` ({host, url}): only on the token's own host (an Azure DevOps token: its own organisations). */
     authFor(repo) {
       if (repo.host !== source.gitHost) return '';
-      if (provider === 'azure' && source.org.startsWith('dev.azure.com/') && azureOrgKey(repo.url) !== source.org) return '';
+      if (provider === 'azure' && source.org.startsWith('dev.azure.com/') && !orgs.has(azureOrgKey(repo.url))) return '';
       return source.cloneAuth;
+    },
+    /** Azure DevOps organisations its own account listed (Everything this token can see): git may send it there too. */
+    addOrganizations(names) {
+      if (provider === 'azure' && source.org.startsWith('dev.azure.com/')) for (const n of names) if (/^[A-Za-z0-9][A-Za-z0-9-]{0,49}$/.test(n)) orgs.add(`dev.azure.com/${n.toLowerCase()}`);
     },
   };
 }
-
-/** The same from one of the Admin's connections (src/scm/providers.js scmConfigs, src/server.js githubConfig). */
-export function connectionSource(provider, cfg = {}) {
-  if (provider === 'github') return gitSource({ provider, address: cfg.apiUrl, token: cfg.token });
-  if (provider === 'gitlab') return gitSource({ provider, address: cfg.apiUrl, token: cfg.token });
-  if (provider === 'azure') return gitSource({ provider, address: cfg.orgUrl, token: cfg.token });
-  const cloud = cfg.kind !== 'server';
-  return gitSource({ provider, address: cloud ? 'https://bitbucket.org' : cfg.apiUrl, token: cfg.username ? `${cfg.username}:${cfg.token}` : cfg.token });
+function splitPair(secret) {
+  const at = secret.indexOf(':');
+  return at > 0 ? { username: secret.slice(0, at), token: secret.slice(at + 1) } : { username: '', token: secret };
 }
 
-// ---- Listing an organisation's repositories -------------------------------------------------------
+/** The same from one of the Admin's connections (src/scm/providers.js scmConfigs, src/server.js githubConfig). */
+export function connectionSource(provider, cfg = {}, key = 'token') {
+  if (provider === 'github') return gitSource({ provider, address: cfg.apiUrl, token: cfg.token, key });
+  if (provider === 'gitlab') return gitSource({ provider, address: cfg.apiUrl, token: cfg.token, key });
+  if (provider === 'azure') return gitSource({ provider, address: cfg.orgUrl, token: cfg.token, key });
+  const cloud = cfg.kind !== 'server';
+  return gitSource({ provider, address: cloud ? 'https://bitbucket.org' : cfg.apiUrl, token: cfg.username ? `${cfg.username}:${cfg.token}` : cfg.token, key });
+}
 
-/** One repository as listed: its path, clone address (no credentials), default branch, size and whether archived. */
-function listed(pathName, cloneUrl, branch, sizeBytes, archived) {
+// ---- Discovery: organizations, then their repositories (cloc-fusion's providers) -----------------
+
+/**
+ * cloc-fusion's provider and API client for a source: its connection, the header MZ worked out, and a fetch that
+ * calls only `allowHost`'s hosts, the API's own and the platforms' download hosts, each checked as it is called.
+ */
+export function openSession(source, { allowHost = () => true, fetchImpl = null, signal = null } = {}) {
+  const provider = providerOf(source.engine.provider);
+  const conn = { name: source.key, provider: source.engine.provider, apiUrl: source.engine.apiUrl, auth: { method: source.engine.method }, includePersonal: true };
+  const api = provider.client(conn, source.secret);
+  api.headers = { ...api.headers, Authorization: source.apiAuth };
+  const hosts = (hostname) => hostname === source.apiHost || PUBLIC_API_HOSTS.includes(hostname) || allowHost(hostname);
+  const guarded = guardedFetch({ allowHost: hosts, signal });
+  // A test double stands in for the network, still behind the same host check.
+  api.fetch = fetchImpl ? (url, init) => (hosts(new URL(String(url)).hostname) ? fetchImpl(url, init) : Promise.reject(new HttpError(`${new URL(String(url)).hostname} is not a host this server calls.`, { status: 400 }))) : guarded;
+  api.retries = 3;
+  api.timeoutMs = 60_000;
+  return { provider, api, conn };
+}
+
+/** What the platform said, in words: never the token. */
+function apiProblem(error, source, what) {
+  if (error.status === 401 || error.status === 403) return fail(400, `${source.label} refused the token: check it may read ${what}.`);
+  if (error.status === 404) return fail(404, `${source.label} has no ${what} that this token may read.`);
+  if (error.status && error.status < 500 && !error.url) return error;
+  return fail(502, `${source.label} could not be read: ${redact(error.message, source.secrets).slice(0, 200)}`);
+}
+
+const ORG = /^(@me|@all|[\w.~ -]{1,200}(\/[\w.~ -]{1,200}){0,10})$/;
+
+/**
+ * The organizations (GitHub), top-level groups (GitLab), organizations or collections (Azure DevOps), workspaces
+ * (Bitbucket) or projects (Bitbucket Data Center) a source's token can list, with who it signed in as.
+ * `@me` is the token's own account where the platform has one. The connection's own organization is always there.
+ */
+export async function listOrganizations(source, { allowHost, fetchImpl, defaultOrg = '' } = {}) {
+  const { provider, api, conn } = openSession(source, { allowHost, fetchImpl });
+  let who = '';
+  try {
+    who = (await provider.whoami(api, conn)) ?? '';
+  } catch (error) {
+    throw apiProblem(error, source, 'its own account');
+  }
+  let organizations = [];
+  let problem = '';
+  try {
+    organizations = (await provider.listOrgs(api, conn)).map((o) => ({ id: String(o.id), label: String(o.label ?? o.id).slice(0, 120) }));
+  } catch (error) {
+    // A token made for one organization cannot list others: its own is still there.
+    problem = redact(apiProblem(error, source, 'the list of organizations').message, source.secrets);
+  }
+  const own = String(defaultOrg || source.engine.defaultOrg || '').trim();
+  if (own && ORG.test(own) && !organizations.some((o) => o.id.toLowerCase() === own.toLowerCase())) organizations.unshift({ id: own, label: own });
+  source.addOrganizations(organizations.map((o) => o.id));
+  return { source: source.key, label: source.label, host: source.gitHost, who: String(who).slice(0, 120), organizations: organizations.slice(0, 2000), problem };
+}
+
+/** One repository as the page lists it: where it is, its default branch and what the API engine needs. */
+function listedRepo(source, r) {
   let address;
   try {
-    address = repoAddress(cloneUrl);
+    address = repoAddress(r.cloneUrl);
   } catch {
     return null;
   }
-  return { name: address.name, path: String(pathName), url: address.url, branch: safeBranch(branch) ? branch : '', sizeBytes: Number.isFinite(Number(sizeBytes)) && sizeBytes !== null ? Number(sizeBytes) : null, archived: archived === true };
+  const sizeKb = Number(r.sizeKb);
+  return {
+    source: source.key,
+    org: String(r.org ?? ''),
+    name: address.name,
+    path: String(r.fullName ?? address.path),
+    fullName: String(r.fullName ?? address.path),
+    url: address.url,
+    branch: safeBranch(r.defaultBranch) ? r.defaultBranch : '',
+    id: r.id === undefined || r.id === null ? '' : String(r.id),
+    project: r.project ? String(r.project) : '',
+    sizeBytes: Number.isFinite(sizeKb) && r.sizeKb !== null ? sizeKb * 1024 : null,
+    archived: r.archived === true,
+    fork: r.fork === true,
+    empty: r.empty === true,
+    createdAt: r.createdAt ?? null,
+    pushedAt: r.pushedAt ?? null,
+  };
 }
 
 /**
- * An organisation's (GitHub), group's (GitLab, with its subgroups), project's or whole organisation's
- * (Azure DevOps) or workspace's / project's (Bitbucket) repositories, up to 1,000, by path:
- * {repositories: [{name, path, url, branch, sizeBytes, archived}], more}.
+ * Every repository of the organizations asked for (`orgs`), or of every organization the token can list and every
+ * other repository it can reach (`everything`), each once, archived ones and forks marked:
+ * {repositories, more, problems: [{source, org, error}]}. An older call names one `owner`.
  */
-export async function listRepositories(source, owner, { fetchImpl = fetch, max = GIT_COUNT_LIMITS.listed } = {}) {
-  const who = String(owner ?? '').trim().replace(/^\/+|\/+$/g, '');
-  if (who && !/^[\w.~ -]+(\/[\w.~ -]+)*$/.test(who)) throw fail(400, 'That organisation or group name has characters a name does not have.');
-  if (!who && source.provider !== 'azure') throw fail(400, source.provider === 'bitbucket' ? 'Give the workspace (or the project key on Bitbucket Data Center).' : 'Give the organisation or group.');
-  const client = new ScmClient({ name: source.label, baseUrl: source.apiUrl, auth: source.apiAuth, fetchImpl });
-  const out = [];
-  let more = false;
-  const enc = encodeURIComponent;
-  const pages = async (first, next) => {
-    for (let page = 1; out.length < max; page += 1) {
-      const items = await (page === 1 ? first() : next(page));
-      if (!items) break;
-      out.push(...items.list.filter(Boolean));
-      if (!items.more) return;
+export async function listRepositories(source, ask, { allowHost, fetchImpl, max = GIT_COUNT_LIMITS.listed } = {}) {
+  const want = typeof ask === 'string' || ask === undefined || ask === null ? { orgs: [String(ask ?? '').trim()].filter(Boolean) } : ask;
+  const orgsAsked = (Array.isArray(want.orgs) ? want.orgs : []).map((o) => String(o ?? '').trim().replace(/^\/+|\/+$/g, '')).filter(Boolean);
+  for (const org of orgsAsked) if (!ORG.test(org) || org.split('/').some((p) => !p.trim() || p === '.' || p === '..')) throw fail(400, 'That organisation or group name has characters a name does not have.');
+  const { provider, api, conn } = openSession(source, { allowHost, fetchImpl });
+  let orgs = [...new Set(orgsAsked)].slice(0, 500);
+  if (want.everything) {
+    let listed;
+    try {
+      listed = await provider.listOrgs(api, conn);
+    } catch (error) {
+      throw apiProblem(error, source, 'the list of organizations');
     }
-    more = true;
-  };
-  try {
-    if (source.provider === 'github') {
-      let base = `/orgs/${enc(who)}/repos`;
-      const get = (page) => client.get(base, { per_page: 100, page, type: 'all' });
-      const map = (body) => ({ list: (body ?? []).map((r) => listed(r.full_name, r.clone_url, r.default_branch, Number(r.size) * 1024, r.archived)), more: (body ?? []).length === 100 });
-      await pages(async () => {
-        try {
-          return map(await get(1));
-        } catch (error) {
-          if (error.status !== 404) throw error;
-          base = `/users/${enc(who)}/repos`;
-          return map(await client.get(base, { per_page: 100, page: 1, type: 'owner' }));
-        }
-      }, async (page) => map(await client.get(base, { per_page: 100, page, ...(base.startsWith('/users') ? { type: 'owner' } : { type: 'all' }) })));
-    } else if (source.provider === 'gitlab') {
-      let base = `/groups/${enc(who)}/projects`;
-      const query = (page) => ({ per_page: 100, page, include_subgroups: base.startsWith('/groups') ? 'true' : undefined, order_by: 'path', sort: 'asc', statistics: 'true' });
-      const map = (body) => ({ list: (body ?? []).map((r) => listed(r.path_with_namespace, r.http_url_to_repo, r.default_branch, r.statistics?.repository_size ?? null, r.archived)), more: (body ?? []).length === 100 });
-      await pages(async () => {
-        try {
-          return map(await client.get(base, query(1)));
-        } catch (error) {
-          if (error.status !== 404) throw error;
-          base = `/users/${enc(who)}/projects`;
-          return map(await client.get(base, query(1)));
-        }
-      }, async (page) => map(await client.get(base, query(page))));
-    } else if (source.provider === 'azure') {
-      const body = await client.get(`${who ? `/${enc(who)}` : ''}/_apis/git/repositories`, { 'api-version': '7.1' });
-      out.push(...(body?.value ?? []).map((r) => listed(`${r.project?.name ?? who}/${r.name}`, r.remoteUrl, String(r.defaultBranch ?? '').replace(/^refs\/heads\//, ''), r.size ?? null, r.isDisabled === true)).filter(Boolean));
-    } else if (source.cloud) {
-      const map = (body) => ({ list: (body?.values ?? []).map((r) => listed(r.full_name, (r.links?.clone ?? []).find((l) => l.name === 'https')?.href, r.mainbranch?.name, r.size ?? null, false)), more: Boolean(body?.next) });
-      await pages(async () => map(await client.get(`/repositories/${enc(who)}`, { pagelen: 100, page: 1 })), async (page) => map(await client.get(`/repositories/${enc(who)}`, { pagelen: 100, page })));
-    } else {
-      let start = 0;
-      const get = async () => {
-        const body = await client.get(`/rest/api/1.0/projects/${enc(who)}/repos`, { limit: 100, start });
-        start = body?.nextPageStart ?? 0;
-        return { list: (body?.values ?? []).map((r) => listed(`${r.project?.key ?? who}/${r.slug}`, (r.links?.clone ?? []).find((l) => l.name === 'http')?.href, '', null, r.archived === true)), more: body?.isLastPage === false };
-      };
-      await pages(get, get);
-    }
-  } catch (error) {
-    if (error.status === 401 || error.status === 403) throw fail(400, `${source.label} refused the token: check it may read ${who || 'the organisation'}'s repositories.`);
-    if (error.status === 404) throw fail(404, `${source.label} has no ${who || 'organisation'} that this token may read.`);
-    throw fail(502, `${source.label} could not be read: ${redact(error.message, source.secrets).slice(0, 200)}`);
+    source.addOrganizations(listed.map((o) => String(o.id)));
+    orgs = [...new Set([...allOrgIds(listed, conn), ...orgs])];
   }
-  const unique = [...new Map(out.map((r) => [r.url, r])).values()].sort((a, b) => a.path.localeCompare(b.path));
-  return { repositories: unique.slice(0, max), more: more || unique.length > max };
+  if (!orgs.length && source.engine.defaultOrg) orgs = [source.engine.defaultOrg];
+  if (!orgs.length) throw fail(400, source.provider === 'bitbucket' ? 'Give the workspace (or the project key on Bitbucket Data Center), or tick Everything this token can see.' : 'Give the organisation or group, or tick Everything this token can see.');
+  const problems = [];
+  const found = [];
+  await pool(orgs, 4, async (org) => {
+    try {
+      const list = await provider.listRepos(api, org, conn);
+      found.push(...classifyRepos({ includeArchived: true, includeForks: true }, conn, org, list.slice(0, max), () => ({})));
+    } catch (error) {
+      const said = apiProblem(error, source, org.startsWith('@') ? 'the repositories of its own account' : `${org}'s repositories`);
+      problems.push({ source: source.key, org, status: said.status, error: redact(said.message, source.secrets) });
+    }
+  });
+  // One organization asked for and refused: said as before (a wrong name, a token that may not read it).
+  if (!found.length && problems.length === orgs.length && problems.length === 1) throw fail(problems[0].status ?? 502, problems[0].error);
+  const unique = dedupeRepos(found)
+    .map((r) => listedRepo(source, r))
+    .filter(Boolean)
+    .sort((a, b) => a.path.localeCompare(b.path));
+  return { repositories: unique.slice(0, max), more: unique.length > max, problems: problems.map(({ status, ...p }) => p) };
 }
 
-// ---- Counting one repository --------------------------------------------------------------------
+// ---- Measuring one repository ---------------------------------------------------------------------
 
-const safeBranch = (b) => typeof b === 'string' && b.length > 0 && b.length <= 200 && /^[\w./@+-]+$/.test(b) && !b.startsWith('-') && !b.includes('..') && !b.endsWith('.lock');
+const safeBranch = (b) => {
+  if (typeof b !== 'string' || !b || b.length > 200 || !/^[\w./@+-]+$/.test(b)) return false;
+  try {
+    return Boolean(engineBranch(b));
+  } catch {
+    return false;
+  }
+};
 
-/** What git said, in words: never the token, never more than a line. */
-function gitProblem(error, repo, secrets, limits) {
+/** What git or the API said, in words: never the token, never more than a line. */
+function engineProblem(error, repo, secrets, limits) {
   if (error.tooBig) return `Over ${Math.round(limits.repoBytes / 1024 ** 3)} GB: not counted. Count it with cloc where the code is, and upload the result.`;
   if (error.timedOut) return `Took longer than ${Math.round(limits.timeoutMs / 60_000)} minutes: not counted.`;
   if (error.code === 'ENOENT') return 'Git is not installed on this computer: install it from https://git-scm.com, then count again.';
   const said = redact(`${error.stderr ?? ''}\n${error.message ?? ''}`, secrets);
-  if (/authentication failed|could not read username|401|403|access denied|not authorized|permission/i.test(said)) return `${repo.host} refused: check the token may read this repository.`;
+  if (error.status === 401 || error.status === 403 || /authentication failed|could not read username|\b401\b|\b403\b|access denied|not authorized|permission/i.test(said)) return `${repo.host} refused: check the token may read this repository.`;
   if (/remote branch .* not found/i.test(said)) return 'That branch is not in the repository.';
-  if (/not found|does not exist|404/i.test(said)) return `Not found on ${repo.host}, or the token may not read it.`;
-  if (/could not resolve host|failed to connect|timed out|connection refused/i.test(said)) return `${repo.host} could not be reached.`;
+  if (error.status === 404 || /not found|does not exist|\b404\b/i.test(said)) return `Not found on ${repo.host}, or the token may not read it.`;
+  if (/link-local or cloud metadata|not a host this server calls/i.test(said)) return said.split('\n').map((l) => l.trim()).find(Boolean).slice(0, 200);
+  if (/could not resolve host|failed to connect|timed out|connection refused|could not reach/i.test(said)) return `${repo.host} could not be reached.`;
   if (/redirect/i.test(said)) return `${repo.host} sent the request elsewhere (the repository may have moved): give its new address.`;
   const line = said.split('\n').map((l) => l.replace(/^(fatal|error):\s*/i, '').trim()).find(Boolean) ?? 'Git stopped.';
   return line.slice(0, 200);
 }
 
+/** Languages as the page keeps them: {Language: {category, files, code}}, most code first. */
+function languagesOf(summary) {
+  return Object.fromEntries(
+    Object.entries(summary.languages ?? {})
+      .filter(([, t]) => t.files > 0)
+      .sort((a, b) => b[1].code - a[1].code)
+      .slice(0, 80)
+      .map(([name, t]) => [name, { category: t.category, files: t.files, code: t.code }]),
+  );
+}
+
+/** cloc-fusion's measurement, made what a run keeps: no names or emails, only counts (and keys to count people once). */
+function measured(address, m, { engine, now }) {
+  const windowDays = Math.max(1, Number(m.windowDays) || GIT_COUNT_LIMITS.windowDays);
+  const f = frequencyOf(m.commits ?? 0, windowDays);
+  const people = (m.contributors90 ?? []).filter((c) => !c.bot && !isBot(c.email, c.name)).map(contributorKey).filter(Boolean);
+  return {
+    name: address.name,
+    url: address.url,
+    host: address.host,
+    path: address.path,
+    branch: m.branch ?? '',
+    commit: m.headSha ? String(m.headSha).slice(0, 7) : '',
+    engine,
+    lines: m.loc ?? 0,
+    files: m.files ?? 0,
+    languages: languagesOf(m),
+    commits: m.commits ?? 0,
+    windowDays: Math.round(windowDays * 10) / 10,
+    lastCommitAt: m.lastCommitAt ?? null,
+    frequency: f.id,
+    perWeek: Math.round(f.perWeek * 100) / 100,
+    devs90: people.length,
+    empty: m.empty === true,
+    people,
+  };
+}
+
 /**
- * One repository's code lines: its default branch (or `branch`) at its latest commit, fetched into a
- * folder of its own and deleted as soon as it is counted. `source` gives the header for its host
- * (none for another host: a public repository still counts). `allowHost(hostname)`: may it be called.
+ * One repository with git: its default branch (or `branch`) back to the start of the window, blob-less, into a
+ * folder of its own, held to the addresses checked; its commits in the window; then only the files worth counting
+ * fetched in one go and read where git keeps them; and the folder deleted as soon as it is counted.
  */
-export async function countRepository(repo, { source = null, allowHost = () => true, tmpRoot = os.tmpdir(), limits = GIT_COUNT_LIMITS, onProgress = () => {}, bin = 'git' } = {}) {
-  const address = repoAddress(repo.url);
-  if (!allowHost(address.hostname)) throw fail(400, `Repositories on ${address.hostname} are not counted: connect that host on the Beta page, or add it to SCM_ALLOWED_HOSTS.`);
+async function measureWithGit(repo, address, { source, tmpRoot, limits, onProgress, bin, now }) {
   const ips = await checkResolved(address.hostname);
-  const secrets = source?.secrets ?? [];
-  const env = gitEnv(source?.authFor(address) ?? '', { http: address.url.startsWith('http:'), pin: resolvePin(address, ips) });
+  const auth = source?.authFor(address) ?? '';
+  const env = gitEnv(auth, { http: address.url.startsWith('http:'), pin: resolvePin(address, ips), origin: address.origin });
   const dir = fs.mkdtempSync(path.join(tmpRoot, TEMP_PREFIX));
   fs.chmodSync(dir, 0o700);
   const stop = new AbortController();
@@ -683,46 +607,134 @@ export async function countRepository(repo, { source = null, allowHost = () => t
   }, 1000);
   const opts = { env, signal: stop.signal, bin };
   try {
-    onProgress({ state: 'fetching' });
+    onProgress({ state: 'clone' });
     const branch = safeBranch(repo.branch) ? repo.branch : '';
     const bare = path.join(dir, 'repo.git');
-    await git(['clone', '--quiet', '--bare', '--depth', '1', '--single-branch', '--no-tags', ...(branch ? ['--branch', branch] : []), '--', address.url, bare], opts);
-    clearInterval(watch);
-    if (folderBytes(dir) > limits.repoBytes) throw Object.assign(new Error('too big'), { tooBig: true });
-    const commit = (await git(['-C', bare, 'rev-parse', 'HEAD'], opts)).toString('utf8').trim();
-    const head = branch || (await git(['-C', bare, 'symbolic-ref', '--short', 'HEAD'], opts).then((b) => b.toString('utf8').trim()).catch(() => ''));
-    const entries = (await listTree(bare, opts)).filter((e) => candidate(e.path));
-    const count = tally();
-    const wanted = [];
-    const paths = new Map();
-    for (const entry of entries) {
-      if (entry.size > limits.fileBytes) count.skipped.large += 1;
-      else if (paths.has(entry.oid)) count.skipped.duplicate += 1;
-      else {
-        paths.set(entry.oid, entry.path);
-        wanted.push(entry.oid);
-      }
+    const since = new Date(now - limits.windowDays * DAY).toISOString();
+    const base = ['clone', '--quiet', '--bare', '--filter=blob:none', '--single-branch', '--no-tags', ...(branch ? ['--branch', branch] : [])];
+    try {
+      await git([...base, `--shallow-since=${since}`, '--', address.url, bare], opts);
+    } catch (error) {
+      // No commit in the window (the server refuses an empty shallow clone): the latest commit only.
+      if (stop.signal.aborted || !/no commits selected|shallow|deepen/i.test(`${error.stderr ?? ''}${error.message}`)) throw error;
+      fs.rmSync(bare, { recursive: true, force: true });
+      await git([...base, '--depth=1', '--', address.url, bare], opts);
     }
+    let headSha;
+    try {
+      headSha = (await git(['-C', bare, 'rev-parse', 'HEAD'], opts)).toString('utf8').trim();
+    } catch {
+      return measured(address, { empty: true, commits: 0, windowDays: limits.windowDays, loc: 0, files: 0, languages: {}, contributors90: [] }, { engine: 'git', now });
+    }
+    const head = branch || (await git(['-C', bare, 'symbolic-ref', '--short', 'HEAD'], opts).then((b) => b.toString('utf8').trim()).catch(() => ''));
+    onProgress({ state: 'history' });
+    const log = await git(['-C', bare, 'log', '--format=%ct%x09%ae%x09%an', `--since=${since}`, '--no-merges', 'HEAD'], { ...opts, maxBuffer: 256 * 1024 * 1024 });
+    const stats = commitStats(log.toString('utf8'), { now });
+    // A repository younger than the window: its age is the window, as in cloc-fusion.
+    let windowDays = limits.windowDays;
+    if (!fs.existsSync(path.join(bare, 'shallow'))) {
+      const roots = (await git(['-C', bare, 'log', '--max-parents=0', '--format=%ct', 'HEAD'], opts)).toString('utf8').split('\n').filter(Boolean).map(Number);
+      if (roots.length) windowDays = Math.min(windowDays, Math.max(1, (now - Math.min(...roots) * 1000) / DAY));
+    }
+    const created = Date.parse(repo.createdAt ?? '');
+    if (Number.isFinite(created) && created < now) windowDays = Math.min(windowDays, Math.max(1, (now - created) / DAY));
+    if (!stats.lastCommitAt) {
+      const t = Number((await git(['-C', bare, 'log', '-1', '--format=%ct', 'HEAD'], opts)).toString('utf8').trim());
+      if (t) stats.lastCommitAt = new Date(t * 1000).toISOString();
+    }
+    onProgress({ state: 'files' });
+    const tree = parseLsTree(await git(['-C', bare, 'ls-tree', '-r', '-z', 'HEAD'], { ...opts, maxBuffer: 512 * 1024 * 1024 }));
+    const files = selectFiles(tree);
+    // Each file, as cloc-fusion's API engine counts the same branch's archive (so both engines agree): a content
+    // that is in two places is read once and counted for each.
+    const langOf = new Map();
+    for (const f of files) langOf.set(f.oid, [...(langOf.get(f.oid) ?? []), f.lang]);
+    const oids = [...langOf.keys()];
+    if (oids.length) {
+      // One fetch for every file needed, rather than one round trip per file on first read.
+      await git(['-C', bare, '-c', 'fetch.negotiationAlgorithm=noop', 'fetch', 'origin', '--quiet', '--no-tags', '--no-write-fetch-head', '--recurse-submodules=no', '--filter=blob:none', '--stdin'], { ...opts, input: `${oids.join('\n')}\n` }).catch((error) => {
+        if (stop.signal.aborted) throw error;
+      });
+    }
+    const tally = new LocTally();
     let done = 0;
     let said = 0;
-    onProgress({ state: 'counting', done, total: wanted.length });
-    await readBlobs(bare, wanted, (oid, body) => {
-      count.add(paths.get(oid), body);
+    onProgress({ state: 'counting', done, total: oids.length });
+    await readBlobs(bare, oids, (oid, body) => {
+      if (body.length <= limits.fileBytes) for (const lang of langOf.get(oid) ?? []) tally.add(lang, body);
       done += 1;
       if (Date.now() - said > 250) {
         said = Date.now();
-        onProgress({ state: 'counting', done, total: wanted.length });
+        onProgress({ state: 'counting', done, total: oids.length });
       }
     }, opts);
-    onProgress({ state: 'counting', done, total: wanted.length });
-    return { name: address.name, url: address.url, host: address.host, path: address.path, branch: head, commit: commit.slice(0, 7), ...count.result() };
+    onProgress({ state: 'counting', done, total: oids.length });
+    if (folderBytes(dir) > limits.repoBytes) throw Object.assign(new Error('too big'), { tooBig: true });
+    const sum = tally.summary({ countCategories: COUNTED });
+    return measured(address, { ...stats, ...sum, headSha, branch: head, windowDays }, { engine: 'git', now });
   } catch (error) {
-    if (error.status) throw error;
-    throw fail(502, gitProblem(Object.assign(error, reason), address, secrets, limits));
+    throw Object.assign(error, reason);
   } finally {
     clearTimeout(timer);
     clearInterval(watch);
     fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+  }
+}
+
+/** One repository through its platform's API: its default branch's archive, read in memory, and its commit list. */
+async function measureWithApi(repo, address, { source, allowHost, fetchImpl, tmpRoot, limits, onProgress, now }) {
+  const stop = new AbortController();
+  const reason = {};
+  const timer = setTimeout(() => {
+    reason.timedOut = true;
+    stop.abort();
+  }, limits.timeoutMs);
+  const { provider, api, conn } = openSession(source, { allowHost, fetchImpl, signal: stop.signal });
+  // A zip (Azure DevOps) is held in a file while it is read: in a folder of its own, swept like a clone's.
+  const dir = fs.mkdtempSync(path.join(tmpRoot, TEMP_PREFIX));
+  fs.chmodSync(dir, 0o700);
+  try {
+    const engineRepo = { id: repo.id, name: address.name, fullName: repo.fullName, org: repo.org, project: repo.project, defaultBranch: safeBranch(repo.branch) ? repo.branch : null, createdAt: repo.createdAt ?? null, provider: conn.provider };
+    const m = await analyzeRepoApi(engineRepo, {
+      session: { provider, api },
+      conn,
+      workDir: dir,
+      windowDays: limits.windowDays,
+      maxFileBytes: limits.fileBytes,
+      maxArchiveBytes: limits.repoBytes,
+      countCategories: COUNTED,
+      now,
+      onPhase: (phase) => onProgress({ state: phase === 'count' ? 'counting' : phase }),
+    });
+    return measured(address, { ...m, branch: m.branch ?? repo.branch }, { engine: 'api', now });
+  } catch (error) {
+    if (/larger than .* MB/.test(error.message ?? '')) reason.tooBig = true;
+    throw Object.assign(error, reason);
+  } finally {
+    clearTimeout(timer);
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+  }
+}
+
+/**
+ * One repository measured: with git, or with its platform's API when `engine` is 'api' and it was discovered
+ * through `source` (an address pasted, with nothing else known of it, is always cloned). `allowHost(hostname)`:
+ * may it be called. Resolves {name, url, host, path, branch, commit, engine, lines, files, languages, commits,
+ * windowDays, lastCommitAt, frequency, perWeek, devs90, empty, people} (people: keys to count each person once,
+ * never shown or kept).
+ */
+export async function measureRepository(repo, { source = null, engine = 'git', allowHost = () => true, fetchImpl = null, tmpRoot = os.tmpdir(), limits = GIT_COUNT_LIMITS, onProgress = () => {}, bin = 'git', now = Date.now() } = {}) {
+  const address = repoAddress(repo.url);
+  if (!allowHost(address.hostname)) throw fail(400, `Repositories on ${address.hostname} are not counted: connect that host on the Beta page, or add it to SCM_ALLOWED_HOSTS.`);
+  const secrets = source?.secrets ?? [];
+  // The API needs what discovery said: its full name (and id), and its default branch (an empty one has none: git says so).
+  const viaApi = engine === 'api' && source && repo.fullName && safeBranch(repo.branch) && (repo.id || source.engine.provider === 'github' || source.engine.provider.startsWith('bitbucket')) && source.authFor(address);
+  try {
+    if (viaApi) return await measureWithApi(repo, address, { source, allowHost, fetchImpl, tmpRoot, limits, onProgress, now });
+    return await measureWithGit(repo, address, { source, tmpRoot, limits, onProgress, bin, now });
+  } catch (error) {
+    if (error.status && !error.url && !error.timedOut && !error.tooBig) throw Object.assign(new Error(redact(error.message, secrets)), { status: error.status });
+    throw fail(502, engineProblem(error, address, secrets, limits));
   }
 }
 
@@ -743,89 +755,168 @@ export function sweepLeftovers(tmpRoot = os.tmpdir(), { olderThanMs = 60 * 60_00
   return removed;
 }
 
-// ---- Counts, followed by the page --------------------------------------------------------------
+// ---- Runs, followed by the page ------------------------------------------------------------------
 
-/** The repositories asked for: up to 50 clone addresses (each once), with a name and branch when listed. */
-export function cleanRepositories(list, limits = GIT_COUNT_LIMITS) {
+const ID = /^[\w.{}:@ -]{1,200}$/;
+const text = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+
+/**
+ * The repositories asked for, each once and checked: its clone address, and what discovery said of it (source,
+ * organization, full name, id, project, branch, created). `sources` names the sources of this run; a repository
+ * from another, or pasted, goes with no source unless its host is a source's own (that source's token, then).
+ */
+export function cleanRepositories(list, { sources = new Map(), limits = GIT_COUNT_LIMITS } = {}) {
   const items = Array.isArray(list) ? list : [];
   if (!items.length) throw fail(400, 'Tick or paste at least one repository.');
   const out = new Map();
-  for (const item of items.slice(0, 1000)) {
+  for (const item of items.slice(0, limits.repositories * 2)) {
     const address = repoAddress(typeof item === 'string' ? item : item?.url);
-    if (!out.has(address.url)) out.set(address.url, { url: address.url, name: address.name, branch: safeBranch(item?.branch) ? item.branch : '' });
+    if (out.has(address.url)) continue;
+    const named = typeof item === 'object' && item ? item : {};
+    let source = sources.get(String(named.source ?? '')) ?? null;
+    if (source && !source.authFor(address) && address.host !== source.gitHost) source = null;
+    if (!source) source = [...sources.values()].find((s) => s.authFor(address)) ?? null;
+    const fullName = text(named.fullName, 300);
+    out.set(address.url, {
+      url: address.url,
+      name: address.name,
+      source: source?.key ?? '',
+      branch: safeBranch(named.branch) ? named.branch : '',
+      org: ID.test(text(named.org, 200)) ? named.org : '',
+      fullName: fullName && fullName.split('/').every((p) => p && p !== '.' && p !== '..' && /^[\w.~ -]+$/.test(p)) ? fullName : '',
+      id: ID.test(text(named.id, 200)) ? named.id : '',
+      project: ID.test(text(named.project, 200)) ? named.project : '',
+      createdAt: Number.isFinite(Date.parse(named.createdAt ?? '')) ? new Date(Date.parse(named.createdAt)).toISOString() : null,
+    });
   }
-  if (out.size > limits.repositories) throw fail(400, `At most ${limits.repositories} repositories a count: tick fewer, and count the rest after.`);
+  if (out.size > limits.repositories) throw fail(400, `At most ${limits.repositories} repositories a run: tick fewer, and count the rest after.`);
   return [...out.values()];
 }
 
 /**
- * The counts running and just finished, each one person's: started, then followed (view) until done.
- * The source (and its token) is held by the count while it runs and let go when it ends; a view never
- * has it. `maxRunning`: counts at once on this server.
+ * The runs going and just finished, each one person's: started, then followed (view) until done. The sources
+ * (and their tokens) are held by the run while it goes and let go when it ends; a view never has them, nor the
+ * people's names or emails: each repository says how many people committed, and the run how many different
+ * people across it (counted by keys hashed with a salt of the run's own, in memory only). `maxRunning`: runs at
+ * once on this server.
  */
-export function createGitCounter({ allowHost = () => true, tmpRoot = os.tmpdir(), limits = GIT_COUNT_LIMITS, maxRunning = 2, keepMs = 30 * 60_000, log = () => {}, bin = 'git' } = {}) {
+export function createGitCounter({ allowHost = () => true, fetchImpl = null, tmpRoot = os.tmpdir(), limits = GIT_COUNT_LIMITS, maxRunning = 2, keepMs = 30 * 60_000, log = () => {}, bin = 'git' } = {}) {
   const jobs = new Map();
   const prune = () => {
     for (const [id, job] of jobs) if (job.state !== 'running' && Date.now() - Date.parse(job.finishedAt) > keepMs) jobs.delete(id);
   };
-  const view = (job) => ({
+  const summary = (job) => {
+    const done = job.repositories.filter((r) => r.state === 'done');
+    return {
+      repositories: job.repositories.length,
+      measured: done.length,
+      failed: job.repositories.filter((r) => r.state === 'failed').length,
+      lines: done.reduce((n, r) => n + (r.lines ?? 0), 0),
+      commits: done.reduce((n, r) => n + (r.commits ?? 0), 0),
+      developers: job.people.size,
+      developerDays: DEV_WINDOW_DAYS,
+    };
+  };
+  const view = (job, after = 0) => ({
     id: job.id,
     state: job.state,
+    engine: job.engine,
     startedAt: job.startedAt,
     finishedAt: job.finishedAt,
     host: job.host,
-    repositories: job.repositories.map((r) => ({ ...r })),
+    seq: job.seq,
+    summary: summary(job),
+    repositories: job.repositories.filter((r) => r.seq > after).map((r) => ({ ...r })),
+    partial: after > 0,
   });
   return {
     get running() {
       return [...jobs.values()].filter((j) => j.state === 'running').length;
     },
-    /** Start counting `repositories` for `owner` (who asked) with `source`; resolves the count as the page sees it. */
-    async start(owner, { source, repositories }) {
+    /** Start measuring `repositories` for `owner` (who asked) with `sources` (a Map by key); resolves the run as the page sees it. */
+    async start(owner, { sources = new Map(), source = null, repositories, engine = 'auto' }) {
       prune();
-      const list = cleanRepositories(repositories, limits);
+      const known = new Map(sources);
+      if (source) known.set(source.key, source);
+      const list = cleanRepositories(repositories, { sources: known, limits });
       if ([...jobs.values()].some((j) => j.owner === owner && j.state === 'running')) throw fail(409, 'A count is already running: wait for it to end.');
       if (this.running >= maxRunning) throw fail(409, 'Other counts are running on this server: try again in a few minutes.');
-      const missing = await gitMissing(bin);
-      if (missing) throw fail(409, missing);
+      const chosen = await chooseEngine(engine, bin);
+      // Pasted addresses (nothing known but the address) need git, whichever engine was chosen.
+      if (chosen === 'api' && list.some((r) => !r.fullName || !r.source)) {
+        const missing = await gitMissing(bin);
+        if (missing) throw fail(409, `${missing} (Addresses pasted are counted with git.)`);
+      }
       const job = {
         id: randomUUID(),
         owner,
         state: 'running',
+        engine: chosen,
         startedAt: new Date().toISOString(),
         finishedAt: null,
-        host: source?.gitHost ?? '',
-        repositories: list.map((r) => ({ name: r.name, url: r.url, branch: r.branch, state: 'waiting', done: 0, total: 0, commit: '', lines: null, languages: null, error: '' })),
+        host: [...new Set([...known.values()].map((s) => s.gitHost))].join(', '),
+        seq: 0,
+        salt: randomBytes(16),
+        people: new Set(),
+        repositories: list.map((r, i) => ({ i, name: r.name, url: r.url, path: r.fullName || '', org: r.org, source: r.source, branch: r.branch, state: 'waiting', done: 0, total: 0, commit: '', lines: null, languages: null, error: '', seq: 0 })),
       };
+      const touch = (row, patch) => {
+        Object.assign(row, patch);
+        job.seq += 1;
+        row.seq = job.seq;
+      };
+      job.repositories.forEach((row) => touch(row, {}));
       jobs.set(job.id, job);
-      let held = source;
-      let next = 0;
-      const worker = async () => {
-        while (next < list.length) {
-          const index = next;
-          next += 1;
-          const row = job.repositories[index];
-          try {
-            const result = await countRepository(list[index], { source: held, allowHost, tmpRoot, limits, bin, onProgress: (p) => Object.assign(row, p) });
-            Object.assign(row, { state: 'done', name: result.name, host: result.host, path: result.path, branch: result.branch, commit: result.commit, lines: result.lines, languages: result.languages, files: result.files, skipped: result.skipped, countedAt: new Date().toISOString() });
-          } catch (error) {
-            Object.assign(row, { state: 'failed', error: error.status ? redact(error.message, held?.secrets) : 'Not counted: something went wrong.' });
-            if (!error.status) log(`[calculator] Counting ${row.url} from git failed: ${redact(error.stack ?? error.message, held?.secrets)}`);
-          }
+      let held = known;
+      const secretsOf = (key) => held?.get(key)?.secrets ?? [];
+      pool(list, Math.min(limits.concurrency, list.length), async (repo, index) => {
+        const row = job.repositories[index];
+        const src = held?.get(repo.source) ?? null;
+        try {
+          const result = await measureRepository(repo, { source: src, engine: chosen, allowHost, fetchImpl, tmpRoot, limits, bin, onProgress: (p) => touch(row, p) });
+          const { people, ...shown } = result;
+          for (const key of people) job.people.add(createHash('sha256').update(job.salt).update(key).digest('base64'));
+          touch(row, { ...shown, state: 'done', path: row.path || shown.path, countedAt: new Date().toISOString() });
+        } catch (error) {
+          touch(row, { state: 'failed', error: error.status ? redact(error.message, secretsOf(repo.source)) : 'Not counted: something went wrong.' });
+          if (!error.status) log(`[calculator] Counting ${row.url} from git failed: ${redact(error.stack ?? error.message, secretsOf(repo.source))}`);
         }
-      };
-      Promise.all(Array.from({ length: Math.min(limits.concurrency, list.length) }, worker)).finally(() => {
-        held = null;
-        Object.assign(job, { state: 'done', finishedAt: new Date().toISOString() });
-      });
+      })
+        .catch((error) => log(`[calculator] A count stopped: ${redact(error.message, [...(held?.values() ?? [])].flatMap((s) => s.secrets))}`))
+        .finally(() => {
+          held = null;
+          job.salt = null;
+          Object.assign(job, { state: 'done', finishedAt: new Date().toISOString() });
+          job.seq += 1;
+        });
       return view(job);
     },
-    /** A count as the page follows it: only its owner's. */
-    view(owner, id) {
+    /** A run as the page follows it: only its owner's; `after`: only the repositories changed since that view's seq. */
+    view(owner, id, { after = 0 } = {}) {
       prune();
       const job = jobs.get(String(id ?? ''));
       if (!job || job.owner !== owner) throw fail(404, 'That count is no longer here: count again.');
-      return view(job);
+      const since = Number(after);
+      return view(job, Number.isFinite(since) && since > 0 ? since : 0);
     },
   };
 }
+
+// ---- cloc-fusion's one-file page, handed out by the tab -------------------------------------------
+
+let page = null;
+/**
+ * cloc-fusion.html (src/cloc-fusion/), checked against the SHA-256 noted when it was copied in: {file, version,
+ * commit, sha256, bytes, html}. Refused when it does not match (changed since: not handed out).
+ */
+export function clocFusionPage() {
+  if (page) return page;
+  const file = new URL(`./cloc-fusion/${CLOC_FUSION.page}`, import.meta.url);
+  const bytes = fs.readFileSync(file);
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  if (sha256 !== CLOC_FUSION.sha256) throw fail(500, 'The copy of cloc-fusion here does not match its checksum: it is not handed out.');
+  page = Object.freeze({ file: CLOC_FUSION.page, version: CLOC_FUSION.version, commit: CLOC_FUSION.commit, sha256, bytes: bytes.length, html: bytes.toString('utf8') });
+  return page;
+}
+
+export { FREQUENCIES };

@@ -208,11 +208,13 @@ function story(data, L) {
       <h3>${w('Fusion — new customer')}</h3>
       <table class="calc">
         <tr><td>${w('Projects')}</td><td>${num(t.projects)}</td></tr>
-        <tr><td>${w('Code lines (counted with cloc)')}</td><td>${num(t.lines)}</td></tr>
+        <tr><td>${w('Code lines (no blank or comment lines)')}</td><td>${num(t.lines)}</td></tr>
         <tr><td>${w('10K LOC units')}</td><td>${num(t.units)}</td></tr>
         <tr><td>${w('Fusion scans over {0} months', num(data.fusionNew.periodMonths))}</td><td>${num(t.scans)}</td></tr>
+        ${t.withActivity ? `<tr><td>${w('Developers in the last 90 days (added up per project)')}</td><td>${num(t.developers)}</td></tr>` : ''}
         <tr class="sum gold"><td>${w('Fusion credits')}</td><td>${num(t.credits, 1)}</td></tr>
       </table>
+      ${fusionNewScansNote(data.fusionNew, L)}
       ${t.unknownRate ? `<p class="sub warn">${w('{0} projects without a model rate are not counted', num(t.unknownRate))}</p>` : ''}
     </div>`);
   }
@@ -309,7 +311,8 @@ export function assumptionItems(data, sum, L) {
     items.push(!origins.length ? w('Scans from: no scan origin.') : data.source.originsFusionOnly ? w('Scans from: {0} (for Fusion: the two exports count every scan).', named) : w('Scans from: {0}.', named));
   }
   if (data.fusion || data.fusionNew) items.push(w("Each project's lines of code are rounded up to whole 10K units on their own; one scan costs its model's credits per 10K LOC."));
-  if (data.fusionNew?.leftOut?.length) items.push(w('New customer: code lines counted with cloc, without blank and comment lines; not counted: {0}.', data.fusionNew.leftOut.map(esc).join(', ')));
+  if (data.fusionNew?.leftOut?.length) items.push(w('New customer: code lines without blank and comment lines (counted from git with cloc-fusion\'s engine, read from a cloc-fusion report, or counted with cloc); not counted: {0}.', data.fusionNew.leftOut.map(esc).join(', ')));
+  if (data.fusionNew?.totals?.byRule) items.push(w('New customer: a project whose change frequency is known (commits on its default branch in the last year) gets the Fusion scans of that frequency, as a Checkmarx One project scanned that often does on the Fusion tab.'));
   if (sum.settings.extraPercent) items.push(w('{0}% extra credits on top.', num(sum.settings.extraPercent, 2)));
   items.push(w('Bundles of {0} credits, rounded up to whole bundles.', num(sum.settings.bundleCredits)));
   return items;
@@ -389,16 +392,30 @@ function fusionAppendix(f, L) {
 </section>`;
 }
 
-/** Appendix: every figure of Fusion for the new customer (its lines counted with cloc). */
-function fusionNewAppendix(f, L) {
+// Where a new customer's project's Fusion scans came from.
+const FROM_NEW = { default: 'Default', frequency: 'Change frequency', criticality: 'Criticality', project: 'Set for the project' };
+
+/** One line under the new customer's card: how many projects' scans follow how often they change, and the default for the rest. */
+function fusionNewScansNote(f, L) {
   const { w, num } = L;
+  const t = f.totals ?? {};
+  if (!t.byRule && !t.byProject) return `<p class="sub">${w('Fusion scans: {0} a project (how often each one changes is not known).', num(f.defaultScans))}</p>`;
+  return `<p class="sub">${w('Fusion scans: {0} projects by how often they change (commits on the default branch, as on the Fusion tab), {1} at the default of {2}, {3} set for the project.', num(t.byRule ?? 0), num(t.byDefault ?? 0), num(f.defaultScans), num(t.byProject ?? 0))}</p>`;
+}
+
+/** Appendix: every figure of Fusion for the new customer (counted from git, from a cloc-fusion report, or with cloc). */
+function fusionNewAppendix(f, L) {
+  const { w, num, frequency } = L;
   const models = new Map(f.models.map((m) => [m.id, m]));
   const modelName = (id) => esc(models.get(id)?.name || '—');
+  const activity = f.rows.some((r) => r.frequency);
+  const freqCell = (r) => (r.frequency ? `${frequency(r.frequency)}${r.commits !== null && r.commits !== undefined ? ` <small>${w('({0} commits in {1} days)', num(r.commits), num(r.windowDays ?? 365))}</small>` : ''}` : '—');
   return `<section class="appendix">
   <h2>${w('Fusion — new customer')}</h2>
-  <p class="sub">${w('Fusion scans over {0} months.', num(f.periodMonths))} ${w('Code lines counted with cloc, without blank and comment lines.')}</p>
-  ${table(`<thead><tr><th>${w('Project')}</th><th>${w('Languages')}</th><th>${w('Lines of code')}</th><th>${w('10K units')}</th><th>${w('Fusion scans')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
-    ${f.rows.filter((r) => r.included).map((r) => `<tr><td class="name">${esc(r.name)}</td><td class="wrap">${(r.languages ?? []).map((l) => `${esc(l.name)} ${num(l.lines)}`).join(', ') || '—'}</td><td>${num(r.lines)}</td><td>${num(r.units)}</td><td>${num(r.scans)}</td><td class="name">${modelName(r.model)}</td><td>${r.credits === null || !r.units ? '—' : num(r.credits, 1)}</td></tr>`).join('')}
+  <p class="sub">${w('Fusion scans over {0} months.', num(f.periodMonths))} ${w('Code lines without blank and comment lines: counted from git with cloc-fusion\'s engine, read from a cloc-fusion report, or counted with cloc.')}</p>
+  ${fusionNewScansNote(f, L)}
+  ${table(`<thead><tr><th>${w('Project')}</th><th>${w('Languages')}</th><th>${w('Lines of code')}</th>${activity ? `<th>${w('Change frequency')}</th><th>${w('Developers (90 days)')}</th>` : ''}<th>${w('10K units')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
+    ${f.rows.filter((r) => r.included).map((r) => `<tr><td class="name">${esc(r.name)}</td><td class="wrap">${(r.languages ?? []).map((l) => `${esc(l.name)} ${num(l.lines)}`).join(', ') || '—'}</td><td>${num(r.lines)}</td>${activity ? `<td class="wrap">${freqCell(r)}</td><td>${r.devs90 === null || r.devs90 === undefined ? '—' : num(r.devs90)}</td>` : ''}<td>${num(r.units)}</td><td>${num(r.scans)}</td><td>${FROM_NEW[r.scansFrom] ? w(FROM_NEW[r.scansFrom]) : ''}</td><td class="name">${modelName(r.model)}</td><td>${r.credits === null || !r.units ? '—' : num(r.credits, 1)}</td></tr>`).join('')}
   </tbody>`, 'dense')}
 </section>`;
 }

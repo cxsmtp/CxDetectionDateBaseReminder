@@ -3640,37 +3640,60 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <section class="panel">
                 <h2>Fusion — new customer: code not in Checkmarx One yet</h2>
                 <p class="calc-notice calc-off-note" id="calc-fnew-off-note" hidden>This part is left out of the projection (Add Fusion: New customer is unticked): none of it is counted in the credits or the report. The projects below are kept. <button type="button" class="link" id="calc-fnew-include">Include it</button></p>
-                <p class="calc-notice" data-help-fold>Count the customer's code lines one of two ways. Either way, each repository becomes a project below, counted the same way: code lines only, no blank or comment lines. Each project's code lines are rounded up to whole 10K units, and one Fusion scan costs its model's credits per 10K LOC, as on the existing customer tab; the models are that tab's.</p>
+                <p class="calc-notice" data-help-fold>Count the customer's code lines one of three ways. Each way, each repository becomes a project below, counted the same way: code lines only, no blank or comment lines. Counted from git or read from a cloc-fusion report, a project also says how often it changes, which sets its Fusion scans, and how many people work on it. Each project's code lines are rounded up to whole 10K units, and one Fusion scan costs its model's credits per 10K LOC, as on the existing customer tab; the models are that tab's.</p>
                 <div class="segmented calc-fnew-ways" id="calc-fnew-ways" role="radiogroup" aria-label="How the code lines are counted">
                   <label class="mode"><input type="radio" name="calc-fnew-way" value="git" checked /> <span>Count from git</span></label>
+                  <label class="mode"><input type="radio" name="calc-fnew-way" value="report" /> <span>Import a cloc-fusion report</span></label>
                   <label class="mode"><input type="radio" name="calc-fnew-way" value="cloc" /> <span>Upload cloc results</span></label>
                 </div>
+                <div class="calc-cf-bar">
+                  <button type="button" class="secondary sm" id="calc-cf-download">Download cloc-fusion</button>
+                  <span class="hint">cloc-fusion, one HTML file with nothing to install: it measures every repository the customer's own token can see, in their browser, and its report imports here (Import a cloc-fusion report). <span class="calc-cf-sum" id="calc-cf-sum" translate="no"></span></span>
+                </div>
                 <div class="calc-fnew-way" id="calc-git" data-fnew-way="git">
-                  <div class="calc-git-steps">
+                  <p class="calc-notice calc-warn-note" id="calc-git-offline" hidden>This file on its own cannot reach git. Download cloc-fusion above: it measures the customer's repositories where the code is, with their own token, and its report imports here (Import a cloc-fusion report). Or count from git with the launcher (<code>cx-credits-calculator.mjs</code>).</p>
+                  <div class="calc-git-steps" id="calc-git-steps">
                     <div>
                       <h3>1 · Where the code is</h3>
-                      <div class="calc-git-hosts" id="calc-git-hosts" role="radiogroup" aria-label="Where the code is"></div>
+                      <p class="hint calc-git-sub">Tick one or more: the Admin's git connections (the same tokens as Checkmarx One's code repository connections and Code authors), a token for this run, or both.</p>
+                      <div class="calc-git-hosts" id="calc-git-hosts" role="group" aria-label="Where the code is"></div>
                       <div class="calc-git-token" id="calc-git-token" hidden>
                         <label class="field"><span>Git host</span><select id="calc-git-provider"><option value="github">GitHub</option><option value="gitlab">GitLab</option><option value="azure">Azure DevOps</option><option value="bitbucket">Bitbucket</option></select></label>
                         <label class="field"><span>Address</span><input type="url" id="calc-git-address" spellcheck="false" autocomplete="off" translate="no" /></label>
                         <label class="field calc-git-wide"><span>Token (read access to the repositories)</span><input type="password" id="calc-git-secret" spellcheck="false" autocomplete="off" /></label>
-                        <p class="hint calc-git-lock calc-git-wide">Used for this count only, then forgotten: never saved with the customer, never written to a log or shown again, and sent only to this host, as a header. Give a read-only token (GitHub: <i>Contents: read</i>; GitLab: <i>read_repository</i>; Azure DevOps: <i>Code (Read)</i>; Bitbucket: <i>Repositories: Read</i>).</p>
+                        <p class="hint calc-git-lock calc-git-wide">Used for this run only, then forgotten: never saved with the customer, never written to a log or shown again, and sent only to this host, as a header. Give a read-only token (GitHub: <i>Contents: read</i>, and <i>read:org</i> to list organizations; GitLab: <i>read_api</i> and <i>read_repository</i>; Azure DevOps: <i>Code (Read)</i>, and <i>User Profile (Read)</i> to list organizations; Bitbucket: <i>Repositories: Read</i>).</p>
                       </div>
                     </div>
                     <div>
-                      <h3>2 · Which repositories</h3>
+                      <h3>2 · Which organizations and repositories</h3>
+                      <div class="actions compact"><button type="button" class="secondary" id="calc-git-orgs-find">Find organizations</button><span class="hint">Each one's organizations, groups or workspaces, and Everything this token can see.</span></div>
+                      <div class="calc-git-orgs" id="calc-git-orgs" hidden></div>
                       <div class="calc-git-owner">
-                        <label class="field"><span id="calc-git-owner-label">Organisation or group</span><input type="text" id="calc-git-owner" spellcheck="false" autocomplete="off" translate="no" /></label>
-                        <button type="button" class="secondary" id="calc-git-list">List its repositories</button>
+                        <label class="field"><span id="calc-git-owner-label">Or type an organisation or group</span><input type="text" id="calc-git-owner" spellcheck="false" autocomplete="off" translate="no" /></label>
+                        <button type="button" class="secondary" id="calc-git-list">List repositories</button>
                       </div>
                       <div class="calc-git-repos" id="calc-git-repos" hidden></div>
                       <label class="field calc-git-paste"><span>Or paste clone addresses, one a line:</span><textarea id="calc-git-paste" rows="3" spellcheck="false" translate="no" placeholder="https://github.com/acme/payments-api"></textarea></label>
-                      <div class="actions compact"><button type="button" class="primary" id="calc-git-count" disabled>Count code lines</button><span class="hint">Each one's default branch, latest commit.</span></div>
+                      <div class="calc-git-run">
+                        <label class="field"><span>Engine</span><select id="calc-git-engine"><option value="auto">Automatic: git when it is installed</option><option value="git">git: shallow clones</option><option value="api">The platform's API: archives, no git</option></select></label>
+                        <button type="button" class="primary" id="calc-git-count" disabled>Count code lines</button>
+                      </div>
+                      <p class="hint">Each one's default branch: its code lines, its commits in the last 365 days (so how often it changes) and the people who committed in the last 90 days.</p>
                       <p class="status" id="calc-git-status" aria-live="polite"></p>
                     </div>
                   </div>
+                  <div class="rp-kpis calc-git-summary" id="calc-git-summary" aria-live="polite" hidden></div>
                   <div class="calc-git-progress" id="calc-git-progress" aria-live="polite" hidden></div>
-                  <p class="calc-notice calc-warn-note calc-git-how">How it is counted: each repository's latest commit is fetched from git into a temporary folder on this server (no history), its files read where git keeps them, counted, and the folder deleted at once. Lines are counted as cloc counts them: by each file's language, without blank lines or comments, with no cloc to install, so totals may differ slightly from cloc's. Up to 50 repositories a count, 2 GB each; files git marks as binary, and over 1 MB, are skipped.</p>
+                  <p class="calc-notice calc-warn-note calc-git-how">How it is measured, with cloc-fusion's engine: each repository's default branch is fetched from git into a temporary folder on this server, back to a year ago and without file contents but those counted (or read from the platform's API as an archive), counted, and the folder deleted at once. Lines are counted as cloc counts them: by each file's language, without blank lines or comments; dependencies, build output and generated files are left out. Commits are those on the default branch in the last 365 days, merges left out: how often a repository changes sets its Fusion scans. Developers are the people who committed in the last 90 days, bots left out, counted once across the run: only the counts are kept, never a name or an email. Up to 1,000 repositories a run, 2 GB each; files git marks as binary, and over 1 MB, are skipped.</p>
+                </div>
+                <div class="calc-fnew-way" id="calc-cf" data-fnew-way="report" hidden>
+                  <p class="calc-cmd-label">When the code must not leave the customer, or they have many organizations: they open <b>cloc-fusion</b> (the file above; no install, nothing sent anywhere but their own git hosts), add their connections with a read-only token, press <b>Run the Fusion scan</b>, and send you <b translate="no">cloc-fusion-report.json</b> (Download JSON on its report). It holds counts and names of repositories, never code or tokens; its list of contributors is not read here.</p>
+                  <div class="calc-cloc-drop" id="calc-cf-drop">
+                    <p><b>Drop cloc-fusion-report.json here</b>, or <button type="button" class="link" id="calc-cf-pick">choose the file</button>. Each repository it measured becomes a project, with its lines by language, commits, change frequency and developers; a project with the same address, or the same name, is replaced.</p>
+                    <input type="file" id="calc-cf-file" accept=".json,application/json" hidden />
+                    <div class="calc-cloc-files" id="calc-cf-files"></div>
+                    <p class="status" id="calc-cf-status" aria-live="polite"></p>
+                  </div>
                 </div>
                 <div class="calc-fnew-way" id="calc-cloc" data-fnew-way="cloc" hidden>
                 <p class="calc-cmd-label">When the code must not leave the customer: they run <b>cloc</b>, a free open-source tool (Count Lines of Code), where the code is and send you only the counts. <b translate="no">docker.io/aldanial/cloc</b> is cloc's official image, from its author Al Danial.</p>
@@ -3701,19 +3724,20 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <section class="panel">
                 <h2>How it is counted</h2>
                 <div class="calc-terms">
-                  <label class="field"><span>Fusion scans per project</span><input type="number" id="calc-fnew-scans" min="0" step="1" /></label>
+                  <label class="field"><span>Fusion scans per project, when how often it changes is not known</span><input type="number" id="calc-fnew-scans" min="0" step="1" /></label>
                   <label class="field"><span>Model</span><select id="calc-fnew-model"></select></label>
                 </div>
+                <p class="hint">A project counted from git or read from a cloc-fusion report knows how often it changes (commits on its default branch): it gets the Fusion scans of that change frequency from the Fusion — existing customer tab, as a Checkmarx One project scanned that often does. Scans typed for a project win.</p>
                 <p class="hint">Languages found. A crossed-out one is not counted (not code Fusion scans): click a language to count it, or to leave it out.</p>
                 <div class="calc-langs" id="calc-fnew-langs"></div>
                 <p class="calc-notice calc-warn-note" id="calc-fnew-dup" hidden></p>
                 <div class="rp-kpis" id="calc-fnew-kpis"></div>
                 <div class="table-wrap"><table class="data-table calc-projects calc-fnew-table">
-                  <thead><tr><th>Include</th><th>Project</th><th>From</th><th>Languages</th><th>Lines of code</th><th>10K units</th><th>Fusion scans</th><th>Model</th><th>Credits</th></tr></thead>
+                  <thead><tr><th>Include</th><th>Project</th><th>From</th><th>Languages</th><th>Lines of code</th><th>Change frequency</th><th>Developers (90 days)</th><th>10K units</th><th>Fusion scans</th><th>Model</th><th>Credits</th></tr></thead>
                   <tbody id="calc-fnew-rows"></tbody>
                 </table></div>
-                <p class="hint" id="calc-fnew-empty">No projects yet. Count the customer's repositories from git or drop their cloc results above, or add a project by hand.</p>
-                <p class="hint" id="calc-fnew-again" hidden>Counting again replaces a project of the same name; <b>Count again</b> on a git project re-reads its latest commit.</p>
+                <p class="hint" id="calc-fnew-empty">No projects yet. Count the customer's repositories from git, import a cloc-fusion report or drop their cloc results above, or add a project by hand.</p>
+                <p class="hint" id="calc-fnew-again" hidden>Counting again replaces a project of the same repository (or, for one without, the same name); <b>Count again</b> on a git project measures it again at its latest commit.</p>
               </section>
             </div>
 

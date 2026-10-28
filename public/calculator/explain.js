@@ -2,7 +2,9 @@
 // page, the report's "How each number is calculated" and the PDF's appendix. One source, so the
 // three always say the same thing. `L` is the report's wording (`w` escapes, `num` formats).
 
-import { HOURS_A_YEAR, SEVERITIES, aheadMonths, creditSummary } from './model.js';
+import { FREQUENCIES, HOURS_A_YEAR, SEVERITIES, aheadMonths, creditSummary, fusionTotal } from './model.js';
+
+const FREQUENCY_LABEL = Object.fromEntries(FREQUENCIES.map((f) => [f.id, f.label]));
 
 const pctOf = (n) => (Number.isFinite(n) ? n * 100 : 0);
 
@@ -123,10 +125,33 @@ export function fusionSection(f, L) {
   };
 }
 
+/**
+ * Fusion for the new customer: each project's scans (by how often it changes, when that is known: the commits on
+ * its default branch, bucketed as Checkmarx One projects' scans are; else this tab's default; or its own), then
+ * units × scans × each model's credits per 10K LOC.
+ */
+export function fusionNewSection(f, L) {
+  const { w, num } = L;
+  const T = f.totals ?? {};
+  const lines = [];
+  if (T.withActivity) lines.push({ text: w('{0} projects counted from git or read from a cloc-fusion report: their commits on the default branch in the last year set how often they change, and that change frequency sets their Fusion scans, as for a Checkmarx One project scanned that often:', num(T.withActivity)) });
+  for (const b of f.byFrequency ?? []) {
+    if (!b.projects) continue;
+    lines.push({ text: w('{0}: {1} projects, {2} Fusion scans each by the Fusion tab\'s rule, {3} in all', w(FREQUENCY_LABEL[b.id] ?? b.id), num(b.projects), num(f.rules?.[b.id]?.scans ?? f.defaultScans), num(b.scans)), sub: true });
+  }
+  if (T.byDefault) lines.push({ text: w('{0} projects without a known change frequency: {1} Fusion scans each (the default).', num(T.byDefault), num(f.defaultScans)) });
+  if (T.byProject) lines.push({ text: w('{0} projects with Fusion scans set for them.', num(T.byProject)) });
+  lines.push({ text: w('Each project\'s lines of code are rounded up to whole 10K units; units × Fusion scans × the model\'s credits per 10K LOC:') });
+  for (const m of (f.byModel ?? []).filter((x) => x.credits > 0)) lines.push({ text: `${String(m.name || '—').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])}: ${num(m.unitScans)} × ${num(m.rate, 2)} = ${num(m.credits, 1)}`, sub: true });
+  lines.push({ text: w('Total: {0}.', num(T.credits, 1)), total: true });
+  return { key: 'fusion-new-credits', title: w('Fusion — new customer credits'), lines };
+}
+
 /** The total and the bundles. */
 export function totalSection(data, L) {
   const { w, num } = L;
-  const sum = creditSummary(data.tr?.totals?.credits ?? null, data.fusion?.totals?.credits ?? null, data.summary?.settings);
+  // Both Fusion parts: the customer's projects in Checkmarx One and its new code.
+  const sum = creditSummary(data.tr?.totals?.credits ?? null, fusionTotal(data.fusion, data.fusionNew), data.summary?.settings);
   const lines = [{ text: w('Triage & remediation {0} + Fusion {1} = {2}.', num(sum.tr ?? 0, 1), num(sum.fusion ?? 0, 1), num(sum.base, 1)) }];
   if (sum.extra) lines.push({ text: w('Plus {0}% extra: {1}.', num(sum.settings.extraPercent, 2), num(sum.total, 1)) });
   lines.push({ text: w('{0} ÷ {1} credits a bundle = {2}, rounded up to {3} bundles.', num(sum.total, 1), num(sum.settings.bundleCredits), num(sum.exactBundles, 2), num(sum.bundles)) });
@@ -217,6 +242,7 @@ export function allSections(data, L) {
   return [
     ...(data.tr ? trSections(data.tr, L) : []),
     fusionSection(data.fusion, L),
+    ...(data.fusionNew ? [fusionNewSection(data.fusionNew, L)] : []),
     totalSection(data, L),
     ...impactSections(data.impact?.tr, L),
     ...fusionImpactSections(data.impact?.fusion, L),

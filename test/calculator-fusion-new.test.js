@@ -89,7 +89,7 @@ test('the projection report and its PDF show the new customer as its own part of
   assert.match(html, /trade-finance/);
   const { pages } = slideContent(data, {});
   assert.ok(JSON.stringify(pages.find((p) => p.kind === 'total')).includes('Fusion — new customer'));
-  assert.ok(pages.find((p) => p.kind === 'fusion').lines.some((l) => l.includes('New customer (code counted with cloc)')));
+  assert.ok(pages.find((p) => p.kind === 'fusion').lines.some((l) => l.includes('New customer (code counted from git, a cloc-fusion report or cloc)')));
 });
 
 test('the page: two Fusion tabs, the two ticks under Add Fusion, and the new customer\'s part in the summary', () => {

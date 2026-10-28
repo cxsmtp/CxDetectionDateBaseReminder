@@ -7,7 +7,7 @@ import { deriveConnection } from './cxone/endpoints.js';
 import { branchScopeOf } from './cxone/branches.js';
 import { DEFAULT_ENGINES, cleanEngines } from './engines.js';
 import { TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
-import { createGitCounter, gitSource, listRepositories, sweepLeftovers } from './fusion-git.js';
+import { CLOC_FUSION, GIT_COUNT_LIMITS, clocFusionPage, createGitCounter, gitSource, listOrganizations, listRepositories, sweepLeftovers } from './fusion-git.js';
 import { MAX_PROJECTS, cleanOrigins, readLimit } from '../public/calculator/model.js';
 
 /**
@@ -17,8 +17,9 @@ import { MAX_PROJECTS, cleanOrigins, readLimit } from '../public/calculator/mode
  * A browser cannot call Checkmarx One from a page opened from disk (its API answers no other
  * site), so the reads go through here. Nothing is kept: the key and what was read live in this
  * process's memory until it stops. Only the page it served can use it (a secret in that page,
- * and this computer's own address). It also counts a new customer's code lines from git, with
- * this computer's git and a token typed for that count (src/fusion-git.js).
+ * and this computer's own address). It also measures a new customer's repositories with cloc-fusion's
+ * engine, as CxMissionZero does (src/fusion-git.js): this computer's git (or the platforms' APIs) and a
+ * token typed for that run; and hands out cloc-fusion's one-file page.
  */
 
 const json = (res, status, body) => {
@@ -51,12 +52,14 @@ function openBrowser(url) {
   } catch {}
 }
 
-/** A token typed into the page for one count (Fusion — new customer, Count from git): checked, never kept. */
+/** A token typed into the page for one run (Fusion — new customer, Count from git): checked, never kept. */
 function typedSource(input) {
   const typed = input?.token && typeof input.token === 'object' ? input.token : null;
   if (!typed) throw Object.assign(new Error('Give the git host, its address and a token.'), { status: 400 });
-  return gitSource({ provider: String(typed.provider ?? ''), address: String(typed.address ?? ''), token: String(typed.token ?? '') });
+  return gitSource({ provider: String(typed.provider ?? ''), address: String(typed.address ?? ''), token: String(typed.token ?? ''), key: 'token' });
 }
+/** What to list of the token's account: the organizations ticked (or the one typed), or everything it can see. */
+const typedAsk = (input) => ({ orgs: (Array.isArray(input?.token?.orgs) ? input.token.orgs : input?.owner !== undefined ? [input.owner] : []).map(String).filter(Boolean), everything: input?.token?.everything === true });
 
 export async function startLauncher({ html, port = 0, host = '127.0.0.1', open = true, log = console.log, connect = (connection) => new CxClient(connection), gitBin = 'git' } = {}) {
   // Plain http, so this computer only: the page's secret and the API key never cross a network.
@@ -120,12 +123,17 @@ export async function startLauncher({ html, port = 0, host = '127.0.0.1', open =
       const ids = Array.isArray(input?.projectIds) ? input.projectIds.slice(0, MAX_PROJECTS).map((id) => String(id).slice(0, 100)) : [];
       return seriesFor(read, ids, cleanEngines(input?.engines).length ? cleanEngines(input.engines) : DEFAULT_ENGINES, cleanOrigins(input?.origins));
     },
-    // Fusion — new customer, Count from git, as CxMissionZero counts (src/fusion-git.js), on this computer: a token
-    // typed for one count only (there are no Admin's connections here), held in memory while the count runs.
-    'GET /api/projections/git/connections': () => ({ connections: [] }),
-    'POST /api/projections/git/repositories': (input) => listRepositories(typedSource(input), input?.owner),
-    'POST /api/projections/git/count': (input) => counter.start('local', { source: typedSource(input), repositories: input?.repositories }),
-    'GET /api/projections/git/count': (_input, url) => counter.view('local', url.searchParams.get('id')),
+    // Fusion — new customer, Count from git, as CxMissionZero measures (src/fusion-git.js, cloc-fusion's engine), on
+    // this computer: a token typed for one run only (there are no Admin's connections here), held in memory while it runs.
+    'GET /api/projections/git/connections': () => ({ connections: [], limits: { repositories: GIT_COUNT_LIMITS.repositories, windowDays: GIT_COUNT_LIMITS.windowDays }, clocFusion: { version: CLOC_FUSION.version, sha256: CLOC_FUSION.sha256 } }),
+    'POST /api/projections/git/organizations': async (input) => {
+      const source = typedSource(input);
+      return { sources: [await listOrganizations(source)] };
+    },
+    'POST /api/projections/git/repositories': (input) => listRepositories(typedSource(input), typedAsk(input)),
+    'POST /api/projections/git/count': (input) => counter.start('local', { source: typedSource(input), repositories: input?.repositories, engine: String(input?.engine ?? 'auto') }),
+    'GET /api/projections/git/count': (_input, url) => counter.view('local', url.searchParams.get('id'), { after: url.searchParams.get('after') }),
+    'GET /api/projections/git/cloc-fusion': () => clocFusionPage(),
   };
 
   const server = http.createServer(async (req, res) => {

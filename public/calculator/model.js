@@ -621,31 +621,47 @@ export function newCustomerSettings(value = {}) {
   };
 }
 
+const FREQUENCY_IDS = new Set(FREQUENCIES.map((f) => f.id));
+
+/**
+ * A new customer's project's change frequency: from the commits on its default branch in the window, as
+ * cloc-fusion measured them (Count from git, or its report); null when not known (cloc results, typed, or
+ * counted before MZ-01.01.05).
+ */
+export const changeFrequencyOf = (project) => (FREQUENCY_IDS.has(project?.activity?.frequency) ? project.activity.frequency : null);
+
 /**
  * A new customer's Fusion need over the period, the same way as a customer's in Checkmarx One: each
  * project's lines rounded up to whole 10K units, × its Fusion scans, × its model's credits per 10K.
- * `fusionValue` gives the models and the period (the Fusion page's).
+ * `fusionValue` gives the models, the period and the rules (the Fusion page's). A project whose change
+ * frequency is known (commits on its default branch) gets that frequency's Fusion scans and model, as a
+ * Checkmarx One project of that scan frequency does, and a criticality its rule, combined as the Fusion
+ * page says; one without either gets this tab's own scans and model; one with scans of its own keeps them.
  */
 export function newCustomerEstimate(value = {}, fusionValue = {}) {
   const fusion = fusionSettings(fusionValue);
   const own = newCustomerSettings(value);
   const models = new Map(fusion.models.map((m) => [m.id, m]));
   const defaultModel = models.has(own.defaultModel) ? own.defaultModel : fusion.defaultModel;
+  // The Fusion page's rules, with this tab's own scans and model where no rule applies.
+  const rules = { ...fusion, defaultScans: own.defaultScans, defaultModel };
   const projects = Array.isArray(value?.projects) ? value.projects : [];
+  const out = new Set(own.leftOut);
   const rows = projects.map((p) => {
     const lines = clocLines(p, own.leftOut);
     const included = p.included !== false;
     const units = unitsOf(lines);
-    const override = wholeNumber(p.scansOverride);
-    const scans = override ?? own.defaultScans;
-    const model = p.modelOverride && models.has(p.modelOverride) ? p.modelOverride : defaultModel;
+    const frequency = changeFrequencyOf(p);
+    const criticality = CRITICALITIES.includes(Number(p.criticality)) ? Number(p.criticality) : null;
+    const { scans, from, model } = allocate({ frequency, criticality, scansOverride: p.scansOverride, modelOverride: p.modelOverride }, rules);
     const rate = models.get(model)?.creditsPer10k ?? null;
     const credits = included && units && rate !== null ? units * scans * rate : included && units && scans ? null : 0;
-    const out = new Set(own.leftOut);
     const languages = Object.entries(p.langs ?? {})
       .map(([name, n]) => ({ name, lines: wholeNumber(n) ?? 0, counted: !out.has(name) }))
       .sort((a, b) => b.lines - a.lines);
-    return { ...p, lines, included, units, scans, scansFrom: override !== null ? 'project' : 'default', model, rate, credits, languages, unknownLines: lines === null, unknownRate: included && units > 0 && scans > 0 && rate === null };
+    const devs90 = wholeNumber(p.activity?.devs90);
+    const commits = wholeNumber(p.activity?.commits);
+    return { ...p, lines, included, units, frequency, criticality, commits, devs90, scans, scansFrom: from, model, rate, credits, languages, unknownLines: lines === null, unknownRate: included && units > 0 && scans > 0 && rate === null };
   });
   const counted = rows.filter((r) => r.included && r.units);
   const totals = {
@@ -657,12 +673,89 @@ export function newCustomerEstimate(value = {}, fusionValue = {}) {
     credits: counted.reduce((a, r) => a + (r.credits ?? 0), 0),
     unknownLines: rows.filter((r) => r.included && r.unknownLines).length,
     unknownRate: rows.filter((r) => r.unknownRate).length,
+    // Where the scans came from: the change frequency (or criticality), this tab's default, or the project's own.
+    byRule: counted.filter((r) => r.scansFrom === 'frequency' || r.scansFrom === 'criticality').length,
+    byDefault: counted.filter((r) => r.scansFrom === 'default').length,
+    byProject: counted.filter((r) => r.scansFrom === 'project').length,
+    // People who committed in the last 90 days, added up per project (one person in two projects counts twice).
+    developers: counted.reduce((a, r) => a + (r.devs90 ?? 0), 0),
+    withActivity: counted.filter((r) => r.frequency).length,
   };
   const byModel = fusion.models.map((m) => {
     const mine = counted.filter((r) => r.model === m.id);
     return { id: m.id, name: m.name, rate: m.creditsPer10k, projects: mine.length, unitScans: mine.reduce((a, r) => a + r.units * r.scans, 0), credits: mine.reduce((a, r) => a + (r.credits ?? 0), 0) };
   });
-  return { settings: { ...own, defaultModel, periodMonths: fusion.periodMonths, models: fusion.models }, rows, totals, byModel };
+  const byFrequency = FREQUENCIES.map((f) => {
+    const mine = counted.filter((r) => r.frequency === f.id);
+    return { id: f.id, projects: mine.length, units: mine.reduce((a, r) => a + r.units, 0), scans: mine.reduce((a, r) => a + r.scans, 0), credits: mine.reduce((a, r) => a + (r.credits ?? 0), 0) };
+  });
+  return { settings: { ...own, defaultModel, periodMonths: fusion.periodMonths, models: fusion.models, byFrequency: fusion.byFrequency, combine: fusion.combine }, rows, totals, byModel, byFrequency };
+}
+
+// --- A cloc-fusion report (cloc-fusion-report.json): the same projects, measured where the code is --------
+
+/** The largest cloc-fusion report read (its API answers are capped the same). */
+export const MAX_CLOC_FUSION_BYTES = 64 * 1024 * 1024;
+const LANGUAGE_NAME = /^[\p{L}\p{N} +#./()_'-]{1,60}$/u;
+const NOT_A_KEY = new Set(['__proto__', 'constructor', 'prototype']);
+const textOf = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+const isoOf = (v) => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? new Date(Date.parse(v)).toISOString() : null);
+
+/**
+ * cloc-fusion's JSON report (its src/report/build.js) as new customer projects: one per repository measured, with
+ * its code lines by language, commits on the default branch in the window, change frequency, last commit and
+ * developers in the last 90 days (a count: the report's names and emails are not read), where it is (its clone
+ * address, branch and commit, never a token: the report has none), and the hints its plan gave it (criticality,
+ * scans of its own, and a model pinned to it when one of `models` has that model's name). Repositories skipped,
+ * failed or not measured are left out and counted. Throws with what is wrong when it is not such a report.
+ * {projects, developers, skipped, version, windowDays}.
+ */
+export function parseClocFusionReport(text, fileName = '', { models = [] } = {}) {
+  const notReport = () => Object.assign(new Error(`${fileName || 'This file'} is not a cloc-fusion report: use cloc-fusion-report.json from cloc-fusion's output.`), { notReport: true });
+  if (String(text ?? '').length > MAX_CLOC_FUSION_BYTES) throw new Error(`${fileName || 'This file'} is over 64 MB.`);
+  let json;
+  try {
+    json = JSON.parse(String(text ?? '').replace(/^﻿/, ''));
+  } catch {
+    throw notReport();
+  }
+  if (!json || typeof json !== 'object' || json.tool !== 'cloc-fusion' || !Array.isArray(json.repos)) throw notReport();
+  const windowDefault = clamp(Number(json.settings?.windowDays) || 365, 1, 3660);
+  // The plan's models, by id: a repository pinned to one gets this calculator's model of the same name.
+  const theirs = new Map((Array.isArray(json.settings?.fusion?.models) ? json.settings.fusion.models : []).map((m) => [String(m?.id ?? ''), String(m?.name ?? '').trim().toLowerCase()]));
+  const ours = new Map(models.map((m) => [String(m.name ?? '').trim().toLowerCase(), m.id]));
+  let skipped = 0;
+  const projects = [];
+  for (const r of json.repos.slice(0, MAX_PROJECTS)) {
+    if (!r || typeof r !== 'object' || r.skip || r.error || !r.analyzedAt) {
+      skipped += 1;
+      continue;
+    }
+    const langs = {};
+    for (const [name, t] of Object.entries(r.languages && typeof r.languages === 'object' ? r.languages : {}).slice(0, MAX_CLOC_LANGUAGES)) {
+      if (NOT_A_KEY.has(name) || !LANGUAGE_NAME.test(name)) continue;
+      langs[name] = wholeNumber(t?.code) ?? 0;
+    }
+    const loc = wholeNumber(r.locOverride) ?? (Object.keys(langs).length ? null : wholeNumber(r.loc));
+    const windowDays = clamp(Number(r.windowDays) || windowDefault, 1, 3660);
+    const commits = wholeNumber(r.commits) ?? 0;
+    const frequency = FREQUENCY_IDS.has(r.frequency) ? r.frequency : frequencyOf(commits, windowDays).id;
+    const pinned = r.modelOverride ? ours.get(theirs.get(String(r.modelOverride)) ?? '') ?? null : null;
+    projects.push({
+      name: textOf(r.name, 200) || textOf(r.fullName, 200).split('/').pop() || 'Unnamed project',
+      fullName: textOf(r.fullName, 300),
+      file: textOf(String(fileName).split(/[\\/]/).pop(), 200),
+      langs,
+      locOverride: loc,
+      git: { url: textOf(r.cloneUrl, 500), branch: textOf(r.branch ?? r.defaultBranch, 200), commit: textOf(r.headSha, 40), countedAt: isoOf(r.analyzedAt) },
+      activity: { commits, windowDays: Math.round(windowDays * 10) / 10, lastCommitAt: isoOf(r.lastCommitAt), frequency, devs90: wholeNumber(r.devs90), engine: 'report' },
+      criticality: CRITICALITIES.includes(Number(r.criticality)) ? Number(r.criticality) : null,
+      scansOverride: wholeNumber(r.scansOverride),
+      modelOverride: pinned,
+    });
+  }
+  if (!projects.length && !skipped) throw notReport();
+  return { projects, developers: wholeNumber(json.developers?.total), skipped, version: textOf(json.version, 20), windowDays: windowDefault };
 }
 
 /** Both Fusion parts' credits (the customer's projects in Checkmarx One, and its new code): null when neither counts. */
