@@ -518,6 +518,19 @@ test('what is ahead: findings still to come at the trend, and more from Fusion',
   assert.ok(Math.abs(p.totals.backlogCredits + p.totals.aheadCredits - p.totals.credits) < 1e-9);
   // Without Fusion, nothing more found by it.
   assert.equal(trProjection(quarter, {}, { months: 12 }).totals.fusionExtra, 0);
+  assert.equal(p.sastOnly, false, 'no SAST part known (the exports): every finding');
+  // Fusion finds more SAST findings only: on SAST's share of the backlog and of the new findings.
+  // SAST: half of High, nothing else.
+  const sastRows = totalRows.map((r) => ({ ...r, Critical: 0, High: r.High / 2, Medium: 0, Low: 0 }));
+  const sastFixed = fixedRows.filter((r) => r.severity === 'High').map((r) => ({ ...r, count: r.count / 2 }));
+  const sastSide = analyse(sastRows, sastFixed, 3);
+  const onSast = trProjection(quarter, {}, { months: 12, fusion: true, sast: sastSide });
+  assert.equal(onSast.sastOnly, true);
+  assert.ok(Math.abs(onSast.rows.High.fusionBase - (130 + future) / 2) < 1e-9, 'half of High is SAST');
+  assert.ok(Math.abs(onSast.rows.High.fusionExtra - ((130 + future) / 2) * 0.05) < 1e-9);
+  assert.equal(onSast.rows.Critical.fusionExtra, 0, 'no SAST Critical: nothing more found');
+  assert.ok(Math.abs(onSast.rows.High.toTriage - (130 + future + onSast.rows.High.fusionExtra)) < 1e-9);
+  assert.equal(trProjection(quarter, {}, { months: 12, fusion: false, sast: sastSide }).totals.fusionExtra, 0);
 
   // The forecast: as it goes (the trend's net change each month), and with the plan (worked down to what is left).
   const lines = planForecast(quarter, p);

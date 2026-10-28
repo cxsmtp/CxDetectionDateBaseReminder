@@ -3447,7 +3447,17 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <span class="calc-add-fusion" role="group" aria-labelledby="calc-add-fusion-label" data-i18n-ctx="add-fusion">
                   <b id="calc-add-fusion-label">Add Fusion:</b>
                   <label class="pill-check calc-fusion-pill" title="Ticked: Fusion for the customer's projects in Checkmarx One is projected: its credits, and the findings it adds to Triage &amp; remediation. Unticked: none of it is counted, Triage &amp; remediation's &quot;More found by Fusion&quot; is 0%, and the report leaves it out. Its settings are kept."><input type="checkbox" id="calc-fusion-on" checked /> Existing customer <small>· projects in Checkmarx One</small></label>
-                  <label class="pill-check calc-fusion-pill" title="Ticked: Fusion for code that is not in Checkmarx One yet, its lines counted with cloc (the Fusion — new customer tab), is in the credits and the report. Unticked: left out; its projects are kept."><input type="checkbox" id="calc-fusion-new-on" checked /> New customer <small>· code counted with cloc</small></label>
+                  <label class="pill-check calc-fusion-pill" title="Ticked: Fusion for code that is not in Checkmarx One yet, its lines counted from git or with cloc (the Fusion — new customer tab), is in the credits and the report. Unticked: left out; its projects are kept."><input type="checkbox" id="calc-fusion-new-on" checked /> New customer <small>· code counted from git or cloc</small></label>
+                </span>
+                <span class="calc-origins" role="group" aria-labelledby="calc-origins-label">
+                  <b id="calc-origins-label">Include scans from:</b>
+                  <details class="col-picker engine-pick calc-origin-pick" id="calc-origin-pick">
+                    <summary aria-labelledby="calc-origins-label calc-origin-summary" title="Where the scans came from: a CI tool, the CLI, the API or the web portal. Only the scans from those ticked count: how often each project is scanned (Fusion), and the backlog and its trend (triage &amp; remediation, each project at its latest scan from them). A project with no such scan is left out.">
+                      <span id="calc-origin-summary">Every scan origin</span>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+                    </summary>
+                    <div class="col-menu engine-menu calc-origin-menu" id="calc-origin-menu"></div>
+                  </details>
                 </span>
                 <div class="calc-source-state">
                   <span class="status" id="calc-read-note" aria-live="polite"></span>
@@ -3472,7 +3482,6 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                     <div class="chip-input" id="calc-projects"><input id="calc-project-input" list="calc-scope-projects-list" autocomplete="off" spellcheck="false" placeholder="Type a project name…" /></div>
                     <datalist id="calc-scope-projects-list"></datalist>
                   </div>
-                  <button type="button" class="primary calc-scope-apply" id="calc-scope-apply">Apply</button>
                 </div>
                 <p class="hint calc-scope-several">Empty: every project. These applications' projects, plus the projects picked. Enter adds every name that contains the text.</p>
                 <div class="calc-scope-leave" role="group" aria-label="Leave out projects with nothing to analyse">
@@ -3490,21 +3499,25 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <p class="hint">Several at once: separate them with commas.</p>
                   <fieldset class="calc-scope-checks"><legend>How often they are scanned</legend><div id="calc-scope-frequencies"></div></fieldset>
                   <fieldset class="calc-scope-checks"><legend>Criticality</legend><div id="calc-scope-criticalities"></div></fieldset>
-                  <div class="actions compact">
-                    <button type="submit" class="primary">Apply</button>
-                  </div>
                 </form>
               </div>
               <div class="calc-sum" role="group" aria-label="Credits required">
                 <label class="calc-sum-item"><span>Projection period</span><select id="calc-horizon"><option value="6">6 months</option><option value="12">12 months</option><option value="18">18 months</option><option value="24">24 months</option><option value="36">36 months</option></select></label>
                 <div class="calc-sum-item"><span>Triage &amp; remediation <button type="button" class="calc-why" data-why="credits" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-tr">—</b><small class="hint" id="calc-sum-tr-split"></small></div>
-                <div class="calc-sum-item"><span>Fusion — existing <button type="button" class="calc-why" data-why="fusion-credits" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-fusion">—</b></div>
-                <div class="calc-sum-item"><span>Fusion — new</span><b id="calc-sum-fusion-new">—</b></div>
+                <div class="calc-sum-item"><span><span id="calc-sum-fusion-label">Fusion</span> <button type="button" class="calc-why" data-why="fusion-credits" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-fusion">—</b><small class="hint" id="calc-sum-fusion-split"></small></div>
                 <label class="calc-sum-item"><span>Extra credits (%)</span><input type="text" inputmode="decimal" id="calc-extra" class="calc-num" placeholder="0" autocomplete="off" /></label>
                 <div class="calc-sum-item calc-sum-key"><span>Total credits required <button type="button" class="calc-why" data-why="total" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-total">—</b><small class="hint" id="calc-sum-extra"></small></div>
-                <label class="calc-sum-item"><span>Credits per bundle</span><input type="text" inputmode="numeric" id="calc-bundle" class="calc-num" placeholder="10000" autocomplete="off" /></label>
-                <div class="calc-sum-item calc-sum-key"><span>Bundles <button type="button" class="calc-why" data-why="total" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-bundles">—</b><small class="hint" id="calc-sum-exact"></small></div>
+                <label class="calc-sum-item" id="calc-bundle-item" hidden><span>Credits per bundle</span><input type="text" inputmode="numeric" id="calc-bundle" class="calc-num" placeholder="10000" autocomplete="off" /></label>
+                <div class="calc-sum-item calc-sum-key"><span>Bundles <button type="button" class="calc-why" data-why="total" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button></span><b id="calc-sum-bundles">—</b><small class="hint" id="calc-sum-exact"></small><small class="hint"><span id="calc-bundle-size">10,000 credits each</span> <button type="button" class="link" id="calc-bundle-change">Change</button></small></div>
               </div>
+              <div class="calc-pending" id="calc-pending" role="region" aria-labelledby="calc-pending-count" hidden>
+                <div class="calc-pending-text"><b id="calc-pending-count" aria-live="polite"></b><ul id="calc-pending-list"></ul></div>
+                <div class="calc-pending-actions">
+                  <button type="button" class="calc-pending-undo" id="calc-undo">Undo</button>
+                  <button type="button" class="calc-pending-go" id="calc-apply">Apply</button>
+                </div>
+              </div>
+              <p class="hint calc-apply-hint"><span>Nothing changes until <b>Apply</b>: it applies every setting above at once, the project filters too, and works the figures out again.</span> <span class="calc-apply-read">A change that needs Checkmarx One read again (<b>Every branch</b>, more <b>Projects to read</b>) asks first.</span></p>
               <div class="calc-report-bar">
                 <p class="hint" id="calc-org-line"></p>
                 <div class="calc-report-actions">
@@ -3608,7 +3621,40 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <section class="panel">
                 <h2>Fusion — new customer: code not in Checkmarx One yet</h2>
                 <p class="calc-notice calc-off-note" id="calc-fnew-off-note" hidden>This part is left out of the projection (Add Fusion: New customer is unticked): none of it is counted in the credits or the report. The projects below are kept. <button type="button" class="link" id="calc-fnew-include">Include it</button></p>
-                <p class="calc-notice" data-help-fold>The customer counts their lines of code with <b>cloc</b>, a free open-source tool (Count Lines of Code), and sends you the result files. Only the counts leave their machine: no code does. Each project's code lines are rounded up to whole 10K units, and one Fusion scan costs its model's credits per 10K LOC, as on the existing customer tab; the models are that tab's.</p>
+                <p class="calc-notice" data-help-fold>Count the customer's code lines one of two ways. Either way, each repository becomes a project below, counted the same way: code lines only, no blank or comment lines. Each project's code lines are rounded up to whole 10K units, and one Fusion scan costs its model's credits per 10K LOC, as on the existing customer tab; the models are that tab's.</p>
+                <div class="segmented calc-fnew-ways" id="calc-fnew-ways" role="radiogroup" aria-label="How the code lines are counted">
+                  <label class="mode"><input type="radio" name="calc-fnew-way" value="git" checked /> <span>Count from git</span></label>
+                  <label class="mode"><input type="radio" name="calc-fnew-way" value="cloc" /> <span>Upload cloc results</span></label>
+                </div>
+                <div class="calc-fnew-way" id="calc-git" data-fnew-way="git">
+                  <div class="calc-git-steps">
+                    <div>
+                      <h3>1 · Where the code is</h3>
+                      <div class="calc-git-hosts" id="calc-git-hosts" role="radiogroup" aria-label="Where the code is"></div>
+                      <div class="calc-git-token" id="calc-git-token" hidden>
+                        <label class="field"><span>Git host</span><select id="calc-git-provider"><option value="github">GitHub</option><option value="gitlab">GitLab</option><option value="azure">Azure DevOps</option><option value="bitbucket">Bitbucket</option></select></label>
+                        <label class="field"><span>Address</span><input type="url" id="calc-git-address" spellcheck="false" autocomplete="off" translate="no" /></label>
+                        <label class="field calc-git-wide"><span>Token (read access to the repositories)</span><input type="password" id="calc-git-secret" spellcheck="false" autocomplete="off" /></label>
+                        <p class="hint calc-git-lock calc-git-wide">Used for this count only, then forgotten: never saved with the customer, never written to a log or shown again, and sent only to this host, as a header. Give a read-only token (GitHub: <i>Contents: read</i>; GitLab: <i>read_repository</i>; Azure DevOps: <i>Code (Read)</i>; Bitbucket: <i>Repositories: Read</i>).</p>
+                      </div>
+                    </div>
+                    <div>
+                      <h3>2 · Which repositories</h3>
+                      <div class="calc-git-owner">
+                        <label class="field"><span id="calc-git-owner-label">Organisation or group</span><input type="text" id="calc-git-owner" spellcheck="false" autocomplete="off" translate="no" /></label>
+                        <button type="button" class="secondary" id="calc-git-list">List its repositories</button>
+                      </div>
+                      <div class="calc-git-repos" id="calc-git-repos" hidden></div>
+                      <label class="field calc-git-paste"><span>Or paste clone addresses, one a line:</span><textarea id="calc-git-paste" rows="3" spellcheck="false" translate="no" placeholder="https://github.com/acme/payments-api"></textarea></label>
+                      <div class="actions compact"><button type="button" class="primary" id="calc-git-count" disabled>Count code lines</button><span class="hint">Each one's default branch, latest commit.</span></div>
+                      <p class="status" id="calc-git-status" aria-live="polite"></p>
+                    </div>
+                  </div>
+                  <div class="calc-git-progress" id="calc-git-progress" aria-live="polite" hidden></div>
+                  <p class="calc-notice calc-warn-note calc-git-how">How it is counted: each repository's latest commit is fetched from git into a temporary folder on this server (no history), its files read where git keeps them, counted, and the folder deleted at once. Lines are counted as cloc counts them: by each file's language, without blank lines or comments, with no cloc to install, so totals may differ slightly from cloc's. Up to 50 repositories a count, 2 GB each; files git marks as binary, and over 1 MB, are skipped.</p>
+                </div>
+                <div class="calc-fnew-way" id="calc-cloc" data-fnew-way="cloc" hidden>
+                <p class="calc-cmd-label">When the code must not leave the customer: they run <b>cloc</b>, a free open-source tool (Count Lines of Code), where the code is and send you only the counts. <b translate="no">docker.io/aldanial/cloc</b> is cloc's official image, from its author Al Danial.</p>
                 <div class="calc-cloc-steps">
                   <div>
                     <h3>One file per repository</h3>
@@ -3628,9 +3674,10 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <p><b>Drop cloc results here</b> (.json or .csv), or <button type="button" class="link" id="calc-cloc-pick">choose files</button>. A file for one repository is a project named after the file; rename it below. A project of the same name is replaced.</p>
                   <input type="file" id="calc-cloc-file" accept=".json,.csv,.txt,application/json,text/csv" multiple hidden />
                   <div class="calc-cloc-files" id="calc-cloc-files"></div>
-                  <div class="actions compact"><button type="button" class="secondary" id="calc-fnew-add">Add a project by hand</button></div>
                   <p class="status" id="calc-cloc-status" aria-live="polite"></p>
                 </div>
+                </div>
+                <div class="actions compact"><button type="button" class="secondary" id="calc-fnew-add">Add a project by hand</button></div>
               </section>
               <section class="panel">
                 <h2>How it is counted</h2>
@@ -3643,10 +3690,11 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <p class="calc-notice calc-warn-note" id="calc-fnew-dup" hidden></p>
                 <div class="rp-kpis" id="calc-fnew-kpis"></div>
                 <div class="table-wrap"><table class="data-table calc-projects calc-fnew-table">
-                  <thead><tr><th>Include</th><th>Project</th><th>Languages</th><th>Lines of code</th><th>10K units</th><th>Fusion scans</th><th>Model</th><th>Credits</th></tr></thead>
+                  <thead><tr><th>Include</th><th>Project</th><th>From</th><th>Languages</th><th>Lines of code</th><th>10K units</th><th>Fusion scans</th><th>Model</th><th>Credits</th></tr></thead>
                   <tbody id="calc-fnew-rows"></tbody>
                 </table></div>
-                <p class="hint" id="calc-fnew-empty">No projects yet. Drop the customer's cloc results above, or add a project by hand.</p>
+                <p class="hint" id="calc-fnew-empty">No projects yet. Count the customer's repositories from git or drop their cloc results above, or add a project by hand.</p>
+                <p class="hint" id="calc-fnew-again" hidden>Counting again replaces a project of the same name; <b>Count again</b> on a git project re-reads its latest commit.</p>
               </section>
             </div>
 

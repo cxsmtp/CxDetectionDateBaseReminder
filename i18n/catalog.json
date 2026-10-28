@@ -7,6 +7,14 @@
    "Dashboard › remind › span › AI check & fix"
   ]
  },
+ ", a free open-source tool (Count Lines of Code), where the code is and send you only the counts.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  ", rounded up": {
   "kind": "report",
   "seen": [
@@ -165,6 +173,22 @@
    "interactive HTML report"
   ]
  },
+ "{0} · Where the code is": {
+  "kind": "text",
+  "seen": [
+   "first start › h3 › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › h3 › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › h3 › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "{0} · Which repositories": {
+  "kind": "text",
+  "seen": [
+   "first start › h3 › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › h3 › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › h3 › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "{0} (default)": {
   "kind": "attr:placeholder",
   "seen": [
@@ -187,6 +211,12 @@
    "calculator › new › td › Fusion scans by criticality",
    "calculator › triage & remediation › td › Fusion scans by criticality",
    "calculator › sample data › td › Fusion scans by criticality"
+  ]
+ },
+ "{0} (reads Checkmarx One again)": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "{0} and {1}": {
@@ -231,10 +261,24 @@
    "interactive HTML report"
   ]
  },
+ "{0} change not applied yet": {
+  "kind": "text",
+  "seen": [
+   "calculator › no scan origin › b › No scan origin"
+  ]
+ },
  "{0} changes": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "{0} changes not applied yet": {
+  "kind": "text",
+  "seen": [
+   "calculator › b › Every scan origin",
+   "calculator › tr › b › Every scan origin",
+   "calculator › fusion › b › Every scan origin"
   ]
  },
  "{0} Checkmarx One result awaiting triage at these severities ({1} credit)": {
@@ -279,6 +323,36 @@
    "Dashboard › remind › button"
   ]
  },
+ "{0} could not be found.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "{0} could not be reached.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "{0} could not be read: {1}": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "{0} counted, {1} not: each says why above.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "{0} counted: each is a project below.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "{0} credit to check a finding with AI, {1} to fix it. Nothing is given until you click.": {
   "kind": "text",
   "seen": [
@@ -299,6 +373,12 @@
   "kind": "report",
   "seen": [
    "calculator report"
+  ]
+ },
+ "{0} credits each": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "{0} critical/high finding needs a manual fix in Checkmarx One (AI Triage covers SAST and SCA only).": {
@@ -357,6 +437,12 @@
    "message",
    "logs › span › Activity log",
    "logs › activity › span › Activity log"
+  ]
+ },
+ "{0} existing + {1} new": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "{0} files": {
@@ -475,6 +561,12 @@
    "interactive HTML report"
   ]
  },
+ "{0} GB": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "{0} h": {
   "kind": "text",
   "seen": [
@@ -497,6 +589,12 @@
    "impact › span",
    "impact › exec › span",
    "impact › detail › span"
+  ]
+ },
+ "{0} has no {1} that this token may read.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "{0} is a checkout of {1}, but this fix is for {2}. Apply it anyway?": {
@@ -523,6 +621,12 @@
    "calculator (runtime)"
   ]
  },
+ "{0} KB": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "{0} left of {1} allocated, {2} used · needs {3} for {4} Checkmarx One results ({5} findings — rows that share one result are triaged, and charged, once) still to triage (critical, high) · {6} more needed than allocated — allocate it on purpose": {
   "kind": "attr:title",
   "seen": [
@@ -539,12 +643,24 @@
    "Dashboard › remind › td › Projects"
   ]
  },
+ "{0} lines": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "{0} lines, each project rounded up": {
   "kind": "text",
   "seen": [
    "calculator › new › span",
    "calculator › triage & remediation › span",
    "calculator › sample data › span"
+  ]
+ },
+ "{0} MB": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "{0} message(s) covering {1} finding(s) — SMTP not verified, sending is disabled": {
@@ -647,10 +763,22 @@
    "calculator"
   ]
  },
+ "{0} of {1} scan origins": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "{0} of {1} shown": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "{0} of {1} ticked": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "{0} of {1} tracked report verified at zero by a rescan": {
@@ -741,6 +869,12 @@
    "access › small › Roles & permissions",
    "access › people › small › Roles & permissions",
    "access › roles › small › Roles & permissions"
+  ]
+ },
+ "{0} points at a link-local or cloud metadata address, which is never called.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "{0} project": {
@@ -867,6 +1001,18 @@
    "Labs → FAE Flush"
   ]
  },
+ "{0} refused the token: check it may read {1}'s repositories.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "{0} refused: check the token may read this repository.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "{0} remediation credit used, {1} left": {
   "kind": "report",
   "seen": [
@@ -885,6 +1031,20 @@
    "credits › span › Credits used over time",
    "credits › overview › span › Credits used over time",
    "credits › projects › span › Credits used over time"
+  ]
+ },
+ "{0} scans · {1} projects": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › small › Every scan origin (5)",
+   "calculator › triage & remediation › small › Every scan origin (5)",
+   "calculator › customize › small › Every scan origin (5)"
+  ]
+ },
+ "{0} sent the request elsewhere (the repository may have moved): give its new address.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "{0} shown": {
@@ -1009,6 +1169,14 @@
    "Dashboard › remind › a"
   ]
  },
+ "{0} with no scan from the scan origins chosen left out": {
+  "kind": "text",
+  "seen": [
+   "calculator › scoped › span › No scan origin",
+   "calculator › scoped triage › span › No scan origin",
+   "calculator › scoped fusion › span › No scan origin"
+  ]
+ },
  "{0} year": {
   "kind": "text",
   "seen": [
@@ -1129,6 +1297,12 @@
    "logs › activity › dd › Your profile"
   ]
  },
+ "{0}% × {1} SAST findings = {2}": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): what Checkmarx Fusion finds in addition; keep the formula (PDF appendix line)"
+  ]
+ },
  "{0}% actioned": {
   "kind": "attr:aria-label",
   "seen": [
@@ -1159,6 +1333,30 @@
   "kind": "text",
   "seen": [
    "calculator"
+  ]
+ },
+ "{0}% more findings · read again for SAST only": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0}% more findings · the exports count every engine": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0}% more SAST findings": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0}% more SAST findings: {0}% × {1} = {2}.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): what Checkmarx Fusion finds in addition; keep the formula"
   ]
  },
  "{0}% taken as false positives: triaged, not remediated.": {
@@ -1610,16 +1808,36 @@
    "connection: cxone › span › AAdministratorAdmin"
   ]
  },
+ "A change that needs Checkmarx One read again (<b>Every branch</b>, more <b>Projects to read</b>) asks first.": {
+  "kind": "html",
+  "seen": [
+   "first start › span › Every scan origin",
+   "sign in › span › Every scan origin",
+   "Dashboard › span › Every scan origin"
+  ]
+ },
  "A Checkmarx One key": {
   "kind": "message",
   "seen": [
    "message"
   ]
  },
+ "A clone address must not carry a password: give the token in step {0}.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "A cookie is set without Secure / HttpOnly / SameSite, so it can leak or be read by script.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "A count is already running: wait for it to end.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "A credit pool limits what AI Triage and Remediation may spend.": {
@@ -1652,6 +1870,12 @@
    "first start › small › Get help",
    "sign in › small › Get help",
    "Dashboard › small › Get help"
+  ]
+ },
+ "A git connection the Admin already set up (the same tokens as Code authors). Nothing to type.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "A GitHub token starts with github_pat_, ghp_, gho_ or ghs_. Create one under GitHub → Settings → Developer settings → Personal access tokens.": {
@@ -1756,6 +1980,14 @@
    "first start › li › HTTPS",
    "sign in › li › HTTPS",
    "Dashboard › li › HTTPS"
+  ]
+ },
+ "A token for this count only": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › b › Fusion — new customer: code not in Checkmarx One yet",
+   "calculator › triage & remediation › b › Fusion — new customer: code not in Checkmarx One yet",
+   "calculator › customize › b › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
  "A token is made for one organisation: use the one it was created in.": {
@@ -2076,6 +2308,18 @@
    "Dashboard › b › How often they are scanned"
   ]
  },
+ "Add Fusion: Existing customer": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "Add Fusion: New customer": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Add people and give each the role they need.": {
   "kind": "attr:title",
   "seen": [
@@ -2120,10 +2364,26 @@
    "settings › handsoff › Hands-off: set it up once, then leave it"
   ]
  },
+ "add-fusion|· code counted from git or cloc": {
+  "kind": "text",
+  "seen": [
+   "first start › small › Every scan origin",
+   "sign in › small › Every scan origin",
+   "Dashboard › small › Every scan origin"
+  ]
+ },
  "add-fusion|New customer": {
   "kind": "text",
   "seen": [
    "calculator › label › Add Fusion:"
+  ]
+ },
+ "add-fusion|Ticked: Fusion for code that is not in Checkmarx One yet, its lines counted from git or with cloc (the Fusion — new customer tab), is in the credits and the report. Unticked: left out; its projects are kept.": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › label › Every scan origin",
+   "sign in › label › Every scan origin",
+   "Dashboard › label › Every scan origin"
   ]
  },
  "Add, change and remove users and roles — never beyond their own permissions.": {
@@ -3276,6 +3536,12 @@
    "busy line"
   ]
  },
+ "Another git connection the Admin set up.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Answer": {
   "kind": "message",
   "seen": [
@@ -3502,6 +3768,12 @@
    "interactive HTML report"
   ]
  },
+ "Apply reads Checkmarx One again for these changes:": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Apply the code": {
   "kind": "text",
   "seen": [
@@ -3532,6 +3804,12 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "archived": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "As the existing customer tab: {0}": {
@@ -3619,6 +3897,12 @@
   "kind": "text",
   "seen": [
    "calculator (runtime)"
+  ]
+ },
+ "At most {0} repositories a count: tick fewer, and count the rest after.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "At most 10 addresses at a time.": {
@@ -4843,6 +5127,12 @@
    "calculator report"
   ]
  },
+ "Checkmarx Fusion is not in this projection: please ask your Checkmarx team to help with a Fusion forecast, if required.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Checkmarx One": {
   "kind": "text",
   "seen": [
@@ -5181,6 +5471,12 @@
    "Dashboard › remind › button › Developers"
   ]
  },
+ "Choose the git host: GitHub, GitLab, Azure DevOps or Bitbucket.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Choose the severities for the next round.": {
   "kind": "message",
   "seen": [
@@ -5191,6 +5487,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Choose where the code is: one of the git connections, or a token.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Clear": {
@@ -5311,6 +5613,12 @@
   "kind": "report",
   "seen": [
    "calculator report"
+  ]
+ },
+ "Code repository (webhook)": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Collapse all": {
@@ -5763,10 +6071,52 @@
    "interactive HTML report"
   ]
  },
+ "Count again": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "Count code lines": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › button › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › button › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "Count code lines ({0} repositories)": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "Count code lines ({0} repository)": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Count findings still to come": {
   "kind": "text",
   "seen": [
    "calculator"
+  ]
+ },
+ "Count from git": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › span › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › span › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "Count the customer's code lines one of two ways. Either way, each repository becomes a project below, counted the same way: code lines only, no blank or comment lines. Each project's code lines are rounded up to whole {0}K units, and one Fusion scan costs its model's credits per {1}K LOC, as on the existing customer tab; the models are that tab's.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
  "Counted by the last scan (SAST scan metadata)": {
@@ -5785,10 +6135,36 @@
    "projections › none included › input › Projects"
   ]
  },
+ "Counted from git": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "Counted: it is a project below.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "Counting again replaces a project of the same name; <b>Count again</b> on a git project re-reads its latest commit.": {
+  "kind": "html",
+  "seen": [
+   "first start › p › How it is counted",
+   "sign in › p › How it is counted",
+   "Dashboard › p › How it is counted"
+  ]
+ },
  "Counting one credit per result…": {
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Counting… {0} of {1} files": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Coverage": {
@@ -7073,6 +7449,14 @@
    "Dashboard › option › Hands-off: set it up once, then leave it"
   ]
  },
+ "Each one's default branch, latest commit.": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › span › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › span › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "Each person receives only their own projects…": {
   "kind": "busy",
   "seen": [
@@ -7553,6 +7937,18 @@
    "Dashboard › p › Credit audit log"
   ]
  },
+ "Every branch, unticked: only each project’s primary branch is read.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "Every branch: the scans of every branch are read, not only each project’s primary branch.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Every button below re-checks with Checkmarx One first, and stops if anything changed.": {
   "kind": "text",
   "seen": [
@@ -7659,6 +8055,22 @@
    "first start › p › Projection reports",
    "sign in › p › Projection reports",
    "Dashboard › p › Projection reports"
+  ]
+ },
+ "Every scan origin": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Every scan origin",
+   "sign in › span › Every scan origin",
+   "Dashboard › span › Every scan origin"
+  ]
+ },
+ "Every scan origin ({0})": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › span › Every scan origin (5)",
+   "calculator › triage & remediation › span › Every scan origin (5)",
+   "calculator › customize › span › Every scan origin (5)"
   ]
  },
  "Every setting, explained, with blanks to fill in. Blank values keep what is set now.": {
@@ -7999,6 +8411,12 @@
    "Dashboard › strong › Get started · 1 of 6 done",
    "Dashboard (advanced) › strong › Get started · 1 of 6 done",
    "connection: cxone › strong › Get started · 1 of 6 done"
+  ]
+ },
+ "Fetching the latest commit…": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Fewer false positives with FAE ({0}%)": {
@@ -8734,7 +9152,21 @@
    "Dashboard › h2 › Fusion models"
   ]
  },
+ "Fusion not in the projection": {
+  "kind": "text",
+  "seen": [
+   "calculator › scoped › small › What the projection counts",
+   "calculator › scoped triage › small › What the projection counts",
+   "calculator › scoped fusion › small › What the projection counts"
+  ]
+ },
  "Fusion reports {0}% more findings than today.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Fusion reports {0}% more SAST findings than today.": {
   "kind": "report",
   "seen": [
    "calculator report"
@@ -8933,12 +9365,32 @@
    "connection: cxone › button"
   ]
  },
+ "Git could not be started: {0}": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "Git host": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › span › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › span › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "Git hosts <span class=\"conn-state bad\">None connected</span>": {
   "kind": "html",
   "seen": [
    "connection: git › h3",
    "user menu › h3",
    "Dashboard › narrow › h3"
+  ]
+ },
+ "Git is not installed on this computer: install it from https://git-scm.com, then count again.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Git: not connected": {
@@ -9073,6 +9525,24 @@
    "connection: cxone › strong › Get started · 1 of 6 done"
   ]
  },
+ "Give the Azure DevOps organisation, for example https://dev.azure.com/acme.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "Give the git host, its address and a token.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "Give the organisation or group.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Give the report a name.": {
   "kind": "message",
   "seen": [
@@ -9083,6 +9553,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Give the workspace (or the project key on Bitbucket Data Center).": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Give this project more credits": {
@@ -9447,6 +9923,14 @@
    "Dashboard › h2 › How it is counted"
   ]
  },
+ "How it is counted: each repository's latest commit is fetched from git into a temporary folder on this server (no history), its files read where git keeps them, counted, and the folder deleted at once. Lines are counted as cloc counts them: by each file's language, without blank lines or comments, with no cloc to install, so totals may differ slightly from cloc's. Up to {0} repositories a count, {1} GB each; files git marks as binary, and over {2} MB, are skipped.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "How many days each severity has to be fixed, counted from when the finding was first detected. The Dashboard shows what is past its SLA and what is due within {0} days, in total and for each project. Findings triaged as not exploitable have no SLA. {1} means no SLA for that severity.": {
   "kind": "text",
   "seen": [
@@ -9487,6 +9971,14 @@
    "first start › div › Get help",
    "sign in › div › Get help",
    "Dashboard › div › Get help"
+  ]
+ },
+ "How the code lines are counted": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "first start › div › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › div › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › div › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
  "How the rescan works": {
@@ -9633,6 +10125,12 @@
    "first start › span › Single-tenant / on-prem addresses",
    "sign in › span › Single-tenant / on-prem addresses",
    "Dashboard › span › Single-tenant / on-prem addresses"
+  ]
+ },
+ "IDE": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Identity and access": {
@@ -9915,6 +10413,27 @@
    "Dashboard › button › Projects"
   ]
  },
+ "Include scans from": {
+  "kind": "text",
+  "seen": [
+   "calculator › no scan origin › li › No scan origin",
+   "calculator › changes waiting › li › No scan origin"
+  ]
+ },
+ "Include scans from:": {
+  "kind": "text",
+  "seen": [
+   "first start › b › Every scan origin",
+   "sign in › b › Every scan origin",
+   "Dashboard › b › Every scan origin"
+  ]
+ },
+ "Include scans from: the last read did not record where the scans come from.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Include subdomains (only when every subdomain has HTTPS)": {
   "kind": "text",
   "seen": [
@@ -10171,6 +10690,14 @@
    "Dashboard › strong › Get started · 1 of 6 done",
    "Dashboard (advanced) › strong › Get started · 1 of 6 done",
    "connection: cxone › strong › Get started · 1 of 6 done"
+  ]
+ },
+ "is cloc's official image, from its author Al Danial.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
  "It also checks itself every few minutes, puts right what it can, and tells the administrators.": {
@@ -10529,6 +11056,12 @@
    "Dashboard › strong › AI Triage & Remediation from reports"
   ]
  },
+ "Left out: {0} projects with no scan from those scan origins.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Let people use AI check and fix from their emailed report. This uses credits.": {
   "kind": "text",
   "seen": [
@@ -10595,6 +11128,20 @@
    "first start › a",
    "first start › h2 › Links into Checkmarx One",
    "sign in › a"
+  ]
+ },
+ "List its repositories": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › button › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › button › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "Listing the repositories…": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Load {0} more": {
@@ -11239,6 +11786,12 @@
    "calculator"
   ]
  },
+ "More found by Fusion ({0}% of SAST)": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "More found by Fusion ({0}%)": {
   "kind": "report",
   "seen": [
@@ -11870,6 +12423,14 @@
    "calculator"
   ]
  },
+ "No projects yet. Count the customer's repositories from git or drop their cloc results above, or add a project by hand.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › How it is counted",
+   "sign in › p › How it is counted",
+   "Dashboard › p › How it is counted"
+  ]
+ },
  "No projects yet. Drop the customer's cloc results above, or add a project by hand.": {
   "kind": "text",
   "seen": [
@@ -11910,6 +12471,12 @@
    "Dashboard › p › Projection reports"
   ]
  },
+ "No repositories there that this access may read.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "No requests yet. Raise one with the buttons above.": {
   "kind": "text",
   "seen": [
@@ -11935,6 +12502,14 @@
   "kind": "text",
   "seen": [
    "Labs → FAE Flush › Test one project"
+  ]
+ },
+ "No scan origin": {
+  "kind": "text",
+  "seen": [
+   "calculator › no scan origin › span › No scan origin",
+   "calculator › changes waiting › span › No scan origin",
+   "calculator › scoped › span › No scan origin"
   ]
  },
  "No severities": {
@@ -12085,6 +12660,12 @@
    "Dashboard › option › Submit a support case"
   ]
  },
+ "Not a repository address: {0}": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Not a repository scan (or it does not say)": {
   "kind": "text",
   "seen": [
@@ -12157,12 +12738,24 @@
    "message"
   ]
  },
+ "Not counted: something went wrong.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Not exploitable": {
   "kind": "text",
   "seen": [
    "reports › detail › th › Weekly",
    "reports › detail › overview › th › Weekly",
    "reports › detail › remind › th › Weekly"
+  ]
+ },
+ "Not found on {0}, or the token may not read it.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Not given yet": {
@@ -12287,6 +12880,14 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Nothing changes until <b>Apply</b>: it applies every setting above at once, the project filters too, and works the figures out again.": {
+  "kind": "html",
+  "seen": [
+   "first start › span › Every scan origin",
+   "sign in › span › Every scan origin",
+   "Dashboard › span › Every scan origin"
   ]
  },
  "Nothing confirmed to remediate at those severities.": {
@@ -12566,6 +13167,12 @@
   "kind": "text",
   "seen": [
    "Settings › Activation codes › badge"
+  ]
+ },
+ "On a large tenant this takes a while. Read it now?": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "On GitHub, open Settings → Developer settings → Personal access tokens, find the token, choose Configure SSO and authorise it for your organisation.": {
@@ -12990,6 +13597,14 @@
    "Dashboard › h3 › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
+ "Or paste clone addresses, one a line:": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › span › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › span › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "Or use your organisation's certificate:": {
   "kind": "text",
   "seen": [
@@ -13036,10 +13651,24 @@
    "busy line"
   ]
  },
+ "Organisation or group": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › span › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › span › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "origin|From": {
   "kind": "text",
   "seen": [
    "Audit › entry details: where the action came from (IP address · browser), not an email sender"
+  ]
+ },
+ "Other counts are running on this server: try again in a few minutes.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Other ways to open or fix this finding": {
@@ -13060,6 +13689,12 @@
    "first start › span › Credit audit log",
    "first start › th › Credit audit log",
    "sign in › span › Credit audit log"
+  ]
+ },
+ "Over {0} GB: not counted. Count it with cloc where the code is, and upload the result.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "over {0} months": {
@@ -13228,6 +13863,18 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Paste the token first ({0} · Where the code is).": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "Paste the token.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Paste the whole token (it starts with github_pat_ or ghp_), with no spaces or quotes, as GITHUB_TOKEN.": {
@@ -13648,6 +14295,12 @@
    "first start › span"
   ]
  },
+ "Project (empty: every project)": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Project link — <code>{baseUrl} {projectId}</code>": {
   "kind": "html",
   "seen": [
@@ -13775,6 +14428,12 @@
   "kind": "text",
   "seen": [
    "calculator › label"
+  ]
+ },
+ "Projects to read: up to {0} projects, more than the last read took.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Projects whose model has no credits per {0}K LOC: {1}": {
@@ -13970,6 +14629,12 @@
   "kind": "text",
   "seen": [
    "calculator"
+  ]
+ },
+ "Read from Checkmarx One to see where the scans come from.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Read live from Checkmarx One on {0}: {1} projects, {2} scans, {3} open vulnerabilities.": {
@@ -14711,6 +15376,12 @@
    "Dashboard › span › Azure DevOps"
   ]
  },
+ "Repositories on {0} are not counted: connect that host on the Beta page, or add it to SCM_ALLOWED_HOSTS.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Request an enhancement": {
   "kind": "text",
   "seen": [
@@ -15073,6 +15744,12 @@
    "interactive HTML report"
   ]
  },
+ "SAST findings among the backlog chosen and the findings still to come, in SAST's share of each severity: {0}.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): what Checkmarx Fusion finds in addition; keep the formula"
+  ]
+ },
  "Saturday": {
   "kind": "text",
   "seen": [
@@ -15318,6 +15995,24 @@
    "first start › th › Fusion scans by how often projects are scanned",
    "first start › th › Projects",
    "sign in › th › Fusion scans by how often projects are scanned"
+  ]
+ },
+ "Scans from: {0} (for Fusion: the two exports count every scan).": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Scans from: {0}.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Scans from: no scan origin.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Schedule": {
@@ -17192,6 +17887,12 @@
    "Labs → FAE Flush"
   ]
  },
+ "Starting the count…": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Starting the next round…": {
   "kind": "busy",
   "seen": [
@@ -17784,6 +18485,24 @@
    "calculator"
   ]
  },
+ "That address is not a web address.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "That branch is not in the repository.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "That count is no longer here: count again.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "That does not look like a whole Checkmarx One API key.": {
   "kind": "message",
   "seen": [
@@ -17794,6 +18513,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "That git connection is no longer set up: choose another, or give a token.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "That image is larger than {0} KB. Please use a smaller icon.": {
@@ -17832,12 +18557,24 @@
    "interactive HTML report"
   ]
  },
+ "That organisation or group name has characters a name does not have.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "That person's email address": {
   "kind": "text",
   "seen": [
    "settings › span › Available variables",
    "logs › span › Available variables",
    "logs › activity › span › Available variables"
+  ]
+ },
+ "That token has spaces or characters a token does not have: paste it again.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "The {0} least severe findings after the first {1} are not in this report.": {
@@ -18000,6 +18737,18 @@
    "Dashboard › label"
   ]
  },
+ "The count could not be started.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
+ "The count ended while another customer was open: open that customer and count again.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "The credit pool for the whole utility: its size and whether it refills monthly.": {
   "kind": "text",
   "seen": [
@@ -18028,6 +18777,20 @@
    "first start › p › Fusion — new customer: code not in Checkmarx One yet",
    "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
    "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "The customer’s own read-only token, for a host connected or allowed by the Admin.": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › small › Fusion — new customer: code not in Checkmarx One yet",
+   "calculator › triage & remediation › small › Fusion — new customer: code not in Checkmarx One yet",
+   "calculator › customize › small › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "The customer’s own read-only token: git on this computer fetches the code and counts it here.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "The Dashboard's Remind panel links straight to it.": {
@@ -18072,6 +18835,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "The first {0} repositories are listed: paste the addresses of any others.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "The first time, it asks where you keep your code; after that it is one click.": {
@@ -18192,6 +18961,12 @@
    "calculator › sample data › h2 › The last 3 months, week by week",
    "calculator › plan changed › h2 › The last 3 months, week by week",
    "calculator › applied › h2 › The last 3 months, week by week"
+  ]
+ },
+ "The last read did not record where the scans come from: read from Checkmarx One again to choose.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "The last request did not finish (the server restarted). Try again.": {
@@ -18446,6 +19221,12 @@
    "interactive HTML report"
   ]
  },
+ "The repositories could not be listed.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "The rescan button opens in a minute.": {
   "kind": "report",
   "seen": [
@@ -18542,6 +19323,12 @@
   "kind": "report",
   "seen": [
    "How each number is calculated (calculator ?, report, PDF appendix)"
+  ]
+ },
+ "The two exports count every scan: only Fusion follows Include scans from.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "The way to Mission Zero": {
@@ -18668,6 +19455,12 @@
    "Dashboard › label › Projection reports"
   ]
  },
+ "This file on its own cannot reach git: upload cloc results, or count from git with the launcher (cx-credits-calculator.mjs).": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "This is almost always a company proxy or firewall with an old certificate: ask your network team to renew it or to exclude *.checkmarx.net from HTTPS inspection.": {
   "kind": "message",
   "seen": [
@@ -18741,6 +19534,12 @@
    "first start › p › Fusion — new customer: code not in Checkmarx One yet",
    "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
    "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "This read is from before scan origins were recorded, so every scan is counted: read from Checkmarx One again to count only the scans chosen.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "This report does not say which reminder server to use. Enter its address to connect.": {
@@ -18829,6 +19628,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Tick or paste at least one repository.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Tick the box to agree to the Let's Encrypt Subscriber Agreement first.": {
@@ -19015,6 +19820,14 @@
    "Dashboard › span › GitHub"
   ]
  },
+ "Token (read access to the repositories)": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › span › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › span › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "Token <span class=\"muted\" data-token-state=\"azure\">(not set)</span>": {
   "kind": "html",
   "seen": [
@@ -19067,6 +19880,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Took longer than {0} minutes: not counted.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Tools": {
@@ -19551,6 +20370,14 @@
    "interactive HTML report"
   ]
  },
+ "Undo": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Every scan origin",
+   "sign in › button › Every scan origin",
+   "Dashboard › button › Every scan origin"
+  ]
+ },
  "Unknown date": {
   "kind": "text",
   "seen": [
@@ -19761,6 +20588,14 @@
    "access › roles › small › Roles & permissions"
   ]
  },
+ "Upload cloc results": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › span › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › span › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "Upload it here.": {
   "kind": "text",
   "seen": [
@@ -19901,6 +20736,12 @@
    "interactive HTML report"
   ]
  },
+ "Use the repository’s https address: the token goes over https only.": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
+  ]
+ },
  "Use the signed-in mailbox's own address as the From address (SMTP_FROM), or leave it blank to use the username.": {
   "kind": "message",
   "seen": [
@@ -19927,6 +20768,14 @@
    "credits › span › Credit pool",
    "credits › overview › span › Credit pool",
    "credits › projects › span › Credit pool"
+  ]
+ },
+ "Used for this count only, then forgotten: never saved with the customer, never written to a log or shown again, and sent only to this host, as a header. Give a read-only token (GitHub: <i>Contents: read</i>; GitLab: <i>read_repository</i>; Azure DevOps: <i>Code (Read)</i>; Bitbucket: <i>Repositories: Read</i>).": {
+  "kind": "html",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
   ]
  },
  "User": {
@@ -20587,6 +21436,14 @@
    "reports › detail › remind › span › Weekly"
   ]
  },
+ "Web portal (by hand)": {
+  "kind": "text",
+  "seen": [
+   "calculator › new › b › Every scan origin (5)",
+   "calculator › triage & remediation › b › Every scan origin (5)",
+   "calculator › customize › b › Every scan origin (5)"
+  ]
+ },
  "Wednesday": {
   "kind": "text",
   "seen": [
@@ -20703,6 +21560,14 @@
    "Dashboard › span › Fusion scans: what each project needs"
   ]
  },
+ "When the code must not leave the customer: they run": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
  "When the oldest open vulnerability was first found, and how many days ago": {
   "kind": "text",
   "seen": [
@@ -20749,6 +21614,22 @@
    "first start › p › Get help",
    "sign in › p › Get help",
    "Dashboard › p › Get help"
+  ]
+ },
+ "Where the code is": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "first start › div › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › div › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › div › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "Where the scans came from: a CI tool, the CLI, the API or the web portal. Only the scans from those ticked count: how often each project is scanned (Fusion), and the backlog and its trend (triage & remediation, each project at its latest scan from them). A project with no such scan is left out.": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › summary › Every scan origin",
+   "sign in › summary › Every scan origin",
+   "Dashboard › summary › Every scan origin"
   ]
  },
  "Which findings?": {
@@ -20901,6 +21782,12 @@
    "first start › span › Bitbucket",
    "sign in › span › Bitbucket",
    "Dashboard › span › Bitbucket"
+  ]
+ },
+ "Workspace (or project key)": {
+  "kind": "text",
+  "seen": [
+   "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
  "Worst severity first, then oldest · {0} a page · search and filters cover all {1}": {

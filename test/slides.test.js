@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 import { analyse, creditSummary, fusionEstimate, fusionImpact, overallImpact, planForecast, seriesRows, trImpact, trProjection } from '../public/calculator/model.js';
 import { numberContents, pdfFromJpegs, slideContent, slidesFileName } from '../public/calculator/slides.js';
+import { buildReport } from '../public/calculator/report.js';
 
 const totals = { weeks: ['2026-01-03', '2026-02-07', '2026-03-07', '2026-04-04'], bySeverity: { Critical: [10, 12, 14, 16], High: [100, 110, 120, 130], Medium: [5, 5, 5, 5], Low: [1, 1, 1, 1] } };
 const fixed = { weeks: ['2026-03-07', '2026-04-04'], bySeverity: { Critical: [1, 2], High: [3, 4] } };
@@ -79,11 +80,17 @@ test('the plan in part: which severities are whole and which in part, each false
   assert.deepEqual(tr.figures[2].notes, ['Taken as false positives, triaged and not remediated: Critical 20%, High 30%, Medium 30%.']);
 });
 
-test('a part that is not in the projection says so on its page; the wording follows the reader\'s language', () => {
-  const s = slideContent(reportData({ withFusion: false }), { t: (text) => (text === 'Checkmarx Fusion' ? 'Fusion (fr)' : text), lang: 'fr' });
-  assert.equal(s.pages[1].title, 'Fusion (fr)');
-  assert.deepEqual(s.pages[1].lines, ['Fusion is not in this projection.']);
+test('triage & remediation not in the projection says so on its page; Fusion not counted gives way to one line; the wording follows the reader\'s language', () => {
+  const ask = 'Checkmarx Fusion is not in this projection: please ask your Checkmarx team to help with a Fusion forecast, if required.';
+  const s = slideContent(reportData({ withFusion: false }), { t: (text) => (text === ask ? 'Fusion (fr)' : text), lang: 'fr' });
+  assert.ok(!s.pages.some((p) => p.kind === 'fusion'), 'no Fusion page');
+  assert.equal(s.pages[1].kind, 'total');
+  assert.equal(s.pages[1].lines.at(-1), 'Fusion (fr)');
   assert.equal(s.pages[0].figures[0].value, (152).toLocaleString('fr'));
+  // Fusion with projects but no credits (no model rate) counts as not in it, too.
+  const noRate = reportData({});
+  noRate.fusion = { ...noRate.fusion, totals: { ...noRate.fusion.totals, credits: 0 } };
+  assert.ok(!slideContent(noRate).pages.some((p) => p.kind === 'fusion'));
   const noTr = slideContent(reportData({ withTr: false }));
   assert.deepEqual(noTr.pages[0].lines, ['Triage & remediation is not in this projection.']);
   assert.deepEqual(noTr.pages[2].parts.map((p) => p.label), ['Fusion scans', 'Extra credits']);
@@ -139,4 +146,18 @@ test('with the impact worked out, slide 4 is what the credits give back and the 
   assert.ok(s.appendix.some((x) => x.title === 'Value and return'));
   assert.ok(s.appendix.some((x) => x.title === 'Expert review replaced'));
   assert.ok(s.appendix.some((x) => x.title === 'Return on all the credits'));
+});
+
+test('the HTML report: Fusion with no credits has no card, one line after How we got there instead', () => {
+  const ask = 'Checkmarx Fusion is not in this projection: please ask your Checkmarx team to help with a Fusion forecast, if required.';
+  const full = (d) => ({ ...d, fusion: { ...d.fusion, models: [], rows: [], rules: fusionEstimate([], {}).settings.byFrequency } });
+  const counted = buildReport(full(reportData({})), { t: (x) => x });
+  assert.match(counted, /<h3>Checkmarx Fusion<\/h3>/);
+  assert.doesNotMatch(counted, new RegExp(ask.slice(0, 40)));
+  const noRate = full(reportData({}));
+  noRate.fusion = { ...noRate.fusion, totals: { ...noRate.fusion.totals, credits: 0, unknownRate: 3 } };
+  const html = buildReport(noRate, { t: (x) => x });
+  assert.doesNotMatch(html, /<h3>Checkmarx Fusion<\/h3>/);
+  assert.doesNotMatch(html, /without a model rate/);
+  assert.ok(html.includes(ask));
 });

@@ -155,6 +155,7 @@ function provenance(data, L) {
   const leftOut = [
     out.noCode > 0 && w('Left out: {0} projects whose latest scan counted no lines of code.', num(out.noCode)),
     out.noFindings > 0 && w('Left out: {0} projects with no open findings.', num(out.noFindings)),
+    out.noOrigin > 0 && w('Left out: {0} projects with no scan from those scan origins.', num(out.noOrigin)),
   ].filter(Boolean).map((t) => `<p class="sub">${t}</p>`).join('');
   // At the end, closed: what the data is and how it was read, for whoever wants it.
   return `<details class="live"><summary><span class="live-dot" aria-hidden="true"></span>${w('Data source')}</summary><div><p>${line}</p>${tr?.lookbackMonths ? `<p class="sub">${w('The trend is measured over the last {0} months of that data, week by week, and carried forward.', num(tr.lookbackMonths))}</p>` : ''}${engines}${branches}${leftOut}${scopeLine(src, L)}</div></details>`;
@@ -178,7 +179,7 @@ function story(data, L) {
       <table class="calc">
         <tr><td>${w('Backlog to triage')}</td><td>${num(f.selected)}</td></tr>
         ${tr.ahead?.includeFuture === false ? '' : `<tr><td>${tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer over a year with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace')}</td><td>+${num(f.future)}</td></tr>`}
-        ${tr.fusion ? `<tr><td>${w('More found by Fusion ({0}%)', num(tr.ahead?.fusionUpliftPercent ?? 0))}</td><td>+${num(f.fusionExtra)}</td></tr>` : ''}
+        ${tr.fusion ? `<tr><td>${tr.sastOnly ? w('More found by Fusion ({0}% of SAST)', num(tr.ahead?.fusionUpliftPercent ?? 0)) : w('More found by Fusion ({0}%)', num(tr.ahead?.fusionUpliftPercent ?? 0))}</td><td>+${num(f.fusionExtra)}</td></tr>` : ''}
         <tr class="sum"><td>${w('To triage')}</td><td>${num(f.toTriage)}</td></tr>
         <tr><td>${w('To remediate (true positives)')}</td><td>${num(f.truePositives)}</td></tr>
         <tr class="sum gold"><td>${w('Triage & remediation credits')}</td><td>${num(f.credits, 1)}</td></tr>
@@ -216,8 +217,9 @@ function story(data, L) {
     </div>`);
   }
   if (!cards.length) return '';
+  const ask = data.fusion || data.fusionNew ? '' : `<p class="sub">${w('Checkmarx Fusion is not in this projection: please ask your Checkmarx team to help with a Fusion forecast, if required.')}</p>`;
   const chart = tr?.forecast?.length ? `<h3 class="chart-title">${w('Backlog trend and forecast')}</h3><p class="sub">${tr.monthlyChange >= 0 ? w('The backlog grew by {0} a month on average recently.', num(tr.monthlyChange)) : w('The backlog shrank by {0} a month on average recently.', num(-tr.monthlyChange))}</p>${forecastChart(tr.forecast, palette(L.t))}` : '';
-  return `<section><h2>${w('How we got there')}</h2><div class="cards">${cards.join('')}</div>${chart}</section>`;
+  return `<section><h2>${w('How we got there')}</h2><div class="cards">${cards.join('')}</div>${chart}${ask}</section>`;
 }
 
 /** What the credits give back (model.js trImpact, fusionImpact, overallImpact, worked out when the report was made). */
@@ -297,8 +299,14 @@ export function assumptionItems(data, sum, L) {
       else if (Number.isFinite(tr.totals?.selected) && tr.totals.selected < tr.totals.backlog) items.push(w('New findings are counted in the same share per severity as the backlog chosen.'));
       else if (tr.ahead.aiDeclinePercent) items.push(w('New findings arrive at the pace of the last {0} months, falling by {1}% over a year as teams adopt AI.', num(tr.lookbackMonths), num(tr.ahead.aiDeclinePercent)));
       else items.push(w('New findings keep arriving at the pace of the last {0} months.', num(tr.lookbackMonths)));
-      if (tr.fusion) items.push(w('Fusion reports {0}% more findings than today.', num(tr.ahead.fusionUpliftPercent)));
+      if (tr.fusion) items.push(tr.sastOnly ? w('Fusion reports {0}% more SAST findings than today.', num(tr.ahead.fusionUpliftPercent)) : w('Fusion reports {0}% more findings than today.', num(tr.ahead.fusionUpliftPercent)));
     }
+  }
+  // Not every scan origin: the scans counted (how often projects are scanned, and the backlog and its trend) are from these only.
+  const origins = data.source?.origins;
+  if (Array.isArray(origins)) {
+    const named = esc(origins.join(', '));
+    items.push(!origins.length ? w('Scans from: no scan origin.') : data.source.originsFusionOnly ? w('Scans from: {0} (for Fusion: the two exports count every scan).', named) : w('Scans from: {0}.', named));
   }
   if (data.fusion || data.fusionNew) items.push(w("Each project's lines of code are rounded up to whole 10K units on their own; one scan costs its model's credits per 10K LOC."));
   if (data.fusionNew?.leftOut?.length) items.push(w('New customer: code lines counted with cloc, without blank and comment lines; not counted: {0}.', data.fusionNew.leftOut.map(esc).join(', ')));
@@ -528,7 +536,17 @@ ${p.labels === 'caps' ? 'th{text-transform:uppercase;letter-spacing:.08em;font-s
  * `options`: `t` the page's translator, `lang` its language and `dir` its direction ("rtl" for Arabic and Hebrew),
  * `look` how it looks: `{look, ui: 'nextgen'|'classic', theme: 'auto'|'light'|'dark', accent}`, the app's own when made from it.
  */
-export function buildReport(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
+/**
+ * The report's data with only the Fusion parts that count: a part with no credits (left out, nothing
+ * counted, or no model rate) is not shown, and one line asks the customer's Checkmarx team instead.
+ */
+export function countedFusion(data) {
+  const counts = (part) => (Number(part?.totals?.credits) > 0 ? part : null);
+  return { ...data, fusion: counts(data.fusion), fusionNew: counts(data.fusionNew) };
+}
+
+export function buildReport(raw, { t, lang = 'en', dir = 'ltr', look } = {}) {
+  const data = countedFusion(raw);
   const { look: lookName, ui, theme, accent } = reportLook(look);
   const L = wording({ t, lang });
   const { w } = L;

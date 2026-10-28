@@ -5,6 +5,7 @@
 // charts.js; the downloaded report report.js.
 
 import {
+  BUNDLE_CREDITS,
   CRITICALITIES,
   DEFAULT_TR,
   FREQUENCIES,
@@ -14,6 +15,7 @@ import {
   aheadSettings,
   amount,
   analyse,
+  byOrigins,
   cleanScope,
   creditSummary,
   fusionEstimate,
@@ -23,6 +25,7 @@ import {
   impactSettings,
   inScope,
   newCustomerEstimate,
+  originCounts,
   overallImpact,
   parseCloc,
   sortProjects,
@@ -30,8 +33,10 @@ import {
   readLimit,
   scopeActive,
   seriesRows,
+  settingChanges,
   severityPlan,
   suggestedScans,
+  topSettings,
   totalsSettings,
   trImpact,
   trProjection,
@@ -66,9 +71,11 @@ function appLook() {
 /**
  * `standalone`: the calculator on its own, as one HTML file (src/standalone-calculator.js): it never reads
  * Checkmarx One (the two exports stand in), keeps everything in the browser, and asks for the names on the
- * reports itself. `sampleFile(name)` gives the sample exports there, as a Response.
+ * reports itself. `sampleFile(name)` gives the sample exports there, as a Response. `canGit()`: the new
+ * customer tab may count code from git (on the server, or in the launcher on its computer; never in the
+ * HTML file on its own, which can reach nothing).
  */
-export function initCalculator({ api, $, esc, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me, can, standalone = false, sampleFile = null, canRead = () => !standalone, impactOn = () => false }) {
+export function initCalculator({ api, $, esc, toast, setStatus, showError, handleAuthLoss, fmtDateTime, me, can, standalone = false, sampleFile = null, canRead = () => !standalone, canGit = () => !standalone, impactOn = () => false }) {
   // On its own with no way to Checkmarx One (the HTML file opened from disk): the two exports are the way in.
   const offline = () => standalone && !canRead();
   const c = { customers: [], open: null, pending: null, timer: null, saving: null, draft: {}, dirty: {}, present: false, remainingCredits: null, reports: [] };
@@ -111,7 +118,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderCustomers() {
     $('calc-empty').hidden = c.customers.length > 0;
     $('calc-customer').innerHTML = c.customers.map((x) => `<option value="${esc(x.id)}"${x.id === c.open?.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
-    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-scope-apply', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches', 'calc-max-projects']) $(id).disabled = !c.open;
+    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches', 'calc-max-projects', 'calc-apply', 'calc-undo']) $(id).disabled = !c.open;
   }
 
   function renderOrg() {
@@ -135,6 +142,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!customer) {
       $('calc-tr').innerHTML = '';
       $('calc-read').disabled = true;
+      c.next = null;
+      renderPending();
       return;
     }
     try {
@@ -143,10 +152,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-name').value = customer.name;
     c.trCredits = null;
     c.fusionCredits = null;
-    $('calc-extra').value = totals().extraPercent || '';
-    $('calc-bundle').value = totals().bundleCredits;
-    renderHorizon();
-    renderScope();
+    // Nothing waits for Apply in a customer just opened: the settings at the top are its own.
+    c.next = null;
+    renderTop();
     $('calc-email-form').hidden = true;
     $('calc-email-open').setAttribute('aria-expanded', 'false');
     rowsShown = ROWS_PAGE;
@@ -162,9 +170,11 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderFusion();
     loadReports();
     autoRead();
-    // Saved before engines were counted apart, or with other engines: count the ones chosen now.
+    // Saved before engines were counted apart, with other engines, before SAST was kept apart (for Fusion's
+    // extra findings), or with other scan origins: add them up again from the last read.
     const meta = customer.tr?.totals?.meta;
-    if (meta?.source === 'cxone' && cleanEngines(meta.engines).join() !== trEngines().join()) applyScope({ quiet: true });
+    const origins = (list) => [...(list ?? [])].sort().join('\n');
+    if (meta?.source === 'cxone' && (cleanEngines(meta.engines).join() !== trEngines().join() || !customer.tr.totals.sast || origins(meta.origins) !== origins(scope().origins))) applyScope({ quiet: true });
   }
 
   async function open(id) {
@@ -294,7 +304,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const { totalRows, fixedRows } = seriesRows(tr().totals, tr().fixed);
     const analysis = analyse(totalRows, fixedRows, tr().lookbackMonths);
     if (!analysis) return null;
-    const projection = trProjection(analysis, tr(), { months: horizon(), fusion: fusionOn() });
+    // Fusion's extra findings are SAST's: its own part of the read, when the read told engines apart.
+    const sastRows = tr().totals.sast && tr().fixed.sast ? seriesRows(tr().totals, tr().fixed, 'sast') : null;
+    const sast = sastRows ? analyse(sastRows.totalRows, sastRows.fixedRows, tr().lookbackMonths) : null;
+    const projection = trProjection(analysis, tr(), { months: horizon(), fusion: fusionOn(), sast });
     return {
       analysis,
       // The debt and fixing rates over the last 6 months, for the report, whatever the trend is averaged over.
@@ -416,10 +429,18 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       : meta.engineSplit === false
         ? '<span class="hint calc-warn">This read is from before engines were counted apart, so every engine is counted: read from Checkmarx One again to count only these.</span>'
         : '<span class="hint">AI Triage and AI Remediation credits are spent on SAST and SCA findings.</span>';
+    // Only some scan origins chosen, but this backlog counts every scan: said, with what to do.
+    const origins = !scope().origins
+      ? ''
+      : !live
+        ? '<span class="hint calc-warn">The two exports count every scan: only Fusion follows Include scans from.</span>'
+        : meta.originSplit === false
+          ? '<span class="hint calc-warn">This read is from before scan origins were recorded, so every scan is counted: read from Checkmarx One again to count only the scans chosen.</span>'
+          : '';
     return `<div class="calc-engines calc-edit" role="group" aria-label="Engines counted">
           <span class="hint"><b>Engines counted</b></span>
           ${ENGINES.map((e) => `<label class="pill-check"><input type="checkbox" data-engine="${e.key}"${chosen.has(e.key) ? ' checked' : ''}${live ? '' : ' disabled'} /> <span translate="no">${e.label}</span>${e.ai ? '' : ' <small>No AI</small>'}</label>`).join('')}
-          ${note}
+          ${note}${origins}
         </div>`;
   }
 
@@ -456,7 +477,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
           <span class="calc-op" aria-hidden="true">+</span>
           ${step('Still to come', num(P.future), !A.includeFuture ? 'not counted' : `over ${num(months)} months`, '', 'future')}
           <span class="calc-op" aria-hidden="true">+</span>
-          ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? `${num(A.fusionUpliftPercent)}% more findings` : fusionOff() ? '0% · Fusion left out' : 'Fusion not in the projection', '', 'fusion')}
+          ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? (projection.sastOnly ? `${num(A.fusionUpliftPercent)}% more SAST findings` : tr().totals?.meta?.source === 'cxone' ? `${num(A.fusionUpliftPercent)}% more findings · read again for SAST only` : `${num(A.fusionUpliftPercent)}% more findings · the exports count every engine`) : fusionOff() ? '0% · Fusion left out' : 'Fusion not in the projection', '', 'fusion')}
           <span class="calc-op" aria-hidden="true">=</span>
           ${step('To triage', num(P.toTriage), `${num(P.truePositives)} to remediate`, 'calc-step-key', 'triage')}
           <span class="calc-op" aria-hidden="true">→</span>
@@ -590,6 +611,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     months: t.projection.months,
     paced: t.projection.paced,
     fusion: t.projection.fusion,
+    sastOnly: t.projection.sastOnly,
     ahead: t.projection.ahead,
     rows: t.projection.rows,
     totals: t.projection.totals,
@@ -691,17 +713,23 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   const fusion = () => c.open?.fusion;
   const scope = () => cleanScope(c.open?.scope);
-  /** The projects that count: those in the scope (a project added by hand always is). */
-  const scoped = () => fusion().projects.filter((p) => p.source === 'manual' || inScope(p, scope(), trEngines()));
+  /** Is this project in the scope, as the scans from the scan origins chosen see it (byOrigins)? */
+  const counts = (p, sc = scope()) => {
+    const seen = byOrigins(p, sc.origins);
+    return Boolean(seen) && inScope(seen, sc, trEngines());
+  };
+  /** The projects that count, as the scans from the scan origins chosen see them (a project added by hand always counts). */
+  const scoped = () => fusion().projects.map((p) => byOrigins(p, scope().origins)).filter((p) => p && (p.source === 'manual' || inScope(p, scope(), trEngines())));
   /** Projects read from Checkmarx One that the scope leaves out: none when it counts them all. */
-  const leftOutBy = (sc = scope()) => (fusion()?.projects ?? []).filter((p) => p.source !== 'manual' && !inScope(p, sc, trEngines()));
+  const leftOutBy = (sc = scope()) => (fusion()?.projects ?? []).filter((p) => p.source !== 'manual' && !counts(p, sc));
   const narrowed = () => leftOutBy().length > 0;
-  /** How many projects each leave-out option takes out (of those the other choices keep). */
+  /** How many projects each leave-out option takes out (of those the other choices keep), and those with no scan from the scan origins chosen. */
   function leftOutCounts(sc = scope()) {
-    const projects = (fusion()?.projects ?? []).filter((p) => p.source !== 'manual');
+    const read = (fusion()?.projects ?? []).filter((p) => p.source !== 'manual');
+    const projects = read.map((p) => byOrigins(p, sc.origins)).filter(Boolean);
     const without = (change) => projects.filter((p) => !inScope(p, { ...sc, ...change }, trEngines())).length;
     const now = without({});
-    return { noCode: sc.leaveOutNoCode ? now - without({ leaveOutNoCode: false }) : 0, noFindings: sc.leaveOutNoFindings ? now - without({ leaveOutNoFindings: false }) : 0 };
+    return { noCode: sc.leaveOutNoCode ? now - without({ leaveOutNoCode: false }) : 0, noFindings: sc.leaveOutNoFindings ? now - without({ leaveOutNoFindings: false }) : 0, noOrigin: read.length - projects.length };
   }
   const estimate = () => fusionEstimate(scoped(), fusion());
   const ROWS_PAGE = 100;
@@ -722,7 +750,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderFusion() {
     if (!c.open) return;
     const f = fusion();
-    $('calc-fusion-on').checked = !fusionOff();
+    $('calc-fusion-on').checked = next().fusionOn;
     $('calc-fusion-off-note').hidden = !fusionOff();
     $('page-calculator').classList.toggle('calc-fusion-off', fusionOff());
     $('calc-default-scans').value = f.defaultScans;
@@ -844,18 +872,21 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderKpis(est);
   }
   // Opting out of Fusion: the customer is not taking it, so nothing of it is counted (its settings stay for later).
+  // Ticked at the top, it waits for Apply; "Include it" on the tab counts at once.
   const setFusionOn = (on) => {
     if (!c.open) return;
     fusion().optOut = !on;
+    if (c.next) c.next.fusionOn = on;
     saveFusion();
     renderFusion();
     // Triage & remediation's "More found by Fusion" follows: 0% while it is left out, its own % again once back.
     renderTr();
+    renderPending();
   };
-  $('calc-fusion-on').addEventListener('change', (event) => setFusionOn(event.target.checked));
+  $('calc-fusion-on').addEventListener('change', (event) => c.open && setNext({ fusionOn: event.target.checked }, { redraw: false }));
   $('calc-fusion-include').addEventListener('click', () => setFusionOn(true));
 
-  // ---- Fusion — new customer: code not in Checkmarx One yet, its lines counted with cloc --------
+  // ---- Fusion — new customer: code not in Checkmarx One yet, its lines counted from git or with cloc
 
   /** The new customer tab's projects and choices (a customer saved before it has none yet). */
   const fnew = () => {
@@ -873,13 +904,18 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const left = p.languages.filter((l) => !l.counted).reduce((n, l) => n + l.lines, 0);
     const total = counted.reduce((n, l) => n + l.lines, 0) || 1;
     const typed = wholeNumber(p.locOverride) !== null;
+    // Where its lines came from: "git · main · 3f2a1c9" (and Count again), "cloc · payments-api.json", or typed.
+    const from = p.git
+      ? `<span class="calc-git-tag" translate="no" title="${esc(`${p.git.host}/${p.git.path}${p.git.countedAt ? ` · ${fmtDateTime(p.git.countedAt)}` : ''}`)}">${esc(['git', p.git.branch, p.git.commit].filter(Boolean).join(' · '))}</span>${gitOn() ? ' <button type="button" class="link" data-fnew-recount>Count again</button>' : ''}`
+      : p.file ? `<span class="calc-git-tag" translate="no">${esc(`cloc · ${p.file}`)}</span>` : '—';
     return `<tr data-row="${esc(p.id)}" class="${p.included ? '' : 'calc-off'}">
       <td><input type="checkbox" data-n="included"${p.included ? ' checked' : ''} aria-label="Include ${esc(p.name)}" /></td>
-      <td><span class="calc-name-cell"><input type="text" data-n="name" value="${esc(p.name)}" maxlength="200" aria-label="Project name" translate="no" /><button type="button" class="ghost calc-remove" data-remove-fnew>Remove</button></span>${p.file ? `<small class="hint" translate="no">${esc(p.file)}</small>` : ''}</td>
+      <td><span class="calc-name-cell"><input type="text" data-n="name" value="${esc(p.name)}" maxlength="200" aria-label="Project name" translate="no" /><button type="button" class="ghost calc-remove" data-remove-fnew>Remove</button></span></td>
+      <td class="calc-from">${from}</td>
       <td>${counted.length || left
         ? `<span class="calc-lang-line" translate="no">${counted.slice(0, 3).map((l) => `${esc(l.name)} ${Math.round((l.lines / total) * 100)}%`).join(' · ')}${counted.length > 3 ? ` · +${counted.length - 3}` : ''}</span>${left ? `<span class="calc-lang-line">${esc(`${num(left)} lines not counted`)}</span>` : ''}<span class="calc-lang-bar">${counted.map((l) => `<i style="width:${((l.lines / total) * 100).toFixed(2)}%;background:${colourOf(l.name)}" title="${esc(`${l.name}: ${num(l.lines)}`)}"></i>`).join('')}</span>`
         : '—'}</td>
-      <td><input type="text" inputmode="numeric" class="calc-num" data-n="loc" value="${typed ? p.locOverride : p.lines ?? ''}" placeholder="Type them" aria-label="Lines of code of ${esc(p.name)}" />${typed && p.languages.length ? `<small class="hint">cloc counted ${num(newCustomerEstimate({ ...fnew(), projects: [{ ...p, locOverride: null }] }, fusion()).rows[0]?.lines)} <button type="button" class="link" data-fnew-reset>Use it</button></small>` : ''}</td>
+      <td><input type="text" inputmode="numeric" class="calc-num" data-n="loc" value="${typed ? p.locOverride : p.lines ?? ''}" placeholder="Type them" aria-label="Lines of code of ${esc(p.name)}" />${typed && p.languages.length ? `<small class="hint">${p.git ? 'Counted from git' : 'cloc counted'} ${num(newCustomerEstimate({ ...fnew(), projects: [{ ...p, locOverride: null }] }, fusion()).rows[0]?.lines)} <button type="button" class="link" data-fnew-reset>Use it</button></small>` : ''}</td>
       <td class="num" data-cell="units">${p.included && p.units ? num(p.units) : '—'}</td>
       <td><input type="text" inputmode="numeric" class="calc-num" data-n="scansOverride" value="${p.scansOverride ?? ''}" placeholder="${num(p.scans)}" aria-label="Fusion scans for ${esc(p.name)}" /></td>
       <td><select data-n="modelOverride" aria-label="Model for ${esc(p.name)}">${modelOptions(p.modelOverride, 'Automatic')}</select></td>
@@ -891,7 +927,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!c.open) return;
     const f = fnew();
     const est = fnewEstimate();
-    $('calc-fusion-new-on').checked = !fnewOff();
+    $('calc-fusion-new-on').checked = next().fusionNewOn;
     $('calc-fnew-off-note').hidden = !fnewOff();
     $('calc-fnew-scans').value = f.defaultScans;
     const fallback = fusion().models.find((m) => m.id === fusion().defaultModel);
@@ -908,18 +944,21 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const twice = fnewOff() ? [] : est.rows.filter((r) => r.included && existing.has(String(r.name).toLowerCase())).map((r) => r.name);
     $('calc-fnew-dup').hidden = !twice.length;
     $('calc-fnew-dup').textContent = twice.length ? t('Also on the existing customer tab, so counted on both: {0}. Untick it on one of them unless it really is a second copy of the code.').replace('{0}', twice.join(', ')) : '';
-    const t = est.totals;
+    // (Named `tot`, not `t`: `t` is the translation used above in this function.)
+    const tot = est.totals;
     const kpi = (label, value, sub, cls = '') => `<div class="rp-kpi ${cls}"><span class="rp-tile-label">${esc(label)}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${sub}</span></div>`;
     $('calc-fnew-kpis').innerHTML = f.projects.length
       ? [
-          kpi('Projects', num(t.projects), t.unknownLines ? `<span class="calc-warn">Still without lines of code: ${num(t.unknownLines)}</span>` : 'Included, with lines of code'),
-          kpi('10K LOC units', num(t.units), `${num(t.lines)} code lines, each project rounded up`),
-          kpi('Fusion scans', num(t.scans), `Over ${num(est.settings.periodMonths)} months`),
-          kpi('Credits', num(t.credits, 1), t.unknownRate ? `<span class="calc-warn">Projects whose model has no credits per 10K LOC: ${num(t.unknownRate)}</span>` : `Over ${num(est.settings.periodMonths)} months`, 'calc-gold'),
+          kpi('Projects', num(tot.projects), tot.unknownLines ? `<span class="calc-warn">Still without lines of code: ${num(tot.unknownLines)}</span>` : 'Included, with lines of code'),
+          kpi('10K LOC units', num(tot.units), `${num(tot.lines)} code lines, each project rounded up`),
+          kpi('Fusion scans', num(tot.scans), `Over ${num(est.settings.periodMonths)} months`),
+          kpi('Credits', num(tot.credits, 1), tot.unknownRate ? `<span class="calc-warn">Projects whose model has no credits per 10K LOC: ${num(tot.unknownRate)}</span>` : `Over ${num(est.settings.periodMonths)} months`, 'calc-gold'),
         ].join('')
       : '';
     $('calc-fnew-rows').innerHTML = est.rows.map((p) => fnewRowHtml(p, colourOf)).join('');
     $('calc-fnew-empty').hidden = f.projects.length > 0;
+    $('calc-fnew-again').hidden = !f.projects.some((p) => p.git);
+    showWay(way);
     renderSummary();
   }
 
@@ -940,10 +979,12 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   const setFnewOn = (on) => {
     if (!c.open) return;
     fnew().optOut = !on;
+    if (c.next) c.next.fusionNewOn = on;
     saveFnew();
     renderFusionNew();
+    renderPending();
   };
-  $('calc-fusion-new-on').addEventListener('change', (event) => setFnewOn(event.target.checked));
+  $('calc-fusion-new-on').addEventListener('change', (event) => c.open && setNext({ fusionNewOn: event.target.checked }, { redraw: false }));
   $('calc-fnew-include').addEventListener('click', () => setFnewOn(true));
   $('calc-fnew-scans').addEventListener('input', (event) => {
     if (!c.open) return;
@@ -996,6 +1037,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   $('calc-fnew-rows').addEventListener('click', (event) => {
     const p = fnewProject(event.target);
     if (!p) return;
+    if (event.target.closest('[data-fnew-recount]') && p.git) return countAgain(p);
     if (event.target.closest('[data-fnew-reset]')) p.locOverride = null;
     else if (event.target.closest('[data-remove-fnew]')) fnew().projects = fnew().projects.filter((x) => x !== p);
     else return;
@@ -1010,6 +1052,273 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-fnew-rows').querySelector('tr:last-child [data-n="name"]')?.select();
   });
 
+  // ---- Count from git: the customer's repositories counted where they are kept (src/fusion-git.js) ----
+  // On the server, or in the launcher on its own computer; the HTML file on its own can reach no git host.
+
+  const gitOn = () => !standalone || canGit();
+  const WAY_STORE = 'mz-calc-fnew-way';
+  const GIT_MAX = 50;
+  const GIT_ADDRESS = { github: 'https://github.com', gitlab: 'https://gitlab.com', azure: 'https://dev.azure.com/your-organisation', bitbucket: 'https://bitbucket.org' };
+  // The Admin's connections (id, host, provider: never a token), the repositories listed, and the count running.
+  const git = { connections: null, repos: [], run: null, owner: '' };
+  let way = (() => {
+    try {
+      return localStorage.getItem(WAY_STORE) === 'cloc' ? 'cloc' : 'git';
+    } catch {
+      return 'git';
+    }
+  })();
+  const bytes = (b) => (b >= 1024 ** 3 ? `${num(b / 1024 ** 3, 1)} GB` : b >= 1024 ** 2 ? `${num(b / 1024 ** 2)} MB` : `${num(Math.max(1, b / 1024))} KB`);
+
+  /** Count from git or Upload cloc results: one shown at a time (only cloc where git cannot be reached). */
+  function showWay(pick) {
+    const on = gitOn();
+    const shown = on && pick === 'git' ? 'git' : 'cloc';
+    $('calc-fnew-ways').hidden = !on;
+    for (const input of document.querySelectorAll('input[name="calc-fnew-way"]')) input.checked = input.value === shown;
+    $('calc-git').hidden = shown !== 'git';
+    $('calc-cloc').hidden = shown !== 'cloc';
+    if (shown === 'git') loadConnections();
+  }
+  $('calc-fnew-ways').addEventListener('change', (event) => {
+    if (event.target.name !== 'calc-fnew-way') return;
+    way = event.target.value === 'cloc' ? 'cloc' : 'git';
+    try {
+      localStorage.setItem(WAY_STORE, way);
+    } catch {}
+    showWay(way);
+  });
+
+  /** The Admin's git connections, once: each one a choice in step 1, then a token typed for one count. */
+  async function loadConnections() {
+    if (git.connections) return;
+    git.connections = [];
+    try {
+      git.connections = (await api('/api/projections/git/connections', { quiet: true })).connections ?? [];
+    } catch (error) {
+      if (handleAuthLoss(error)) return;
+    }
+    renderHosts();
+  }
+
+  const chosenHost = () => $('calc-git-hosts').querySelector('input:checked')?.value ?? 'token';
+  function renderHosts() {
+    const list = git.connections ?? [];
+    const was = $('calc-git-hosts').querySelector('input:checked')?.value;
+    const chosen = list.some((x) => x.id === was) || was === 'token' ? was : list[0]?.id ?? 'token';
+    $('calc-git-hosts').innerHTML = [
+      ...list.map((x, i) => `<label class="calc-git-host"><input type="radio" name="calc-git-host" value="${esc(x.id)}"${x.id === chosen ? ' checked' : ''} /><span><b translate="no">${esc(`${x.label} · ${x.host}`)}</b><small>${i === 0 ? 'A git connection the Admin already set up (the same tokens as Code authors). Nothing to type.' : 'Another git connection the Admin set up.'}</small></span></label>`),
+      `<label class="calc-git-host"><input type="radio" name="calc-git-host" value="token"${chosen === 'token' ? ' checked' : ''} /><span><b>A token for this count only</b><small>${standalone ? 'The customer’s own read-only token: git on this computer fetches the code and counts it here.' : 'The customer’s own read-only token, for a host connected or allowed by the Admin.'}</small></span></label>`,
+    ].join('');
+    hostChanged();
+  }
+
+  function hostChanged() {
+    const id = chosenHost();
+    const conn = git.connections?.find((x) => x.id === id);
+    const provider = conn?.provider ?? $('calc-git-provider').value;
+    $('calc-git-token').hidden = id !== 'token';
+    $('calc-git-address').placeholder = GIT_ADDRESS[$('calc-git-provider').value];
+    $('calc-git-owner-label').textContent = provider === 'azure' ? 'Project (empty: every project)' : provider === 'bitbucket' ? 'Workspace (or project key)' : 'Organisation or group';
+    // The connection's own organisation or group, until something else is typed.
+    const owner = $('calc-git-owner');
+    if (!owner.value || owner.value === git.owner) owner.value = git.owner = conn?.owner ?? '';
+  }
+  const hostSwitched = () => {
+    git.repos = [];
+    renderRepos();
+    hostChanged();
+  };
+  $('calc-git-hosts').addEventListener('change', hostSwitched);
+  $('calc-git-provider').addEventListener('change', hostSwitched);
+
+  /** Where the code is, as the server takes it: a connection's id, or the token typed (sent with this request only). */
+  function access() {
+    const id = chosenHost();
+    if (id !== 'token') return { connection: id };
+    const token = $('calc-git-secret').value.trim();
+    if (!token) throw new Error('Paste the token first (1 · Where the code is).');
+    return { token: { provider: $('calc-git-provider').value, address: $('calc-git-address').value.trim(), token } };
+  }
+
+  $('calc-git-list').addEventListener('click', async () => {
+    let body;
+    try {
+      body = { ...access(), owner: $('calc-git-owner').value.trim() };
+    } catch (error) {
+      return setStatus('calc-git-status', error.message, 'error');
+    }
+    setStatus('calc-git-status', 'Listing the repositories…', 'muted');
+    $('calc-git-list').disabled = true;
+    try {
+      const found = await api('/api/projections/git/repositories', { method: 'POST', body: JSON.stringify(body), quiet: true });
+      // Ticked to start with: each one not archived, up to the 50 a count takes.
+      let ticked = 0;
+      git.repos = (found.repositories ?? []).map((r) => ({ ...r, ticked: !r.archived && (ticked += 1) <= GIT_MAX }));
+      renderRepos();
+      if (!git.repos.length) setStatus('calc-git-status', 'No repositories there that this access may read.', 'warn');
+      else if (found.more) setStatus('calc-git-status', `The first ${num(git.repos.length)} repositories are listed: paste the addresses of any others.`, 'warn');
+      else setStatus('calc-git-status', '');
+    } catch (error) {
+      if (!handleAuthLoss(error)) showError('calc-git-status', error);
+    } finally {
+      $('calc-git-list').disabled = false;
+    }
+  });
+
+  function renderRepos() {
+    const box = $('calc-git-repos');
+    box.hidden = !git.repos.length;
+    box.innerHTML = git.repos.length
+      ? `<div class="calc-git-repos-head"><span></span><button type="button" class="link" data-git-all>Tick all</button><button type="button" class="link" data-git-none>Tick none</button></div>` +
+        git.repos
+          .map((r, i) => `<label><input type="checkbox" data-git-repo="${i}"${r.ticked ? ' checked' : ''} /><span><span translate="no">${esc(r.path)}</span>${r.branch ? ` <span class="calc-git-tag" translate="no">${esc(r.branch)}</span>` : ''}${r.archived ? ' <span class="calc-git-tag">archived</span>' : ''}</span><span class="calc-git-size">${r.sizeBytes === null ? '' : esc(bytes(r.sizeBytes))}</span></label>`)
+          .join('')
+      : '';
+    countLabel();
+  }
+  $('calc-git-repos').addEventListener('change', (event) => {
+    const i = event.target.dataset.gitRepo;
+    if (i === undefined || !git.repos[Number(i)]) return;
+    git.repos[Number(i)].ticked = event.target.checked;
+    countLabel();
+  });
+  $('calc-git-repos').addEventListener('click', (event) => {
+    const all = event.target.closest('[data-git-all]');
+    if (!all && !event.target.closest('[data-git-none]')) return;
+    for (const r of git.repos) r.ticked = Boolean(all);
+    renderRepos();
+  });
+
+  /** The repositories ticked and pasted, each once. */
+  function wanted() {
+    const out = git.repos.filter((r) => r.ticked).map((r) => ({ url: r.url, branch: r.branch }));
+    for (const line of $('calc-git-paste').value.split(/\r?\n/)) if (line.trim()) out.push({ url: line.trim() });
+    return [...new Map(out.map((r) => [r.url.replace(/(\.git)?\/*$/i, '').toLowerCase(), r])).values()];
+  }
+  function countLabel() {
+    const n = wanted().length;
+    const button = $('calc-git-count');
+    button.textContent = n === 1 ? 'Count code lines (1 repository)' : n ? `Count code lines (${num(n)} repositories)` : 'Count code lines';
+    button.disabled = !n || Boolean(git.run) || !c.open;
+    const head = $('calc-git-repos').querySelector('.calc-git-repos-head span');
+    if (head) head.textContent = `${num(git.repos.filter((r) => r.ticked).length)} of ${num(git.repos.length)} ticked`;
+  }
+  $('calc-git-paste').addEventListener('input', countLabel);
+  $('calc-git-count').addEventListener('click', () => {
+    const items = wanted();
+    if (items.length > GIT_MAX) return setStatus('calc-git-status', `At most ${GIT_MAX} repositories a count: tick fewer, and count the rest after.`, 'error');
+    startCount(items);
+  });
+
+  /** Count again: the project's repository at its latest commit, with the connection it was counted with when it is still there. */
+  function countAgain(p) {
+    way = 'git';
+    showWay(way);
+    const known = git.connections?.some((x) => x.id === p.git.connection);
+    startCount([{ url: p.git.url }], { projectId: p.id, connection: known ? p.git.connection : null });
+  }
+
+  /** Start a count, then follow it: each repository becomes a project of the customer open when it started. */
+  async function startCount(items, { projectId = null, connection = null } = {}) {
+    if (!c.open || git.run || !items.length) return;
+    let how;
+    try {
+      how = connection ? { connection } : access();
+    } catch (error) {
+      return setStatus('calc-git-status', error.message, 'error');
+    }
+    setStatus('calc-git-status', 'Starting the count…', 'muted');
+    git.run = { id: null, customer: c.open.id, connection: how.connection ?? '', projectId, applied: new Set() };
+    countLabel();
+    let job;
+    try {
+      job = await api('/api/projections/git/count', { method: 'POST', body: JSON.stringify({ ...how, repositories: items }), quiet: true });
+    } catch (error) {
+      git.run = null;
+      countLabel();
+      if (!handleAuthLoss(error)) showError('calc-git-status', error);
+      return;
+    }
+    git.run.id = job.id;
+    setStatus('calc-git-status', '');
+    followCount(job);
+  }
+
+  function followCount(job) {
+    renderProgress(job);
+    applyCounted(job);
+    if (job.state !== 'running') return finishCount(job);
+    setTimeout(async () => {
+      let next;
+      try {
+        next = await api(`/api/projections/git/count?id=${encodeURIComponent(git.run.id)}`, { quiet: true });
+      } catch (error) {
+        git.run = null;
+        countLabel();
+        if (!handleAuthLoss(error)) showError('calc-git-status', error);
+        return;
+      }
+      followCount(next);
+    }, 1000);
+  }
+
+  /** Each repository counted: a project (the one of the same name, or the one counted again, is replaced). */
+  function applyCounted(job) {
+    const run = git.run;
+    if (!run || !c.open || c.open.id !== run.customer) return;
+    let added = 0;
+    for (const r of job.repositories) {
+      if (r.state !== 'done' || run.applied.has(r.url)) continue;
+      run.applied.add(r.url);
+      const langs = Object.fromEntries(Object.entries(r.languages ?? {}).map(([lang, v]) => [lang, v.code]));
+      const from = { host: r.host, path: r.path, url: r.url, branch: r.branch, commit: r.commit, countedAt: r.countedAt, connection: run.connection };
+      const same = run.projectId ? fnew().projects.find((p) => p.id === run.projectId) : fnew().projects.find((p) => String(p.name).toLowerCase() === String(r.name).toLowerCase());
+      if (same) Object.assign(same, { langs, file: '', git: from, locOverride: null });
+      else fnew().projects.push({ id: `new-${Date.now().toString(36)}-${run.applied.size}`, name: r.name, file: '', git: from, langs, locOverride: null, included: true, scansOverride: null, modelOverride: null });
+      added += 1;
+    }
+    if (added) {
+      saveFnew();
+      renderFusionNew();
+    }
+  }
+
+  function finishCount(job) {
+    const run = git.run;
+    git.run = null;
+    countLabel();
+    const done = job.repositories.filter((r) => r.state === 'done').length;
+    const failed = job.repositories.length - done;
+    if (run && c.open?.id !== run.customer) return toast('The count ended while another customer was open: open that customer and count again.', 'warn', 9000);
+    if (!failed) setStatus('calc-git-status', done === 1 ? 'Counted: it is a project below.' : `${num(done)} counted: each is a project below.`, 'ok');
+    else setStatus('calc-git-status', `${num(done)} counted, ${num(failed)} not: each says why above.`, done ? 'warn' : 'error');
+  }
+
+  /** One line a repository: waiting, fetching, counting n of m files, its lines and languages, or why not. */
+  function renderProgress(job) {
+    const box = $('calc-git-progress');
+    const rows = job?.repositories ?? [];
+    box.hidden = !rows.length;
+    const out = new Set(fnew()?.leftOut ?? []);
+    box.innerHTML = rows
+      .map((r) => {
+        const where = r.path || r.url.replace(/^https?:\/\/[^/]+\//, '');
+        const tag = r.branch || r.commit ? ` <span class="calc-git-tag" translate="no">${esc([r.branch, r.commit].filter(Boolean).join(' · '))}</span>` : '';
+        let state;
+        if (r.state === 'done') {
+          const langs = Object.keys(r.languages ?? {}).filter((lang) => !out.has(lang));
+          const lines = langs.reduce((n, lang) => n + r.languages[lang].code, 0);
+          state = `<span class="calc-git-state done">✓ ${esc(`${num(lines)} lines`)}${langs.length ? ` · <span translate="no">${esc(langs.slice(0, 3).join(', '))}</span>` : ''}</span>`;
+        } else if (r.state === 'failed') state = `<span class="calc-git-state bad">✗ ${esc(r.error)}</span>`;
+        else if (r.state === 'counting') state = `<span class="calc-git-state">${esc(`Counting… ${num(r.done)} of ${num(r.total)} files`)}</span>`;
+        else if (r.state === 'fetching') state = '<span class="calc-git-state">Fetching the latest commit…</span>';
+        else state = '<span class="calc-git-state">Waiting</span>';
+        return `<div class="calc-git-row"><span><span translate="no">${esc(where)}</span>${tag}</span>${state}</div>`;
+      })
+      .join('');
+  }
+
   /** The customer's cloc results: each file read here (nothing is sent anywhere but this customer's save). */
   const MAX_CLOC_BYTES = 50 * 1024 * 1024;
   async function readCloc(files) {
@@ -1021,7 +1330,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         if (file.size > MAX_CLOC_BYTES) throw new Error(t('{0} is over 50 MB: run cloc without --by-file.').replace('{0}', file.name));
         for (const found of parseCloc(await file.text(), file.name)) {
           const same = fnew().projects.find((p) => String(p.name).toLowerCase() === String(found.name).toLowerCase());
-          if (same) Object.assign(same, { langs: found.langs, file: file.name, locOverride: null });
+          if (same) {
+            Object.assign(same, { langs: found.langs, file: file.name, locOverride: null });
+            delete same.git;
+          }
           else fnew().projects.push({ id: `new-${Date.now().toString(36)}-${added}`, name: found.name, file: file.name, langs: found.langs, locOverride: null, included: true, scansOverride: null, modelOverride: null });
           added += 1;
         }
@@ -1116,19 +1428,16 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     Object.assign(c.open.fusion, fusionSettings(fusion()), { projects: fusion().projects, readAt: fusion().readAt });
     saveFusion();
   };
-  /** The projection period, at the top: both parts use it. */
+  /** The projection period, at the top: both parts use it (as chosen, until Apply). */
   function renderHorizon() {
-    const months = horizon();
+    const months = next().periodMonths;
     const select = $('calc-horizon');
     if (![...select.options].some((o) => Number(o.value) === months)) select.append(Object.assign(document.createElement('option'), { value: String(months), textContent: `${months} months` }));
     select.value = String(months);
   }
   $('calc-horizon').addEventListener('change', () => {
     if (!c.open) return;
-    fusion().periodMonths = wholeNumber($('calc-horizon').value) ?? 12;
-    settingsChanged();
-    renderFusion();
-    renderTr();
+    setNext({ periodMonths: wholeNumber($('calc-horizon').value) ?? 12 });
   });
   $('calc-default-scans').addEventListener('input', () => {
     fusion().defaultScans = wholeNumber($('calc-default-scans').value) ?? 0;
@@ -1242,10 +1551,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   $('calc-scope-frequencies').innerHTML = FREQ_BOXES;
   $('calc-scope-criticalities').innerHTML = CRITICALITIES.map((k) => `<label class="pill-check"><input type="checkbox" value="${k}" /> ${k}</label>`).join('');
 
-  /** What the scope fields show, and the names offered as one types (from the last read). */
+  /** What the scope fields show (as chosen, until Apply), and the names offered as one types (from the last read). */
   function renderScope() {
     if (!c.open) return;
-    const sc = scope();
+    const { scope: sc, allBranches } = next();
     const projects = fusion()?.projects ?? [];
     const offer = (id, values) => {
       $(id).replaceChildren(...[...new Set(values)].filter(Boolean).sort((a, b) => a.localeCompare(b)).slice(0, 500).map((v) => Object.assign(document.createElement('option'), { value: v })));
@@ -1262,16 +1571,19 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     for (const box of $('calc-scope-criticalities').querySelectorAll('input')) box.checked = sc.criticalities.includes(Number(box.value));
     $('calc-leave-no-code').checked = sc.leaveOutNoCode;
     $('calc-leave-no-findings').checked = sc.leaveOutNoFindings;
-    // The branches the last read counted (ticked: every branch).
-    $('calc-all-branches').checked = tr()?.totals?.meta?.branches === 'all';
+    // Ticked: every branch (the last read's, until another is applied).
+    $('calc-all-branches').checked = allBranches;
     $('calc-max-projects').value = num(sc.maxProjects);
+    renderOrigins();
     renderScopeSummary();
+    renderPending();
   }
 
+  /** The projects counted now (as applied): how many, and what narrows them. */
   function renderScopeSummary() {
     const sc = scope();
     const all = (fusion()?.projects ?? []).filter((p) => p.source !== 'manual');
-    const inIt = all.filter((p) => inScope(p, sc, trEngines())).length;
+    const inIt = all.filter((p) => counts(p, sc)).length;
     const out = leftOutCounts(sc);
     const nameOf = new Map(all.map((p) => [p.id, p.name]));
     const parts = [
@@ -1284,6 +1596,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       sc.criticalities.length && `Criticality: ${sc.criticalities.join(', ')}`,
       out.noCode && `${num(out.noCode)} with no lines of code left out`,
       out.noFindings && `${num(out.noFindings)} with no open findings left out`,
+      out.noOrigin && `${num(out.noOrigin)} with no scan from the scan origins chosen left out`,
     ].filter(Boolean);
     const el = $('calc-scope-summary');
     // Each part its own piece, so each is translated on its own.
@@ -1299,10 +1612,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (!form.hidden) $('calc-scope-groups').focus();
   });
 
-  // Applications and projects: chips, as on the Dashboard. A change counts at once.
+  // Applications and projects: chips, as on the Dashboard. A change waits for Apply.
   const scopeProjects = () => (fusion()?.projects ?? []).filter((p) => p.source !== 'manual');
   function drawScopeChips() {
-    const sc = scope();
+    const sc = next().scope;
     const nameOf = new Map(scopeProjects().map((p) => [p.id, p.name]));
     const draw = (box, entries, kind) => {
       for (const chip of box.querySelectorAll('.scope-chip')) chip.remove();
@@ -1324,18 +1637,17 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     draw($('calc-projects'), sc.projects.map((id) => [id, nameOf.get(id) ?? id]), 'projects');
   }
 
-  function changeScope(next) {
-    c.open.scope = cleanScope({ ...scope(), ...next });
-    save({ scope: c.open.scope });
+  /** A change to the scope chosen: it waits for Apply. */
+  function changeScope(change) {
+    setNext({ scope: { ...next().scope, ...change } });
     drawScopeChips();
-    applyScope();
   }
 
   /** The application or project with exactly this name, else every one whose name contains it. */
   function pickScope(kind, text) {
     const wanted = text.trim().toLowerCase();
     if (!wanted || !c.open) return;
-    const sc = scope();
+    const sc = next().scope;
     if (kind === 'applications') {
       const all = [...new Set(scopeProjects().flatMap((p) => p.applications ?? []))];
       const exact = all.filter((a) => a.toLowerCase() === wanted);
@@ -1351,22 +1663,6 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
   }
 
-  // Apply: what is typed in Applications and Projects (as Enter does), and the other filters when open.
-  $('calc-scope-apply').addEventListener('click', () => {
-    if (!c.open) return;
-    let typed = false;
-    for (const [inputId, kind] of [['calc-app-input', 'applications'], ['calc-project-input', 'projects']]) {
-      const input = $(inputId);
-      if (!input.value.trim()) continue;
-      typed = true;
-      const value = input.value;
-      input.value = '';
-      pickScope(kind, value);
-    }
-    if (!$('calc-scope-form').hidden) $('calc-scope-form').requestSubmit();
-    else if (!typed) setStatus('calc-scope-status', 'Type an application or project name first.', 'muted');
-  });
-
   for (const [inputId, kind] of [['calc-app-input', 'applications'], ['calc-project-input', 'projects']]) {
     const input = $(inputId);
     const commit = () => {
@@ -1379,23 +1675,23 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         if (!input.value.trim()) return;
         event.preventDefault();
         commit();
-      } else if (event.key === 'Backspace' && !input.value && scope()[kind].length) {
-        changeScope({ [kind]: scope()[kind].slice(0, -1) });
+      } else if (event.key === 'Backspace' && !input.value && next().scope[kind].length) {
+        changeScope({ [kind]: next().scope[kind].slice(0, -1) });
       }
     });
-    // A suggestion picked from the list: add it at once.
+    // A suggestion picked from the list: add it at once; anything else typed is added by Apply.
     input.addEventListener('input', () => {
       const value = input.value.trim().toLowerCase();
-      if (!value) return;
-      const exact = kind === 'applications' ? scopeProjects().some((p) => (p.applications ?? []).some((a) => a.toLowerCase() === value)) : scopeProjects().some((p) => p.name.toLowerCase() === value);
+      const exact = value && (kind === 'applications' ? scopeProjects().some((p) => (p.applications ?? []).some((a) => a.toLowerCase() === value)) : scopeProjects().some((p) => p.name.toLowerCase() === value));
       if (exact) commit();
+      else renderPending();
     });
   }
   $('calc-scope-box').addEventListener('click', (event) => {
     const button = event.target.closest('[data-remove-scope]');
     if (!button || !c.open) return;
     const kind = button.dataset.removeScope;
-    changeScope({ [kind]: scope()[kind].filter((k) => k !== button.dataset.key) });
+    changeScope({ [kind]: next().scope[kind].filter((k) => k !== button.dataset.key) });
   });
 
   /** Use the scope: Fusion counts its projects, and triage & remediation reads their backlog (from the last read). */
@@ -1410,9 +1706,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       if (!quiet && narrowed()) setStatus('calc-scope-status', 'Fusion follows the scope. Triage & remediation comes from the two exports, which cover every project.', 'warn');
       return renderTr();
     }
-    const ids = fusion().projects.filter((p) => p.source !== 'manual' && inScope(p, scope(), trEngines())).map((p) => p.id);
+    const ids = fusion().projects.filter((p) => p.source !== 'manual' && counts(p)).map((p) => p.id);
     try {
-      const series = await api('/api/projections/series', { method: 'POST', body: JSON.stringify({ projectIds: ids, engines: trEngines() }), quiet: true });
+      // Only the scans from the scan origins chosen count (null: every scan).
+      const series = await api('/api/projections/series', { method: 'POST', body: JSON.stringify({ projectIds: ids, engines: trEngines(), origins: scope().origins }), quiet: true });
       c.open.tr = { ...tr(), totals: series.totals, fixed: series.fixed };
       save({ tr: c.open.tr });
       if (!quiet) setStatus('calc-scope-status', `${num(ids.length)} projects counted.`, 'ok');
@@ -1423,24 +1720,27 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderTr();
   }
 
-  $('calc-scope-form').addEventListener('submit', (event) => {
-    event.preventDefault();
-    if (!c.open) return;
+  // More filters: each change waits for Apply; Enter in a field applies.
+  const readFilters = () => {
     const checked = (id) => [...$(id).querySelectorAll('input:checked')].map((box) => box.value);
-    c.open.scope = cleanScope({
-      ...scope(),
-      applications: scope().applications,
-      projects: scope().projects,
+    return {
       groups: splitList($('calc-scope-groups').value),
       names: splitList($('calc-scope-names').value),
       initiators: splitList($('calc-scope-initiators').value),
       frequencies: checked('calc-scope-frequencies'),
       criticalities: checked('calc-scope-criticalities').map(Number),
+    };
+  };
+  for (const kind of ['input', 'change']) {
+    $('calc-scope-form').addEventListener(kind, () => {
+      if (c.open) setNext({ scope: { ...next().scope, ...readFilters() } }, { redraw: false });
     });
-    save({ scope: c.open.scope });
-    applyScope();
+  }
+  $('calc-scope-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    applyAll();
   });
-  // Leave out projects with nothing to analyse: a change counts at once.
+  // Leave out projects with nothing to analyse.
   for (const [id, key] of [['calc-leave-no-code', 'leaveOutNoCode'], ['calc-leave-no-findings', 'leaveOutNoFindings']]) {
     $(id).addEventListener('change', (event) => {
       if (c.open) changeScope({ [key]: event.target.checked });
@@ -1448,30 +1748,197 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   }
   $('calc-scope-clear').addEventListener('click', () => {
     if (!c.open) return;
-    // Every project: the picks go; the leave-out options stay as they are.
-    c.open.scope = cleanScope({ leaveOutNoCode: scope().leaveOutNoCode, leaveOutNoFindings: scope().leaveOutNoFindings, maxProjects: scope().maxProjects });
-    save({ scope: c.open.scope });
-    renderScope();
-    applyScope();
+    // Every project: the picks go; the leave-out options, Projects to read and the scan origins stay as they are.
+    const { leaveOutNoCode, leaveOutNoFindings, maxProjects, origins } = next().scope;
+    setNext({ scope: { leaveOutNoCode, leaveOutNoFindings, maxProjects, origins } });
   });
 
-  // How many of the tenant's projects a read takes (10,000 unless set): kept with the customer.
+  // Every branch, and how many of the tenant's projects a read takes (10,000 unless set): both wait for Apply.
+  $('calc-all-branches').addEventListener('change', (event) => {
+    if (c.open) setNext({ allBranches: event.target.checked }, { redraw: false });
+  });
   $('calc-max-projects').addEventListener('change', (event) => {
     if (!c.open) return;
     const typed = wholeNumber(event.target.value);
-    c.open.scope = cleanScope({ ...scope(), maxProjects: typed });
-    event.target.value = num(scope().maxProjects);
-    save({ scope: c.open.scope });
+    setNext({ scope: { ...next().scope, maxProjects: typed } }, { redraw: false });
+    event.target.value = num(next().scope.maxProjects);
     if (typed > MAX_PROJECTS) setStatus('calc-read-note', `At most ${num(MAX_PROJECTS)} projects are read at once.`, 'warn');
+  });
+
+  // ---- Include scans from: the scan origins whose scans count ----------------------------------
+
+  /** Every scan origin the last read found, with its scans and projects. */
+  const knownOrigins = () => originCounts(fusion()?.projects ?? []);
+  /** Did the last read record where scans came from? (No read, or none recorded: no.) */
+  const originsRead = () => (fusion()?.projects ?? []).some((p) => p.source !== 'manual' && p.origins);
+
+  /** The drop-down: each scan origin, ticked when its scans count (as chosen, until Apply). */
+  function renderOrigins() {
+    const known = knownOrigins();
+    const chosen = next().scope.origins;
+    const on = (o) => !chosen || chosen.includes(o);
+    const ticked = known.filter((x) => on(x.origin)).length;
+    $('calc-origin-summary').textContent = !known.length ? 'Every scan origin' : ticked === known.length ? `Every scan origin (${num(known.length)})` : ticked ? `${num(ticked)} of ${num(known.length)} scan origins` : 'No scan origin';
+    $('calc-origin-pick').classList.toggle('on', Boolean(chosen) && ticked < known.length);
+    const menu = $('calc-origin-menu');
+    if (!known.length) {
+      menu.innerHTML = `<p class="hint calc-origin-none">${originsRead() || !fusion()?.projects?.length ? 'Read from Checkmarx One to see where the scans come from.' : 'The last read did not record where the scans come from: read from Checkmarx One again to choose.'}</p>`;
+      return;
+    }
+    menu.innerHTML = `<div class="calc-origin-tools"><button type="button" class="link" data-origins="all">Select all</button><button type="button" class="link" data-origins="none">Clear</button></div>${known
+      .map((x, i) => `<label class="engine-opt"><input type="checkbox" value="${esc(x.origin)}"${on(x.origin) ? ' checked' : ''} /><b>${esc(x.origin)}</b><span></span><small>${i ? `${num(x.scans)} · ${num(x.projects)}` : `${num(x.scans)} scans · ${num(x.projects)} projects`}</small></label>`)
+      .join('')}`;
+  }
+  /** Ticked: every origin is null, so one a later read finds counts too. */
+  const setOrigins = (list) => {
+    const known = knownOrigins().map((x) => x.origin);
+    setNext({ scope: { ...next().scope, origins: list === null || known.every((o) => list.includes(o)) ? null : list } }, { redraw: false });
+    renderOrigins();
+  };
+  $('calc-origin-menu').addEventListener('change', () => setOrigins([...$('calc-origin-menu').querySelectorAll('input:checked')].map((box) => box.value)));
+  $('calc-origin-menu').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-origins]');
+    if (button && c.open) setOrigins(button.dataset.origins === 'all' ? null : []);
+  });
+  document.addEventListener('click', (event) => {
+    const pick = $('calc-origin-pick');
+    if (pick.open && !pick.contains(event.target)) pick.open = false;
+  });
+
+  // ---- One Apply for every setting at the top: changes wait, listed, until Apply (or Undo) ------
+
+  /** The settings at the top as they count now. During a read, its branches are the ones taken. */
+  const appliedSettings = () =>
+    topSettings({ allBranches: reading.branches ? reading.branches === 'all' : tr()?.totals?.meta?.branches === 'all', fusionOn: !fusionOff(), fusionNewOn: !fnewOff(), periodMonths: horizon(), ...totals(), scope: scope() });
+  /** The settings at the top as chosen: the same as applied until something is changed. */
+  const next = () => (c.next ??= appliedSettings());
+  /** Change what is chosen (it waits for Apply); `redraw`: put every field at the top back as chosen. */
+  function setNext(change, { redraw = true } = {}) {
+    c.next = topSettings({ ...next(), ...change });
+    if (redraw) renderTop();
+    else renderPending();
+  }
+  /** Every field at the top as chosen. */
+  function renderTop() {
+    if (!c.open) return;
+    const n = next();
+    $('calc-fusion-on').checked = n.fusionOn;
+    $('calc-fusion-new-on').checked = n.fusionNewOn;
+    $('calc-extra').value = n.extraPercent || '';
+    $('calc-bundle').value = n.bundleCredits;
+    // The bundle size is 10,000 for nearly every customer: its box shows only when changed, or asked for.
+    $('calc-bundle-size').textContent = `${num(n.bundleCredits)} credits each`;
+    if (Number(n.bundleCredits) !== BUNDLE_CREDITS) $('calc-bundle-item').hidden = false;
+    $('calc-bundle-change').hidden = !$('calc-bundle-item').hidden;
+    renderHorizon();
+    renderScope();
+  }
+  /** What the last read can answer: when, which branches, where it stopped, and whether it recorded scan origins. */
+  const lastRead = () => {
+    const meta = tr()?.totals?.meta ?? {};
+    return { at: (meta.source === 'cxone' ? meta.readAt : null) ?? fusion()?.readAt ?? null, branches: meta.branches, limit: fusion()?.readLimit ?? null, origins: originsRead() };
+  };
+  /** What is typed in Applications or Projects and not added yet: Apply adds it. */
+  const typedScope = () => [['calc-app-input', 'applications', 'Applications'], ['calc-project-input', 'projects', 'Projects']].filter(([id]) => $(id).value.trim());
+  const pending = () => {
+    const changes = settingChanges(appliedSettings(), next(), lastRead()).filter((x) => !offline() || !x.reads);
+    for (const [, key, label] of typedScope()) if (!changes.some((x) => x.key === key)) changes.push({ key, label, reads: false });
+    return changes;
+  };
+  /** Where each change is made, marked while it waits. */
+  const MARKED = {
+    allBranches: () => $('calc-all-branches').closest('label'),
+    maxProjects: () => $('calc-max-projects'),
+    fusionOn: () => $('calc-fusion-on').closest('label'),
+    fusionNewOn: () => $('calc-fusion-new-on').closest('label'),
+    origins: () => $('calc-origin-pick').querySelector('summary'),
+    applications: () => $('calc-apps'),
+    projects: () => $('calc-projects'),
+    leaveOutNoCode: () => $('calc-leave-no-code').closest('label'),
+    leaveOutNoFindings: () => $('calc-leave-no-findings').closest('label'),
+    groups: () => $('calc-scope-groups'),
+    names: () => $('calc-scope-names'),
+    initiators: () => $('calc-scope-initiators'),
+    frequencies: () => $('calc-scope-frequencies'),
+    criticalities: () => $('calc-scope-criticalities'),
+    periodMonths: () => $('calc-horizon').closest('.calc-sum-item'),
+    extraPercent: () => $('calc-extra').closest('.calc-sum-item'),
+    bundleCredits: () => $('calc-bundle').closest('.calc-sum-item'),
+  };
+  /** The bar that lists what waits, with Undo and Apply. */
+  function renderPending() {
+    const changes = c.open ? pending() : [];
+    $('calc-pending').hidden = !changes.length;
+    $('calc-pending-count').textContent = changes.length === 1 ? '1 change not applied yet' : `${num(changes.length)} changes not applied yet`;
+    $('calc-pending-list').replaceChildren(...changes.map((x) => Object.assign(document.createElement('li'), { textContent: x.reads ? `${x.label} (reads Checkmarx One again)` : x.label })));
+    const waiting = new Set(changes.map((x) => x.key));
+    for (const [key, el] of Object.entries(MARKED)) el()?.classList.toggle('calc-changed', waiting.has(key));
+  }
+
+  /** Why Apply reads Checkmarx One again, asked first. */
+  function readQuestion(reads, wanted) {
+    const why = {
+      allBranches: wanted.allBranches ? 'Every branch: the scans of every branch are read, not only each project’s primary branch.' : 'Every branch, unticked: only each project’s primary branch is read.',
+      maxProjects: `Projects to read: up to ${num(wanted.scope.maxProjects)} projects, more than the last read took.`,
+      origins: 'Include scans from: the last read did not record where the scans come from.',
+    };
+    return `Apply reads Checkmarx One again for these changes:\n\n${reads.map((x) => `• ${why[x.key]}`).join('\n')}\n\nOn a large tenant this takes a while. Read it now?`;
+  }
+
+  /**
+   * Apply every change waiting at once, and work the figures out again. A change the last read cannot
+   * answer reads Checkmarx One again, asked first (`read`: read anyway, without asking: Read from Checkmarx One).
+   */
+  async function applyAll({ read = false } = {}) {
+    if (!c.open) return;
+    // What is typed in Applications and Projects is added first, as Enter adds it.
+    for (const [id, kind] of typedScope()) {
+      const value = $(id).value;
+      $(id).value = '';
+      pickScope(kind, value);
+    }
+    const wanted = next();
+    const before = appliedSettings();
+    const changes = settingChanges(before, wanted, lastRead());
+    const reads = offline() ? [] : changes.filter((x) => x.reads);
+    if (!changes.length && !read) return renderPending();
+    if (reads.length && !read && !confirm(readQuestion(reads, wanted))) return;
+    if (changes.length) {
+      c.open.scope = cleanScope(wanted.scope);
+      fusion().periodMonths = wanted.periodMonths;
+      fusion().optOut = !wanted.fusionOn;
+      fnew().optOut = !wanted.fusionNewOn;
+      Object.assign(c.open.fusion, fusionSettings(fusion()));
+      c.open.totals = totalsSettings(wanted);
+      save({ scope: c.open.scope, fusion: fusion(), fusionNew: fnew(), totals: c.open.totals });
+    }
+    const fresh = read || reads.length > 0;
+    if (fresh) readCxOne({ branches: wanted.allBranches ? 'all' : 'primary' });
+    c.next = null;
+    renderTop();
+    renderFusion();
+    renderTr();
+    // Which projects or scans count changed: the figures from the last read again (a new read does it once more).
+    if (changes.some((x) => x.key !== 'maxProjects' && Object.hasOwn(before.scope, x.key))) applyScope({ quiet: fresh });
+  }
+  $('calc-apply').addEventListener('click', () => applyAll());
+  $('calc-undo').addEventListener('click', () => {
+    if (!c.open) return;
+    for (const [id] of typedScope()) $(id).value = '';
+    c.next = null;
+    renderTop();
   });
 
   // ---- Reading Checkmarx One: both tabs come from the tenant's projects and their scans ----------
 
-  const reading = { customer: null, timer: null, auto: false, waiters: [] };
+  // `branches`: what the read running takes ('all' or 'primary'), so Every branch is not shown as waiting meanwhile.
+  const reading = { customer: null, timer: null, auto: false, waiters: [], branches: null };
   /** Resolves when the read running now has finished (true when it gave data). */
   const readFinished = () => new Promise((resolve) => reading.waiters.push(resolve));
   const settle = (ok) => {
+    reading.branches = null;
     for (const resolve of reading.waiters.splice(0)) resolve(ok);
+    renderPending();
   };
 
   function readProgress(job) {
@@ -1497,14 +1964,15 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   }
 
   /** Start a read (or follow the one running in this tenant), then put what it found in the customer open. */
-  async function readCxOne({ auto = false } = {}) {
+  async function readCxOne({ auto = false, branches = next().allBranches ? 'all' : 'primary' } = {}) {
     if (!c.open || reading.timer || offline()) return;
     reading.customer = c.open.id;
     reading.auto = auto;
+    reading.branches = branches;
     setStatus('calc-read-note', 'Reading the projects…', 'muted');
     try {
       // One branch per project (its primary branch) unless "Every branch" is ticked.
-      readProgress(await api('/api/projections/read', { method: 'POST', body: JSON.stringify({ branches: $('calc-all-branches').checked ? 'all' : 'primary', maxProjects: readLimit(scope().maxProjects) }), quiet: true }));
+      readProgress(await api('/api/projections/read', { method: 'POST', body: JSON.stringify({ branches, maxProjects: readLimit(scope().maxProjects) }), quiet: true }));
       poll();
     } catch (error) {
       readProgress(null);
@@ -1554,8 +2022,19 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const read = (body.projects ?? []).map((p) => ({ ...p, ...keep(p) }));
     const ids = new Set(read.map((p) => p.id));
     const gone = f.projects.filter((p) => p.source !== 'manual' && !ids.has(p.id)).length;
+    const originsBefore = new Set(knownOrigins().map((x) => x.origin));
     f.projects = [...read, ...f.projects.filter((p) => p.source === 'manual')];
     f.readAt = body.readAt;
+    // Where the read stopped (Projects to read), so raising it is known to need another read.
+    f.readLimit = body.limited?.limit ?? null;
+    // A scan origin this read found for the first time starts ticked, here and in what waits for Apply.
+    const found = knownOrigins().map((x) => x.origin).filter((o) => !originsBefore.has(o));
+    const patch = { fusion: f };
+    if (found.length && scope().origins) {
+      c.open.scope = cleanScope({ ...scope(), origins: [...scope().origins, ...found] });
+      patch.scope = c.open.scope;
+    }
+    if (found.length && c.next?.scope.origins) c.next = topSettings({ ...c.next, scope: { ...c.next.scope, origins: [...c.next.scope.origins, ...found] } });
     // The tenant's models replace those read before; models typed here stay. A model already here by that name
     // keeps its place (and so the projects set to it) and the credits typed for it.
     if (body.models?.length) {
@@ -1571,7 +2050,6 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     // No number set for any frequency yet: start from the scans each group runs today.
     if (FREQUENCIES.every((q) => f.byFrequency[q.id].scans === null)) for (const q of FREQUENCIES) f.byFrequency[q.id].scans = suggestedScans(q.id, f.periodMonths);
     c.remainingCredits = body.remainingCredits ?? null;
-    const patch = { fusion: f };
     if (body.tr?.totals && body.tr?.fixed) {
       c.open.tr = { ...tr(), totals: body.tr.totals, fixed: body.tr.fixed };
       patch.tr = c.open.tr;
@@ -1581,8 +2059,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderScope();
     renderTr();
     renderFusion();
-    // The read counts SAST and SCA for the whole tenant: a scope, or other engines, are added up from it.
-    if (narrowed() || trEngines().join() !== DEFAULT_ENGINES.join()) applyScope({ quiet: true });
+    // The read counts SAST and SCA, every scan, for the whole tenant: a scope, other engines, or only some scan origins are added up from it.
+    if (narrowed() || trEngines().join() !== DEFAULT_ENGINES.join() || scope().origins) applyScope({ quiet: true });
     if (!body.tr) setStatus('calc-read-note', `Read ${num(read.length)} projects from Checkmarx One; none had a scan to read the findings of.`, 'warn');
     else if (read.length === 1) setStatus('calc-read-note', 'Read 1 project and its scans from Checkmarx One.', 'ok');
     else setStatus('calc-read-note', `Read ${num(read.length)} projects and their scans from Checkmarx One.`, 'ok');
@@ -1593,7 +2071,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     else if (gone) toast(`${num(gone)} projects read before are no longer in Checkmarx One: they were taken off.`, 'warn');
   }
 
-  $('calc-read').addEventListener('click', () => readCxOne());
+  // Read from Checkmarx One: what waits is applied first (without asking: reading is what was asked for).
+  $('calc-read').addEventListener('click', () => applyAll({ read: true }));
 
   /** A customer with nothing read yet reads Checkmarx One by itself; a read already running is followed. */
   async function autoRead() {
@@ -1666,8 +2145,13 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const sum = creditSummary(c.trCredits, fusionTotal({ totals: { credits: c.fusionCredits } }, { totals: { credits: c.fusionNewCredits } }), totals());
     $('calc-sum-tr').textContent = num(sum.tr, 1);
     $('calc-sum-tr-split').textContent = c.trSplit ? `${num(c.trSplit.backlogCredits, 1)} backlog + ${num(c.trSplit.aheadCredits, 1)} ahead` : '';
-    $('calc-sum-fusion').textContent = fusionOff() ? 'Left out' : num(c.fusionCredits, 1);
-    $('calc-sum-fusion-new').textContent = fnewOff() ? 'Left out' : num(c.fusionNewCredits, 1);
+    // One Fusion tile, for the part that applies to this customer (ticked, with projects counted): both
+    // added up when both do, with the split under it.
+    const existing = c.fusionCredits !== null && c.fusionCredits !== undefined;
+    const fresh = c.fusionNewCredits !== null && c.fusionNewCredits !== undefined;
+    $('calc-sum-fusion-label').textContent = existing && !fresh ? 'Fusion — existing' : fresh && !existing ? 'Fusion — new' : 'Fusion';
+    $('calc-sum-fusion').textContent = existing || fresh ? num((c.fusionCredits ?? 0) + (c.fusionNewCredits ?? 0), 1) : fusionOff() && fnewOff() ? 'Left out' : '—';
+    $('calc-sum-fusion-split').textContent = existing && fresh ? `${num(c.fusionCredits, 1)} existing + ${num(c.fusionNewCredits, 1)} new` : '';
     $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.total, 1);
     $('calc-sum-extra').textContent = sum.extra ? `Includes ${num(sum.extra, 1)} extra` : '';
     $('calc-sum-bundles').textContent = sum.total ? num(sum.bundles) : '—';
@@ -1798,16 +2282,16 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     });
   }
 
-  function setTotals(field, input) {
-    if (!c.open) return;
-    c.open.totals = totalsSettings({ ...totals(), [field]: input.value });
-    renderSummary();
-    save({ totals: c.open.totals });
-  }
-  $('calc-extra').addEventListener('input', (event) => setTotals('extraPercent', event.target));
-  $('calc-bundle').addEventListener('input', (event) => setTotals('bundleCredits', event.target));
-  $('calc-extra').addEventListener('change', (event) => (event.target.value = totals().extraPercent || ''));
-  $('calc-bundle').addEventListener('change', (event) => (event.target.value = totals().bundleCredits));
+  // The extra % and the credits per bundle wait for Apply too.
+  $('calc-extra').addEventListener('input', (event) => c.open && setNext({ extraPercent: event.target.value }, { redraw: false }));
+  $('calc-bundle-change').addEventListener('click', () => {
+    $('calc-bundle-item').hidden = false;
+    $('calc-bundle-change').hidden = true;
+    $('calc-bundle').focus();
+  });
+  $('calc-bundle').addEventListener('input', (event) => c.open && setNext({ bundleCredits: event.target.value }, { redraw: false }));
+  $('calc-extra').addEventListener('change', (event) => (event.target.value = next().extraPercent || ''));
+  $('calc-bundle').addEventListener('change', (event) => (event.target.value = next().bundleCredits));
 
   /** Everything a report shows, as figures: what the server keeps, and the file is built from. */
   function reportData() {
@@ -1842,6 +2326,12 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         ...(meta.source === 'cxone' && meta.branches ? { branches: meta.branches } : {}),
         leftOut: leftOutCounts(sc),
         projectNames: sc.projects.map((id) => fusion().projects.find((p) => p.id === id)?.name ?? id),
+        // Not every scan origin: those whose scans were counted (Fusion only, when the backlog came from the two exports).
+        ...(() => {
+          const known = knownOrigins().map((x) => x.origin);
+          if (!sc.origins || !known.length) return {};
+          return { origins: known.filter((o) => sc.origins.includes(o)), ...(t && meta.source !== 'cxone' ? { originsFusionOnly: true } : {}) };
+        })(),
       },
       tr: t
         ? {

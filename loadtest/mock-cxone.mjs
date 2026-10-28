@@ -84,8 +84,12 @@ const attackVectorOf = (groupId) => {
   avGroups.set(av, groupId);
   return av;
 };
+// Where a project's scans come from (Cx Credits Calculator → Include scans from): project i from one CI tool or
+// the CLI, by i % 4, and every 7th scan of an odd project by hand in the web portal.
+const SCAN_ORIGINS = ['Jenkins', 'Github Action', 'Azure DevOps', 'cx-cli'];
+const originOf = (i, k = 0) => (i % 2 && k % 7 === 6 ? 'Webapp' : SCAN_ORIGINS[i % SCAN_ORIGINS.length]);
 // One of a project's past scans: every other one ran the AI engine (Fusion, or LAST for a LAST project).
-const histScan = (i, k, n) => ({ id: `hist-p${i}-${k}`, projectId: `p${i}`, status: 'Completed', engines: k % 2 ? ['sast', 'sca'] : ['sast', 'sca', 'ai'], metadata: { configs: k % 2 ? [] : [{ type: 'ai', value: { fusionEnabled: lastScanProject(i) ? 'false' : 'true' } }] }, createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() });
+const histScan = (i, k, n) => ({ id: `hist-p${i}-${k}`, projectId: `p${i}`, status: 'Completed', sourceOrigin: originOf(i, k), engines: k % 2 ? ['sast', 'sca'] : ['sast', 'sca', 'ai'], metadata: { configs: k % 2 ? [] : [{ type: 'ai', value: { fusionEnabled: lastScanProject(i) ? 'false' : 'true' } }] }, createdAt: new Date(Date.now() - ((k + 0.5) * 365 * 86400000) / n).toISOString() });
 const risksFor = (pid) => allRisksFor(pid).filter((r) => !fixedByRescan(pid, `alt-${r.groupId.replace(/^sim-/, '')}`, r.id));
 const allRisksFor = (pid) => Array.from({ length: BRANCHES && Number(String(pid).slice(1)) % 10 === 9 ? 0 : RISKS }, (_, i) => {
   const id = `${pid}-r${i}`;
@@ -295,7 +299,7 @@ http.createServer((req, res) => {
           const n = perYear[i % 5];
           const own = BRANCHES ? [...(hasFeature(i) ? [{ id: `feat-p${i}`, projectId: pid, status: 'Completed', createdAt: day(0.5) }] : []), { id: `scan-p${i}`, projectId: pid, status: 'Completed', createdAt: day(1) }] : [];
           // Every other scan also ran the AI engine (Labs → Fusion results counts those).
-          const all = [...own, ...Array.from({ length: n }, (_, k) => histScan(i, k, n)), { id: `old-p${i}`, projectId: pid, status: 'Completed', createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
+          const all = [...own, ...Array.from({ length: n }, (_, k) => histScan(i, k, n)), { id: `old-p${i}`, projectId: pid, status: 'Completed', sourceOrigin: originOf(i), createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
           // Every state asked for (no statuses): the failed scan too.
           if (failedProject(i) && !statuses.length) all.push(failedScanOf(i));
           const fromDate = Date.parse(u.searchParams.get('from-date') ?? '');

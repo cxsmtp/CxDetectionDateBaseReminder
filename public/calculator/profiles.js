@@ -2,7 +2,7 @@
 // server (src/projections.js, in the data folder) and in the standalone calculator (in the browser). No
 // Node or browser APIs beyond crypto and TextEncoder, so both can use it.
 
-import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, MAX_CLOC_LANGUAGES, MAX_PROJECTS, aheadSettings, cleanScope, creditSummary, fusionSettings, fusionTotal, impactSettings, modelsNamed, newCustomerSettings, totalsSettings, wholeNumber } from './model.js';
+import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, MAX_CLOC_LANGUAGES, MAX_PROJECTS, aheadSettings, cleanOrigins, cleanScope, creditSummary, fusionSettings, fusionTotal, impactSettings, modelsNamed, newCustomerSettings, totalsSettings, wholeNumber } from './model.js';
 import { DEFAULT_ENGINES, cleanEngines } from '../engines.js';
 
 export const MAX_PROFILES = 200;
@@ -37,15 +37,13 @@ export const iso = (value) => (value && Number.isFinite(Date.parse(value)) ? new
 function series(value) {
   if (!value || typeof value !== 'object' || !Array.isArray(value.weeks)) return null;
   const weeks = value.weeks.slice(0, 2000).map((w) => isoDay(w) ?? '');
-  const bySeverity = {};
-  for (const s of SEVERITIES) {
-    const list = Array.isArray(value.bySeverity?.[s]) ? value.bySeverity[s] : [];
-    bySeverity[s] = weeks.map((_, i) => Math.max(0, finite(list[i], 0)));
-  }
+  const counts = (by) => Object.fromEntries(SEVERITIES.map((s) => [s, weeks.map((_, i) => Math.max(0, finite(Array.isArray(by?.[s]) ? by[s][i] : 0, 0)))]));
   const meta = value.meta && typeof value.meta === 'object' ? value.meta : {};
   return {
     weeks,
-    bySeverity,
+    bySeverity: counts(value.bySeverity),
+    // SAST's own part, when the read told engines apart (Fusion's extra findings are counted on it).
+    ...(value.sast && typeof value.sast === 'object' ? { sast: counts(value.sast) } : {}),
     meta: {
       source: meta.source === 'cxone' ? 'cxone' : 'upload',
       fileName: text(meta.fileName, 200),
@@ -60,6 +58,9 @@ function series(value) {
       engineSplit: meta.engineSplit !== false,
       // One branch per project ('primary') or every branch ('all'); '' for a read made before branches were told apart.
       branches: ['primary', 'all'].includes(meta.branches) ? meta.branches : '',
+      // The scan origins whose scans were counted ([] = every one), and whether the read could tell them apart.
+      origins: cleanOrigins(meta.origins) ?? [],
+      originSplit: meta.originSplit !== false,
     },
   };
 }
@@ -97,6 +98,17 @@ function openCounts(value) {
   return Object.keys(out).length ? out : null;
 }
 
+/** {Jenkins: 12, …}: a project's scans in the year per scan origin, whole numbers; null when not given. */
+function originsOf(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const out = {};
+  for (const [origin, n] of Object.entries(value).slice(0, 50)) {
+    const key = text(origin, 60);
+    if (key && !['__proto__', 'constructor', 'prototype'].includes(key)) out[key] = wholeNumber(n) ?? 0;
+  }
+  return out;
+}
+
 /** The Fusion projection: its settings, and the projects with what Checkmarx One said of them. */
 export function cleanFusion(value) {
   const v = value && typeof value === 'object' ? value : {};
@@ -125,14 +137,47 @@ export function cleanFusion(value) {
     branchHow: BRANCH_HOWS.includes(p?.branchHow) ? p.branchHow : '',
     // Open findings now, per engine (its latest scan): unknown (null) for a project added by hand or read before.
     openByEngine: openCounts(p?.openByEngine),
+    // Where its scans came from, with its scans in the year from each, and the days they were counted over:
+    // unknown (null) for a project added by hand or read before scan origins were recorded.
+    origins: originsOf(p?.origins),
+    scanDays: Math.min(366, Math.max(0, finite(p?.scanDays, 0))) || null,
   }));
-  return { ...settings, readAt: iso(v.readAt), projects };
+  // readLimit: where the last read stopped (Projects to read), when the tenant had more.
+  return { ...settings, readAt: iso(v.readAt), readLimit: wholeNumber(v.readLimit) || null, projects };
 }
 
 /**
- * Fusion for a new customer: projects whose lines of code were counted with cloc (each language's code
- * lines), or typed, with their own scans and model. The models are the Fusion page's, so a model is kept
- * by id only.
+ * Where a project counted from git came from: its host, repository path and clone address (https, or
+ * http to this computer; never with a user name, password or token in it), the branch and commit counted,
+ * when, and which of the Admin's git connections (by id) was used. null when it was not counted from git.
+ */
+export function cleanGitFrom(value) {
+  if (!value || typeof value !== 'object') return null;
+  let url;
+  try {
+    url = new URL(String(value.url ?? ''));
+  } catch {
+    return null;
+  }
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || String(value.url).length > 500) return null;
+  const path = url.pathname.split('/').filter(Boolean).join('/').replace(/\.git$/i, '');
+  if (!path) return null;
+  const commit = String(value.commit ?? '');
+  return {
+    host: url.host.toLowerCase(),
+    path: text(decodeURIComponent(path), 300),
+    url: url.href.replace(/\/+$/, ''),
+    branch: text(value.branch, 200),
+    commit: /^[0-9a-f]{7,40}$/i.test(commit) ? commit.toLowerCase().slice(0, 12) : '',
+    countedAt: iso(value.countedAt),
+    connection: /^[a-z]{1,12}-[1-9]$/.test(String(value.connection ?? '')) ? value.connection : '',
+  };
+}
+
+/**
+ * Fusion for a new customer: projects whose lines of code were counted with cloc or from git (each
+ * language's code lines), or typed, with their own scans and model. The models are the Fusion page's, so a
+ * model is kept by id only.
  */
 export function cleanFusionNew(value) {
   const v = value && typeof value === 'object' ? value : {};
@@ -140,6 +185,8 @@ export function cleanFusionNew(value) {
     id: text(p?.id, 100) || `new-${newId().slice(0, 8)}`,
     name: text(p?.name, 200) || 'Unnamed project',
     file: text(p?.file, 200),
+    // Counted from git: where from (never a token). A project counted before MZ-01.01.04 has none.
+    ...(cleanGitFrom(p?.git) ? { git: cleanGitFrom(p.git) } : {}),
     langs: Object.fromEntries(
       Object.entries(p?.langs && typeof p.langs === 'object' ? p.langs : {})
         .slice(0, MAX_CLOC_LANGUAGES)

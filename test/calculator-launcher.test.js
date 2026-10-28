@@ -10,6 +10,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { buildCalculatorLauncher, buildStandaloneCalculator, moduleGraph } from '../src/standalone-calculator.js';
+import { startLauncher } from '../src/calculator-launcher.js';
+import { makeRepo, startGitHost } from './fake-git-host.js';
 import { freePort } from './free-port.js';
 import { mockApiKey } from './test-credentials.js';
 
@@ -18,6 +20,7 @@ const PORT = await freePort();
 const KEY = mockApiKey({ iss: `http://127.0.0.1:${MOCK_PORT}/auth/realms/acme`, azp: 'integration' });
 const children = [];
 let log = '';
+const launcherTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'launcher-tmp-'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** A request with any Host header (fetch will not set one). */
@@ -44,7 +47,8 @@ test.before(async () => {
   const file = path.join(dir, 'cx-credits-calculator.mjs');
   fs.writeFileSync(file, buildCalculatorLauncher({ version: '9.9.9' }));
   children.push(spawn(process.execPath, ['loadtest/mock-cxone.mjs'], { env: { ...process.env, PORT: String(MOCK_PORT), LAT: '1', PROJECTS: '3', RISKS: '4' }, stdio: 'ignore' }));
-  const launcher = spawn(process.execPath, [file, '--port', String(PORT), '--no-open'], { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
+  // Its own temporary folder, to see that a count from git leaves nothing in it.
+  const launcher = spawn(process.execPath, [file, '--port', String(PORT), '--no-open'], { cwd: dir, env: { ...process.env, TMPDIR: launcherTmp }, stdio: ['ignore', 'pipe', 'pipe'] });
   launcher.stdout.on('data', (d) => (log += d));
   launcher.stderr.on('data', (d) => (log += d));
   children.push(launcher);
@@ -105,7 +109,55 @@ test('connect with the API key, read the tenant as CxMissionZero does, narrow it
   const series = await call('POST', '/api/projections/series', { projectIds: [one] });
   assert.equal(series.status, 200);
   assert.ok(series.body.totals.weeks.length > 0);
+  // Include scans from, as in CxMissionZero: only the scans from the origins ticked.
+  const origin = Object.keys(job.result.projects[0].origins)[0];
+  const fromOne = await call('POST', '/api/projections/series', { projectIds: [one], origins: [origin] });
+  assert.deepEqual(fromOne.body.totals.meta.origins, [origin]);
+  assert.equal(fromOne.body.totals.meta.projects, 1);
+  assert.equal((await call('POST', '/api/projections/series', { projectIds: [one], origins: ['Nowhere'] })).body.totals.meta.projects, 0);
   assert.ok(!log.includes(KEY), 'the key is never printed');
   assert.equal((await call('POST', '/launcher/disconnect', {})).body.connected, false);
   assert.equal((await call('GET', '/launcher/status')).body.connected, false);
+});
+
+test('count code lines from git on this computer, with a token typed for that count only', async () => {
+  const typed = `ghp_launcher${'R4t'.repeat(8)}`;
+  const repos = fs.mkdtempSync(path.join(os.tmpdir(), 'launcher-repos-'));
+  makeRepo(repos, 'globex', 'claims-portal', { 'src/Main.java': '// c\nclass Main {}\n', 'web/app.ts': 'export const a = 1;\n\n' });
+  const host = await startGitHost(repos, { tokens: [typed] });
+  try {
+    assert.deepEqual((await call('GET', '/api/projections/git/connections')).body, { connections: [] }, 'no Admin\'s connections here: a token only');
+    const token = { provider: 'github', address: host.url, token: typed };
+    const listed = await call('POST', '/api/projections/git/repositories', { token, owner: 'globex' });
+    assert.equal(listed.status, 200, JSON.stringify(listed.body));
+    assert.deepEqual(listed.body.repositories.map((r) => r.path), ['globex/claims-portal']);
+    let job = (await call('POST', '/api/projections/git/count', { token, repositories: [{ url: listed.body.repositories[0].url, branch: 'main' }] })).body;
+    const end = Date.now() + 60000;
+    while (job.state === 'running' && Date.now() < end) {
+      await sleep(200);
+      job = (await call('GET', `/api/projections/git/count?id=${job.id}`)).body;
+    }
+    assert.equal(job.state, 'done', JSON.stringify(job));
+    assert.deepEqual(job.repositories[0].languages, { Java: { files: 1, code: 1 }, TypeScript: { files: 1, code: 1 } });
+    assert.ok(!JSON.stringify(job).includes(typed));
+    assert.ok(host.seen.filter((s) => !s.path.startsWith('/api/')).every((s) => s.authorization === `Basic ${Buffer.from(`x-access-token:${typed}`).toString('base64')}`));
+    assert.ok(!log.includes(typed), 'the token is never printed');
+    assert.deepEqual(fs.readdirSync(launcherTmp).filter((n) => n.startsWith('mz-git-count-')), [], 'nothing of the code left behind');
+    assert.equal((await call('POST', '/api/projections/git/count', { token: { ...token, address: 'https://169.254.169.254' }, repositories: ['https://169.254.169.254/a/b'] })).status, 400, 'never a link-local or metadata address');
+  } finally {
+    await host.close();
+  }
+});
+
+test('without git on this computer, the launcher says so plainly', async () => {
+  const launcher = await startLauncher({ html: '<!doctype html><script type="application/json" id="cx-launcher">"__CALCULATOR_LAUNCHER__"</script>', open: false, log: () => {}, gitBin: path.join(os.tmpdir(), 'no-such-git-here') });
+  try {
+    const page = await fetch(launcher.url).then((r) => r.text());
+    const secret = JSON.parse(page.match(/id="cx-launcher">(\{[^}]*\})</)[1]).token;
+    const r = await fetch(`${launcher.url}api/projections/git/count`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Calculator-Token': secret }, body: JSON.stringify({ token: { provider: 'github', token: 'ghp_abcdefgh' }, repositories: ['https://github.com/a/b'] }) });
+    assert.equal(r.status, 409);
+    assert.match((await r.json()).error, /Git is not installed on this computer: install it from https:\/\/git-scm\.com/);
+  } finally {
+    await launcher.close();
+  }
 });

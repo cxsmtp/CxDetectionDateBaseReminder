@@ -97,7 +97,9 @@ test('the page: two Fusion tabs, the two ticks under Add Fusion, and the new cus
   assert.match(html, /data-pt="fusion">Fusion — existing customer<\/button>\s*<button type="button" role="tab" class="ptab" data-pt="fusion-new">Fusion — new customer<\/button>/);
   assert.match(html, /id="calc-fusion-on" checked \/> Existing customer/);
   assert.match(html, /id="calc-fusion-new-on" checked \/> New customer/);
-  assert.match(html, /<b id="calc-sum-fusion-new">/);
+  // One Fusion tile, for the part that applies (both added up when both do).
+  assert.match(html, /<span id="calc-sum-fusion-label">Fusion<\/span>/);
+  assert.doesNotMatch(html, /id="calc-sum-fusion-new"/);
   assert.match(html, /docker\.io\/aldanial\/cloc --json --quiet \/src &gt; payments-api\.json/);
   // Saved like the rest of a customer, on the server and in the standalone calculator.
   for (const file of ['../src/server.js', '../public/calculator/standalone.js']) {

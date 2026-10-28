@@ -71,6 +71,10 @@ test('the calculator counts each engine apart: the tenant total, any project and
   assert.deepEqual(sastOnly.totals.bySeverity.High, [0, 10, 6]);
   assert.deepEqual(sastOnly.fixed.bySeverity.High, [0, 0, 4]);
   assert.deepEqual(weeklyBacklog(perProject, summaries, { now, weeks: 3 }).totals.bySeverity.High, [0, 15, 11], 'no choice: every engine');
+  // SAST's own part rides along, for Fusion's extra findings (SAST only).
+  const every = weeklyBacklog(perProject, summaries, { now, weeks: 3 });
+  assert.deepEqual([every.totals.sast.High, every.fixed.sast.High], [[0, 10, 6], [0, 0, 4]]);
+  assert.deepEqual(weeklyBacklog(perProject, summaries, { now, weeks: 3, engines: ['KICS'] }).totals.sast.High, [0, 0, 0], 'SAST not counted: none');
 
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'read-')), 'read.json');
   new TenantReadStore({ file }).save({ readAt: at(0), weeks: sastOnly.totals.weeks, byProject: sastOnly.byProject });
@@ -79,11 +83,15 @@ test('the calculator counts each engine apart: the tenant total, any project and
   assert.deepEqual(seriesFor(read, ['pa'], ['SAST', 'KICS']).totals.bySeverity.High, [0, 15, 11]);
   assert.deepEqual(seriesFor(read, ['pa'], ['SAST', 'KICS']).totals.meta.engines, ['SAST', 'KICS']);
   assert.equal(seriesFor(read, ['pa'], ['SAST']).totals.meta.engineSplit, true);
+  const both = seriesFor(read, ['pa'], ['SAST', 'KICS']);
+  assert.deepEqual([both.totals.sast.High, both.fixed.sast.High], [[0, 10, 6], [0, 0, 4]], 'SAST apart from KICS');
+  assert.deepEqual(seriesFor(read, ['pa'], ['KICS']).totals.sast.High, [0, 0, 0]);
   // A read saved by an older version: every engine together, and the page is told so.
   const older = { readAt: at(0), weeks: read.weeks, series: { pa: { scans: 2, t: { High: [0, 15, 11] }, f: { High: [0, 0, 4] } } } };
   const fromOld = seriesFor(older, ['pa'], ['SAST']);
   assert.deepEqual(fromOld.totals.bySeverity.High, [0, 15, 11]);
   assert.equal(fromOld.totals.meta.engineSplit, false);
+  assert.equal(fromOld.totals.sast, undefined, 'SAST unknown: Fusion counts on every finding');
 
   assert.deepEqual(cleanTr({}).engines, ['SAST', 'SCA']);
   assert.deepEqual(cleanTr({ engines: ['kics', 'sast'] }).engines, ['SAST', 'KICS']);
