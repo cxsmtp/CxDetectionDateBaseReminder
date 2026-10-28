@@ -348,7 +348,6 @@ function trAppendix(tr, L) {
       ${hasDebtFix ? `<tr class="muted"><td>${w('Change a month')}</td>${SEVERITIES.map((s) => `<td>${signed(an(s).netMonthly)}</td>`).join('')}<td>${signed(tr.analysis?.total?.netMonthly)}</td></tr>`
     : `<tr class="muted"><td>${w('Debt increase')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).debtRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.debtRate)}</td></tr>
       <tr class="muted"><td>${w('Fix rate')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).fixRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.fixRate)}</td></tr>`}
-      <tr><td>${w('Backlog to triage')}</td>${cell((r) => num(r.selected))}<td>${num(f.selected)}</td></tr>
       ${hasAhead ? `<tr class="strong"><td>${w('To triage')}</td>${cell((r) => num(r.toTriage))}<td>${num(f.toTriage)}</td></tr>` : ''}
       <tr><td>${tpLabel}</td>${cell((r) => `${num(r.truePositives)}${oneFp === null && r.toTriage > 0 ? `<small class="fp">${w('{0}% false positives', num(r.fp))}</small>` : ''}`)}<td>${num(f.truePositives)}</td></tr>
       <tr><td>${w('Triage credits')}</td>${cell((r) => num(r.triageCredits, 1))}<td>${num(f.triageCredits, 1)}</td></tr>
