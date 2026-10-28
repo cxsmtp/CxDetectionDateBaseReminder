@@ -11,7 +11,7 @@ import path from 'node:path';
 
 import { freePort } from './free-port.js';
 import { fakeSmtp } from './fake-smtp.js';
-import { FIRST_PASSWORD, NEXT_PASSWORD, keyIdLike, mockApiKey } from './test-credentials.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, SIGNING_KEY, keyIdLike, mockApiKey } from './test-credentials.js';
 
 const MOCK_PORT = await freePort();
 const PORT = await freePort();
@@ -48,7 +48,7 @@ test.before(async () => {
   const server = spawn(process.execPath, ['src/server.js'], {
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
-      CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', REPORT_SIGNING_KEY: 'guard-test',
+      CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', REPORT_SIGNING_KEY: SIGNING_KEY,
       ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, CONNECTION_CHECK_TIMEOUT_MS: '1500',
       SMTP_HOST: '', SMTP_USER: '', SMTP_PASS: '', GITHUB_TOKEN: '', GITHUB_API_URL: '', GITHUB_ORG: '',
     },

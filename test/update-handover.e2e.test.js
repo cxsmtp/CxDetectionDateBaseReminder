@@ -14,7 +14,7 @@ import zlib from 'node:zlib';
 import { freePort } from './free-port.js';
 import { HANDOVER_FILE, SessionPersistence, sessionKey } from '../src/handover.js';
 import { InstanceLock, LOCK_FILE } from '../src/instance-lock.js';
-import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, SIGNING_KEY, mockApiKey } from './test-credentials.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -109,7 +109,7 @@ test('a server update keeps people signed in with their fetched data, and keeps 
     const server = spawn(process.execPath, ['src/server.js'], {
       env: {
         ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
-        CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', REPORT_SIGNING_KEY: 'update-test',
+        CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', REPORT_SIGNING_KEY: SIGNING_KEY,
         ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, SMTP_HOST: '', INSTANCE_LOCK_STALE_SECONDS: '3', ...extra,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
