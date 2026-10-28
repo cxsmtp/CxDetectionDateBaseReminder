@@ -56,12 +56,29 @@ test('five wrong passwords lock the account for a while, even against the right 
   assert.equal((await iam.signIn('u@acme.io', PW, now + 16 * 60 * 1000)).email, 'u@acme.io');
 });
 
-test('Checkmarx One identities map to users by email, username or client id', async () => {
+test('Checkmarx One identities map to users by email or username', async () => {
   const { iam } = await seeded();
   assert.equal(iam.findByCxIdentity({ email: 'ANA@acme.io' }).email, 'ana@acme.io');
   assert.equal(iam.findByCxIdentity({ user: 'JDoe' }).email, 'u@acme.io');
   assert.equal(iam.findByCxIdentity({ user: 'stranger' }), null);
   await assert.rejects(iam.createUser({ email: 'x@acme.io', role: 'user', cxoneIdentities: ['jdoe'] }), { status: 409 });
+});
+
+test('ast-app, the client every API key signs in through, is never an identity: not as an alias, not matched by client id', async () => {
+  const { iam, admin, user, as } = await seeded();
+  const refused = { status: 400, message: 'ast-app is the client every Checkmarx One API key signs in through, so it names no one: list the person\'s username or email instead.' };
+  await assert.rejects(iam.createUser({ email: 'x@acme.io', role: 'admin', cxoneIdentities: ['AST-App'] }), refused);
+  await assert.rejects(async () => iam.updateUser(user.id, { cxoneIdentities: 'jdoe, ast-app ' }, as(admin)), refused);
+  assert.deepEqual(iam.user(user.id).cxoneIdentities, ['jdoe'], 'unchanged');
+  // The client id alone names nobody, even if an alias says ast-app (one saved before this check).
+  const state = JSON.parse(fs.readFileSync(iam.file, 'utf8'));
+  state.users.find((u) => u.id === user.id).cxoneIdentities = ['jdoe', 'ast-app'];
+  fs.writeFileSync(iam.file, JSON.stringify(state));
+  const reloaded = new IamStore({ file: iam.file });
+  assert.deepEqual(reloaded.user(user.id).cxoneIdentities, ['jdoe', 'ast-app']);
+  assert.equal(reloaded.findByCxIdentity({ email: 'intern@acme.io', user: 'intern', clientId: 'ast-app' }), null);
+  assert.equal(reloaded.findByCxIdentity({ user: 'ast-app' }), null);
+  assert.equal(reloaded.findByCxIdentity({ user: 'jdoe', clientId: 'ast-app' }).email, 'u@acme.io');
 });
 
 test('nobody can grant more than they hold: an analyst cannot create, promote or touch an Admin', async () => {

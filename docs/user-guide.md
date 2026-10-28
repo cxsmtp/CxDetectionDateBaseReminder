@@ -181,7 +181,7 @@ Admins and Analysts can change what Security Analyst and User may do, or create 
 **Email and password.** Use the address and password you were given. The first time, you must choose your own password: at least 12 characters.
 
 **Checkmarx One API key** (optional). Paste your own key on the sign-in screen.
-- It works only if an administrator listed your Checkmarx One identity (your email, username or client id) against your account on the People & roles page.
+- It works only if your Checkmarx One email (one Checkmarx One has verified) is your email here, or an administrator listed your Checkmarx One username against your account on the People & roles page. A client id is not an identity: every API key signs in through the same one, `ast-app`, which is refused as an identity (from MZ-01.01.05).
 - The key must be for the same tenant as the server.
 - Checkmarx One then sees your actions as yours.
 
@@ -1116,7 +1116,7 @@ Identity and access management, in three tabs.
 
 | Action | What it does |
 | --- | --- |
-| **Add person** | Fields: <ul><li>email and name;</li><li>role;</li><li>a temporary password (they choose their own at first sign-in);</li><li>optionally their **Checkmarx One identities** (usernames or client ids allowed to sign in with an API key).</li></ul> |
+| **Add person** | Fields: <ul><li>email and name;</li><li>role;</li><li>a temporary password (they choose their own at first sign-in);</li><li>optionally their **Checkmarx One identities** (usernames allowed to sign in with an API key; `ast-app`, the client every key signs in through, is refused).</li></ul> |
 | **Edit profile** | Their profile, as on Settings → Your profile: name, language, time zone, programming languages, Impact figures, look (the organisation's or one of the nine, theme, accent) and picture, and their **sign-in email** (**Change email**, after a confirmation). A new email ends any password reset link sent to the old one, and both addresses are told by email. Every change is in the audit log. For people whose permissions you hold all of, never your own (that is Your profile). **Back to People & roles** returns. |
 | Role (per person) | Change it. It applies on their next click. |
 | **Set password** | A new temporary password. |

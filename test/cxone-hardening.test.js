@@ -182,3 +182,13 @@ test('a storage or upload address on another host never gets the access token, e
   });
   fs.rmSync(path.dirname(file), { recursive: true, force: true });
 });
+
+test('a key\'s identity never uses an email Checkmarx One has not verified', async () => {
+  const jwt = (claims) => `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  const who = (claims) => new CxClient({ baseUrl: 'https://eu.ast.checkmarx.net' }, { getToken: async () => jwt(claims), reset() {} }).identity();
+  assert.deepEqual(await who({ email: 'boss@acme.io', email_verified: false, azp: 'ast-app' }), { user: '', email: '', name: '', clientId: 'ast-app' });
+  assert.equal((await who({ preferred_username: 'intern', email: 'boss@acme.io', email_verified: false })).email, '');
+  assert.equal((await who({ preferred_username: 'intern', email: 'boss@acme.io', email_verified: false })).user, 'intern');
+  assert.equal((await who({ email: 'boss@acme.io', email_verified: true })).email, 'boss@acme.io');
+  assert.equal((await who({ email: 'boss@acme.io' })).email, 'boss@acme.io', 'a token that does not say keeps it');
+});
