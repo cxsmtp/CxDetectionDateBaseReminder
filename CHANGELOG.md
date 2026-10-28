@@ -91,6 +91,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.01.05 — DATE · [#128](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/128)
+
+- **One compact summary strip.** The Cx Credits Calculator's summary is one strip: the projection period and extra credits on the left, a bar of what the credits are for (triage & remediation, Fusion and the extra) with each figure and its share, and the total with a cell for each bundle. The bundle size sits behind the **?** on Bundles; on a phone the same strip stacks.
+- **cloc-fusion built in.** **Fusion — new customer** counts code with cloc-fusion's own engine, from the Admin's git connections, a token for this run, or both: across several hosts and organizations (or everything a token can see), with the git or the API engine. Each repository's code lines, its commits on the default branch in the last year and its developers in the last 90 days are kept; names and emails never are.
+- **Fusion scans from how often the code changes.** A project counted with cloc-fusion gets the Fusion scans of its change frequency, as a Checkmarx One project scanned that often does on the existing customer tab; scans typed for a project still win. The table, the projection report and its PDF say where each project's scans came from.
+- **Download cloc-fusion, import its report.** **Download cloc-fusion** hands out the one-file cloc-fusion page (checked against its checksum) for a customer whose code must not leave them; its JSON report comes back through **Import a cloc-fusion report**. **Upload cloc results** stays.
+- **Status.** STATUS
+
 ## MZ-01.01.04 — 2026-10-28 18:25 UTC · [#127](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/127)
 
 - **More found by Fusion counts SAST only.** In the Cx Credits Calculator, Fusion's extra findings (5% by default) are now counted on the SAST findings among the backlog chosen and the findings still to come, in each severity's own SAST share, since Fusion reads code; SCA and the other engines no longer add to it. The page, the projection report, its calculations and the PDF say "SAST findings".
