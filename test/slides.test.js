@@ -32,7 +32,11 @@ function reportData({ withFusion = true, withTr = true, withImpact = false } = {
 
 test('three pages: triage & remediation with its forecast, then Fusion, then the credits needed overall', () => {
   const data = reportData();
-  const s = slideContent(data);
+  // Unless the calculations are asked for, the pages to present only.
+  const lean = slideContent(data);
+  assert.deepEqual(lean.pages.map((p) => p.kind), ['tr', 'fusion', 'total']);
+  assert.deepEqual(lean.appendix, []);
+  const s = slideContent(data, { calculations: true });
   assert.deepEqual(s.pages.map((p) => p.kind), ['tr', 'fusion', 'total', 'section', 'trend']);
   const [tr, fusion, total, section, trend] = s.pages;
   assert.equal(section.title, 'Appendix – Calculations', 'the fourth slide opens the appendix');
@@ -89,7 +93,7 @@ test('the PDF: one picture filling each 16:9 page, with a cross-reference table 
 });
 
 test('the fourth slide opens the appendix and says on which pages its parts are', () => {
-  const s = slideContent(reportData());
+  const s = slideContent(reportData(), { calculations: true });
   // As the PDF lays them out: the five pages, then the step-by-step appendix over two pages.
   const all = [...s.pages, { kind: 'appendix' }, { kind: 'appendix' }];
   numberContents(all);
@@ -100,7 +104,8 @@ test('the fourth slide opens the appendix and says on which pages its parts are'
 
 test('with the impact worked out, slide 4 is what the credits give back and the appendix follows it', () => {
   const data = reportData({ withImpact: true });
-  const s = slideContent(data);
+  assert.deepEqual(slideContent(data).pages.map((p) => p.kind), ['tr', 'fusion', 'total', 'impact'], 'no appendix unless asked for');
+  const s = slideContent(data, { calculations: true });
   assert.deepEqual(s.pages.map((p) => p.kind), ['tr', 'fusion', 'total', 'impact', 'section', 'trend']);
   const impact = s.pages[3];
   const o = data.impact.overall;

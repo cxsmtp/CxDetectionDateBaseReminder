@@ -1,7 +1,8 @@
 // Cx Credits Calculator: the projection as a PDF to present, made in the browser from the data a
 // generated report keeps. Page 1: triage & remediation, the backlog and the findings still to
-// come. Page 2: Checkmarx Fusion. Page 3: the credits needed overall. Page 4: the trend and how each
-// number is calculated. Then an appendix with every calculation, step by step (src: explain.js).
+// come. Page 2: Checkmarx Fusion. Page 3: the credits needed overall. Page 4: the impact. Only when
+// the calculations are asked for: the trend and how each number is calculated, then an appendix with
+// every calculation, step by step (src: explain.js).
 //
 // Each page is drawn on a canvas (so every language's script and direction is drawn by the
 // browser), kept as a JPEG, and the three are written into a PDF here: no library, nothing sent.
@@ -55,9 +56,10 @@ export function slidesFileName(customer, at) {
 
 /**
  * What each page says, in the reader's language: titles, figures and lines, with no drawing.
- * `data` is what generating the report saved (see page.js reportData()).
+ * `data` is what generating the report saved (see page.js reportData()). `calculations`: the appendix
+ * of calculations too (left out unless asked for).
  */
-export function slideContent(data, { t, lang = 'en' } = {}) {
+export function slideContent(data, { t, lang = 'en', calculations = false } = {}) {
   const L = wording({ t, lang });
   const { num } = L;
   const w = (...args) => plain(L.w(...args));
@@ -181,6 +183,19 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
     });
   }
 
+  const made = new Date(data.generatedAt ?? Date.now()).toLocaleDateString(L.locale, { day: 'numeric', month: 'long', year: 'numeric' });
+  const content = {
+    customer,
+    eyebrow: data.organisation ? plain(data.organisation) : w('Checkmarx credits projection'),
+    footer: data.preparedBy ? w('Made {0} by {1}', made, data.preparedBy) : w('Made {0}', made),
+    pages,
+    appendix: [],
+    appendixTitle: w('Appendix: how each number is calculated'),
+    of: (i, total = pages.length) => `${i + 1} / ${total}`,
+    heading: (page) => `${customer}: ${page.title}`,
+  };
+  if (!calculations) return content;
+
   // 5. The appendix begins: what it holds, and on which pages (filled in once the pages are laid out).
   pages.push({
     kind: 'section',
@@ -231,19 +246,8 @@ export function slideContent(data, { t, lang = 'en' } = {}) {
   });
 
   // The appendix: every calculation, step by step, as the report's "How each number is calculated".
-  const appendix = allSections(data, L).map((x) => ({ title: plain(x.title), lines: x.lines.map((l) => ({ text: plain(l.text), sub: Boolean(l.sub), total: Boolean(l.total) })) }));
-
-  const made = new Date(data.generatedAt ?? Date.now()).toLocaleDateString(L.locale, { day: 'numeric', month: 'long', year: 'numeric' });
-  return {
-    customer,
-    eyebrow: data.organisation ? plain(data.organisation) : w('Checkmarx credits projection'),
-    footer: data.preparedBy ? w('Made {0} by {1}', made, data.preparedBy) : w('Made {0}', made),
-    pages,
-    appendix,
-    appendixTitle: w('Appendix: how each number is calculated'),
-    of: (i, total = pages.length) => `${i + 1} / ${total}`,
-    heading: (page) => `${customer}: ${page.title}`,
-  };
+  content.appendix = allSections(data, L).map((x) => ({ title: plain(x.title), lines: x.lines.map((l) => ({ text: plain(l.text), sub: Boolean(l.sub), total: Boolean(l.total) })) }));
+  return content;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -497,9 +501,9 @@ export function numberContents(all) {
 }
 
 /** The pages as JPEGs, drawn in the reader's language and direction. */
-export async function drawSlides(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
+export async function drawSlides(data, { t, lang = 'en', dir = 'ltr', look, calculations = false } = {}) {
   useLook(look);
-  const content = slideContent(data, { t, lang });
+  const content = slideContent(data, { t, lang, calculations });
   // A face is fetched only once something uses it: ask for the weights the pages draw with.
   await Promise.all([400, 600].map((weight) => document.fonts?.load(`${weight} 28px ${FONT}`))).catch(() => {});
   await document.fonts?.ready;

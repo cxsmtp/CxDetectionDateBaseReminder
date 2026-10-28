@@ -1922,7 +1922,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const button = $('calc-pdf');
     button.disabled = true;
     try {
-      const pdf = await slidesPdf({ ...data, generatedAt: report.createdAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr', look: appLook() });
+      // The appendix of calculations only when asked for (unticked unless the reader ticks it).
+      const pdf = await slidesPdf({ ...data, generatedAt: report.createdAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr', look: appLook(), calculations: $('calc-pdf-calculations').checked });
       download(pdf, slidesFileName(report.customer, report.createdAt));
       window.mzReportActivity?.('event', 'Downloaded the calculator PDF summary');
     } catch (error) {
