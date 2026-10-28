@@ -10,7 +10,7 @@
 import { FREQUENCIES, HOURS_A_YEAR, SEVERITIES, aheadMonths, creditSummary, fusionTotal } from './model.js';
 import { allSections, moneyText } from './explain.js';
 import { forecastChart } from './charts.js';
-import { assumptionItems, falsePositiveLine, reportFileName, scopeLines, trFigures, wording } from './report.js';
+import { assumptionItems, countedFusion, falsePositiveLine, reportFileName, scopeLines, trFigures, wording } from './report.js';
 import { NEXTGEN_ACCENTS, lookPalette, reportLook } from '../look.js';
 
 /** The page size in PDF points (16:9, as a presentation) and the drawing size in pixels. */
@@ -59,7 +59,9 @@ export function slidesFileName(customer, at) {
  * `data` is what generating the report saved (see page.js reportData()). `calculations`: the appendix
  * of calculations too (left out unless asked for).
  */
-export function slideContent(data, { t, lang = 'en', calculations = false } = {}) {
+export function slideContent(raw, { t, lang = 'en', calculations = false } = {}) {
+  // Only the Fusion parts that count (see the report): none, and the Fusion page gives way to one line.
+  const data = countedFusion(raw);
   const L = wording({ t, lang });
   const { num } = L;
   const w = (...args) => plain(L.w(...args));
@@ -132,7 +134,7 @@ export function slideContent(data, { t, lang = 'en', calculations = false } = {}
       bars: null,
       lines: [],
     });
-  } else pages.push({ kind: 'fusion', title: w('Checkmarx Fusion'), subtitle: '', figures: [], lines: [w('Fusion is not in this projection.')] });
+  }
 
   // 3. Overall: the credits needed, what they are for, and the assumptions.
   const f = tr ? trFigures(tr) : null;
@@ -149,7 +151,7 @@ export function slideContent(data, { t, lang = 'en', calculations = false } = {}
     subtitle: [w('{0} bundles of {1} credits', num(sum.bundles), num(sum.settings.bundleCredits)), months ? w('over {0} months', num(months)) : '', sum.settings.extraPercent ? w('including {0}% extra', num(sum.settings.extraPercent, 2)) : ''].filter(Boolean).join(' · '),
     total: num(sum.total),
     parts,
-    lines: assumptionItems(data, sum, L).map(plain),
+    lines: [...assumptionItems(data, sum, L).map(plain), ...(fu || fn ? [] : [w('Checkmarx Fusion is not in this projection: please ask your Checkmarx team to help with a Fusion forecast, if required.')])],
   });
 
   // 4. Impact: what all the credits give back (triage & remediation and Fusion), against what they cost.

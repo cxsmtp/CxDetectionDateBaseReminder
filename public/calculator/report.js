@@ -217,8 +217,9 @@ function story(data, L) {
     </div>`);
   }
   if (!cards.length) return '';
+  const ask = data.fusion || data.fusionNew ? '' : `<p class="sub">${w('Checkmarx Fusion is not in this projection: please ask your Checkmarx team to help with a Fusion forecast, if required.')}</p>`;
   const chart = tr?.forecast?.length ? `<h3 class="chart-title">${w('Backlog trend and forecast')}</h3><p class="sub">${tr.monthlyChange >= 0 ? w('The backlog grew by {0} a month on average recently.', num(tr.monthlyChange)) : w('The backlog shrank by {0} a month on average recently.', num(-tr.monthlyChange))}</p>${forecastChart(tr.forecast, palette(L.t))}` : '';
-  return `<section><h2>${w('How we got there')}</h2><div class="cards">${cards.join('')}</div>${chart}</section>`;
+  return `<section><h2>${w('How we got there')}</h2><div class="cards">${cards.join('')}</div>${chart}${ask}</section>`;
 }
 
 /** What the credits give back (model.js trImpact, fusionImpact, overallImpact, worked out when the report was made). */
@@ -535,7 +536,17 @@ ${p.labels === 'caps' ? 'th{text-transform:uppercase;letter-spacing:.08em;font-s
  * `options`: `t` the page's translator, `lang` its language and `dir` its direction ("rtl" for Arabic and Hebrew),
  * `look` how it looks: `{look, ui: 'nextgen'|'classic', theme: 'auto'|'light'|'dark', accent}`, the app's own when made from it.
  */
-export function buildReport(data, { t, lang = 'en', dir = 'ltr', look } = {}) {
+/**
+ * The report's data with only the Fusion parts that count: a part with no credits (left out, nothing
+ * counted, or no model rate) is not shown, and one line asks the customer's Checkmarx team instead.
+ */
+export function countedFusion(data) {
+  const counts = (part) => (Number(part?.totals?.credits) > 0 ? part : null);
+  return { ...data, fusion: counts(data.fusion), fusionNew: counts(data.fusionNew) };
+}
+
+export function buildReport(raw, { t, lang = 'en', dir = 'ltr', look } = {}) {
+  const data = countedFusion(raw);
   const { look: lookName, ui, theme, accent } = reportLook(look);
   const L = wording({ t, lang });
   const { w } = L;
