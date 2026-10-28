@@ -49,6 +49,24 @@
    "interactive HTML report"
   ]
  },
+ "“FAE Flush” is a Beta feature: your role needs “Beta features” until an Admin makes it final.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "“FAE Flush” is a Beta feature: your role needs “Beta features”.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "“FAE Flush” needs its activation code (Settings → Activation codes).": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
  "\"Secure connection from the start\" does not match the port, so the connection stalled.": {
   "kind": "message",
   "seen": [
@@ -835,6 +853,18 @@
   "kind": "text",
   "seen": [
    "calculator › triage & remediation"
+  ]
+ },
+ "{0} projects, {1} scans at a time (≈ {2} h). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Not exploitable in the project itself, with a comment naming the FAE scan.": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "{0} projects, {1} scans at a time (≈ {2} h). Each project's code is scanned again on a new project named after it with _FAE at the end, with Findings Analysis on; its results To verify that the FAE scan no longer reports become Proposed not exploitable in the project itself, with a comment naming the FAE scan.": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "{0} remediation credit used, {1} left": {
@@ -3268,6 +3298,12 @@
    "access › roles › span › Roles & permissions"
   ]
  },
+ "answered: continue": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
  "Any age": {
   "kind": "text",
   "seen": [
@@ -4771,6 +4807,12 @@
    "busy line"
   ]
  },
+ "Checking the projects did not finish:": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
+  ]
+ },
  "Checking the registry for published versions…": {
   "kind": "message",
   "seen": [
@@ -4893,6 +4935,18 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Checkmarx One groups results by attack vector here, and these results have no attack vector id: scan the project again for one.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "Checkmarx One groups results by attack vector here, and this result has no attack vector id: scan the project again for one.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "Checkmarx One had a problem answering.": {
@@ -6646,6 +6700,12 @@
    "access › roles › small › Roles & permissions"
   ]
  },
+ "Deleting the _FAE projects did not finish": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
  "Deleting the customer…": {
   "kind": "busy",
   "seen": [
@@ -7839,6 +7899,18 @@
   "kind": "attr:aria-label",
   "seen": [
    "reports › triage | credits › allocated vs used"
+  ]
+ },
+ "FAE Flush <span class=\"badge warn\" data-beta-badge=\"faeFlush\" hidden=\"\">Beta</span>": {
+  "kind": "html",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "FAE Flush <span class=\"badge warn\" data-beta-badge=\"faeFlush\">Beta</span>": {
+  "kind": "html",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "FAE keeps {0}% of the new findings from being reported, among the false positives only.": {
@@ -10861,6 +10933,12 @@
    "interactive HTML report"
   ]
  },
+ "Mark, continue, skip or retry.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
  "Match usernames <span class=\"badge warn\" data-beta-badge=\"identityMatching\">Beta</span>": {
   "kind": "html",
   "seen": [
@@ -11774,6 +11852,12 @@
    "credits › projects › p › By project, in this period"
   ]
  },
+ "No project yet.": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
  "No projects yet. <strong>Read from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.": {
   "kind": "html",
   "seen": [
@@ -11827,12 +11911,24 @@
    "help › case › p › Support queue"
   ]
  },
+ "No run has marked anything yet.": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
  "No runs yet.": {
   "kind": "text",
   "seen": [
    "settings › p › Automation",
    "logs › p › Automation",
    "logs › activity › p › Automation"
+  ]
+ },
+ "No SAST scan": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
   ]
  },
  "No severities": {
@@ -11983,6 +12079,12 @@
    "Dashboard › option › Submit a support case"
   ]
  },
+ "Not a repository scan (or it does not say)": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
+  ]
+ },
  "Not accepted yet.": {
   "kind": "message",
   "seen": [
@@ -12077,6 +12179,12 @@
    "interactive HTML report"
   ]
  },
+ "Not listed for this project: its name may differ on this tenant": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
+  ]
+ },
  "Not on this computer yet? Clone and open:": {
   "kind": "report",
   "seen": [
@@ -12089,10 +12197,22 @@
    "interactive HTML report"
   ]
  },
+ "Not read": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
+  ]
+ },
  "Not read yet": {
   "kind": "text",
   "seen": [
    "calculator › triage & remediation"
+  ]
+ },
+ "Not said": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
   ]
  },
  "Not saved:": {
@@ -12121,6 +12241,12 @@
    "beta › span › GitLab not set up",
    "beta › span › Azure DevOps not set up",
    "beta › span › Bitbucket not set up"
+  ]
+ },
+ "Not testable without doing it: the first run shows it": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush › Test one project"
   ]
  },
  "Not unlocked": {
@@ -12174,6 +12300,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Nothing marked yet: the value shows here after a run marks false positives.": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "Nothing matches these filters.": {
@@ -13720,6 +13852,12 @@
   "kind": "busy",
   "seen": [
    "busy line"
+  ]
+ },
+ "Putting the marked results back to To verify did not finish": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "Putting the previous certificate back…": {
@@ -17042,6 +17180,12 @@
    "message"
   ]
  },
+ "Starting FAE Flush did not finish": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
  "Starting the next round…": {
   "kind": "busy",
   "seen": [
@@ -18452,6 +18596,18 @@
    "Dashboard › span › Roles & permissions"
   ]
  },
+ "There is no FAE Flush to undo.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
+ "There is no FAE Flush with _FAE projects.": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
+  ]
+ },
  "These logs do not capture any sensitive information at all: no names, email addresses, passwords, keys, tokens, hosts, URLs, findings or code. Only feature names, counts, timings, status codes and error types, and project ids replaced by one-way codes.": {
   "kind": "text",
   "seen": [
@@ -18673,6 +18829,12 @@
   "kind": "message",
   "seen": [
    "message"
+  ]
+ },
+ "Tick them in the list below: try a few first. — at {0} scans at once.": {
+  "kind": "text",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "Ticked: Fusion for code that is not in Checkmarx One yet, its lines counted with cloc (the Fusion — new customer tab), is in the credits and the report. Unticked: left out; its projects are kept.": {
@@ -20943,6 +21105,12 @@
    "first start › a",
    "first start › h2 › Your profile",
    "sign in › a"
+  ]
+ },
+ "Your role does not allow this (needs “Checkmarx One integration”).": {
+  "kind": "message",
+  "seen": [
+   "Labs → FAE Flush"
   ]
  },
  "Your tools": {
