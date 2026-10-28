@@ -3559,6 +3559,12 @@
    "Dashboard › label › Update & recovery"
   ]
  },
+ "At most {0} projects are read at once.": {
+  "kind": "text",
+  "seen": [
+   "calculator (runtime)"
+  ]
+ },
  "At most 10 addresses at a time.": {
   "kind": "message",
   "seen": [
@@ -9327,6 +9333,12 @@
    "calculator"
   ]
  },
+ "How many of the tenant's projects a read takes: {0} unless you set another number, up to {1}. A tenant with more projects is read only in part, and the read says so.": {
+  "kind": "attr:title",
+  "seen": [
+   "calculator › label"
+  ]
+ },
  "How often it is scanned": {
   "kind": "attr:aria-label",
   "seen": [
@@ -9781,6 +9793,12 @@
    "first start › label › HTTPS",
    "sign in › label › HTTPS",
    "Dashboard › label › HTTPS"
+  ]
+ },
+ "Include the calculations in the PDF": {
+  "kind": "text",
+  "seen": [
+   "calculator › label"
   ]
  },
  "Included, with lines of code": {
@@ -13519,6 +13537,12 @@
    "Dashboard › label › Fetch"
   ]
  },
+ "Projects to read": {
+  "kind": "text",
+  "seen": [
+   "calculator › label"
+  ]
+ },
  "Projects whose model has no credits per {0}K LOC: {1}": {
   "kind": "text",
   "seen": [
@@ -13718,6 +13742,18 @@
   "kind": "message",
   "seen": [
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
+  ]
+ },
+ "Read the first {0} of {1} projects in Checkmarx One: set Projects to read to {2} or more and read again to count them all.": {
+  "kind": "text",
+  "seen": [
+   "calculator (runtime)"
+  ]
+ },
+ "Read the first {0} projects: Checkmarx One has more. Raise Projects to read and read again to count them all.": {
+  "kind": "text",
+  "seen": [
+   "calculator (runtime)"
   ]
  },
  "Read the server's answer below: it usually names the problem.": {
@@ -18068,6 +18104,12 @@
    "message"
   ]
  },
+ "The pages to present: triage & remediation, Fusion, the credits needed overall and the impact": {
+  "kind": "attr:title",
+  "seen": [
+   "calculator › label"
+  ]
+ },
  "The passwords do not match.": {
   "kind": "message",
   "seen": [
@@ -19237,6 +19279,12 @@
   "kind": "text",
   "seen": [
    "Beta › Code authors › confidence badge: low confidence"
+  ]
+ },
+ "Unticked: the PDF summary has the pages to present only. Ticked: the appendix too, with the trend and every number worked out step by step.": {
+  "kind": "attr:title",
+  "seen": [
+   "calculator › label"
   ]
  },
  "Until": {
