@@ -89,14 +89,14 @@ test('a report is in its reader\'s look: the look named, its colours, and Classi
   const { generateHtmlReport } = await import('../src/html-report.js');
   const { buildReportData } = await import('../src/reminder.js');
   const { impactSummary } = await import('../src/impact-summary.js');
-  assert.deepEqual(reportLook({ ui: 'nextgen', look: 'residence', theme: 'dark', accent: 'violet' }), { look: 'residence', ui: 'nextgen', theme: 'dark', accent: 'violet' });
+  assert.deepEqual(reportLook({ ui: 'nextgen', look: 'residence', theme: 'dark', accent: 'violet' }), { look: 'residence', ui: 'nextgen', theme: 'light', accent: 'violet' }, 'files open light');
   assert.equal(reportLook({ ui: 'classic', look: 'residence' }).look, 'classic', 'the organisation’s Classic wins');
   assert.equal(reportLook({ ui: 'nextgen' }).look, 'nextgen', 'a look not named is Command center');
   assert.equal(reportLook({ ui: 'nextgen', look: 'sparkly' }).look, 'nextgen');
 
   const data = buildReportData([{ id: 'r1', riskId: 'r1', scanId: 's', projectId: 'p', projectName: 'P', title: 'V', severity: 'HIGH', scanner: 'SAST', location: 'a.js:1', state: 'TO_VERIFY', firstDetectedAt: '2025-01-01T00:00:00.000Z', ageDays: 5 }], { tenant: 't' });
   const residence = generateHtmlReport(data, { look: { ui: 'nextgen', look: 'residence' } });
-  assert.match(residence, /<html lang="en" data-ui="nextgen" data-accent="indigo" data-look="residence">/);
+  assert.match(residence, /<html lang="en" data-ui="nextgen" data-accent="indigo" data-look="residence" data-theme="light">/);
   assert.match(residence, /\/\* The residence look\. \*\//);
   assert.match(residence, /#0d1f3c/, 'the hotel’s navy band');
   const base = generateHtmlReport(data, { look: { ui: 'nextgen', look: 'nextgen' } });

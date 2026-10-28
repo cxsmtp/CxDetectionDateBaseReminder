@@ -359,16 +359,16 @@ test('Remediate all, critical and high: confirmed findings, one per Checkmarx On
 test('the report’s look: command center with its accent and theme, or the classic look, and nothing unknown gets in', async () => {
   const data = { projects: [], generatedAt: '2026-10-14T00:00:00Z' };
   const classic = generateHtmlReport(data);
-  assert.match(classic, /<html lang="en">/);
+  assert.match(classic, /<html lang="en" data-theme="light">/);
   assert.doesNotMatch(classic, /The command-center look/);
   const next = generateHtmlReport(data, { look: { ui: 'nextgen', theme: 'light', accent: 'amber' } });
   assert.match(next, /<html lang="en" data-ui="nextgen" data-accent="amber" data-theme="light">/);
   assert.match(next, /The command-center look/);
   assert.match(next, /#8f5716/, 'the ochre (amber) accent’s ink');
   const odd = generateHtmlReport(data, { look: { ui: 'nextgen', theme: '"><script>', accent: '"><script>' } });
-  assert.match(odd, /<html lang="en" data-ui="nextgen" data-accent="indigo">/);
+  assert.match(odd, /<html lang="en" data-ui="nextgen" data-accent="indigo" data-theme="light">/);
   assert.doesNotMatch(odd, /"><script>/);
-  assert.match(generateHtmlReport(data, { look: { ui: 'classic', theme: 'dark' } }), /<html lang="en" data-theme="dark">/);
+  assert.match(generateHtmlReport(data, { look: { ui: 'classic', theme: 'dark' } }), /<html lang="en" data-theme="light">/, 'files open light, whatever the maker uses');
 });
 
 test('rows that are one Checkmarx One result sit together, in severity then age order otherwise', async () => {

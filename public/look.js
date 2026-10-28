@@ -33,7 +33,8 @@ export function reportLook(look = {}) {
   return {
     look: name,
     ui,
-    theme: ['light', 'dark'].includes(look?.theme) ? look.theme : 'auto',
+    // Files made from the app open light, whatever the maker's screen is set to; the reader can switch.
+    theme: 'light',
     accent: Object.hasOwn(NEXTGEN_ACCENTS, look?.accent ?? '') ? look.accent : 'indigo',
   };
 }

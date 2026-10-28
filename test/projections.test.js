@@ -257,8 +257,8 @@ test('the report file: in the page\'s language, with a light and a dark theme, a
   assert.match(html, /Analyses Fusion sur 12 mois\./, 'the figures go into the translated wording');
   assert.match(html, /<legend>Thème<\/legend>/);
   assert.ok(asked.includes('{0}: credits projection'), 'every line is asked of the translator');
-  // Themes: Auto follows the system, Light and Dark are chosen with CSS alone (no script in the file).
-  assert.match(html, /id="theme-auto" checked/);
+  // Themes: Light to start with; Auto follows the system; chosen with CSS alone (no script in the file).
+  assert.match(html, /id="theme-light" checked/);
   assert.match(html, /prefers-color-scheme:dark/);
   assert.match(html, /:root:has\(#theme-dark:checked\)/);
   assert.doesNotMatch(html, /<script/i);
@@ -272,11 +272,10 @@ test('the report file: in the page\'s language, with a light and a dark theme, a
   const next = buildReport(data, { look: { ui: 'nextgen', theme: 'dark', accent: 'violet' } });
   assert.match(next, /--ng-mono/);
   assert.match(next, /#6c4265/, 'the plum (violet) accent');
-  assert.match(next, /id="theme-dark" checked/);
-  assert.doesNotMatch(next, /id="theme-auto" checked/);
+  assert.match(next, /id="theme-light" checked/, 'light, even from a dark screen');
   assert.doesNotMatch(next, /<script/i, 'still no scripts');
   const odd = buildReport(data, { look: { ui: 'nextgen', theme: '"><b>', accent: 'nope' } });
-  assert.match(odd, /id="theme-auto" checked/, 'an unknown theme: Auto');
+  assert.match(odd, /id="theme-light" checked/, 'an unknown theme: Light');
   assert.match(odd, /#34507a/, 'an unknown accent: ink (indigo)');
 });
 

@@ -173,14 +173,16 @@ export function startStandalone({ samples = {} } = {}) {
   const showError = (id, error) => setStatus(id, error.message, 'error');
   const fmtDateTime = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
 
-  // The theme: as the computer has it, or light or dark as chosen here.
+  // The theme: light to start with, or light or dark as chosen here.
   const applyTheme = (theme) => {
     if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
     else delete document.documentElement.dataset.theme;
   };
   try {
-    applyTheme(localStorage.getItem(THEME_KEY));
-  } catch {}
+    applyTheme(localStorage.getItem(THEME_KEY) || 'light');
+  } catch {
+    applyTheme('light');
+  }
   $('sa-theme').addEventListener('click', () => {
     const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
     const next = dark ? 'light' : 'dark';
