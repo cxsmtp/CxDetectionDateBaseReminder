@@ -1113,6 +1113,12 @@
    "calculator report"
   ]
  },
+ "{0}% false positives": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "{0}% fewer false positives reported": {
   "kind": "text",
   "seen": [
@@ -2584,6 +2590,14 @@
    "access › roles › button › Roles & permissions"
   ]
  },
+ "AI adoption: fewer new findings over a year (%)": {
+  "kind": "text",
+  "seen": [
+   "calculator › read › span › What the projection counts",
+   "calculator › scoped › span › What the projection counts",
+   "calculator › scoped triage › span › What the projection counts"
+  ]
+ },
  "AI check & fix": {
   "kind": "text",
   "seen": [
@@ -3882,6 +3896,12 @@
   "kind": "html",
   "seen": [
    "calculator"
+  ]
+ },
+ "Backlog chosen + still to come + found by Fusion:": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (calculator ?, report, PDF appendix)"
   ]
  },
  "Backlog history: {0} to {1}.": {
@@ -6363,6 +6383,12 @@
    "interactive HTML report"
   ]
  },
+ "Data source": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Date of that project's latest scan": {
   "kind": "text",
   "seen": [
@@ -6495,6 +6521,12 @@
    "calculator › sample data › span › The last 3 months, week by week",
    "calculator › plan changed › span › The last 3 months, week by week",
    "calculator › applied › span › The last 3 months, week by week"
+  ]
+ },
+ "Debt rate ({0}-month average)": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Decline and sign out": {
@@ -7685,6 +7717,12 @@
    "Dashboard › input › Developer addresses"
   ]
  },
+ "Excluded: {0}": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Executive": {
   "kind": "text",
   "seen": [
@@ -8283,6 +8321,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "Fixing rate ({0}-month average)": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Follow every tracked scope down to zero": {
@@ -9815,6 +9859,12 @@
    "projections › none included › span › Fusion: what one scan of each project costs"
   ]
  },
+ "Included: {0}": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Includes {0} extra": {
   "kind": "text",
   "seen": [
@@ -11327,6 +11377,12 @@
    "calculator"
   ]
  },
+ "New findings arrive at the pace of the last {0} months, falling by {1}% over a year as teams adopt AI.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "New findings keep arriving at the pace of the last {0} months.": {
   "kind": "report",
   "seen": [
@@ -11367,6 +11423,12 @@
    "reports › span",
    "credits › span",
    "credits › overview › span"
+  ]
+ },
+ "New vulnerabilities reported a month, as a share of the backlog, averaged over the last {0} months": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Newer": {
@@ -12686,6 +12748,12 @@
    "calculator report"
   ]
  },
+ "open vulnerabilities in scope": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Open vulnerabilities of every severity, in the period chosen above": {
   "kind": "text",
   "seen": [
@@ -12726,6 +12794,14 @@
    "first start › p › Only these projects or people — optional",
    "sign in › p › Only these projects or people — optional",
    "Dashboard › p › Only these projects or people — optional"
+  ]
+ },
+ "Optional: open it only to plan scans by how critical projects are": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion scans by criticality ?Optional: open it only to plan scans by how critica",
+   "sign in › span › Fusion scans by criticality ?Optional: open it only to plan scans by how critica",
+   "Dashboard › span › Fusion scans by criticality ?Optional: open it only to plan scans by how critica"
   ]
  },
  "Or ask the mail administrator to allow relaying from the address MissionZero runs on.": {
@@ -12860,6 +12936,20 @@
    "calculator › new › span",
    "calculator › triage & remediation › span",
    "calculator › sample data › span"
+  ]
+ },
+ "Over {0} months, falling by {1}% over a year as teams adopt AI: {2} months' worth.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (calculator ?, report, PDF appendix)"
+  ]
+ },
+ "Over the last {0} months. Percentages: a share of today's backlog. The estimates (Fusion, false positives, credits) are set above, under What the projection counts and Customize per severity.": {
+  "kind": "text",
+  "seen": [
+   "calculator › read › p › Debt added against fixes",
+   "calculator › scoped › p › Debt added against fixes",
+   "calculator › scoped triage › p › Debt added against fixes"
   ]
  },
  "Overrides — one <code>username = email</code> per line": {
@@ -17050,6 +17140,12 @@
    "calculator"
   ]
  },
+ "Still to come, {0}% fewer over a year with AI": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Still to come, at the current pace": {
   "kind": "report",
   "seen": [
@@ -18286,6 +18382,12 @@
    "calculator report"
   ]
  },
+ "The true positives among everything reported:": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (calculator ?, report, PDF appendix)"
+  ]
+ },
  "The way to Mission Zero": {
   "kind": "attr:aria-label",
   "seen": [
@@ -19097,6 +19199,18 @@
    "calculator › sample data › td › Final matrix",
    "calculator › plan changed › td › Final matrix",
    "calculator › applied › td › Final matrix"
+  ]
+ },
+ "True positives, after {0}% false positives": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "True positives, after each severity's false positives": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Truthy only when more than one project is covered": {
@@ -20239,6 +20353,12 @@
    "access › span › Roles & permissions",
    "access › people › span › Roles & permissions",
    "access › roles › span › Roles & permissions"
+  ]
+ },
+ "Vulnerabilities fixed a month, as a share of the backlog, averaged over the last {0} months": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "Vulnerability report": {
