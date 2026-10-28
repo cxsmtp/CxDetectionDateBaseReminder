@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { FaeFlushRunner, FaeFlushStore, FaeHistory, cleanOptions, valueOf, whyRefused } from '../src/fae-flush.js';
+import { FaeFlushRunner, FaeFlushStore, FaeHistory, cleanOptions, redact, valueOf, whyRefused } from '../src/fae-flush.js';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fae-unit-'));
 const original = Array.from({ length: 30 }, (_, k) => ({ similarityID: `s${k}`, state: 'TO_VERIFY', severity: 'HIGH' }));
@@ -475,4 +475,19 @@ test('the run and its history are saved through a fresh temporary name, readable
   assert.deepEqual(fs.readdirSync(own).sort(), ['fae-flush.json', 'fae-history.json']);
   for (const name of fs.readdirSync(own)) assert.equal(fs.statSync(path.join(own, name)).mode & 0o777, 0o600, name);
   assert.equal(JSON.parse(fs.readFileSync(path.join(own, 'fae-flush.json'), 'utf8')).runId, 'r1');
+});
+
+test('a debug log line keeps no signature, token or password, in any text of it, and stays the same data', () => {
+  const jwt = `eyJ${'a'.repeat(10)}.${'b'.repeat(10)}.${'c'.repeat(10)}`;
+  const line = redact({
+    url: 'https://bucket.s3.amazonaws.com/x.zip?X-Amz-Signature=abc123&X-Amz-Credential=AKIA/2026&part=1',
+    error: `401 for Bearer ${jwt}, retried with https://user:pa55@git.acme.io/repo.git?token=t0k`,
+    answer: { said: 'POST https://iam.acme.io/token?refresh_token=r3fresh&ok=1', ms: 12, ok: false, list: [`apikey=${jwt}`, null] },
+  });
+  const all = JSON.stringify(line);
+  for (const secret of ['abc123', 'AKIA/2026', jwt, 'pa55', 't0k', 'r3fresh']) assert.ok(!all.includes(secret), secret);
+  assert.match(line.url, /X-Amz-Signature=\[hidden\]&X-Amz-Credential=\[hidden\]&part=1$/);
+  assert.match(line.error, /Bearer \[hidden\]/);
+  assert.deepEqual([line.answer.ms, line.answer.ok, line.answer.list[1]], [12, false, null]);
+  assert.equal(redact(null), null);
 });
