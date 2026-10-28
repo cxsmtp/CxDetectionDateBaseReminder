@@ -118,7 +118,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderCustomers() {
     $('calc-empty').hidden = c.customers.length > 0;
     $('calc-customer').innerHTML = c.customers.map((x) => `<option value="${esc(x.id)}"${x.id === c.open?.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
-    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches', 'calc-max-projects', 'calc-apply', 'calc-undo']) $(id).disabled = !c.open;
+    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-bundle-q', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches', 'calc-max-projects', 'calc-apply', 'calc-undo']) $(id).disabled = !c.open;
   }
 
   function renderOrg() {
@@ -588,7 +588,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     pop.querySelector('.calc-pop-close').focus();
   }
   document.addEventListener('click', (event) => {
-    const button = event.target.closest('.calc-why');
+    const button = event.target.closest('.calc-why[data-why]');
     if (button) return openPop(button);
     if (event.target.closest('.calc-pop-close') || (!pop.hidden && !event.target.closest('.calc-pop'))) closePop();
   });
@@ -1826,10 +1826,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-fusion-new-on').checked = n.fusionNewOn;
     $('calc-extra').value = n.extraPercent || '';
     $('calc-bundle').value = n.bundleCredits;
-    // The bundle size is 10,000 for nearly every customer: its box shows only when changed, or asked for.
-    $('calc-bundle-size').textContent = `${num(n.bundleCredits)} credits each`;
-    if (Number(n.bundleCredits) !== BUNDLE_CREDITS) $('calc-bundle-item').hidden = false;
-    $('calc-bundle-change').hidden = !$('calc-bundle-item').hidden;
+    // The bundle size is 10,000 for nearly every customer: it waits behind the "?" on Bundles, marked when it is another.
+    $('calc-bundle-size').textContent = `Bundles of ${num(n.bundleCredits)} credits, rounded up to whole bundles.`;
+    $('calc-bundle-q').classList.toggle('calc-q-set', Number(n.bundleCredits) !== BUNDLE_CREDITS);
     renderHorizon();
     renderScope();
   }
@@ -1861,9 +1860,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     initiators: () => $('calc-scope-initiators'),
     frequencies: () => $('calc-scope-frequencies'),
     criticalities: () => $('calc-scope-criticalities'),
-    periodMonths: () => $('calc-horizon').closest('.calc-sum-item'),
-    extraPercent: () => $('calc-extra').closest('.calc-sum-item'),
-    bundleCredits: () => $('calc-bundle').closest('.calc-sum-item'),
+    periodMonths: () => $('calc-horizon'),
+    extraPercent: () => $('calc-extra'),
+    // Behind its "?": the "?" is marked, so a change waiting shows with the box closed.
+    bundleCredits: () => $('calc-bundle-q'),
   };
   /** The bar that lists what waits, with Undo and Apply. */
   function renderPending() {
@@ -2145,7 +2145,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const sum = creditSummary(c.trCredits, fusionTotal({ totals: { credits: c.fusionCredits } }, { totals: { credits: c.fusionNewCredits } }), totals());
     $('calc-sum-tr').textContent = num(sum.tr, 1);
     $('calc-sum-tr-split').textContent = c.trSplit ? `${num(c.trSplit.backlogCredits, 1)} backlog + ${num(c.trSplit.aheadCredits, 1)} ahead` : '';
-    // One Fusion tile, for the part that applies to this customer (ticked, with projects counted): both
+    // One Fusion figure, for the part that applies to this customer (ticked, with projects counted): both
     // added up when both do, with the split under it.
     const existing = c.fusionCredits !== null && c.fusionCredits !== undefined;
     const fresh = c.fusionNewCredits !== null && c.fusionNewCredits !== undefined;
@@ -2153,10 +2153,55 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-sum-fusion').textContent = existing || fresh ? num((c.fusionCredits ?? 0) + (c.fusionNewCredits ?? 0), 1) : fusionOff() && fnewOff() ? 'Left out' : '—';
     $('calc-sum-fusion-split').textContent = existing && fresh ? `${num(c.fusionCredits, 1)} existing + ${num(c.fusionNewCredits, 1)} new` : '';
     $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.total, 1);
-    $('calc-sum-extra').textContent = sum.extra ? `Includes ${num(sum.extra, 1)} extra` : '';
+    $('calc-sum-extra').textContent = num(sum.extra, 1);
+    $('calc-mix-extra').hidden = !(sum.extra > 0);
     $('calc-sum-bundles').textContent = sum.total ? num(sum.bundles) : '—';
     $('calc-sum-exact').textContent = sum.total && sum.bundles !== sum.exactBundles ? `${num(sum.exactBundles, 2)}, rounded up` : '';
+    renderMix(sum, existing ? c.fusionCredits : 0, fresh ? c.fusionNewCredits : 0, existing || fresh);
     renderImpact();
+  }
+
+  /**
+   * The strip's pictures: the bar of what the total is made of (each part's share is written by its
+   * figure too, so the bar itself is only a picture), and the bundles as cells, the last filled to what is used.
+   */
+  function renderMix(sum, fusionExisting, fusionNew, fusionCounts) {
+    const whole = sum.total > 0 ? sum.total : 0;
+    const parts = [['tr', sum.tr ?? 0], ['fx', fusionExisting ?? 0], ['fn', fusionNew ?? 0], ['extra', sum.extra]].filter(([, v]) => v > 0);
+    $('calc-mix-bar').replaceChildren(...(whole ? parts : []).map(([key, value]) => {
+      const seg = document.createElement('i');
+      seg.className = `calc-mix-seg calc-seg-${key}`;
+      seg.style.flexGrow = String(value / whole);
+      return seg;
+    }));
+    const share = (value) => {
+      if (!whole || !(value > 0)) return '';
+      const p = (value / whole) * 100;
+      return p < 1 ? '<1%' : `${Math.round(p)}%`;
+    };
+    $('calc-mix-tr-pct').textContent = share(sum.tr);
+    $('calc-mix-fusion-pct').textContent = share((fusionExisting ?? 0) + (fusionNew ?? 0));
+    $('calc-mix-extra-pct').textContent = share(sum.extra);
+    // Fusion's swatch: its part's colour, both colours when both count, grey when it does not count.
+    const key = $('calc-mix-fusion');
+    key.classList.toggle('calc-mix-both', fusionExisting > 0 && fusionNew > 0);
+    key.classList.toggle('calc-mix-new-only', !(fusionExisting > 0) && fusionNew > 0);
+    key.classList.toggle('calc-mix-off', !fusionCounts);
+    $('calc-mix-tr').classList.toggle('calc-mix-off', sum.tr === null);
+    // One cell a bundle while they fit; none past 60 (the figure says it).
+    const n = whole ? sum.bundles : 0;
+    const cells = $('calc-bundle-cells');
+    cells.hidden = !n || n > 60;
+    cells.classList.toggle('calc-cells-many', n > 12);
+    cells.replaceChildren(...(cells.hidden ? [] : Array.from({ length: n }, (_, i) => {
+      const cell = document.createElement('i');
+      const used = sum.exactBundles - (n - 1);
+      if (i === n - 1 && used < 0.995) {
+        cell.className = 'calc-cell-part';
+        cell.style.setProperty('--fill', `${Math.max(6, Math.round(used * 100))}%`);
+      }
+      return cell;
+    })));
   }
 
   // --- Impact: what the triage & remediation credits give back ---------------------------------
@@ -2284,10 +2329,21 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   // The extra % and the credits per bundle wait for Apply too.
   $('calc-extra').addEventListener('input', (event) => c.open && setNext({ extraPercent: event.target.value }, { redraw: false }));
-  $('calc-bundle-change').addEventListener('click', () => {
-    $('calc-bundle-item').hidden = false;
-    $('calc-bundle-change').hidden = true;
-    $('calc-bundle').focus();
+  // The credits per bundle, behind the "?" on Bundles: opens under it, closes with the "?", Escape or a click elsewhere.
+  const bundlePop = (open) => {
+    $('calc-bundle-item').hidden = !open;
+    $('calc-bundle-q').setAttribute('aria-expanded', String(open));
+    if (open) $('calc-bundle').focus();
+  };
+  $('calc-bundle-q').addEventListener('click', () => bundlePop($('calc-bundle-item').hidden));
+  $('calc-bundle-item').addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' && event.key !== 'Enter') return;
+    event.preventDefault();
+    bundlePop(false);
+    $('calc-bundle-q').focus();
+  });
+  document.addEventListener('click', (event) => {
+    if (!$('calc-bundle-item').hidden && !event.target.closest('#calc-bundle-item, #calc-bundle-q')) bundlePop(false);
   });
   $('calc-bundle').addEventListener('input', (event) => c.open && setNext({ bundleCredits: event.target.value }, { redraw: false }));
   $('calc-extra').addEventListener('change', (event) => (event.target.value = next().extraPercent || ''));

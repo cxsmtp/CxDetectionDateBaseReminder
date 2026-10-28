@@ -3,6 +3,7 @@
 import test from 'node:test';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import vm from 'node:vm';
 
 import { buildStandaloneCalculator, calculatorMarkup, standaloneMarkup, wrapModule } from '../src/standalone-calculator.js';
@@ -42,6 +43,20 @@ test('the page is cut out of index.html whole, and a changed wording fails the b
   const page = calculatorMarkup('<p><div id="page-calculator" class="page calc-page" hidden><div><div></div></div><span>x</span></div><div id="next"></div></p>');
   assert.equal(page, '<div id="page-calculator" class="page calc-page"><div><div></div></div><span>x</span></div>');
   assert.throws(() => standaloneMarkup('<div>nothing</div>'), /no longer says/);
+});
+
+test('the summary is one strip, in the app and in the file: the mix, the total and its bundles, the bundle size behind a "?"', () => {
+  const app = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  for (const html of [app, buildStandaloneCalculator({ version: '1.1.5' })]) {
+    assert.match(html, /<div class="calc-strip" role="group" aria-label="Credits required">/);
+    // The bar is a picture: each part's figure and share are written beside it.
+    assert.match(html, /<div class="calc-mix-bar" id="calc-mix-bar" aria-hidden="true"><\/div>/);
+    for (const id of ['calc-horizon', 'calc-extra', 'calc-sum-tr', 'calc-sum-tr-split', 'calc-sum-fusion', 'calc-sum-fusion-split', 'calc-sum-total', 'calc-sum-bundles', 'calc-sum-exact', 'calc-mix-tr-pct', 'calc-mix-fusion-pct', 'calc-mix-extra-pct']) assert.match(html, new RegExp(`id="${id}"`), id);
+    // The "?" on Bundles is a real button that says whether its box is open; the box holds the credits per bundle.
+    assert.match(html, /<button type="button" class="calc-why calc-bundle-q" id="calc-bundle-q" aria-expanded="false" aria-controls="calc-bundle-item"/);
+    assert.match(html, /<div class="calc-bundle-pop" id="calc-bundle-item" role="group" aria-labelledby="calc-bundle-label" hidden>\s*<label class="field"><span id="calc-bundle-label">Credits per bundle<\/span><input type="text" inputmode="numeric" id="calc-bundle"/);
+    assert.doesNotMatch(html, /calc-bundle-change|class="calc-sum"|calc-sum-item/, 'no Change button, no tiles');
+  }
 });
 
 test('customers and reports follow the same rules here and on the server', () => {
