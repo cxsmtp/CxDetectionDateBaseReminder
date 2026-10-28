@@ -210,7 +210,7 @@ const STANDALONE_CSS = `
 .shell.standalone .sa-actions { display: flex; flex: none; gap: 6px; align-items: center; }
 .shell.standalone #sa-theme { min-width: 36px; display: inline-flex; align-items: center; justify-content: center; }
 .shell.standalone #sa-theme svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
-.shell.standalone:not(.can-read) #calc-read, .shell.standalone:not(.can-read) .calc-branches, .shell.standalone:not(.can-read) .calc-read-limit, .shell.standalone:not(.can-read) .calc-source-state, .shell.standalone #calc-email-open, .shell.standalone #calc-email-form, .shell.standalone .calc-toolbar { display: none !important; }
+.shell.standalone:not(.can-read) #calc-read, .shell.standalone:not(.can-read) .calc-branches, .shell.standalone:not(.can-read) .calc-read-limit, .shell.standalone:not(.can-read) .calc-source-state, .shell.standalone:not(.can-read) .calc-origins, .shell.standalone:not(.can-read) .calc-apply-read, .shell.standalone #calc-email-open, .shell.standalone #calc-email-form, .shell.standalone .calc-toolbar { display: none !important; }
 .shell.standalone .sa-connect { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); order: 5; }
 .shell.standalone .sa-connect .sa-key { margin: 0; flex: 1 1 320px; max-width: 520px; }
 .shell.standalone .sa-connect .status { align-self: center; }

@@ -8,7 +8,7 @@ import { branchScopeOf } from './cxone/branches.js';
 import { DEFAULT_ENGINES, cleanEngines } from './engines.js';
 import { TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
 import { createGitCounter, gitSource, listRepositories, sweepLeftovers } from './fusion-git.js';
-import { MAX_PROJECTS, readLimit } from '../public/calculator/model.js';
+import { MAX_PROJECTS, cleanOrigins, readLimit } from '../public/calculator/model.js';
 
 /**
  * The standalone Cx Credits Calculator's launcher (cx-credits-calculator.mjs, built by
@@ -118,7 +118,7 @@ export async function startLauncher({ html, port = 0, host = '127.0.0.1', open =
       const read = state.read.get();
       if (!read?.weeks?.length) throw Object.assign(new Error('Read Checkmarx One first: the scope is worked out from the last read.'), { status: 409 });
       const ids = Array.isArray(input?.projectIds) ? input.projectIds.slice(0, MAX_PROJECTS).map((id) => String(id).slice(0, 100)) : [];
-      return seriesFor(read, ids, cleanEngines(input?.engines).length ? cleanEngines(input.engines) : DEFAULT_ENGINES);
+      return seriesFor(read, ids, cleanEngines(input?.engines).length ? cleanEngines(input.engines) : DEFAULT_ENGINES, cleanOrigins(input?.origins));
     },
     // Fusion — new customer, Count from git, as CxMissionZero counts (src/fusion-git.js), on this computer: a token
     // typed for one count only (there are no Admin's connections here), held in memory while the count runs.

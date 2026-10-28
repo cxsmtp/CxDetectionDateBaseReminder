@@ -2950,6 +2950,29 @@ ol.calc-how li.calc-total { font-weight: 600; }
 .calc-add-fusion { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .calc-add-fusion > b { font-size: 13px; }
 .calc-add-fusion .pill-check small { color: var(--muted); font-weight: 500; }
+/* Include scans from: the scan origins, a drop-down like the engines', each with its scans and projects. */
+.calc-origins { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.calc-origins > b { font-size: 13px; }
+.calc-origin-pick.on > summary { border-color: var(--accent); color: var(--accent); }
+.calc-origin-pick .col-menu { max-height: min(440px, 64vh); overflow-y: auto; }
+.calc-origin-tools { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.calc-origin-menu .engine-opt b { font-weight: 500; }
+.calc-origin-menu .engine-opt small { font-size: 12px; font-variant-numeric: tabular-nums; }
+.calc-origin-menu .calc-origin-none { grid-column: 1 / -1; max-width: 34ch; }
+/* Every setting at the top waits for one Apply: a dark bar says what waits (each change marked where it is made), with Undo and Apply. */
+.calc-pending { position: sticky; bottom: 12px; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; padding: 10px 14px; border-radius: 12px; background: var(--text); color: var(--bg); box-shadow: 0 8px 24px rgb(0 0 0 / 0.2); }
+.calc-pending-text { min-width: 0; }
+.calc-pending ul { margin: 2px 0 0; padding-inline-start: 18px; font-size: 12px; opacity: 0.85; overflow-wrap: anywhere; }
+.calc-pending-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#calc-pending button { min-height: var(--control-h); padding: 0 14px; border-radius: var(--radius-sm); font: inherit; font-weight: 600; box-shadow: none; transform: none; cursor: pointer; }
+#calc-pending .calc-pending-undo { background: transparent; color: inherit; border: 1px solid color-mix(in srgb, var(--bg) 45%, transparent); }
+#calc-pending .calc-pending-undo:hover:not(:disabled) { background: color-mix(in srgb, var(--bg) 14%, transparent); border-color: var(--bg); color: inherit; }
+#calc-pending .calc-pending-go { background: var(--bg); color: var(--text); border: 1px solid var(--bg); }
+#calc-pending .calc-pending-go:hover:not(:disabled) { background: color-mix(in srgb, var(--bg) 86%, var(--accent)); border-color: var(--bg); color: var(--text); }
+#calc-pending button:focus-visible { outline: 2px solid var(--bg); outline-offset: 2px; }
+.calc-changed { outline: 2px solid color-mix(in srgb, var(--warn) 75%, transparent); outline-offset: 2px; }
+.calc-apply-hint { margin: 0; font-size: 12px; }
+.calc-presenting .calc-pending, .calc-presenting .calc-apply-hint { display: none; }
 /* Fusion — new customer: the cloc commands, the drop box, the languages and the projects. */
 .calc-cloc-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px 18px; margin: 4px 0 12px; }
 .calc-cloc-steps h3 { margin: 0 0 4px; font-size: 14px; }
@@ -3168,7 +3191,6 @@ details.calc-fold > summary .hint { margin: 0; }
 /* 1.0.69: the calculator's applications and projects, picked as chips */
 .calc-scope-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 10px 14px; }
 .calc-scope-pick .field { margin: 0; }
-.calc-scope-pick .calc-scope-apply { align-self: end; justify-self: start; min-width: 96px; }
 .calc-scope-pick .field > label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 #calc-scope-box .calc-scope-several { margin: 0; }
 #calc-scope-toggle { justify-self: start; text-align: start; }

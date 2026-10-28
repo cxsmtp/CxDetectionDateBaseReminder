@@ -2,7 +2,7 @@
 // server (src/projections.js, in the data folder) and in the standalone calculator (in the browser). No
 // Node or browser APIs beyond crypto and TextEncoder, so both can use it.
 
-import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, MAX_CLOC_LANGUAGES, MAX_PROJECTS, aheadSettings, cleanScope, creditSummary, fusionSettings, fusionTotal, impactSettings, modelsNamed, newCustomerSettings, totalsSettings, wholeNumber } from './model.js';
+import { CRITICALITIES, DEFAULT_TR, FREQUENCIES, LOOKBACKS, MAX_CLOC_LANGUAGES, MAX_PROJECTS, aheadSettings, cleanOrigins, cleanScope, creditSummary, fusionSettings, fusionTotal, impactSettings, modelsNamed, newCustomerSettings, totalsSettings, wholeNumber } from './model.js';
 import { DEFAULT_ENGINES, cleanEngines } from '../engines.js';
 
 export const MAX_PROFILES = 200;
@@ -58,6 +58,9 @@ function series(value) {
       engineSplit: meta.engineSplit !== false,
       // One branch per project ('primary') or every branch ('all'); '' for a read made before branches were told apart.
       branches: ['primary', 'all'].includes(meta.branches) ? meta.branches : '',
+      // The scan origins whose scans were counted ([] = every one), and whether the read could tell them apart.
+      origins: cleanOrigins(meta.origins) ?? [],
+      originSplit: meta.originSplit !== false,
     },
   };
 }
@@ -95,6 +98,17 @@ function openCounts(value) {
   return Object.keys(out).length ? out : null;
 }
 
+/** {Jenkins: 12, …}: a project's scans in the year per scan origin, whole numbers; null when not given. */
+function originsOf(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const out = {};
+  for (const [origin, n] of Object.entries(value).slice(0, 50)) {
+    const key = text(origin, 60);
+    if (key && !['__proto__', 'constructor', 'prototype'].includes(key)) out[key] = wholeNumber(n) ?? 0;
+  }
+  return out;
+}
+
 /** The Fusion projection: its settings, and the projects with what Checkmarx One said of them. */
 export function cleanFusion(value) {
   const v = value && typeof value === 'object' ? value : {};
@@ -123,8 +137,13 @@ export function cleanFusion(value) {
     branchHow: BRANCH_HOWS.includes(p?.branchHow) ? p.branchHow : '',
     // Open findings now, per engine (its latest scan): unknown (null) for a project added by hand or read before.
     openByEngine: openCounts(p?.openByEngine),
+    // Where its scans came from, with its scans in the year from each, and the days they were counted over:
+    // unknown (null) for a project added by hand or read before scan origins were recorded.
+    origins: originsOf(p?.origins),
+    scanDays: Math.min(366, Math.max(0, finite(p?.scanDays, 0))) || null,
   }));
-  return { ...settings, readAt: iso(v.readAt), projects };
+  // readLimit: where the last read stopped (Projects to read), when the tenant had more.
+  return { ...settings, readAt: iso(v.readAt), readLimit: wholeNumber(v.readLimit) || null, projects };
 }
 
 /**

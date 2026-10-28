@@ -179,8 +179,13 @@ try {
   await click('#calc-present', 'calculator › edit view', 400);
   await click('#page-calculator .ptab[data-pt="fusion"]', 'calculator › fusion', 600);
   await click('#calc-read', 'calculator › read', 5000);
-  await page.fill('#calc-scope-applications', 'Mobile').catch(() => {});
-  await click('#calc-scope-form button[type="submit"]', 'calculator › scoped', 1500);
+  await click('#calc-origin-pick > summary', 'calculator › scan origins', 400);
+  await click('#calc-origin-menu [data-origins="none"]', 'calculator › no scan origin', 400);
+  await click('#calc-origin-menu [data-origins="all"]', 'calculator › every scan origin', 400);
+  await page.fill('#calc-app-input', 'Mobile').catch(() => {});
+  await page.fill('#calc-extra', '10').catch(() => {});
+  await grab('calculator › changes waiting', 400);
+  await click('#calc-apply', 'calculator › scoped', 1500);
   await click('#page-calculator .ptab[data-pt="tr"]', 'calculator › scoped triage', 800);
   await click('#page-calculator .ptab[data-pt="fusion"]', 'calculator › scoped fusion', 600);
   await click('#calc-add-model', 'calculator › model added', 600);

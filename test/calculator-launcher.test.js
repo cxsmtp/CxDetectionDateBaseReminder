@@ -109,6 +109,12 @@ test('connect with the API key, read the tenant as CxMissionZero does, narrow it
   const series = await call('POST', '/api/projections/series', { projectIds: [one] });
   assert.equal(series.status, 200);
   assert.ok(series.body.totals.weeks.length > 0);
+  // Include scans from, as in CxMissionZero: only the scans from the origins ticked.
+  const origin = Object.keys(job.result.projects[0].origins)[0];
+  const fromOne = await call('POST', '/api/projections/series', { projectIds: [one], origins: [origin] });
+  assert.deepEqual(fromOne.body.totals.meta.origins, [origin]);
+  assert.equal(fromOne.body.totals.meta.projects, 1);
+  assert.equal((await call('POST', '/api/projections/series', { projectIds: [one], origins: ['Nowhere'] })).body.totals.meta.projects, 0);
   assert.ok(!log.includes(KEY), 'the key is never printed');
   assert.equal((await call('POST', '/launcher/disconnect', {})).body.connected, false);
   assert.equal((await call('GET', '/launcher/status')).body.connected, false);

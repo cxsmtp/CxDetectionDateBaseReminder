@@ -470,6 +470,15 @@
   :root[data-phone]:root:root:root .calc-customer select, :root[data-phone]:root:root:root .calc-customer input { width: 100%; }
   :root[data-phone]:root:root:root .calc-sum { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   :root[data-phone]:root:root:root .calc-sum-item input { width: 100%; }
+  /* The calculator's changes waiting for Apply: above the tab bar, over the sheet they are made in; the scan origins full width. */
+  :root[data-phone]:root:root:root .calc-pending { position: fixed; inset: auto 12px calc(76px + env(safe-area-inset-bottom)) 12px; z-index: 88; }
+  :root[data-phone]:root:root:root .calc-pending-actions { flex: 1 1 auto; }
+  :root[data-phone]:root:root:root #calc-pending .calc-pending-actions > button { flex: 1 1 0; min-height: 44px; }
+  :root[data-phone]:root:root:root .calc-apply-hint { display: none; }
+  :root[data-phone]:root:root:root body:has(#calc-origin-pick[open]) .calc-pending { display: none; }
+  :root[data-phone]:root:root:root body:has(.calc-pending:not([hidden])) .m-sheet:has(#calc-scope-box) { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
+  :root[data-phone]:root:root:root .calc-origins { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
+  :root[data-phone]:root:root:root .calc-origins > details > summary { width: 100%; min-height: 44px; justify-content: space-between; border-radius: 12px; }
   :root[data-phone]:root:root:root :is(.flush-seg, :root[data-phone]:root:root:root .gv-chips, :root[data-phone]:root:root:root .gv-seg, :root[data-phone]:root:root:root .gv-tools) { flex-wrap: wrap; max-width: 100%; }
   :root[data-phone]:root:root:root :is(.flush-seg, :root[data-phone]:root:root:root .gv-chips, :root[data-phone]:root:root:root .gv-seg) > * { min-width: 0; }
   :root[data-phone]:root:root:root .https-step a, :root[data-phone]:root:root:root .panel a { overflow-wrap: anywhere; }
