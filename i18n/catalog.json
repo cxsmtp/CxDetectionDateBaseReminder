@@ -1129,6 +1129,12 @@
    "logs › activity › dd › Your profile"
   ]
  },
+ "{0}% × {1} SAST findings = {2}": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): what Checkmarx Fusion finds in addition; keep the formula (PDF appendix line)"
+  ]
+ },
  "{0}% actioned": {
   "kind": "attr:aria-label",
   "seen": [
@@ -1159,6 +1165,30 @@
   "kind": "text",
   "seen": [
    "calculator"
+  ]
+ },
+ "{0}% more findings · read again for SAST only": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0}% more findings · the exports count every engine": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0}% more SAST findings": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0}% more SAST findings: {0}% × {1} = {2}.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): what Checkmarx Fusion finds in addition; keep the formula"
   ]
  },
  "{0}% taken as false positives: triaged, not remediated.": {
@@ -8740,6 +8770,12 @@
    "calculator report"
   ]
  },
+ "Fusion reports {0}% more SAST findings than today.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
  "Fusion scans": {
   "kind": "text",
   "seen": [
@@ -11237,6 +11273,12 @@
   "kind": "text",
   "seen": [
    "calculator"
+  ]
+ },
+ "More found by Fusion ({0}% of SAST)": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
   ]
  },
  "More found by Fusion ({0}%)": {
@@ -15071,6 +15113,12 @@
   "kind": "report",
   "seen": [
    "interactive HTML report"
+  ]
+ },
+ "SAST findings among the backlog chosen and the findings still to come, in SAST's share of each severity: {0}.": {
+  "kind": "report",
+  "seen": [
+   "How each number is calculated (a \"?\" popup on the Cx Credits Calculator page, the closed section at the end of the projection report sent to the customer, and the PDF appendix): what Checkmarx Fusion finds in addition; keep the formula"
   ]
  },
  "Saturday": {

@@ -220,7 +220,7 @@ export function slideContent(data, { t, lang = 'en', calculations = false } = {}
     const chosen = SEVERITIES.filter((x) => (tr.rows?.[x]?.selected ?? 0) > 0);
     calc.push({ label: w('Backlog today'), formula: `${chosen.map((x) => num(tr.rows[x].selected)).join(' + ') || '0'} = ${num(T.selected)} (${w('of {0} open', num(T.backlog))})` });
     if (A.includeFuture !== false) calc.push({ label: w('Still to come'), formula: `${num(monthly)} × ${num(paced, 2)} = ${num(T.future)}` });
-    calc.push({ label: w('More found by Fusion'), formula: tr.fusion ? `${num(A.fusionUpliftPercent)}% × (${num(T.selected)} + ${num(T.future)}) = ${num(T.fusionExtra)}` : '0' });
+    calc.push({ label: w('More found by Fusion'), formula: !tr.fusion ? '0' : tr.sastOnly ? w('{0}% × {1} SAST findings = {2}', num(A.fusionUpliftPercent), num(T.fusionBase), num(T.fusionExtra)) : `${num(A.fusionUpliftPercent)}% × (${num(T.selected)} + ${num(T.future)}) = ${num(T.fusionExtra)}` });
     calc.push({ label: w('To triage'), formula: `${[T.selected, ...(A.includeFuture !== false ? [T.future] : []), ...(tr.fusion ? [T.fusionExtra] : [])].map((n) => num(n)).join(' + ')} = ${num(T.toTriage)}` });
     const fps = [...new Set(SEVERITIES.filter((x) => (tr.rows?.[x]?.selected ?? 0) + (tr.rows?.[x]?.future ?? 0) > 0).map((x) => tr.rows[x].fp))];
     const reported = T.selected + T.future + T.fusionExtra;

@@ -162,9 +162,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderFusion();
     loadReports();
     autoRead();
-    // Saved before engines were counted apart, or with other engines: count the ones chosen now.
+    // Saved before engines were counted apart, with other engines, or before SAST was kept apart (for
+    // Fusion's extra findings): add them up again from the last read.
     const meta = customer.tr?.totals?.meta;
-    if (meta?.source === 'cxone' && cleanEngines(meta.engines).join() !== trEngines().join()) applyScope({ quiet: true });
+    if (meta?.source === 'cxone' && (cleanEngines(meta.engines).join() !== trEngines().join() || !customer.tr.totals.sast)) applyScope({ quiet: true });
   }
 
   async function open(id) {
@@ -294,7 +295,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const { totalRows, fixedRows } = seriesRows(tr().totals, tr().fixed);
     const analysis = analyse(totalRows, fixedRows, tr().lookbackMonths);
     if (!analysis) return null;
-    const projection = trProjection(analysis, tr(), { months: horizon(), fusion: fusionOn() });
+    // Fusion's extra findings are SAST's: its own part of the read, when the read told engines apart.
+    const sastRows = tr().totals.sast && tr().fixed.sast ? seriesRows(tr().totals, tr().fixed, 'sast') : null;
+    const sast = sastRows ? analyse(sastRows.totalRows, sastRows.fixedRows, tr().lookbackMonths) : null;
+    const projection = trProjection(analysis, tr(), { months: horizon(), fusion: fusionOn(), sast });
     return {
       analysis,
       // The debt and fixing rates over the last 6 months, for the report, whatever the trend is averaged over.
@@ -456,7 +460,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
           <span class="calc-op" aria-hidden="true">+</span>
           ${step('Still to come', num(P.future), !A.includeFuture ? 'not counted' : `over ${num(months)} months`, '', 'future')}
           <span class="calc-op" aria-hidden="true">+</span>
-          ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? `${num(A.fusionUpliftPercent)}% more findings` : fusionOff() ? '0% · Fusion left out' : 'Fusion not in the projection', '', 'fusion')}
+          ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? (projection.sastOnly ? `${num(A.fusionUpliftPercent)}% more SAST findings` : tr().totals?.meta?.source === 'cxone' ? `${num(A.fusionUpliftPercent)}% more findings · read again for SAST only` : `${num(A.fusionUpliftPercent)}% more findings · the exports count every engine`) : fusionOff() ? '0% · Fusion left out' : 'Fusion not in the projection', '', 'fusion')}
           <span class="calc-op" aria-hidden="true">=</span>
           ${step('To triage', num(P.toTriage), `${num(P.truePositives)} to remediate`, 'calc-step-key', 'triage')}
           <span class="calc-op" aria-hidden="true">→</span>
@@ -590,6 +594,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     months: t.projection.months,
     paced: t.projection.paced,
     fusion: t.projection.fusion,
+    sastOnly: t.projection.sastOnly,
     ahead: t.projection.ahead,
     rows: t.projection.rows,
     totals: t.projection.totals,

@@ -66,16 +66,16 @@ const monthKey = (iso) => String(iso).slice(0, 7);
  * [{date, severity, count}]. `totals` / `fixed` are the parser's weekly series
  * ({ weeks: ['2026-06-20', …], bySeverity: { Critical: [n, …], … } }).
  */
-export function seriesRows(totals, fixed) {
+export function seriesRows(totals, fixed, part = 'bySeverity') {
   const weeks = Array.isArray(totals?.weeks) ? totals.weeks : [];
   const totalRows = weeks
-    .map((week, i) => ({ date: week, ...Object.fromEntries(SEVERITIES.map((s) => [s, Number(totals.bySeverity?.[s]?.[i]) || 0])) }))
+    .map((week, i) => ({ date: week, ...Object.fromEntries(SEVERITIES.map((s) => [s, Number(totals[part]?.[s]?.[i]) || 0])) }))
     .filter((r) => /^\d{4}-\d{2}-\d{2}/.test(r.date))
     .sort((a, b) => a.date.localeCompare(b.date));
   const fixedRows = [];
   (Array.isArray(fixed?.weeks) ? fixed.weeks : []).forEach((week, i) => {
     for (const s of SEVERITIES) {
-      const count = Number(fixed.bySeverity?.[s]?.[i]) || 0;
+      const count = Number(fixed[part]?.[s]?.[i]) || 0;
       if (count && /^\d{4}-\d{2}-\d{2}/.test(week)) fixedRows.push({ date: week, severity: s, count });
     }
   });
@@ -195,14 +195,17 @@ export function aheadMonths(months, declinePercent = 0) {
  * The credits over the projection period, per severity: the backlog chosen now, the findings still
  * to come at the lookback's pace, and the extra Fusion reports (when Fusion is part of it) on both.
  * `plan` = the saved T&R plan; `months` the projection period; `fusion` whether Fusion is in it.
+ * Fusion finds more SAST findings only: `sast` is the analysis of SAST's own part, so its extra
+ * findings are counted on SAST's share of each severity's backlog and new findings. Without it (the
+ * two exports, a read that counted every engine together) they are counted on every finding.
  */
-export function trProjection(analysis, plan = {}, { months = 12, fusion = false } = {}) {
+export function trProjection(analysis, plan = {}, { months = 12, fusion = false, sast = null } = {}) {
   const ahead = aheadSettings(plan);
   const selected = resolveSelected(analysis, plan.selected);
   const period = clamp(Number(months) || 12, 1, 60);
   const paced = aheadMonths(period, ahead.aiDeclinePercent);
   const rows = {};
-  const keys = ['backlog', 'selected', 'arrivals', 'future', 'fusionExtra', 'toTriage', 'truePositives', 'triageCredits', 'remediationCredits', 'credits', 'backlogCredits', 'aheadCredits', 'backlogAfter'];
+  const keys = ['backlog', 'selected', 'arrivals', 'future', 'fusionBase', 'fusionExtra', 'toTriage', 'truePositives', 'triageCredits', 'remediationCredits', 'credits', 'backlogCredits', 'aheadCredits', 'backlogAfter'];
   const totals = Object.fromEntries(keys.map((k) => [k, 0]));
   for (const s of SEVERITIES) {
     const backlog = analysis?.perSeverity[s].current ?? 0;
@@ -214,18 +217,21 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false 
     const share = backlog > 0 ? chosen / backlog : 1;
     const arrivals = ahead.includeFuture ? (analysis?.perSeverity[s].arrivals ?? 0) * share : 0;
     const future = arrivals * paced;
-    const fusionExtra = fusion ? ((chosen + future) * ahead.fusionUpliftPercent) / 100 : 0;
+    // The SAST findings among those chosen and still to come, in SAST's share of the backlog and of new findings.
+    const part = (own, all) => (!sast ? 1 : all > 0 ? clamp(own / all, 0, 1) : 0);
+    const fusionBase = chosen * part(sast?.perSeverity[s].current ?? 0, backlog) + future * part(sast?.perSeverity[s].arrivals ?? 0, analysis?.perSeverity[s].arrivals ?? 0);
+    const fusionExtra = fusion ? (fusionBase * ahead.fusionUpliftPercent) / 100 : 0;
     const reported = chosen + future + fusionExtra;
     const toTriage = reported;
     const truePositives = reported * (1 - fp / 100);
     const triageCredits = toTriage * triageCost;
     const remediationCredits = truePositives * remediationCost;
     const backlogCredits = chosen * triageCost + chosen * (1 - fp / 100) * remediationCost;
-    const row = { backlog, selected: chosen, share, arrivals, future, fusionExtra, toTriage, truePositives, triageCost, fp, remediationCost, triageCredits, remediationCredits, credits: triageCredits + remediationCredits, backlogCredits, aheadCredits: triageCredits + remediationCredits - backlogCredits, backlogAfter: backlog - chosen };
+    const row = { backlog, selected: chosen, share, arrivals, future, fusionBase, fusionExtra, toTriage, truePositives, triageCost, fp, remediationCost, triageCredits, remediationCredits, credits: triageCredits + remediationCredits, backlogCredits, aheadCredits: triageCredits + remediationCredits - backlogCredits, backlogAfter: backlog - chosen };
     rows[s] = row;
     for (const k of keys) totals[k] += row[k];
   }
-  return { rows, totals, months: period, paced, ahead, fusion: Boolean(fusion) };
+  return { rows, totals, months: period, paced, ahead, fusion: Boolean(fusion), sastOnly: Boolean(sast) };
 }
 
 const addMonths = (month, n) => {

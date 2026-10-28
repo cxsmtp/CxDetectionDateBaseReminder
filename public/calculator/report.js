@@ -178,7 +178,7 @@ function story(data, L) {
       <table class="calc">
         <tr><td>${w('Backlog to triage')}</td><td>${num(f.selected)}</td></tr>
         ${tr.ahead?.includeFuture === false ? '' : `<tr><td>${tr.ahead?.aiDeclinePercent ? w('Still to come, {0}% fewer over a year with AI', num(tr.ahead.aiDeclinePercent)) : w('Still to come, at the current pace')}</td><td>+${num(f.future)}</td></tr>`}
-        ${tr.fusion ? `<tr><td>${w('More found by Fusion ({0}%)', num(tr.ahead?.fusionUpliftPercent ?? 0))}</td><td>+${num(f.fusionExtra)}</td></tr>` : ''}
+        ${tr.fusion ? `<tr><td>${tr.sastOnly ? w('More found by Fusion ({0}% of SAST)', num(tr.ahead?.fusionUpliftPercent ?? 0)) : w('More found by Fusion ({0}%)', num(tr.ahead?.fusionUpliftPercent ?? 0))}</td><td>+${num(f.fusionExtra)}</td></tr>` : ''}
         <tr class="sum"><td>${w('To triage')}</td><td>${num(f.toTriage)}</td></tr>
         <tr><td>${w('To remediate (true positives)')}</td><td>${num(f.truePositives)}</td></tr>
         <tr class="sum gold"><td>${w('Triage & remediation credits')}</td><td>${num(f.credits, 1)}</td></tr>
@@ -297,7 +297,7 @@ export function assumptionItems(data, sum, L) {
       else if (Number.isFinite(tr.totals?.selected) && tr.totals.selected < tr.totals.backlog) items.push(w('New findings are counted in the same share per severity as the backlog chosen.'));
       else if (tr.ahead.aiDeclinePercent) items.push(w('New findings arrive at the pace of the last {0} months, falling by {1}% over a year as teams adopt AI.', num(tr.lookbackMonths), num(tr.ahead.aiDeclinePercent)));
       else items.push(w('New findings keep arriving at the pace of the last {0} months.', num(tr.lookbackMonths)));
-      if (tr.fusion) items.push(w('Fusion reports {0}% more findings than today.', num(tr.ahead.fusionUpliftPercent)));
+      if (tr.fusion) items.push(tr.sastOnly ? w('Fusion reports {0}% more SAST findings than today.', num(tr.ahead.fusionUpliftPercent)) : w('Fusion reports {0}% more findings than today.', num(tr.ahead.fusionUpliftPercent)));
     }
   }
   if (data.fusion || data.fusionNew) items.push(w("Each project's lines of code are rounded up to whole 10K units on their own; one scan costs its model's credits per 10K LOC."));

@@ -90,6 +90,12 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
+## MZ-01.01.04 — DATE · [#127](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/127)
+
+- **More found by Fusion counts SAST only.** In the Cx Credits Calculator, Fusion's extra findings (5% by default) are now counted on the SAST findings among the backlog chosen and the findings still to come, in each severity's own SAST share, since Fusion reads code; SCA and the other engines no longer add to it. The page, the projection report, its calculations and the PDF say "SAST findings".
+- **Saved customers follow.** A customer read from Checkmarx One before this version is added up again from the last read when it is opened, so its SAST share is known without reading again. With the two exports, which add every engine together, the % stays on every finding and the page says so.
+- **Status.** STATUS
+
 ## MZ-01.01.03 — 2026-10-28 15:18 UTC · [#126](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/126)
 
 - **The report lists the top 300, and every finding can be found.** The interactive HTML report lists the 300 worst findings, 50 a page, where it used to list 50. Search, the severity buttons and **Only what AI can act on** cover every finding of the project, up to 10,000, and each heading of the list sorts on a click and has its own filter. The heading filters on the app's own paged tables work again.

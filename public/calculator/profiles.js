@@ -37,15 +37,13 @@ export const iso = (value) => (value && Number.isFinite(Date.parse(value)) ? new
 function series(value) {
   if (!value || typeof value !== 'object' || !Array.isArray(value.weeks)) return null;
   const weeks = value.weeks.slice(0, 2000).map((w) => isoDay(w) ?? '');
-  const bySeverity = {};
-  for (const s of SEVERITIES) {
-    const list = Array.isArray(value.bySeverity?.[s]) ? value.bySeverity[s] : [];
-    bySeverity[s] = weeks.map((_, i) => Math.max(0, finite(list[i], 0)));
-  }
+  const counts = (by) => Object.fromEntries(SEVERITIES.map((s) => [s, weeks.map((_, i) => Math.max(0, finite(Array.isArray(by?.[s]) ? by[s][i] : 0, 0)))]));
   const meta = value.meta && typeof value.meta === 'object' ? value.meta : {};
   return {
     weeks,
-    bySeverity,
+    bySeverity: counts(value.bySeverity),
+    // SAST's own part, when the read told engines apart (Fusion's extra findings are counted on it).
+    ...(value.sast && typeof value.sast === 'object' ? { sast: counts(value.sast) } : {}),
     meta: {
       source: meta.source === 'cxone' ? 'cxone' : 'upload',
       fileName: text(meta.fileName, 200),

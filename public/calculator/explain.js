@@ -64,9 +64,14 @@ export function trSections(tr, L) {
   sections.push({
     key: 'fusion',
     title: w('More found by Fusion'),
-    lines: tr.fusion
-      ? [line(w('{0}% more findings on the backlog chosen and the findings still to come: {0}% × ({1} + {2}) = {3}.', num(A.fusionUpliftPercent), num(T.selected), num(T.future), num(T.fusionExtra)))]
-      : [line(w('Fusion is not in this projection: no project is counted on the Fusion tab.'))],
+    lines: !tr.fusion
+      ? [line(w('Fusion is not in this projection: no project is counted on the Fusion tab.'))]
+      : tr.sastOnly
+        ? [
+            line(w('SAST findings among the backlog chosen and the findings still to come, in SAST\'s share of each severity: {0}.', num(T.fusionBase))),
+            line(w('{0}% more SAST findings: {0}% × {1} = {2}.', num(A.fusionUpliftPercent), num(T.fusionBase), num(T.fusionExtra))),
+          ]
+        : [line(w('{0}% more findings on the backlog chosen and the findings still to come: {0}% × ({1} + {2}) = {3}.', num(A.fusionUpliftPercent), num(T.selected), num(T.future), num(T.fusionExtra)))],
   });
 
   sections.push({

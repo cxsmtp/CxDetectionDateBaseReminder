@@ -260,6 +260,11 @@ export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks =
   const blank = () => Object.fromEntries(SEVERITIES.map((s) => [s, ends.map(() => 0)]));
   const totals = blank();
   const fixed = blank();
+  // SAST's own part of the totals: Fusion's extra findings are counted on SAST only.
+  const sastTotals = blank();
+  const sastFixed = blank();
+  // Unknown when a scan summary did not tell its engines apart ('ALL').
+  let sastKnown = true;
   // The engines the tenant's own totals count (null: every engine); each project keeps every engine apart.
   const scope = engineScope(engines);
   const at = (scan) => Date.parse(scan?.createdAt ?? scan?.updatedAt ?? '');
@@ -278,6 +283,7 @@ export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks =
     const ranOf = (scan) => (Array.isArray(scan.engines) && scan.engines.length ? new Set(scan.engines.map(engineOf)) : null);
     const engines = new Set(timeline.flatMap((scan) => Object.keys(perEngine(summaries.get(scan.id)))));
     for (const engine of engines) {
+      if (engine === 'ALL') sastKnown = false;
       const line = timeline.filter((scan) => engine === 'ALL' || (ranOf(scan)?.has(engine) ?? engine in perEngine(summaries.get(scan.id))));
       if (!line.length) continue;
       const of = (scan) => perEngine(summaries.get(scan.id))[engine] ?? { total: zeros(), fresh: zeros() };
@@ -290,6 +296,7 @@ export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks =
         for (const s of SEVERITIES) {
           mine.t[s][w] += total[s];
           if (counted(engine, scope)) totals[s][w] += total[s];
+          if (engine === 'SAST' && counted(engine, scope)) sastTotals[s][w] += total[s];
         }
       }
       for (let i = 1; i < line.length; i += 1) {
@@ -304,13 +311,15 @@ export function weeklyBacklog(perProject, summaries, { now = Date.now(), weeks =
           if (!gone) continue;
           ownOf(engine).f[s][w] += gone;
           if (counted(engine, scope)) fixed[s][w] += gone;
+          if (engine === 'SAST' && counted(engine, scope)) sastFixed[s][w] += gone;
         }
       }
     }
     if (project?.id) byProject.set(String(project.id), own);
   }
   const days = ends.map((t) => new Date(t).toISOString().slice(0, 10));
-  return { totals: { weeks: days, bySeverity: totals }, fixed: { weeks: days, bySeverity: fixed }, scans: scansUsed, byProject, engines: scope ?? [] };
+  const sast = (part) => (sastKnown ? { sast: part } : {});
+  return { totals: { weeks: days, bySeverity: totals, ...sast(sastTotals) }, fixed: { weeks: days, bySeverity: fixed, ...sast(sastFixed) }, scans: scansUsed, byProject, engines: scope ?? [] };
 }
 
 /**
@@ -322,16 +331,20 @@ export function seriesFor(read, ids, engines = null) {
   const blank = () => Object.fromEntries(SEVERITIES.map((s) => [s, weeks.map(() => 0)]));
   const totals = blank();
   const fixed = blank();
+  const sastTotals = blank();
+  const sastFixed = blank();
   const scope = engineScope(engines);
   let projects = 0;
   let scans = 0;
   // A read made before engines were told apart counts every engine: said, so the page can ask for a new read.
   let engineSplit = true;
-  const add = (pair) => {
+  // Whether SAST's own part is known: not for a read that counted every engine together.
+  let sastKnown = true;
+  const add = (pair, t = totals, f = fixed) => {
     for (const s of SEVERITIES) {
       for (let w = 0; w < weeks.length; w += 1) {
-        totals[s][w] += Number(pair.t?.[s]?.[w]) || 0;
-        fixed[s][w] += Number(pair.f?.[s]?.[w]) || 0;
+        t[s][w] += Number(pair.t?.[s]?.[w]) || 0;
+        f[s][w] += Number(pair.f?.[s]?.[w]) || 0;
       }
     }
   };
@@ -343,16 +356,23 @@ export function seriesFor(read, ids, engines = null) {
     if (own.e && typeof own.e === 'object') {
       for (const [engine, pair] of Object.entries(own.e)) {
         if (!counted(engine, scope)) continue;
-        if (scope && engine === 'ALL') engineSplit = false;
+        if (engine === 'ALL') {
+          sastKnown = false;
+          if (scope) engineSplit = false;
+        }
         add(pair);
+        if (engine === 'SAST') add(pair, sastTotals, sastFixed);
       }
     } else {
+      sastKnown = false;
       if (scope) engineSplit = false;
       add(own);
     }
   }
   const meta = { source: 'cxone', readAt: read?.readAt ?? null, projects, scans, scoped: true, engines: scope ?? [], engineSplit };
-  return { totals: { weeks, bySeverity: totals, meta }, fixed: { weeks, bySeverity: fixed, meta } };
+  // SAST's own part, for Fusion's extra findings.
+  const sast = (part) => (sastKnown ? { sast: part } : {});
+  return { totals: { weeks, bySeverity: totals, ...sast(sastTotals), meta }, fixed: { weeks, bySeverity: fixed, ...sast(sastFixed), meta } };
 }
 
 /**
