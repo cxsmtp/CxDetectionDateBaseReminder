@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.06 | — (browser code only) | — | — | 1022 | 0 vulnerabilities | Scan 3ce920fc of MZ-01.01.05's final code: 72 open (1 / 33 / 22 / 15, 1 info); 10 new checked: 1 fixed, 9 not exploitable ([review](docs/security/mz-01.01.05-review.md#the-scan-of-the-final-code-reviewed-in-mz-010106)) |
 | MZ-01.01.05 | 459/s, 89 with the release first (432–467 over four pairs; main 427–470, 454 and 171 in the control) | 15.7 s | 2.1 s | 1022 | 0 vulnerabilities | Scan 61a87e72 (with the AI engines): 73 open (5 / 29 / 26 / 12, 1 info); 20 new checked: 3 fixed, 3 hardened, the rest not exploitable ([review](docs/security/mz-01.01.05-review.md)); the final code's scan still queued at merge |
 | MZ-01.01.04 | 447/s, 200 (connection resets and timeouts on the host; main 426–460, 111–313) | 28.8 s | 2.2 s | 1006 | 0 vulnerabilities | Rescan ea771546: 69 open (1 / 32 / 21 / 14, 1 info), down from 76; 14 new checked: none exploitable, 4 hardened, 7 gone ([review](docs/security/mz-01.01.04-review.md)) |
 | MZ-01.01.03 | 432/s, 258 (connection resets and timeouts on the host; main 403–438, 282–740) | 23.1 s | 2.6 s | 979 | 0 vulnerabilities | Rescan 993d4d10: 63 open (1 / 31 / 21 / 9, 1 info); 35 judged before, 29 checked: 3 fixed, 26 not exploitable ([review](docs/security/mz-01.01.03-review.md)) |
@@ -91,6 +92,11 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.06 — 2026-10-29 11:59 UTC · [#129](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/129)
+
+- **The calculator's PDF is made again without Fusion.** When Fusion was not counted for a customer, **Download PDF** failed with "The PDF could not be made: Cannot read properties of undefined (reading 'title')", unless the calculations were included. The summary had one page fewer than the PDF's title expected; the title now comes from the total page wherever it is.
+- **Status.** 1,022 tests pass and `npm audit --omit=dev` finds nothing. Not benchmarked: only the calculator's PDF, drawn in the browser, and tests changed. Checkmarx One's scan of MZ-01.01.05's final code, which ran after it was merged, has 10 new results: a made-up password in a test address is now built at run time, and the other nine are judged not exploitable ([review](docs/security/mz-01.01.05-review.md#the-scan-of-the-final-code-reviewed-in-mz-010106)).
 
 ## MZ-01.01.05 — 2026-10-29 02:35 UTC · [#128](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/128)
 
