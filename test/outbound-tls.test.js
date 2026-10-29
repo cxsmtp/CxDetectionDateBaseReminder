@@ -10,7 +10,7 @@ import { PassThrough, Readable } from 'node:stream';
 import { generateKeyPairSync } from 'node:crypto';
 
 import { buildTransport, redactSecrets, testConnection, verifiesCertificate } from '../src/mailer.js';
-import { MAX_BACKUP_BYTES, downloadCapped, imapOptions } from '../src/mail-inbox.js';
+import { MAX_BACKUP_BYTES, NO_STARTTLS, downloadCapped, findBackupInMailbox, imapOptions, readReplies } from '../src/mail-inbox.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -100,6 +100,56 @@ test('the backup mailbox always checks certificates; reading replies follows the
   assert.equal(imapOptions(account, { allowUnverified: true }).tls.rejectUnauthorized, false, 'replies: the Admin\'s explicit choice');
   assert.equal(warn.mock.callCount(), 1);
   assert.match(warn.mock.calls[0].arguments[0], /mailbox \(IMAP\) imap\.acme\.test:993/);
+});
+
+test('a mailbox password is only sent over TLS: 993 from the start, any other port only after STARTTLS', () => {
+  const account = { host: 'imap.acme.test', user: 'u', password: PASSWORD };
+  const tls993 = imapOptions({ ...account, port: 993, secure: true });
+  assert.equal(tls993.secure, true);
+  assert.equal('doSTARTTLS' in tls993, false, 'never both: imapflow refuses secure with doSTARTTLS');
+  const plain143 = imapOptions({ ...account, port: 143, secure: false });
+  assert.equal(plain143.secure, false);
+  assert.equal(plain143.doSTARTTLS, true, 'STARTTLS is required, not just tried');
+  assert.equal(imapOptions({ ...account, port: 993 }).secure, true, 'TLS from the start by default');
+});
+
+test('a mailbox server that offers no STARTTLS never receives the password, and the Admin is told how to fix it', async () => {
+  const seen = [];
+  const server = net.createServer((socket) => {
+    socket.on('error', () => {});
+    socket.write('* OK IMAP4rev1 ready\r\n');
+    let pending = '';
+    socket.on('data', (chunk) => {
+      pending += chunk.toString();
+      const lines = pending.split('\r\n');
+      pending = lines.pop();
+      for (const line of lines) {
+        seen.push(line);
+        const [tag, command] = line.split(' ');
+        // As a man in the middle who strips STARTTLS would answer: plain sign-ins offered, no STARTTLS.
+        if (/^CAPABILITY$/i.test(command)) socket.write(`* CAPABILITY IMAP4rev1 AUTH=PLAIN AUTH=LOGIN\r\n${tag} OK done\r\n`);
+        else if (/^AUTHENTICATE$/i.test(command)) socket.write('+ \r\n');
+        else socket.write(`${tag} NO not here\r\n`);
+      }
+    });
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const { port } = server.address();
+  const account = { host: '127.0.0.1', port, secure: false, user: 'mailbox@acme.io', password: PASSWORD, rejectUnauthorized: true };
+  try {
+    const replies = await readReplies(account).then(() => null, (e) => e);
+    assert.ok(replies, 'reading replies is refused');
+    assert.equal(replies.message, NO_STARTTLS);
+    assert.match(replies.message, /How to fix it: use port 993/);
+    const backups = await findBackupInMailbox(account, () => true).then(() => null, (e) => e);
+    assert.equal(backups?.message, NO_STARTTLS, 'the start-up backup search says the same');
+  } finally {
+    server.close();
+  }
+  const everything = seen.join('\n');
+  assert.ok(!/\b(LOGIN|AUTHENTICATE)\b/i.test(everything), everything);
+  assert.ok(!everything.includes(PASSWORD));
+  assert.ok(!everything.includes(Buffer.from(PASSWORD).toString('base64').slice(0, 12)));
 });
 
 test('a mailbox attachment larger than any backup is not held in memory', async () => {

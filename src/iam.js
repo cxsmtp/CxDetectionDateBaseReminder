@@ -2,7 +2,7 @@
  * Who may use this utility, and what each person may do.
  *
  * Users sign in with their email and a password, or with a Checkmarx One API
- * key whose identity (email, username or client id) is mapped to them. Each
+ * key whose identity (email or username) is mapped to them. Each
  * user has one role; a role is a set of permissions from PERMISSIONS. Four
  * roles are built in:
  *
@@ -291,10 +291,13 @@ export class IamStore {
     return this.#state.users.find((u) => norm(u.email) === key) ?? null;
   }
 
-  /** The user a Checkmarx One identity belongs to: by email, then by mapped username or client id. */
-  findByCxIdentity({ email = '', user = '', clientId = '' } = {}) {
+  /**
+   * The user a Checkmarx One identity belongs to: by email, then by mapped username. Never by the token's client
+   * id: every API key is exchanged through the same public client (ast-app, src/cxone/auth.js), so it names no one.
+   */
+  findByCxIdentity({ email = '', user = '' } = {}) {
     this.#fresh();
-    const keys = [email, user, clientId].map(norm).filter(Boolean);
+    const keys = [email, user].map(norm).filter((k) => k && !SHARED_CLIENTS.has(k));
     if (!keys.length) return null;
     return (
       this.#state.users.find((u) => keys.includes(norm(u.email))) ??
@@ -659,9 +662,16 @@ function migrateRolesGovern(state) {
   add(state.roles.user, ['govern.request']);
 }
 
+/** Client ids every API key signs in through: an identity that is one of them would let any key holder in. */
+const SHARED_CLIENTS = new Set(['ast-app']);
+
 function cleanAliases(list) {
   const values = Array.isArray(list) ? list : String(list ?? '').split(/[\n,]+/);
-  return [...new Set(values.map(norm).filter(Boolean))].slice(0, 20);
+  const aliases = [...new Set(values.map(norm).filter(Boolean))].slice(0, 20);
+  if (aliases.some((a) => SHARED_CLIENTS.has(a))) {
+    throw fail(400, 'ast-app is the client every Checkmarx One API key signs in through, so it names no one: list the person\'s username or email instead.');
+  }
+  return aliases;
 }
 
 // ---------------------------------------------------------------------------

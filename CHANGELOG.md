@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.05 | 459/s, 89 with the release first (432–467 over four pairs; main 427–470, 454 and 171 in the control) | 15.7 s | 2.1 s | 1022 | 0 vulnerabilities | Scan 61a87e72 (with the AI engines): 73 open (5 / 29 / 26 / 12, 1 info); 20 new checked: 3 fixed, 3 hardened, the rest not exploitable ([review](docs/security/mz-01.01.05-review.md)); the final code's scan still queued at merge |
 | MZ-01.01.04 | 447/s, 200 (connection resets and timeouts on the host; main 426–460, 111–313) | 28.8 s | 2.2 s | 1006 | 0 vulnerabilities | Rescan ea771546: 69 open (1 / 32 / 21 / 14, 1 info), down from 76; 14 new checked: none exploitable, 4 hardened, 7 gone ([review](docs/security/mz-01.01.04-review.md)) |
 | MZ-01.01.03 | 432/s, 258 (connection resets and timeouts on the host; main 403–438, 282–740) | 23.1 s | 2.6 s | 979 | 0 vulnerabilities | Rescan 993d4d10: 63 open (1 / 31 / 21 / 9, 1 info); 35 judged before, 29 checked: 3 fixed, 26 not exploitable ([review](docs/security/mz-01.01.03-review.md)) |
 | MZ-01.01.02 | 486/s, 30 (connection resets and timeouts on the host; main 475–492, 5–74; from one folder 496, 4 against 486, 34) | 10.2 s | 822 ms | 966 | 0 vulnerabilities | Rescan 79851f0b: 57 open (10 / 22 / 13 / 12), all judged before, nothing new; 33 first reported on main: 12 fixed, 21 not exploitable, 1 more found and fixed ([review](docs/security/mz-01.01.02-review.md)) |
@@ -90,6 +91,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.05 — 2026-10-29 02:35 UTC · [#128](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/128)
+
+- **One compact summary strip.** The Cx Credits Calculator's summary is one strip: the projection period and extra credits on the left, a bar of what the credits are for (triage & remediation, Fusion and the extra) with each figure and its share, and the total with a cell for each bundle. The bundle size sits behind the **?** on Bundles; on a phone the same strip stacks.
+- **cloc-fusion built in.** **Fusion — new customer** counts code with cloc-fusion's own engine, from the Admin's git connections, a token for this run, or both: across several hosts and organizations (or everything a token can see), with the git or the API engine. Each repository's code lines, its commits on the default branch in the last year and its developers in the last 90 days are kept; names and emails never are.
+- **Fusion scans from how often the code changes.** A project counted with cloc-fusion gets the Fusion scans of its change frequency, as a Checkmarx One project scanned that often does on the existing customer tab; scans typed for a project still win. The table, the projection report and its PDF say where each project's scans came from.
+- **Download cloc-fusion, import its report.** **Download cloc-fusion** hands out the one-file cloc-fusion page (checked against its checksum) for a customer whose code must not leave them; its JSON report comes back through **Import a cloc-fusion report**. **Upload cloc results** stays.
+- **Safer from the latest scan.** A Checkmarx One scan with the AI engines found three things to fix: the mailbox password for hands-off mail and the backup search is now only sent over an encrypted connection, whatever the port; widening an Enforce budget now needs **Enforce budgets**, not only **Manage budgets**; and a calculator backup is checked on restore like a save. `ast-app` can no longer be a sign-in alias, since every API key signs in through it.
+- **Status.** 1,022 tests pass and `npm audit --omit=dev` finds nothing. Under 3000 people at once the release kept pace with main: 459 requests a second with the release run first, against main's 454, with fewer failed (89 against 171, all connection resets and timeouts on the test host). Of the 20 new results in a Checkmarx One scan with the AI engines, three are fixed, three hardened and the rest judged not exploitable ([review](docs/security/mz-01.01.05-review.md)); the scan of the final code was still queued in Checkmarx One when the release was merged, and follows with the next one.
 
 ## MZ-01.01.04 — 2026-10-28 18:25 UTC · [#127](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/127)
 

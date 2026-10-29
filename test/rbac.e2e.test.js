@@ -8,7 +8,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, SIGNING_KEY, mockApiKey } from './test-credentials.js';
 
 const MOCK_PORT = await freePort();
 const PORT = await freePort();
@@ -62,7 +62,7 @@ test.before(async () => {
       CX_BASE_URL: MOCK,
       CX_IAM_URL: MOCK,
       CX_TENANT: 'acme',
-      REPORT_SIGNING_KEY: 'rbac-test',
+      REPORT_SIGNING_KEY: SIGNING_KEY,
       ADMIN_EMAIL: '',
       ADMIN_PASSWORD: '',
       FIRST_ADMIN: 'setup-code',
@@ -298,7 +298,7 @@ test("the email's button downloads the very report that was attached, through a 
 
 test('a finding triaged through the utility is never charged again while re-triage is off, and reports say it was triaged', async () => {
   const { ReportGrants } = await import('../src/report-grants.js');
-  const grants = new ReportGrants({ secret: 'rbac-test' });
+  const grants = new ReportGrants({ secret: SIGNING_KEY });
   assert.equal((await as.admin('PUT', '/api/settings', { aiTriage: { enabled: true, allowRetriage: false } })).status, 200);
   assert.equal((await as.admin('GET', '/api/scan')).status, 200);
   const alloc = await as.admin('POST', '/api/credits/allocate', { projectIds: ['p0'], triageAdd: 10 });

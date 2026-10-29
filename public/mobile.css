@@ -468,8 +468,14 @@
   :root[data-phone]:root:root:root .stat-tiles > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
   :root[data-phone]:root:root:root .calc-head, :root[data-phone]:root:root:root .calc-head * { min-width: 0; }
   :root[data-phone]:root:root:root .calc-customer select, :root[data-phone]:root:root:root .calc-customer input { width: 100%; }
-  :root[data-phone]:root:root:root .calc-sum { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  :root[data-phone]:root:root:root .calc-sum-item input { width: 100%; }
+  /* The calculator's summary strip, one part under another (styles.css), a little tighter; its "?" easier to hit. */
+  :root[data-phone]:root:root:root .calc-strip > div { padding: 10px 12px; }
+  :root[data-phone]:root:root:root .calc-strip-set { gap: 8px; }
+  :root[data-phone]:root:root:root .calc-strip-field > select, :root[data-phone]:root:root:root .calc-strip-field > input { width: 100%; }
+  :root[data-phone]:root:root:root .calc-mix-keys { gap: 6px 10px; }
+  :root[data-phone]:root:root:root .calc-strip .calc-why { position: relative; }
+  :root[data-phone]:root:root:root .calc-strip .calc-why::after { content: ""; position: absolute; inset: -12px; }
+  :root[data-phone]:root:root:root .calc-bundle-pop { width: min(280px, calc(100vw - 56px)); }
   /* The calculator's changes waiting for Apply: above the tab bar, over the sheet they are made in; the scan origins full width. */
   :root[data-phone]:root:root:root .calc-pending { position: fixed; inset: auto 12px calc(76px + env(safe-area-inset-bottom)) 12px; z-index: 88; }
   :root[data-phone]:root:root:root .calc-pending-actions { flex: 1 1 auto; }

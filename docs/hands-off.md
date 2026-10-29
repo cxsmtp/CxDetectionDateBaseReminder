@@ -37,7 +37,7 @@ It has buttons:
 
 Each button opens a page that asks once more ("Yes, do it"). A mail scanner that opens every link in an email therefore never changes anything. Each button works for the person it was sent to, for 30 days, and only if that person is still on the status list or an administrator. A changed or expired link does nothing.
 
-**Replies.** Tick **Also read replies** and MissionZero reads the mailbox it sends from, using the email server's account over IMAP. The mailbox server defaults to the email server's host, on port 993. A reply acts when it starts with one word:
+**Replies.** Tick **Also read replies** and MissionZero reads the mailbox it sends from, using the email server's account over IMAP. The mailbox server defaults to the email server's host, on port 993. The password is only ever sent over an encrypted connection: on port 993 from the start, on any other port (such as 143) only after the server offers STARTTLS. A server that does not is never sent the password, and the self-check says how to fix it (from MZ-01.01.05). A reply acts when it starts with one word:
 
 | Word | What it does |
 | --- | --- |

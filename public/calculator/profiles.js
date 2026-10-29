@@ -175,6 +175,30 @@ export function cleanGitFrom(value) {
 }
 
 /**
+ * How a new customer's repository changes, as cloc-fusion measured it (Count from git, or its report): the commits
+ * on its default branch in the window (merges left out) and the window's days, its last commit, its change
+ * frequency (FREQUENCIES), how many people committed in the last 90 days (a count only: never a name or an email),
+ * and how it was measured. null when nothing of it is known (cloc results, typed, counted before MZ-01.01.05).
+ */
+export function cleanActivity(value) {
+  if (!value || typeof value !== 'object') return null;
+  const ids = new Set(FREQUENCIES.map((f) => f.id));
+  if (!ids.has(value.frequency)) return null;
+  const capped = (n, max) => {
+    const w = wholeNumber(n);
+    return w === null ? null : Math.min(w, max);
+  };
+  return {
+    commits: capped(value.commits, 10_000_000) ?? 0,
+    windowDays: Math.round(Math.min(3660, Math.max(1, finite(value.windowDays, 365))) * 10) / 10,
+    lastCommitAt: iso(value.lastCommitAt),
+    frequency: value.frequency,
+    devs90: capped(value.devs90, 1_000_000),
+    engine: ['git', 'api', 'report'].includes(value.engine) ? value.engine : 'git',
+  };
+}
+
+/**
  * Fusion for a new customer: projects whose lines of code were counted with cloc or from git (each
  * language's code lines), or typed, with their own scans and model. The models are the Fusion page's, so a
  * model is kept by id only.
@@ -187,6 +211,9 @@ export function cleanFusionNew(value) {
     file: text(p?.file, 200),
     // Counted from git: where from (never a token). A project counted before MZ-01.01.04 has none.
     ...(cleanGitFrom(p?.git) ? { git: cleanGitFrom(p.git) } : {}),
+    // Its commits, change frequency and developers (MZ-01.01.05, cloc-fusion's engine): a project counted before has none.
+    ...(cleanActivity(p?.activity) ? { activity: cleanActivity(p.activity) } : {}),
+    criticality: CRITICALITIES.includes(Number(p?.criticality)) ? Number(p.criticality) : null,
     langs: Object.fromEntries(
       Object.entries(p?.langs && typeof p.langs === 'object' ? p.langs : {})
         .slice(0, MAX_CLOC_LANGUAGES)
@@ -273,6 +300,19 @@ export function cleanReportData(value, depth = 0) {
 export function newProfile({ name, by = '', impact = {} } = {}) {
   const now = new Date().toISOString();
   return { id: newId(), name: text(name, 120) || 'New customer', planVersion: 4, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({ models: modelsNamed() }), fusionNew: cleanFusionNew({}), totals: totalsSettings({}), scope: cleanScope({}), impact: impactSettings(impact) };
+}
+
+/**
+ * A customer from a backup file, kept as if every section had just been saved: each one through the same
+ * cleaners as a save (a file can say anything), its id and dates checked, nothing else from the file kept.
+ */
+export function restoreProfile(value) {
+  const c = migrate(value && typeof value === 'object' ? value : {});
+  const fresh = newProfile({ name: c.name, by: c.createdBy });
+  const base = { ...fresh, id: text(c.id, 100) || fresh.id, createdAt: iso(c.createdAt) ?? fresh.createdAt };
+  // A section the file leaves out keeps a new customer's (its defaults); one it has is cleaned.
+  const section = (v) => (v && typeof v === 'object' ? v : undefined);
+  return patchProfile(base, { name: c.name, tr: section(c.tr), fusion: section(c.fusion), fusionNew: section(c.fusionNew), totals: section(c.totals), scope: section(c.scope), impact: section(c.impact) }, c.updatedBy ?? '');
 }
 
 /** A customer with what changed applied: the name, the T&R projection, the Fusion projection, the extra % and bundle size, the scope, the impact's assumptions (each optional). */

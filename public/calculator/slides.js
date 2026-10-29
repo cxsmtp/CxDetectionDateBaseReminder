@@ -99,8 +99,15 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
   // 2. Checkmarx Fusion: the projects, their scans and the credits, by how often they are scanned.
   const fu = data.fusion;
   const fn = data.fusionNew;
-  // The new customer's code (cloc): one line on the Fusion page, its own part of the total.
-  const newLine = fn ? [w('New customer (code counted with cloc): {0} projects, {1} lines, {2} Fusion scans, {3} credits.', num(fn.totals?.projects), num(fn.totals?.lines), num(fn.totals?.scans), num(fn.totals?.credits))] : [];
+  // The new customer's code (from git, a cloc-fusion report or cloc): one line on the Fusion page, its own part of
+  // the total, and where its scans came from.
+  const scansLine = fn
+    ? fn.totals?.byRule || fn.totals?.byProject
+      ? [w('New customer Fusion scans: {0} projects by how often they change (commits on the default branch), {1} at the default of {2}, {3} set for the project.', num(fn.totals?.byRule ?? 0), num(fn.totals?.byDefault ?? 0), num(fn.defaultScans), num(fn.totals?.byProject ?? 0))]
+      : [w('New customer Fusion scans: {0} a project (how often each one changes is not known).', num(fn.defaultScans))]
+    : [];
+  const devLine = fn?.totals?.withActivity ? [w('New customer developers in the last 90 days: {0} (added up per project).', num(fn.totals.developers))] : [];
+  const newLine = fn ? [w('New customer (code counted from git, a cloc-fusion report or cloc): {0} projects, {1} lines, {2} Fusion scans, {3} credits.', num(fn.totals?.projects), num(fn.totals?.lines), num(fn.totals?.scans), num(fn.totals?.credits)), ...scansLine, ...devLine] : [];
   if (fu) {
     const T = fu.totals ?? {};
     const label = (id) => w(FREQUENCIES.find((x) => x.id === id)?.label ?? '—');
@@ -124,7 +131,7 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
     pages.push({
       kind: 'fusion',
       title: w('Checkmarx Fusion'),
-      subtitle: w('Fusion — new customer: code counted with cloc'),
+      subtitle: w('Fusion — new customer: code counted from git, a cloc-fusion report or cloc'),
       figures: [
         { label: w('Projects'), value: num(T.projects) },
         { label: w('Lines of code'), value: num(T.lines) },
@@ -132,7 +139,7 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
         { label: w('Fusion credits'), value: num(T.credits), key: true },
       ],
       bars: null,
-      lines: [],
+      lines: [...scansLine, ...devLine],
     });
   }
 

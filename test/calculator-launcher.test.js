@@ -9,7 +9,9 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 
-import { buildCalculatorLauncher, buildStandaloneCalculator, moduleGraph } from '../src/standalone-calculator.js';
+import { CLOC_FUSION_PAGE, buildCalculatorLauncher, buildStandaloneCalculator, moduleGraph } from '../src/standalone-calculator.js';
+import { CLOC_FUSION } from '../src/cloc-fusion/origin.js';
+import { createHash } from 'node:crypto';
 import { startLauncher } from '../src/calculator-launcher.js';
 import { makeRepo, startGitHost } from './fake-git-host.js';
 import { freePort } from './free-port.js';
@@ -66,9 +68,11 @@ test.after(() => {
 test('the file: the reading code and the page, nothing else; the page may call only the launcher', () => {
   const text = buildCalculatorLauncher({ version: '9.9.9' });
   const files = Object.keys(JSON.parse(text.match(/^const FILES = (.*);$/m)[1]));
-  assert.deepEqual(files.sort(), moduleGraph(path.resolve('src/calculator-launcher.js')).map((f) => path.relative(process.cwd(), f).split(path.sep).join('/')).sort());
-  assert.ok(files.includes('src/projections.js') && files.includes('src/cxone/client.js'));
-  assert.ok(!files.some((f) => /server|settings|iam|session|audit/.test(f)), 'no part of the server that holds its data');
+  // The modules, and cloc-fusion's one-file page it hands out.
+  assert.deepEqual(files.sort(), [...moduleGraph(path.resolve('src/calculator-launcher.js')).map((f) => path.relative(process.cwd(), f).split(path.sep).join('/')), CLOC_FUSION_PAGE].sort());
+  assert.ok(files.includes('src/projections.js') && files.includes('src/cxone/client.js') && files.includes('src/cloc-fusion/loc.js'));
+  // (cloc-fusion's engine has a provider for Bitbucket Data Center, "bitbucket-server.js": a git host, not this server.)
+  assert.ok(!files.some((f) => !f.startsWith('src/cloc-fusion/') && /server|settings|iam|session|audit/.test(f)), 'no part of the server that holds its data');
   const page = buildStandaloneCalculator({ version: '9.9.9', launcher: true });
   assert.match(page, /connect-src 'self'/);
   // The token goes into a JSON island the launcher fills; the script that reads it is fixed, so the CSP can name it by hash.
@@ -123,22 +127,37 @@ test('connect with the API key, read the tenant as CxMissionZero does, narrow it
 test('count code lines from git on this computer, with a token typed for that count only', async () => {
   const typed = `ghp_launcher${'R4t'.repeat(8)}`;
   const repos = fs.mkdtempSync(path.join(os.tmpdir(), 'launcher-repos-'));
-  makeRepo(repos, 'globex', 'claims-portal', { 'src/Main.java': '// c\nclass Main {}\n', 'web/app.ts': 'export const a = 1;\n\n' });
+  makeRepo(repos, 'globex', 'claims-portal', { 'src/Main.java': '// c\nclass Main {}\n', 'web/app.ts': 'export const a = 1;\n\n' }, { history: Array.from({ length: 12 }, (_, i) => ({ at: Date.now() - (i + 1) * 20 * 86_400_000, email: `dev${i % 2}@globex.io` })) });
+  makeRepo(repos, 'initech', 'ledger', { 'a.py': 'x = 1\n' });
   const host = await startGitHost(repos, { tokens: [typed] });
   try {
-    assert.deepEqual((await call('GET', '/api/projections/git/connections')).body, { connections: [] }, 'no Admin\'s connections here: a token only');
+    assert.deepEqual((await call('GET', '/api/projections/git/connections')).body, { connections: [], limits: { repositories: 1000, windowDays: 365 }, clocFusion: { version: CLOC_FUSION.version, sha256: CLOC_FUSION.sha256 } }, 'no Admin\'s connections here: a token only');
     const token = { provider: 'github', address: host.url, token: typed };
+    // Its organizations, then every repository it can see, across them.
+    const orgs = await call('POST', '/api/projections/git/organizations', { token });
+    assert.equal(orgs.status, 200, JSON.stringify(orgs.body));
+    assert.deepEqual(orgs.body.sources[0].organizations.map((o) => o.id), ['@me', 'globex', 'initech']);
+    const everything = await call('POST', '/api/projections/git/repositories', { token: { ...token, everything: true } });
+    assert.deepEqual(everything.body.repositories.map((r) => r.path), ['globex/claims-portal', 'initech/ledger']);
     const listed = await call('POST', '/api/projections/git/repositories', { token, owner: 'globex' });
     assert.equal(listed.status, 200, JSON.stringify(listed.body));
     assert.deepEqual(listed.body.repositories.map((r) => r.path), ['globex/claims-portal']);
-    let job = (await call('POST', '/api/projections/git/count', { token, repositories: [{ url: listed.body.repositories[0].url, branch: 'main' }] })).body;
+    let job = (await call('POST', '/api/projections/git/count', { token, repositories: [listed.body.repositories[0]] })).body;
     const end = Date.now() + 60000;
     while (job.state === 'running' && Date.now() < end) {
       await sleep(200);
       job = (await call('GET', `/api/projections/git/count?id=${job.id}`)).body;
     }
     assert.equal(job.state, 'done', JSON.stringify(job));
-    assert.deepEqual(job.repositories[0].languages, { Java: { files: 1, code: 1 }, TypeScript: { files: 1, code: 1 } });
+    assert.deepEqual(job.repositories[0].languages, { Java: { category: 'code', files: 1, code: 1 }, TypeScript: { category: 'code', files: 1, code: 1 } });
+    // 12 commits in the window, one every 20 days, and the files' own: about once in 2 months… once a month.
+    assert.equal(job.repositories[0].commits, 13);
+    assert.equal(job.repositories[0].frequency, 'month');
+    assert.equal(job.repositories[0].devs90, 3, 'two developers and the files\' author in the last 90 days');
+    assert.equal(job.summary.developers, 3);
+    // cloc-fusion's one-file page, as noted.
+    const page = (await call('GET', '/api/projections/git/cloc-fusion')).body;
+    assert.equal(createHash('sha256').update(page.html).digest('hex'), CLOC_FUSION.sha256);
     assert.ok(!JSON.stringify(job).includes(typed));
     assert.ok(host.seen.filter((s) => !s.path.startsWith('/api/')).every((s) => s.authorization === `Basic ${Buffer.from(`x-access-token:${typed}`).toString('base64')}`));
     assert.ok(!log.includes(typed), 'the token is never printed');

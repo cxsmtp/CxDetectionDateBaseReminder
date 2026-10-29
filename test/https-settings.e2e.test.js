@@ -17,7 +17,7 @@ import tls from 'node:tls';
 import { freePort } from './free-port.js';
 import { DEFAULT_ROLES } from '../src/iam.js';
 import { makeCertificate } from '../src/tls.js';
-import { FIRST_PASSWORD, NEXT_PASSWORD } from './test-credentials.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, SIGNING_KEY } from './test-credentials.js';
 
 const children = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -64,7 +64,7 @@ function start(env) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'https-settings-'));
   let log = '';
   const child = spawn(process.execPath, ['src/server.js'], {
-    env: { ...process.env, HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', REPORT_SIGNING_KEY: 'https-settings', SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', REPORT_SERVER_URL: '', TLS_CERT_FILE: '', TLS_KEY_FILE: '', TLS_PFX_FILE: '', TLS_SELF_SIGNED: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, ...env },
+    env: { ...process.env, HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', REPORT_SIGNING_KEY: SIGNING_KEY, SMTP_HOST: '', GITHUB_TOKEN: '', CX_API_KEY: '', REPORT_SERVER_URL: '', TLS_CERT_FILE: '', TLS_KEY_FILE: '', TLS_PFX_FILE: '', TLS_SELF_SIGNED: '', ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.stdout.on('data', (d) => (log += d));

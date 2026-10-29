@@ -7,13 +7,13 @@
 
 import { initCalculator } from './page.js';
 import { impactSettings } from './model.js';
-import { MAX_PROFILES, MAX_REPORTS, fail, migrate, newProfile, newReport, patchProfile, reportMeta, summary } from './profiles.js';
+import { MAX_PROFILES, MAX_REPORTS, fail, iso, migrate, newId, newProfile, newReport, patchProfile, reportMeta, restoreProfile, summary, text } from './profiles.js';
 import { startHelpTips } from '../help-tips.js';
 
 const DB_NAME = 'cx-credits-calculator';
 const NAMES_KEY = 'cxcalc-names';
 const THEME_KEY = 'cxcalc-theme';
-const GIT_ONLY_LAUNCHER = 'This file on its own cannot reach git: upload cloc results, or count from git with the launcher (cx-credits-calculator.mjs).';
+const GIT_ONLY_LAUNCHER = 'This file on its own cannot reach git: download cloc-fusion (the button on this tab) and import its report, upload cloc results, or count from git with the launcher (cx-credits-calculator.mjs).';
 
 /** The browser's database: customers and reports, each by id. Falls back to memory when it cannot be opened. */
 function openStore() {
@@ -133,9 +133,17 @@ function localApi(store, names, launcher = null) {
     ['GET', /^\/api\/projections\/git\/connections$/, async () => (launcher ? toLauncher(launcher, '/api/projections/git/connections') : { connections: [] })],
     ['GET', /^\/api\/projections\/git\/count$/, async (_body, _m, query) => {
       if (!launcher) throw fail(409, GIT_ONLY_LAUNCHER);
-      return toLauncher(launcher, `/api/projections/git/count?id=${encodeURIComponent(query.get('id') ?? '')}`);
+      return toLauncher(launcher, `/api/projections/git/count?id=${encodeURIComponent(query.get('id') ?? '')}&after=${encodeURIComponent(query.get('after') ?? '')}`);
     }],
-    ['POST', /^\/api\/projections\/git\/(repositories|count)$/, async (body, m) => {
+    // cloc-fusion's one-file page: in this file (src/standalone-calculator.js put it in), or from the launcher.
+    ['GET', /^\/api\/projections\/git\/cloc-fusion$/, async () => {
+      if (launcher) return toLauncher(launcher, '/api/projections/git/cloc-fusion');
+      const data = document.getElementById('cx-cloc-fusion');
+      if (!data) throw fail(404, 'cloc-fusion is not in this file.');
+      const { base64, ...about } = JSON.parse(data.textContent);
+      return { ...about, html: new TextDecoder().decode(Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0))) };
+    }],
+    ['POST', /^\/api\/projections\/git\/(organizations|repositories|count)$/, async (body, m) => {
       if (!launcher) throw fail(409, GIT_ONLY_LAUNCHER);
       return toLauncher(launcher, `/api/projections/git/${m[1]}`, { method: 'POST', body: JSON.stringify(body ?? {}) });
     }],
@@ -291,8 +299,9 @@ export function startStandalone({ samples = {} } = {}) {
       const data = JSON.parse(await file.text());
       if (data?.kind !== 'cx-credits-calculator' || !Array.isArray(data.customers) || !Array.isArray(data.reports)) throw new Error('That is not a backup of this calculator.');
       if (!confirm(`Restore ${data.customers.length} customer(s) and ${data.reports.length} report(s)?\n\nThose with the same id are replaced; the others here stay.`)) return;
-      for (const c of data.customers.slice(0, MAX_PROFILES)) if (c && typeof c.id === 'string') await store.put('customers', patchProfile(migrate(c), {}, c.updatedBy ?? ''));
-      for (const r of data.reports.slice(0, MAX_REPORTS)) if (r && typeof r.id === 'string') await store.put('reports', { ...newReport({ customerId: r.customerId, customer: r.customer, by: r.createdBy, data: r.data }), id: r.id, createdAt: r.createdAt ?? new Date().toISOString() });
+      // Every section through the same cleaners as a save: a backup file can say anything.
+      for (const c of data.customers.slice(0, MAX_PROFILES)) if (c && typeof c.id === 'string') await store.put('customers', restoreProfile(c));
+      for (const r of data.reports.slice(0, MAX_REPORTS)) if (r && typeof r.id === 'string') await store.put('reports', { ...newReport({ customerId: r.customerId, customer: r.customer, by: r.createdBy, data: r.data }), id: text(r.id, 100) || newId(), createdAt: iso(r.createdAt) ?? new Date().toISOString() });
       await calculator.load();
       toast('Restored.', 'ok');
     } catch (error) {

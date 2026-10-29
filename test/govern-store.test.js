@@ -22,6 +22,37 @@ test('a budget is Monitor by default; Enforce needs govern.enforce and records w
   assert.equal(cleanBudget({ mode: 'monitor' }, e, { canEnforce: false }).enforcedBy, null);
 });
 
+test('without govern.enforce, an Enforce budget may be narrowed, paused or switched to Monitor, never widened', () => {
+  const e = cleanBudget({ entityType: 'group', entityId: 'g1', amount: 100, mode: 'enforce', maxTargets: 25 }, null, { actor: 'c@acme.io', canEnforce: true });
+  const keeper = { actor: 'k@acme.io', canEnforce: false };
+  const refused = { status: 403, permission: 'govern.enforce', message: 'Only someone allowed to enforce budgets can change what an Enforce budget restricts.' };
+  for (const widen of [
+    { maxTargets: 10_000 },
+    { amount: 0 },
+    { includeMembers: true },
+    { includeSubgroups: true },
+    { countExisting: true },
+    { holdUntilReleased: true },
+    { period: 'lifetime' },
+    { period: 'custom', customStart: '2026-01-01' },
+    { maxTargets: 10, amount: 99 },
+  ]) assert.throws(() => cleanBudget(widen, e, keeper), refused, JSON.stringify(widen));
+  const paused = cleanBudget({ active: false }, e, keeper);
+  assert.equal(paused.active, false, 'pausing restricts less');
+  assert.throws(() => cleanBudget({ active: true }, paused, keeper), refused, 'resuming a paused Enforce budget restricts again');
+  assert.equal(cleanBudget({ active: true }, paused, { ...keeper, canEnforce: true }).active, true);
+  const narrowed = cleanBudget({ maxTargets: 5, amount: 150, notes: 'n', warnPct: 50, entityLabel: 'Team' }, e, keeper);
+  assert.deepEqual([narrowed.mode, narrowed.maxTargets, narrowed.amount, narrowed.warnPct], ['enforce', 5, 150, 50]);
+  const wide = cleanBudget({ includeMembers: true, holdUntilReleased: true }, e, { canEnforce: true });
+  const off = cleanBudget({ includeMembers: false, holdUntilReleased: false }, wide, keeper);
+  assert.deepEqual([off.includeMembers, off.holdUntilReleased], [false, false], 'switching a widening option off is allowed');
+  // Monitor restricts nothing: switching to it, with anything else, is allowed; so is any change to a Monitor budget.
+  const monitor = cleanBudget({ mode: 'monitor', maxTargets: 10_000, amount: 0, includeMembers: true }, e, keeper);
+  assert.deepEqual([monitor.mode, monitor.maxTargets], ['monitor', 10_000]);
+  assert.equal(cleanBudget({ maxTargets: 10_000 }, monitor, keeper).maxTargets, 10_000);
+  assert.equal(cleanBudget({ maxTargets: 10_000 }, e, { canEnforce: true }).maxTargets, 10_000, 'an enforcer may widen it');
+});
+
 test('budgets are checked and bounded', () => {
   assert.throws(() => cleanBudget({ entityType: 'tenant', entityId: 'x', amount: 1 }), { status: 400 });
   assert.throws(() => cleanBudget({ entityType: 'user', entityId: '__proto__', amount: 1 }), { status: 400 });

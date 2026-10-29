@@ -11,14 +11,13 @@ import path from 'node:path';
 
 import { freePort } from './free-port.js';
 import { ReportGrants } from '../src/report-grants.js';
-import { FIRST_PASSWORD, NEXT_PASSWORD, mockApiKey } from './test-credentials.js';
+import { FIRST_PASSWORD, NEXT_PASSWORD, SIGNING_KEY, mockApiKey } from './test-credentials.js';
 
 const MOCK_PORT = await freePort();
 const PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
 const KEY = mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' });
-const SIGNING_KEY = 'speed-test';
 const PROJECTS = 4;
 const RISKS = 650; // four pages of 200 per project
 const children = [];

@@ -210,7 +210,26 @@ export function cleanBudget(input = {}, existing = null, { actor = '', canEnforc
     b.fanoutConfirmedAt = input.fanoutConfirmed === true ? now.toISOString() : null;
   }
   if (has('notes')) b.notes = cleanText(input.notes, 1024, { keep: true });
+  // An Enforce budget stays Enforce: making it restrict more (or sooner) is an enforcement decision too.
+  if (existing?.mode === 'enforce' && b.mode === 'enforce' && !canEnforce && widensEnforcement(existing, b)) {
+    throw fail(403, 'Only someone allowed to enforce budgets can change what an Enforce budget restricts.', { permission: 'govern.enforce' });
+  }
   return b;
+}
+
+/** Switches that make a budget restrict more when turned on (active: a paused budget restricts nothing). */
+const WIDENING_SWITCHES = ['active', 'includeMembers', 'includeSubgroups', 'countExisting', 'holdUntilReleased'];
+
+/**
+ * Whether `after` restricts more than `before`: more projects per breach, fewer credits, a switch turned on, or a
+ * different period or dates (which can only be judged by someone who may enforce). Pausing it, lowering its
+ * ceiling, raising its amount, switching a widening option off, its notes and warning threshold do not.
+ */
+export function widensEnforcement(before, after) {
+  if (Number(after.maxTargets) > Number(before.maxTargets)) return true;
+  if (Number(after.amount) < Number(before.amount)) return true;
+  if (WIDENING_SWITCHES.some((k) => Boolean(after[k]) && !Boolean(before[k]))) return true;
+  return after.period !== before.period || (after.customStart ?? null) !== (before.customStart ?? null) || (after.customEnd ?? null) !== (before.customEnd ?? null);
 }
 
 /** What an audit entry or the page shows of a budget (everything: a budget holds no secret). */

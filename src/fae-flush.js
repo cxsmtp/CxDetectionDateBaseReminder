@@ -30,6 +30,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { mapWithConcurrency } from './cxone/client.js';
 import { FAE_FLUSH_TAG, getLastScans } from './cxone/projects.js';
+import { scrubText } from './cxone/endpoints.js';
 
 export const FAE_TAG = FAE_FLUSH_TAG;
 export const FAE_SUFFIX = '_FAE';
@@ -104,7 +105,8 @@ const gitOf = (scan) => {
 };
 /** Signed storage addresses carry their signature in the query: never kept in a log. */
 const SIGNED = /(X-Amz-(?:Signature|Credential|Security-Token)=)[^&"'\s\\]+/gi;
-export const redact = (value) => JSON.parse(JSON.stringify(value ?? null).replace(SIGNED, '$1[hidden]'));
+/** A debug log line, every text in it without signatures, tokens, keys or passwords (scrubText, one string at a time). */
+export const redact = (value) => JSON.parse(JSON.stringify(value ?? null), (_key, v) => (typeof v === 'string' ? scrubText(v).replace(SIGNED, '$1[hidden]') : v));
 
 /**
  * Writes JSON in one step: to a fresh, unguessable name created exclusively ('wx', 0600, never an existing file

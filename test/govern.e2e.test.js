@@ -369,3 +369,46 @@ test('permission check, diagnose a figure, and the audit chain records every cha
     if (st.isFile()) assert.equal(st.mode & 0o077, 0, f);
   }
 });
+
+test('govern.budgets without govern.enforce: an Enforce budget is never widened, by edit, bulk edit or CSV; narrowed, it is', async () => {
+  const role = await admin('POST', '/api/iam/roles', { name: 'Budget keeper', permissions: ['govern.view', 'govern.budgets'] });
+  assert.equal(role.status, 201, JSON.stringify(role.body));
+  const id = role.body.roles.find((r) => r.name === 'Budget keeper').id;
+  const keeper = browser();
+  assert.equal((await admin('POST', '/api/iam/users', { email: 'keeper@acme.io', role: id, password: FIRST_PASSWORD })).status, 201);
+  await keeper('POST', '/api/session/password', { email: 'keeper@acme.io', password: FIRST_PASSWORD });
+  assert.equal((await keeper('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD })).status, 200);
+  const b = await budgetRow(adminBudget.id);
+  assert.equal(b.mode, 'enforce');
+  const refused = (r) => {
+    assert.equal(r.status, 403, JSON.stringify(r.body));
+    assert.equal(r.body.permission, 'govern.enforce');
+    assert.equal(r.body.error, 'Only someone allowed to enforce budgets can change what an Enforce budget restricts.');
+  };
+  refused(await keeper('PUT', `/api/govern/budgets/${b.id}`, { version: b.version, maxTargets: 10_000 }));
+  refused(await keeper('PUT', `/api/govern/budgets/${b.id}`, { version: b.version, amount: 0 }));
+  refused(await keeper('PUT', `/api/govern/budgets/${b.id}`, { version: b.version, period: 'lifetime' }));
+  refused(await keeper('POST', '/api/govern/budgets/bulk', { ids: [b.id], changes: { amount: 0 } }));
+  const csv = await keeper('GET', '/api/govern/budgets.csv');
+  assert.equal(csv.status, 200);
+  const lines = csv.text.split('\n');
+  const i = lines.findIndex((l) => l.includes(',u-admin,'));
+  const cells = lines[i].split(',');
+  cells[16] = '10000';
+  lines[i] = cells.join(',');
+  const wider = await keeper('POST', '/api/govern/csv/validate', { csv: lines.join('\n') });
+  assert.equal(wider.status, 200, JSON.stringify(wider.body));
+  assert.match(wider.body.errors.map((e) => e.error).join(' '), /Only someone allowed to enforce budgets can change what an Enforce budget restricts/);
+  assert.equal(wider.body.planHash, null);
+  assert.equal((await keeper('POST', '/api/govern/csv/apply', { csv: lines.join('\n'), planHash: 'x' })).status, 400);
+  const still = await budgetRow(b.id);
+  assert.deepEqual([still.version, still.maxTargets, still.amount, still.period], [b.version, b.maxTargets, b.amount, b.period], 'nothing changed');
+  // Narrowing is allowed: fewer targets per breach, a note.
+  const narrowed = await keeper('PUT', `/api/govern/budgets/${b.id}`, { version: b.version, maxTargets: b.maxTargets - 1, notes: 'kept narrow' });
+  assert.equal(narrowed.status, 200, JSON.stringify(narrowed.body));
+  assert.equal(narrowed.body.budget.maxTargets, b.maxTargets - 1);
+  assert.equal(narrowed.body.budget.mode, 'enforce');
+  // An enforcer may widen it again.
+  const widened = await admin('PUT', `/api/govern/budgets/${b.id}`, { version: narrowed.body.budget.version, maxTargets: b.maxTargets });
+  assert.equal(widened.status, 200, JSON.stringify(widened.body));
+});

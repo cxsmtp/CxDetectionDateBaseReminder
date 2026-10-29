@@ -188,6 +188,10 @@ These are the same sentences the page shows.
 2. Check, in order: the server name, the port, "Secure connection from the start" (on for 465, off for 587), the username and the password.
 3. Send the server's answer to your mail administrator.
 
+**The mailbox server offers no encrypted connection, and MissionZero never sends a password without one.** (Reading replies in the self-check, or the backup mailbox in the server log at start-up.)
+1. Use port 993 (encrypted from the start).
+2. Or ask the mail server's administrator to turn on STARTTLS for the port you use (such as 143).
+
 ## Checkmarx One
 
 **No Checkmarx One API key is set.**

@@ -28,6 +28,8 @@ import {
   originCounts,
   overallImpact,
   parseCloc,
+  parseClocFusionReport,
+  MAX_CLOC_FUSION_BYTES,
   sortProjects,
   planForecast,
   readLimit,
@@ -118,7 +120,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderCustomers() {
     $('calc-empty').hidden = c.customers.length > 0;
     $('calc-customer').innerHTML = c.customers.map((x) => `<option value="${esc(x.id)}"${x.id === c.open?.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
-    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches', 'calc-max-projects', 'calc-apply', 'calc-undo']) $(id).disabled = !c.open;
+    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-bundle-q', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches', 'calc-max-projects', 'calc-apply', 'calc-undo']) $(id).disabled = !c.open;
   }
 
   function renderOrg() {
@@ -485,8 +487,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         </div>
         <div class="calc-assume calc-edit">
           <label class="check"><input type="checkbox" data-ahead="includeFuture"${A.includeFuture ? ' checked' : ''} /> Count findings still to come</label>
-          <label class="calc-assume-num"><span>AI adoption: fewer new findings over a year (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="aiDeclinePercent" value="${A.aiDeclinePercent}" /></label>
-          <label class="calc-assume-num"${fusionOff() ? ' title="Fusion for the existing customer is left out of this projection: tick Add Fusion: Existing customer at the top to count it."' : ''}><span>More found by Fusion (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="fusionUpliftPercent" value="${fusionOff() ? 0 : A.fusionUpliftPercent}"${fusionOff() ? ' disabled' : ''} /></label>
+          <label class="calc-assume-num"><span>AI adoption: fewer new findings over a year (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="aiDeclinePercent" value="${esc(A.aiDeclinePercent)}" /></label>
+          <label class="calc-assume-num"${fusionOff() ? ' title="Fusion for the existing customer is left out of this projection: tick Add Fusion: Existing customer at the top to count it."' : ''}><span>More found by Fusion (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="fusionUpliftPercent" value="${esc(fusionOff() ? 0 : A.fusionUpliftPercent)}"${fusionOff() ? ' disabled' : ''} /></label>
           <button type="button" class="link" data-ahead-reset>Defaults</button>
         </div>
       </section>
@@ -498,12 +500,12 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
           const chosen = d.selected === null || d.selected === undefined ? open : Math.min(d.selected, open);
           return `<div class="calc-sev-box" data-sev="${s}">
             <div class="calc-sev-top"><span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span><span class="hint">${num(open)} open</span></div>
-            <input type="range" min="0" max="${open}" value="${chosen}" data-f="selected" aria-label="${s}: to triage" style="--p:${fill(chosen, open)}%" />
-            <div class="calc-row"><input type="number" min="0" max="${open}" value="${chosen}" data-f="selected" aria-label="${s}: to triage" />
+            <input type="range" min="0" max="${esc(open)}" value="${esc(chosen)}" data-f="selected" aria-label="${s}: to triage" style="--p:${fill(chosen, open)}%" />
+            <div class="calc-row"><input type="number" min="0" max="${esc(open)}" value="${esc(chosen)}" data-f="selected" aria-label="${s}: to triage" />
               <span><button type="button" class="ghost small-btn" data-set="0">None</button><button type="button" class="ghost small-btn" data-set="all">All</button></span></div>
-            <label class="calc-row"><span>Credits per triage</span><input type="number" min="0" step="0.5" value="${d.triageCost}" data-f="triageCost" /></label>
-            <label class="calc-row"><span>False positives %</span><input type="number" min="0" max="100" step="1" value="${d.fpPercent}" data-f="fpPercent" /></label>
-            <label class="calc-row"><span>Credits per remediation</span><input type="number" min="0" step="0.5" value="${d.remediationCost}" data-f="remediationCost" /></label>
+            <label class="calc-row"><span>Credits per triage</span><input type="number" min="0" step="0.5" value="${esc(d.triageCost)}" data-f="triageCost" /></label>
+            <label class="calc-row"><span>False positives %</span><input type="number" min="0" max="100" step="1" value="${esc(d.fpPercent)}" data-f="fpPercent" /></label>
+            <label class="calc-row"><span>Credits per remediation</span><input type="number" min="0" step="0.5" value="${esc(d.remediationCost)}" data-f="remediationCost" /></label>
             <p class="calc-sev-result"><span>To triage</span> <b>${num(R[s].toTriage)}</b> · <span>to remediate</span> <b>${num(R[s].truePositives)}</b> · <b class="calc-gold">${num(R[s].credits, 1)}</b> <span>credits</span></p>
             <button type="button" class="${c.dirty[s] ? 'primary' : 'secondary'} calc-apply" data-apply${c.dirty[s] ? '' : ' disabled'}>${c.dirty[s] ? 'Apply' : 'Applied'}</button>
           </div>`;
@@ -555,7 +557,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   // ---- "?": how each number is worked out, with the figures in -------------------------------
 
   const whyButton = (key) => `<button type="button" class="calc-why" data-why="${key}" aria-haspopup="dialog" aria-label="How is this worked out?" title="How is this worked out?">?</button>`;
-  const WHY = { backlog: ['backlog'], future: ['future'], fusion: ['fusion'], triage: ['triage', 'remediate'], credits: ['credits'], 'fusion-credits': ['fusion-credits'], total: ['total'] };
+  const WHY = { backlog: ['backlog'], future: ['future'], fusion: ['fusion'], triage: ['triage', 'remediate'], credits: ['credits'], 'fusion-credits': ['fusion-credits', 'fusion-new-credits'], total: ['total'] };
   const pop = document.createElement('div');
   pop.className = 'calc-pop';
   pop.setAttribute('role', 'dialog');
@@ -573,7 +575,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     closePop();
     const data = reportData();
     const L = wording({ t, lang: currentLanguage() });
-    const sections = allSections(data, L).filter((x) => WHY[button.dataset.why]?.includes(x.key));
+    // The summary's Fusion is both customers': with only the new customer's counted, the existing one's "not in this projection" is left out.
+    const sections = allSections(data, L).filter((x) => WHY[button.dataset.why]?.includes(x.key) && !(x.key === 'fusion-credits' && !data.fusion && data.fusionNew));
     if (!sections.length) return;
     pop.innerHTML = `<button type="button" class="calc-pop-close" aria-label="${esc(t('Close'))}">×</button>${sections.map((x) => `<h4>${x.title}</h4>${sectionHtml(x)}`).join('')}`;
     pop.dir = RTL.has(currentLanguage()) ? 'rtl' : 'ltr';
@@ -588,7 +591,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     pop.querySelector('.calc-pop-close').focus();
   }
   document.addEventListener('click', (event) => {
-    const button = event.target.closest('.calc-why');
+    const button = event.target.closest('.calc-why[data-why]');
     if (button) return openPop(button);
     if (event.target.closest('.calc-pop-close') || (!pop.hidden && !event.target.closest('.calc-pop'))) closePop();
   });
@@ -772,7 +775,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         <td>${m.source === 'tenant' || m.source === 'catalog'
           ? `<span class="calc-model-name" translate="no">${esc(m.name)}</span> <span class="calc-badge">${m.source === 'tenant' ? 'From Checkmarx One' : 'Checkmarx One model'}</span>${m.description ? `<small class="hint" translate="no">${esc(m.description)}</small>` : ''}`
           : `<input type="text" value="${esc(m.name)}" maxlength="80" data-m="name" aria-label="Model name" translate="no" placeholder="Type the model's name, as Checkmarx One shows it" />`}</td>
-        <td><input type="text" inputmode="decimal" class="calc-num" value="${m.creditsPer10k ?? ''}" data-m="creditsPer10k" aria-label="Credits per 10K LOC" placeholder="Type the credits" /></td>
+        <td><input type="text" inputmode="decimal" class="calc-num" value="${esc(m.creditsPer10k ?? '')}" data-m="creditsPer10k" aria-label="Credits per 10K LOC" placeholder="Type the credits" /></td>
         <td><button type="button" class="ghost calc-remove" data-remove-model>Remove</button></td></tr>`,
       )
       .join('');
@@ -783,7 +786,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const rows = scoped();
     const ruleRow = (key, label, count, rule, attr) => `<tr ${attr}="${key}">
       <td>${label}</td><td class="num">${num(count)}</td>
-      <td><input type="text" inputmode="numeric" class="calc-num" value="${rule.scans ?? ''}" data-r="scans" placeholder="${num(f.defaultScans)} (default)" aria-label="Fusion scans per project" /></td>
+      <td><input type="text" inputmode="numeric" class="calc-num" value="${esc(rule.scans ?? '')}" data-r="scans" placeholder="${esc(num(f.defaultScans))} (default)" aria-label="Fusion scans per project" /></td>
       <td><select data-r="model" aria-label="Model">${modelOptions(rule.model, defaultLabel())}</select></td></tr>`;
     $('calc-freq').innerHTML = FREQUENCIES.map((q) => ruleRow(q.id, q.label, rows.filter((p) => p.frequency === q.id).length, f.byFrequency[q.id], 'data-freq')).join('');
     // Folded unless a criticality has its own number or model, so a plan made with it is never hidden.
@@ -817,9 +820,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       <td>${manual ? `<span class="calc-name-cell"><input type="text" data-p="name" value="${esc(p.name)}" maxlength="200" aria-label="Project name" translate="no" /><button type="button" class="ghost calc-remove" data-remove-project>Remove</button></span>` : `<span translate="no">${esc(p.name)}</span>`}</td>
       <td>${manual ? `<select data-p="criticality" aria-label="Criticality"><option value="">—</option>${CRITICALITIES.map((k) => `<option${p.criticality === k ? ' selected' : ''}>${k}</option>`).join('')}</select>` : p.criticality ?? '—'}</td>
       <td>${manual ? `<select data-p="frequency" aria-label="How often it is scanned">${FREQUENCIES.map((q) => `<option value="${q.id}"${p.frequency === q.id ? ' selected' : ''}>${esc(q.label)}</option>`).join('')}</select>` : `${esc(FREQ_LABEL[p.frequency] ?? '—')}${p.scanCount ? `<small class="hint">${num(p.scanCount)} scans in a year</small>` : ''}`}</td>
-      <td><input type="text" inputmode="numeric" class="calc-num" data-p="loc" value="${p.lines ?? ''}" placeholder="${scanned === null ? 'Type them' : ''}" aria-label="Lines of code of ${esc(p.name)}" title="${esc(SOURCE_LABEL[p.source] ?? '')}" />${changed ? `<small class="hint">Scan counted ${num(scanned)} <button type="button" class="link" data-reset-loc>Use it</button></small>` : ''}</td>
+      <td><input type="text" inputmode="numeric" class="calc-num" data-p="loc" value="${esc(p.lines ?? '')}" placeholder="${scanned === null ? 'Type them' : ''}" aria-label="Lines of code of ${esc(p.name)}" title="${esc(SOURCE_LABEL[p.source] ?? '')}" />${changed ? `<small class="hint">Scan counted ${num(scanned)} <button type="button" class="link" data-reset-loc>Use it</button></small>` : ''}</td>
       <td class="num" data-cell="units">${p.included && p.units ? num(p.units) : '—'}</td>
-      <td><input type="text" inputmode="numeric" class="calc-num" data-p="scansOverride" value="${p.scansOverride ?? ''}" placeholder="${num(p.scans)}" aria-label="Fusion scans for ${esc(p.name)}" /><small class="hint" data-cell="from">${esc(FROM_LABEL[p.scansFrom] ?? '')}</small></td>
+      <td><input type="text" inputmode="numeric" class="calc-num" data-p="scansOverride" value="${esc(p.scansOverride ?? '')}" placeholder="${esc(num(p.scans))}" aria-label="Fusion scans for ${esc(p.name)}" /><small class="hint" data-cell="from">${esc(FROM_LABEL[p.scansFrom] ?? '')}</small></td>
       <td><select data-p="modelOverride" aria-label="Model for ${esc(p.name)}">${modelOptions(p.modelOverride, 'Automatic')}</select></td>
       <td class="num" data-cell="credits">${p.included && p.units ? (p.credits === null ? '—' : num(p.credits, 1)) : '—'}</td>
     </tr>`;
@@ -899,29 +902,49 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   const saveFnew = () => save({ fusionNew: fnew() });
   const LANG_COLOURS = ['#2856c9', '#b45309', '#0d9488', '#7c3aed', '#be185d', '#0891b2', '#65a30d', '#ea580c'];
 
+  // Where a project's Fusion scans came from, on this tab.
+  const FROM_NEW = { default: 'Default', frequency: 'Change frequency', criticality: 'Criticality', project: 'Set here' };
+
+  /** Where a project's lines came from: "git · main · 3f2a1c9" (and Count again), "cloc-fusion · report.json", "cloc · payments-api.json", or typed. */
+  function fnewFromHtml(p) {
+    const again = p.git && gitOn() ? ' <button type="button" class="link" data-fnew-recount>Count again</button>' : '';
+    const where = p.git ? `${p.git.host}/${p.git.path}${p.git.countedAt ? ` · ${fmtDateTime(p.git.countedAt)}` : ''}` : '';
+    if (p.activity?.engine === 'report') return `<span class="calc-git-tag" translate="no"${where ? ` title="${esc(where)}"` : ''}>${esc(`cloc-fusion · ${p.file || 'report'}`)}</span>${again}`;
+    if (p.git) return `<span class="calc-git-tag" translate="no" title="${esc(where)}">${esc([p.activity?.engine === 'api' ? 'api' : 'git', p.git.branch, p.git.commit].filter(Boolean).join(' · '))}</span>${again}`;
+    return p.file ? `<span class="calc-git-tag" translate="no">${esc(`cloc · ${p.file}`)}</span>` : '—';
+  }
+
+  /** How often it changes: the bucket, its commits in the window, and its last commit. */
+  function fnewFrequencyHtml(p) {
+    if (!p.frequency) return '—';
+    const a = p.activity ?? {};
+    const last = a.lastCommitAt ? `<small>Last commit <time datetime="${esc(a.lastCommitAt)}" translate="no">${esc(new Date(a.lastCommitAt).toLocaleDateString())}</time></small>` : '';
+    const devs = p.devs90 === null || p.devs90 === undefined ? '' : `<small>${esc(`${num(p.devs90)} developers in the last 90 days`)}</small>`;
+    return `<span class="calc-freq">${esc(FREQ_LABEL[p.frequency] ?? '—')}<small>${esc(`${num(a.commits)} commits in ${num(a.windowDays)} days`)}</small>${devs}${last}</span>`;
+  }
+
   function fnewRowHtml(p, colourOf) {
     const counted = p.languages.filter((l) => l.counted && l.lines > 0);
     const left = p.languages.filter((l) => !l.counted).reduce((n, l) => n + l.lines, 0);
     const total = counted.reduce((n, l) => n + l.lines, 0) || 1;
     const typed = wholeNumber(p.locOverride) !== null;
-    // Where its lines came from: "git · main · 3f2a1c9" (and Count again), "cloc · payments-api.json", or typed.
-    const from = p.git
-      ? `<span class="calc-git-tag" translate="no" title="${esc(`${p.git.host}/${p.git.path}${p.git.countedAt ? ` · ${fmtDateTime(p.git.countedAt)}` : ''}`)}">${esc(['git', p.git.branch, p.git.commit].filter(Boolean).join(' · '))}</span>${gitOn() ? ' <button type="button" class="link" data-fnew-recount>Count again</button>' : ''}`
-      : p.file ? `<span class="calc-git-tag" translate="no">${esc(`cloc · ${p.file}`)}</span>` : '—';
+    const countedBy = p.activity?.engine === 'report' ? 'cloc-fusion counted' : p.git ? 'Counted from git' : 'cloc counted';
     return `<tr data-row="${esc(p.id)}" class="${p.included ? '' : 'calc-off'}">
       <td><input type="checkbox" data-n="included"${p.included ? ' checked' : ''} aria-label="Include ${esc(p.name)}" /></td>
       <td><span class="calc-name-cell"><input type="text" data-n="name" value="${esc(p.name)}" maxlength="200" aria-label="Project name" translate="no" /><button type="button" class="ghost calc-remove" data-remove-fnew>Remove</button></span></td>
-      <td class="calc-from">${from}</td>
+      <td class="calc-from">${fnewFromHtml(p)}</td>
       <td>${counted.length || left
         ? `<span class="calc-lang-line" translate="no">${counted.slice(0, 3).map((l) => `${esc(l.name)} ${Math.round((l.lines / total) * 100)}%`).join(' · ')}${counted.length > 3 ? ` · +${counted.length - 3}` : ''}</span>${left ? `<span class="calc-lang-line">${esc(`${num(left)} lines not counted`)}</span>` : ''}<span class="calc-lang-bar">${counted.map((l) => `<i style="width:${((l.lines / total) * 100).toFixed(2)}%;background:${colourOf(l.name)}" title="${esc(`${l.name}: ${num(l.lines)}`)}"></i>`).join('')}</span>`
         : '—'}</td>
-      <td><input type="text" inputmode="numeric" class="calc-num" data-n="loc" value="${typed ? p.locOverride : p.lines ?? ''}" placeholder="Type them" aria-label="Lines of code of ${esc(p.name)}" />${typed && p.languages.length ? `<small class="hint">${p.git ? 'Counted from git' : 'cloc counted'} ${num(newCustomerEstimate({ ...fnew(), projects: [{ ...p, locOverride: null }] }, fusion()).rows[0]?.lines)} <button type="button" class="link" data-fnew-reset>Use it</button></small>` : ''}</td>
-      <td class="num" data-cell="units">${p.included && p.units ? num(p.units) : '—'}</td>
-      <td><input type="text" inputmode="numeric" class="calc-num" data-n="scansOverride" value="${p.scansOverride ?? ''}" placeholder="${num(p.scans)}" aria-label="Fusion scans for ${esc(p.name)}" /></td>
+      <td><input type="text" inputmode="numeric" class="calc-num" data-n="loc" value="${esc(typed ? p.locOverride : p.lines ?? '')}" placeholder="Type them" aria-label="Lines of code of ${esc(p.name)}" /><small class="hint calc-units">10K LOC units <b data-cell="units">${p.included && p.units ? num(p.units) : '—'}</b></small>${typed && p.languages.length ? `<small class="hint">${countedBy} ${num(newCustomerEstimate({ ...fnew(), projects: [{ ...p, locOverride: null }] }, fusion()).rows[0]?.lines)} <button type="button" class="link" data-fnew-reset>Use it</button></small>` : ''}</td>
+      <td>${fnewFrequencyHtml(p)}</td>
+      <td><input type="text" inputmode="numeric" class="calc-num" data-n="scansOverride" value="${esc(p.scansOverride ?? '')}" placeholder="${esc(num(p.scans))}" aria-label="Fusion scans for ${esc(p.name)}" /><span class="calc-scans-from" data-cell="from">${esc(FROM_NEW[p.scansFrom] ?? '')}</span></td>
       <td><select data-n="modelOverride" aria-label="Model for ${esc(p.name)}">${modelOptions(p.modelOverride, 'Automatic')}</select></td>
       <td class="num" data-cell="credits">${p.included && p.units ? (p.credits === null ? '—' : num(p.credits, 1)) : '—'}</td>
     </tr>`;
   }
+
+  const fnewKpi = (label, value, sub, cls = '') => `<div class="rp-kpi ${cls}"><span class="rp-tile-label">${esc(label)}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${sub}</span></div>`;
 
   function renderFusionNew() {
     if (!c.open) return;
@@ -946,13 +969,12 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-fnew-dup').textContent = twice.length ? t('Also on the existing customer tab, so counted on both: {0}. Untick it on one of them unless it really is a second copy of the code.').replace('{0}', twice.join(', ')) : '';
     // (Named `tot`, not `t`: `t` is the translation used above in this function.)
     const tot = est.totals;
-    const kpi = (label, value, sub, cls = '') => `<div class="rp-kpi ${cls}"><span class="rp-tile-label">${esc(label)}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${sub}</span></div>`;
     $('calc-fnew-kpis').innerHTML = f.projects.length
       ? [
-          kpi('Projects', num(tot.projects), tot.unknownLines ? `<span class="calc-warn">Still without lines of code: ${num(tot.unknownLines)}</span>` : 'Included, with lines of code'),
-          kpi('10K LOC units', num(tot.units), `${num(tot.lines)} code lines, each project rounded up`),
-          kpi('Fusion scans', num(tot.scans), `Over ${num(est.settings.periodMonths)} months`),
-          kpi('Credits', num(tot.credits, 1), tot.unknownRate ? `<span class="calc-warn">Projects whose model has no credits per 10K LOC: ${num(tot.unknownRate)}</span>` : `Over ${num(est.settings.periodMonths)} months`, 'calc-gold'),
+          fnewKpi('Projects', num(tot.projects), tot.unknownLines ? `<span class="calc-warn">Still without lines of code: ${num(tot.unknownLines)}</span>` : 'Included, with lines of code'),
+          fnewKpi('10K LOC units', num(tot.units), `${num(tot.lines)} code lines, each project rounded up`),
+          fnewKpi('Fusion scans', num(tot.scans), tot.withActivity ? esc(`Over ${num(est.settings.periodMonths)} months · ${num(tot.byRule)} by change frequency`) : `Over ${num(est.settings.periodMonths)} months`),
+          fnewKpi('Credits', num(tot.credits, 1), tot.unknownRate ? `<span class="calc-warn">Projects whose model has no credits per 10K LOC: ${num(tot.unknownRate)}</span>` : `Over ${num(est.settings.periodMonths)} months`, 'calc-gold'),
         ].join('')
       : '';
     $('calc-fnew-rows').innerHTML = est.rows.map((p) => fnewRowHtml(p, colourOf)).join('');
@@ -971,6 +993,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       if (!p) continue;
       line.querySelector('[data-cell="units"]').textContent = p.included && p.units ? num(p.units) : '—';
       line.querySelector('[data-cell="credits"]').textContent = p.included && p.units ? (p.credits === null ? '—' : num(p.credits, 1)) : '—';
+      line.querySelector('[data-cell="from"]').textContent = FROM_NEW[p.scansFrom] ?? '';
       line.querySelector('[data-n="scansOverride"]').placeholder = num(p.scans);
     }
     renderSummary();
@@ -1052,99 +1075,199 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-fnew-rows').querySelector('tr:last-child [data-n="name"]')?.select();
   });
 
-  // ---- Count from git: the customer's repositories counted where they are kept (src/fusion-git.js) ----
+  /**
+   * A repository measured (from git, or a cloc-fusion report) as a project: the one of the same repository is
+   * replaced (or `projectId`'s, counted again); one with no repository, of the same name, too. Two repositories of
+   * the same name in different places keep their paths as names. Returns the project.
+   */
+  function upsertMeasured(found, { projectId = null, key = '' } = {}) {
+    const list = fnew().projects;
+    const url = found.git?.url ? cleanUrl(found.git.url) : '';
+    const sameName = (p) => String(p.name).toLowerCase() === String(found.name).toLowerCase();
+    let same = projectId ? list.find((p) => p.id === projectId) : null;
+    same ??= url ? list.find((p) => p.git?.url && cleanUrl(p.git.url) === url) : null;
+    same ??= list.find((p) => (found.git ? !p.git : true) && sameName(p));
+    const taken = list.some((p) => p !== same && sameName(p));
+    const name = same?.name ?? (taken && found.path ? found.path : found.name);
+    const patch = { name, langs: found.langs, file: found.file ?? '', locOverride: found.locOverride ?? null, ...(found.activity ? { activity: found.activity } : {}), ...(found.criticality ? { criticality: found.criticality } : {}) };
+    if (found.git) patch.git = found.git;
+    if (same) {
+      if (!found.git) delete same.git;
+      if (!found.activity) delete same.activity;
+      Object.assign(same, patch, found.scansOverride !== null && found.scansOverride !== undefined ? { scansOverride: found.scansOverride } : {}, found.modelOverride ? { modelOverride: found.modelOverride } : {});
+      return same;
+    }
+    const made = { id: `new-${Date.now().toString(36)}-${key || list.length}`, ...patch, included: true, scansOverride: found.scansOverride ?? null, modelOverride: found.modelOverride ?? null };
+    list.push(made);
+    return made;
+  }
+  const cleanUrl = (u) => String(u).replace(/(\.git)?\/*$/i, '').toLowerCase();
+
+  // ---- Count from git, with cloc-fusion's engine (src/fusion-git.js): discover, pick, measure ----------
   // On the server, or in the launcher on its own computer; the HTML file on its own can reach no git host.
 
   const gitOn = () => !standalone || canGit();
   const WAY_STORE = 'mz-calc-fnew-way';
-  const GIT_MAX = 50;
+  const WAYS = ['git', 'report', 'cloc'];
   const GIT_ADDRESS = { github: 'https://github.com', gitlab: 'https://gitlab.com', azure: 'https://dev.azure.com/your-organisation', bitbucket: 'https://bitbucket.org' };
-  // The Admin's connections (id, host, provider: never a token), the repositories listed, and the count running.
-  const git = { connections: null, repos: [], run: null, owner: '' };
+  // The Admin's connections (id, host, provider: never a token), the sources ticked, the organizations found,
+  // the repositories listed, and the run going.
+  const git = { connections: null, limit: 1000, chosen: null, orgs: {}, repos: [], run: null, filter: '' };
   let way = (() => {
     try {
-      return localStorage.getItem(WAY_STORE) === 'cloc' ? 'cloc' : 'git';
+      const saved = localStorage.getItem(WAY_STORE);
+      return WAYS.includes(saved) ? saved : 'git';
     } catch {
       return 'git';
     }
   })();
   const bytes = (b) => (b >= 1024 ** 3 ? `${num(b / 1024 ** 3, 1)} GB` : b >= 1024 ** 2 ? `${num(b / 1024 ** 2)} MB` : `${num(Math.max(1, b / 1024))} KB`);
 
-  /** Count from git or Upload cloc results: one shown at a time (only cloc where git cannot be reached). */
+  /** Count from git, Import a cloc-fusion report or Upload cloc results: one shown at a time. */
   function showWay(pick) {
     const on = gitOn();
-    const shown = on && pick === 'git' ? 'git' : 'cloc';
-    $('calc-fnew-ways').hidden = !on;
+    const shown = WAYS.includes(pick) ? pick : 'git';
     for (const input of document.querySelectorAll('input[name="calc-fnew-way"]')) input.checked = input.value === shown;
     $('calc-git').hidden = shown !== 'git';
+    $('calc-cf').hidden = shown !== 'report';
     $('calc-cloc').hidden = shown !== 'cloc';
-    if (shown === 'git') loadConnections();
+    // The HTML file on its own: Count from git says it cannot, and points to cloc-fusion.
+    $('calc-git-offline').hidden = on;
+    $('calc-git-steps').hidden = !on;
+    // How the server measures: not said where nothing is measured.
+    $('calc-git-how').hidden = !on;
+    for (const id of ['calc-git-progress', 'calc-git-summary']) if (!on) $(id).hidden = true;
+    if (shown === 'git' && on) loadConnections();
   }
   $('calc-fnew-ways').addEventListener('change', (event) => {
     if (event.target.name !== 'calc-fnew-way') return;
-    way = event.target.value === 'cloc' ? 'cloc' : 'git';
+    way = WAYS.includes(event.target.value) ? event.target.value : 'git';
     try {
       localStorage.setItem(WAY_STORE, way);
     } catch {}
     showWay(way);
   });
 
-  /** The Admin's git connections, once: each one a choice in step 1, then a token typed for one count. */
+  /** The Admin's git connections, once: each one a choice in step 1, beside a token typed for one run. */
   async function loadConnections() {
     if (git.connections) return;
     git.connections = [];
     try {
-      git.connections = (await api('/api/projections/git/connections', { quiet: true })).connections ?? [];
+      const found = await api('/api/projections/git/connections', { quiet: true });
+      git.connections = found.connections ?? [];
+      git.limit = wholeNumber(found.limits?.repositories) || git.limit;
+      if (found.clocFusion?.version) $('calc-cf-sum').textContent = `cloc-fusion ${found.clocFusion.version} · SHA-256 ${found.clocFusion.sha256}`;
     } catch (error) {
       if (handleAuthLoss(error)) return;
     }
     renderHosts();
   }
 
-  const chosenHost = () => $('calc-git-hosts').querySelector('input:checked')?.value ?? 'token';
+  const chosenSources = () => [...$('calc-git-hosts').querySelectorAll('input:checked')].map((i) => i.value);
   function renderHosts() {
     const list = git.connections ?? [];
-    const was = $('calc-git-hosts').querySelector('input:checked')?.value;
-    const chosen = list.some((x) => x.id === was) || was === 'token' ? was : list[0]?.id ?? 'token';
+    git.chosen ??= new Set(list.length ? [list[0].id] : ['token']);
     $('calc-git-hosts').innerHTML = [
-      ...list.map((x, i) => `<label class="calc-git-host"><input type="radio" name="calc-git-host" value="${esc(x.id)}"${x.id === chosen ? ' checked' : ''} /><span><b translate="no">${esc(`${x.label} · ${x.host}`)}</b><small>${i === 0 ? 'A git connection the Admin already set up (the same tokens as Code authors). Nothing to type.' : 'Another git connection the Admin set up.'}</small></span></label>`),
-      `<label class="calc-git-host"><input type="radio" name="calc-git-host" value="token"${chosen === 'token' ? ' checked' : ''} /><span><b>A token for this count only</b><small>${standalone ? 'The customer’s own read-only token: git on this computer fetches the code and counts it here.' : 'The customer’s own read-only token, for a host connected or allowed by the Admin.'}</small></span></label>`,
+      ...list.map((x, i) => `<label class="calc-git-host"><input type="checkbox" name="calc-git-host" value="${esc(x.id)}"${git.chosen.has(x.id) ? ' checked' : ''} /><span><b translate="no">${esc(`${x.label} · ${x.host}${x.owner ? ` · ${x.owner}` : ''}`)}</b><small>${i === 0 ? 'A git connection the Admin already set up (the same tokens as Code authors). Nothing to type.' : 'Another git connection the Admin set up.'}</small></span></label>`),
+      `<label class="calc-git-host"><input type="checkbox" name="calc-git-host" value="token"${git.chosen.has('token') ? ' checked' : ''} /><span><b>A token for this run only</b><small>${standalone ? 'The customer’s own read-only token: git on this computer fetches the code and counts it here.' : 'The customer’s own read-only token, for a host connected or allowed by the Admin.'}</small></span></label>`,
     ].join('');
     hostChanged();
   }
 
   function hostChanged() {
-    const id = chosenHost();
-    const conn = git.connections?.find((x) => x.id === id);
-    const provider = conn?.provider ?? $('calc-git-provider').value;
-    $('calc-git-token').hidden = id !== 'token';
+    git.chosen = new Set(chosenSources());
+    $('calc-git-token').hidden = !git.chosen.has('token');
     $('calc-git-address').placeholder = GIT_ADDRESS[$('calc-git-provider').value];
-    $('calc-git-owner-label').textContent = provider === 'azure' ? 'Project (empty: every project)' : provider === 'bitbucket' ? 'Workspace (or project key)' : 'Organisation or group';
-    // The connection's own organisation or group, until something else is typed.
-    const owner = $('calc-git-owner');
-    if (!owner.value || owner.value === git.owner) owner.value = git.owner = conn?.owner ?? '';
+    countLabel();
   }
   const hostSwitched = () => {
     git.repos = [];
+    git.orgs = {};
+    renderOrgs();
     renderRepos();
     hostChanged();
   };
   $('calc-git-hosts').addEventListener('change', hostSwitched);
   $('calc-git-provider').addEventListener('change', hostSwitched);
 
-  /** Where the code is, as the server takes it: a connection's id, or the token typed (sent with this request only). */
-  function access() {
-    const id = chosenHost();
-    if (id !== 'token') return { connection: id };
+  /** The token typed, as the server takes it (sent with each request of this run only, never kept here). */
+  function typedToken() {
+    if (!git.chosen?.has('token')) return null;
     const token = $('calc-git-secret').value.trim();
     if (!token) throw new Error('Paste the token first (1 · Where the code is).');
-    return { token: { provider: $('calc-git-provider').value, address: $('calc-git-address').value.trim(), token } };
+    return { provider: $('calc-git-provider').value, address: $('calc-git-address').value.trim(), token };
   }
+  /** Where the code is: the connections ticked and the token typed; at least one. */
+  function access() {
+    const connections = [...(git.chosen ?? [])].filter((id) => id !== 'token' && git.connections?.some((x) => x.id === id));
+    const token = typedToken();
+    if (!connections.length && !token) throw new Error('Tick where the code is first (1 · Where the code is).');
+    return { connections, token };
+  }
+
+  /** What to list of a source: the organizations ticked and typed, and Everything this token can see. */
+  function askOf(key) {
+    const found = git.orgs[key];
+    const typed = $('calc-git-owner').value.split(',').map((s) => s.trim()).filter(Boolean);
+    const orgs = [...new Set([...(found ? [...found.ticked] : []), ...typed])];
+    return { ...(orgs.length ? { orgs } : {}), everything: Boolean(found?.everything) };
+  }
+
+  $('calc-git-orgs-find').addEventListener('click', async () => {
+    let how;
+    try {
+      how = access();
+    } catch (error) {
+      return setStatus('calc-git-status', error.message, 'error');
+    }
+    setStatus('calc-git-status', 'Finding the organizations…', 'muted');
+    $('calc-git-orgs-find').disabled = true;
+    try {
+      const found = await api('/api/projections/git/organizations', { method: 'POST', body: JSON.stringify(how), quiet: true });
+      git.orgs = {};
+      for (const s of found.sources ?? []) {
+        const own = git.connections?.find((x) => x.id === s.source)?.owner ?? '';
+        const ticked = new Set((s.organizations ?? []).filter((o) => own && o.id.toLowerCase() === own.toLowerCase()).map((o) => o.id));
+        git.orgs[s.source] = { ...s, ticked, everything: false };
+      }
+      renderOrgs();
+      setStatus('calc-git-status', '');
+    } catch (error) {
+      if (!handleAuthLoss(error)) showError('calc-git-status', error);
+    } finally {
+      $('calc-git-orgs-find').disabled = false;
+    }
+  });
+
+  function renderOrgs() {
+    const sets = Object.values(git.orgs);
+    const box = $('calc-git-orgs');
+    box.hidden = !sets.length;
+    box.innerHTML = sets
+      .map((s) => `<fieldset class="calc-git-org-set" data-source="${esc(s.source)}"><legend><span translate="no">${esc(`${s.label} · ${s.host}`)}</span>${s.who ? ` <small>${esc(t('signed in as {0}').replace('{0}', s.who))}</small>` : ''}</legend>
+        <label class="calc-git-everything"><input type="checkbox" data-org-all${s.everything ? ' checked' : ''} /> <span>Everything this token can see</span></label>
+        <div class="calc-git-org-list">${(s.organizations ?? []).map((o) => `<label><input type="checkbox" data-org="${esc(o.id)}"${s.ticked.has(o.id) || s.everything ? ' checked' : ''}${s.everything ? ' disabled' : ''} /> ${o.id === '@me' ? '<span>My own repositories</span>' : `<span translate="no">${esc(o.id)}</span>`}</label>`).join('') || '<span class="hint">No organizations listed: type one below, or tick Everything this token can see.</span>'}</div>
+        ${s.problem ? `<small class="calc-warn">${esc(s.problem)}</small>` : ''}
+      </fieldset>`)
+      .join('');
+  }
+  $('calc-git-orgs').addEventListener('change', (event) => {
+    const set = git.orgs[event.target.closest('[data-source]')?.dataset.source];
+    if (!set) return;
+    if (event.target.matches('[data-org-all]')) {
+      set.everything = event.target.checked;
+      renderOrgs();
+    } else if (event.target.dataset.org !== undefined) {
+      if (event.target.checked) set.ticked.add(event.target.dataset.org);
+      else set.ticked.delete(event.target.dataset.org);
+    }
+  });
 
   $('calc-git-list').addEventListener('click', async () => {
     let body;
     try {
-      body = { ...access(), owner: $('calc-git-owner').value.trim() };
+      const how = access();
+      body = { connections: how.connections.map((id) => ({ id, ...askOf(id) })), ...(how.token ? { token: { ...how.token, ...askOf('token') } } : {}) };
     } catch (error) {
       return setStatus('calc-git-status', error.message, 'error');
     }
@@ -1152,12 +1275,15 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-git-list').disabled = true;
     try {
       const found = await api('/api/projections/git/repositories', { method: 'POST', body: JSON.stringify(body), quiet: true });
-      // Ticked to start with: each one not archived, up to the 50 a count takes.
+      // Ticked to start with: each one not archived and not a fork, up to the repositories a run takes.
       let ticked = 0;
-      git.repos = (found.repositories ?? []).map((r) => ({ ...r, ticked: !r.archived && (ticked += 1) <= GIT_MAX }));
+      git.repos = (found.repositories ?? []).map((r) => ({ ...r, ticked: !r.archived && !r.fork && (ticked += 1) <= git.limit }));
+      git.filter = '';
       renderRepos();
-      if (!git.repos.length) setStatus('calc-git-status', 'No repositories there that this access may read.', 'warn');
+      const problems = (found.problems ?? []).map((p) => (p.org ? `${p.org}: ${p.error}` : p.error));
+      if (!git.repos.length) setStatus('calc-git-status', problems.length ? problems.join(' · ') : 'No repositories there that this access may read.', 'warn');
       else if (found.more) setStatus('calc-git-status', `The first ${num(git.repos.length)} repositories are listed: paste the addresses of any others.`, 'warn');
+      else if (problems.length) setStatus('calc-git-status', problems.join(' · '), 'warn');
       else setStatus('calc-git-status', '');
     } catch (error) {
       if (!handleAuthLoss(error)) showError('calc-git-status', error);
@@ -1169,14 +1295,29 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderRepos() {
     const box = $('calc-git-repos');
     box.hidden = !git.repos.length;
+    const tags = (r) => [r.branch ? ` <span class="calc-git-tag" translate="no">${esc(r.branch)}</span>` : '', r.archived ? ' <span class="calc-git-tag">archived</span>' : '', r.fork ? ' <span class="calc-git-tag">fork</span>' : '', r.empty ? ' <span class="calc-git-tag">empty</span>' : ''].join('');
     box.innerHTML = git.repos.length
-      ? `<div class="calc-git-repos-head"><span></span><button type="button" class="link" data-git-all>Tick all</button><button type="button" class="link" data-git-none>Tick none</button></div>` +
+      ? `<div class="calc-git-repos-head"><span></span><input type="search" class="calc-git-filter" data-git-filter placeholder="Filter" aria-label="Filter the repositories" value="${esc(git.filter)}" /><button type="button" class="link" data-git-all>Tick all shown</button><button type="button" class="link" data-git-none>Tick none</button></div>` +
         git.repos
-          .map((r, i) => `<label><input type="checkbox" data-git-repo="${i}"${r.ticked ? ' checked' : ''} /><span><span translate="no">${esc(r.path)}</span>${r.branch ? ` <span class="calc-git-tag" translate="no">${esc(r.branch)}</span>` : ''}${r.archived ? ' <span class="calc-git-tag">archived</span>' : ''}</span><span class="calc-git-size">${r.sizeBytes === null ? '' : esc(bytes(r.sizeBytes))}</span></label>`)
+          .map((r, i) => `<label data-git-row="${i}"><input type="checkbox" data-git-repo="${i}"${r.ticked ? ' checked' : ''} /><span><span translate="no">${esc(r.path)}</span>${tags(r)}</span><span class="calc-git-size">${r.sizeBytes === null || r.sizeBytes === undefined ? '' : esc(bytes(r.sizeBytes))}</span></label>`)
           .join('')
       : '';
+    filterRepos();
     countLabel();
   }
+  /** Only the repositories whose path has what is typed in the filter. */
+  function filterRepos() {
+    const words = git.filter.toLowerCase().split(/\s+/).filter(Boolean);
+    for (const row of $('calc-git-repos').querySelectorAll('label[data-git-row]')) {
+      const r = git.repos[Number(row.dataset.gitRow)];
+      row.classList.toggle('calc-git-hidden', words.length > 0 && !words.every((w) => r.path.toLowerCase().includes(w)));
+    }
+  }
+  $('calc-git-repos').addEventListener('input', (event) => {
+    if (!event.target.matches('[data-git-filter]')) return;
+    git.filter = event.target.value;
+    filterRepos();
+  });
   $('calc-git-repos').addEventListener('change', (event) => {
     const i = event.target.dataset.gitRepo;
     if (i === undefined || !git.repos[Number(i)]) return;
@@ -1186,15 +1327,19 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   $('calc-git-repos').addEventListener('click', (event) => {
     const all = event.target.closest('[data-git-all]');
     if (!all && !event.target.closest('[data-git-none]')) return;
-    for (const r of git.repos) r.ticked = Boolean(all);
+    for (const row of $('calc-git-repos').querySelectorAll('label[data-git-row]')) {
+      const r = git.repos[Number(row.dataset.gitRow)];
+      if (!all) r.ticked = false;
+      else if (!row.classList.contains('calc-git-hidden')) r.ticked = true;
+    }
     renderRepos();
   });
 
-  /** The repositories ticked and pasted, each once. */
+  /** The repositories ticked (with what discovery said of them) and pasted, each once. */
   function wanted() {
-    const out = git.repos.filter((r) => r.ticked).map((r) => ({ url: r.url, branch: r.branch }));
+    const out = git.repos.filter((r) => r.ticked).map(({ source, url, fullName, id, org, project, branch, createdAt }) => ({ source, url, fullName, id, org, project, branch, createdAt }));
     for (const line of $('calc-git-paste').value.split(/\r?\n/)) if (line.trim()) out.push({ url: line.trim() });
-    return [...new Map(out.map((r) => [r.url.replace(/(\.git)?\/*$/i, '').toLowerCase(), r])).values()];
+    return [...new Map(out.map((r) => [cleanUrl(r.url), r])).values()];
   }
   function countLabel() {
     const n = wanted().length;
@@ -1207,7 +1352,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   $('calc-git-paste').addEventListener('input', countLabel);
   $('calc-git-count').addEventListener('click', () => {
     const items = wanted();
-    if (items.length > GIT_MAX) return setStatus('calc-git-status', `At most ${GIT_MAX} repositories a count: tick fewer, and count the rest after.`, 'error');
+    if (items.length > git.limit) return setStatus('calc-git-status', `At most ${num(git.limit)} repositories a run: tick fewer, and count the rest after.`, 'error');
     startCount(items);
   });
 
@@ -1216,24 +1361,24 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     way = 'git';
     showWay(way);
     const known = git.connections?.some((x) => x.id === p.git.connection);
-    startCount([{ url: p.git.url }], { projectId: p.id, connection: known ? p.git.connection : null });
+    startCount([{ url: p.git.url, ...(known ? { source: p.git.connection } : {}) }], { projectId: p.id, connection: known ? p.git.connection : null });
   }
 
-  /** Start a count, then follow it: each repository becomes a project of the customer open when it started. */
+  /** Start a run, then follow it: each repository becomes a project of the customer open when it started. */
   async function startCount(items, { projectId = null, connection = null } = {}) {
     if (!c.open || git.run || !items.length) return;
     let how;
     try {
-      how = connection ? { connection } : access();
+      how = connection ? { connections: [connection], token: null } : access();
     } catch (error) {
       return setStatus('calc-git-status', error.message, 'error');
     }
     setStatus('calc-git-status', 'Starting the count…', 'muted');
-    git.run = { id: null, customer: c.open.id, connection: how.connection ?? '', projectId, applied: new Set() };
+    git.run = { id: null, customer: c.open.id, projectId, applied: new Map(), rows: [], seq: 0, summary: null };
     countLabel();
     let job;
     try {
-      job = await api('/api/projections/git/count', { method: 'POST', body: JSON.stringify({ ...how, repositories: items }), quiet: true });
+      job = await api('/api/projections/git/count', { method: 'POST', body: JSON.stringify({ connections: how.connections, ...(how.token ? { token: how.token } : {}), engine: $('calc-git-engine').value, repositories: items }), quiet: true });
     } catch (error) {
       git.run = null;
       countLabel();
@@ -1245,14 +1390,27 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     followCount(job);
   }
 
+  /** A view of the run: only the repositories changed since the last one are in it, merged here. */
+  function mergeRun(job) {
+    const run = git.run;
+    if (!run) return;
+    for (const r of job.repositories ?? []) run.rows[r.i] = r;
+    run.seq = Math.max(run.seq, job.seq ?? 0);
+    run.summary = job.summary;
+    run.engine = job.engine;
+  }
+
   function followCount(job) {
-    renderProgress(job);
-    applyCounted(job);
-    if (job.state !== 'running') return finishCount(job);
+    mergeRun(job);
+    renderProgress();
+    applyCounted();
+    renderGitSummary();
+    if (job.state !== 'running') return finishCount();
     setTimeout(async () => {
+      if (!git.run) return;
       let next;
       try {
-        next = await api(`/api/projections/git/count?id=${encodeURIComponent(git.run.id)}`, { quiet: true });
+        next = await api(`/api/projections/git/count?id=${encodeURIComponent(git.run.id)}&after=${git.run.seq}`, { quiet: true });
       } catch (error) {
         git.run = null;
         countLabel();
@@ -1260,22 +1418,29 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         return;
       }
       followCount(next);
-    }, 1000);
+    }, 1200);
   }
 
-  /** Each repository counted: a project (the one of the same name, or the one counted again, is replaced). */
-  function applyCounted(job) {
+  /** Each repository measured: a project (the one of the same repository, or the one counted again, is replaced). */
+  function applyCounted() {
     const run = git.run;
     if (!run || !c.open || c.open.id !== run.customer) return;
     let added = 0;
-    for (const r of job.repositories) {
-      if (r.state !== 'done' || run.applied.has(r.url)) continue;
-      run.applied.add(r.url);
-      const langs = Object.fromEntries(Object.entries(r.languages ?? {}).map(([lang, v]) => [lang, v.code]));
-      const from = { host: r.host, path: r.path, url: r.url, branch: r.branch, commit: r.commit, countedAt: r.countedAt, connection: run.connection };
-      const same = run.projectId ? fnew().projects.find((p) => p.id === run.projectId) : fnew().projects.find((p) => String(p.name).toLowerCase() === String(r.name).toLowerCase());
-      if (same) Object.assign(same, { langs, file: '', git: from, locOverride: null });
-      else fnew().projects.push({ id: `new-${Date.now().toString(36)}-${run.applied.size}`, name: r.name, file: '', git: from, langs, locOverride: null, included: true, scansOverride: null, modelOverride: null });
+    for (const r of run.rows) {
+      if (!r || r.state !== 'done' || run.applied.has(r.url)) continue;
+      const made = upsertMeasured(
+        {
+          name: r.name,
+          path: r.path,
+          file: '',
+          langs: Object.fromEntries(Object.entries(r.languages ?? {}).map(([lang, v]) => [lang, v.code])),
+          locOverride: null,
+          git: { host: r.host, path: r.path, url: r.url, branch: r.branch, commit: r.commit, countedAt: r.countedAt, connection: r.source && r.source !== 'token' ? r.source : '' },
+          activity: { commits: r.commits, windowDays: r.windowDays, lastCommitAt: r.lastCommitAt, frequency: r.frequency, devs90: r.devs90, engine: r.engine },
+        },
+        { projectId: run.projectId, key: String(r.i) },
+      );
+      run.applied.set(r.url, made.id);
       added += 1;
     }
     if (added) {
@@ -1284,21 +1449,40 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
   }
 
-  function finishCount(job) {
+  function finishCount() {
     const run = git.run;
     git.run = null;
     countLabel();
-    const done = job.repositories.filter((r) => r.state === 'done').length;
-    const failed = job.repositories.length - done;
+    const rows = (run?.rows ?? []).filter(Boolean);
+    const done = rows.filter((r) => r.state === 'done').length;
+    const failed = rows.length - done;
     if (run && c.open?.id !== run.customer) return toast('The count ended while another customer was open: open that customer and count again.', 'warn', 9000);
     if (!failed) setStatus('calc-git-status', done === 1 ? 'Counted: it is a project below.' : `${num(done)} counted: each is a project below.`, 'ok');
     else setStatus('calc-git-status', `${num(done)} counted, ${num(failed)} not: each says why above.`, done ? 'warn' : 'error');
   }
 
-  /** One line a repository: waiting, fetching, counting n of m files, its lines and languages, or why not. */
-  function renderProgress(job) {
+  /** The run's figures: repositories measured, their code lines (the languages counted), developers (each once), Fusion scans. */
+  function renderGitSummary() {
+    const run = git.run;
+    const box = $('calc-git-summary');
+    if (!run?.summary || !c.open) return;
+    const ids = new Set(run.applied.values());
+    const rows = fnewEstimate().rows.filter((r) => ids.has(r.id));
+    const s = run.summary;
+    const fromRule = rows.filter((r) => r.scansFrom === 'frequency' || r.scansFrom === 'criticality').length;
+    box.hidden = false;
+    box.innerHTML = [
+      fnewKpi('Repositories', num(s.measured), esc(`of ${num(s.repositories)}${s.failed ? ` · ${num(s.failed)} not counted` : ''}`)),
+      fnewKpi('Lines of code', num(rows.reduce((n, r) => n + (r.lines ?? 0), 0)), esc(`${num(s.commits)} commits in the last ${num(365)} days`)),
+      fnewKpi('Developers', num(s.developers), esc(`Committed in the last ${num(s.developerDays ?? 90)} days, each once, bots left out`)),
+      fnewKpi('Fusion scans', num(rows.reduce((n, r) => n + (r.included && r.units ? r.scans : 0), 0)), esc(`Over ${num(fusion().periodMonths ?? 12)} months · ${num(fromRule)} by change frequency`), 'calc-gold'),
+    ].join('');
+  }
+
+  /** One line a repository: waiting, fetching, its commits, counting n of m files, what it found, or why not. */
+  function renderProgress() {
     const box = $('calc-git-progress');
-    const rows = job?.repositories ?? [];
+    const rows = (git.run?.rows ?? []).filter(Boolean);
     box.hidden = !rows.length;
     const out = new Set(fnew()?.leftOut ?? []);
     box.innerHTML = rows
@@ -1309,17 +1493,82 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         if (r.state === 'done') {
           const langs = Object.keys(r.languages ?? {}).filter((lang) => !out.has(lang));
           const lines = langs.reduce((n, lang) => n + r.languages[lang].code, 0);
-          state = `<span class="calc-git-state done">✓ ${esc(`${num(lines)} lines`)}${langs.length ? ` · <span translate="no">${esc(langs.slice(0, 3).join(', '))}</span>` : ''}</span>`;
+          const how = [`${num(r.commits)} commits`, FREQ_LABEL[r.frequency] ?? '', `${num(r.devs90)} developers`].filter(Boolean).join(' · ');
+          state = `<span class="calc-git-state done">✓ ${esc(`${num(lines)} lines`)}${langs.length ? ` · <span translate="no">${esc(langs.slice(0, 3).join(', '))}</span>` : ''} · ${esc(how)}</span>`;
         } else if (r.state === 'failed') state = `<span class="calc-git-state bad">✗ ${esc(r.error)}</span>`;
-        else if (r.state === 'counting') state = `<span class="calc-git-state">${esc(`Counting… ${num(r.done)} of ${num(r.total)} files`)}</span>`;
-        else if (r.state === 'fetching') state = '<span class="calc-git-state">Fetching the latest commit…</span>';
+        else if (r.state === 'counting') state = `<span class="calc-git-state">${esc(r.total ? `Counting… ${num(r.done)} of ${num(r.total)} files` : 'Counting…')}</span>`;
+        else if (r.state === 'files') state = `<span class="calc-git-state">${esc(git.run?.engine === 'api' ? 'Reading its archive…' : 'Fetching the files to count…')}</span>`;
+        else if (r.state === 'history') state = '<span class="calc-git-state">Reading its commits…</span>';
+        else if (r.state === 'clone' || r.state === 'fetching') state = '<span class="calc-git-state">Fetching the default branch…</span>';
         else state = '<span class="calc-git-state">Waiting</span>';
         return `<div class="calc-git-row"><span><span translate="no">${esc(where)}</span>${tag}</span>${state}</div>`;
       })
       .join('');
   }
 
-  /** The customer's cloc results: each file read here (nothing is sent anywhere but this customer's save). */
+  // ---- cloc-fusion: its one-file page to download, and its report to import --------------------------
+
+  $('calc-cf-download').addEventListener('click', async () => {
+    const button = $('calc-cf-download');
+    button.disabled = true;
+    try {
+      const page = await api('/api/projections/git/cloc-fusion', { quiet: true });
+      download(new Blob([page.html], { type: 'text/html' }), page.file || 'cloc-fusion.html');
+      $('calc-cf-sum').textContent = `cloc-fusion ${page.version} · SHA-256 ${page.sha256}`;
+    } catch (error) {
+      if (!handleAuthLoss(error)) toast(error.message, 'bad');
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  /** A cloc-fusion report's repositories as projects (read here: nothing is sent anywhere but this customer's save). */
+  function importClocFusion(textValue, fileName) {
+    const found = parseClocFusionReport(textValue, fileName, { models: fusion().models });
+    found.projects.forEach((p, i) => upsertMeasured({ ...p, path: p.fullName }, { key: `cf${i}` }));
+    return found;
+  }
+  async function readClocFusion(files) {
+    if (!c.open || !files.length) return;
+    const done = [];
+    const said = [];
+    let added = 0;
+    for (const file of files) {
+      try {
+        if (file.size > MAX_CLOC_FUSION_BYTES) throw new Error(t('{0} is over 64 MB.').replace('{0}', file.name));
+        const found = importClocFusion(await file.text(), file.name);
+        added += found.projects.length;
+        said.push(t('{0}: {1} repositories read (cloc-fusion {2}), {3} not measured there; developers in the last 90 days across it: {4}.').replace('{0}', file.name).replace('{1}', num(found.projects.length)).replace('{2}', found.version || '—').replace('{3}', num(found.skipped)).replace('{4}', num(found.developers)));
+        done.push(`<span translate="no">✓ ${esc(file.name)}</span>`);
+      } catch (error) {
+        const message = error.notReport ? t('{0} is not a cloc-fusion report: use cloc-fusion-report.json from cloc-fusion\'s output.').replace('{0}', file.name) : error.message;
+        done.push(`<span class="bad" title="${esc(message)}" translate="no">✗ ${esc(file.name)}</span>`);
+        toast(message, 'bad');
+      }
+    }
+    $('calc-cf-files').innerHTML = done.join('');
+    setStatus('calc-cf-status', said.join(' '), added ? 'ok' : '');
+    if (added) saveFnew();
+    renderFusionNew();
+  }
+  $('calc-cf-pick').addEventListener('click', () => $('calc-cf-file').click());
+  $('calc-cf-file').addEventListener('change', (event) => {
+    readClocFusion([...event.target.files]);
+    event.target.value = '';
+  });
+  const cfDrop = $('calc-cf-drop');
+  cfDrop.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    cfDrop.classList.add('drag');
+  });
+  cfDrop.addEventListener('dragleave', () => cfDrop.classList.remove('drag'));
+  cfDrop.addEventListener('drop', (event) => {
+    event.preventDefault();
+    cfDrop.classList.remove('drag');
+    readClocFusion([...(event.dataTransfer?.files ?? [])]);
+  });
+
+  /** The customer's cloc results: each file read here (nothing is sent anywhere but this customer's save). A cloc-fusion report dropped here is read as one. */
   const MAX_CLOC_BYTES = 50 * 1024 * 1024;
   async function readCloc(files) {
     if (!c.open || !files.length) return;
@@ -1327,19 +1576,21 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     let added = 0;
     for (const file of files) {
       try {
-        if (file.size > MAX_CLOC_BYTES) throw new Error(t('{0} is over 50 MB: run cloc without --by-file.').replace('{0}', file.name));
-        for (const found of parseCloc(await file.text(), file.name)) {
-          const same = fnew().projects.find((p) => String(p.name).toLowerCase() === String(found.name).toLowerCase());
-          if (same) {
-            Object.assign(same, { langs: found.langs, file: file.name, locOverride: null });
-            delete same.git;
+        if (file.size > MAX_CLOC_BYTES && !/\.json$/i.test(file.name)) throw new Error(t('{0} is over 50 MB: run cloc without --by-file.').replace('{0}', file.name));
+        if (file.size > MAX_CLOC_FUSION_BYTES) throw new Error(t('{0} is over 64 MB.').replace('{0}', file.name));
+        const content = await file.text();
+        if (/^\s*\{/.test(content) && /"tool"\s*:\s*"cloc-fusion"/.test(content.slice(0, 4096))) {
+          added += importClocFusion(content, file.name).projects.length;
+        } else {
+          if (file.size > MAX_CLOC_BYTES) throw new Error(t('{0} is over 50 MB: run cloc without --by-file.').replace('{0}', file.name));
+          for (const found of parseCloc(content, file.name)) {
+            upsertMeasured({ name: found.name, langs: found.langs, file: file.name, locOverride: null }, { key: String(added) });
+            added += 1;
           }
-          else fnew().projects.push({ id: `new-${Date.now().toString(36)}-${added}`, name: found.name, file: file.name, langs: found.langs, locOverride: null, included: true, scansOverride: null, modelOverride: null });
-          added += 1;
         }
         done.push(`<span translate="no">✓ ${esc(file.name)}</span>`);
       } catch (error) {
-        const message = error.notCloc ? t('{0} is not a cloc report: run cloc with --json or --csv.').replace('{0}', file.name) : error.message;
+        const message = error.notCloc ? t('{0} is not a cloc report: run cloc with --json or --csv.').replace('{0}', file.name) : error.notReport ? t('{0} is not a cloc-fusion report: use cloc-fusion-report.json from cloc-fusion\'s output.').replace('{0}', file.name) : error.message;
         done.push(`<span class="bad" title="${esc(message)}" translate="no">✗ ${esc(file.name)}</span>`);
         toast(message, 'bad');
       }
@@ -1826,10 +2077,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-fusion-new-on').checked = n.fusionNewOn;
     $('calc-extra').value = n.extraPercent || '';
     $('calc-bundle').value = n.bundleCredits;
-    // The bundle size is 10,000 for nearly every customer: its box shows only when changed, or asked for.
-    $('calc-bundle-size').textContent = `${num(n.bundleCredits)} credits each`;
-    if (Number(n.bundleCredits) !== BUNDLE_CREDITS) $('calc-bundle-item').hidden = false;
-    $('calc-bundle-change').hidden = !$('calc-bundle-item').hidden;
+    // The bundle size is 10,000 for nearly every customer: it waits behind the "?" on Bundles, marked when it is another.
+    $('calc-bundle-size').textContent = `Bundles of ${num(n.bundleCredits)} credits, rounded up to whole bundles.`;
+    $('calc-bundle-q').classList.toggle('calc-q-set', Number(n.bundleCredits) !== BUNDLE_CREDITS);
     renderHorizon();
     renderScope();
   }
@@ -1861,9 +2111,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     initiators: () => $('calc-scope-initiators'),
     frequencies: () => $('calc-scope-frequencies'),
     criticalities: () => $('calc-scope-criticalities'),
-    periodMonths: () => $('calc-horizon').closest('.calc-sum-item'),
-    extraPercent: () => $('calc-extra').closest('.calc-sum-item'),
-    bundleCredits: () => $('calc-bundle').closest('.calc-sum-item'),
+    periodMonths: () => $('calc-horizon'),
+    extraPercent: () => $('calc-extra'),
+    // Behind its "?": the "?" is marked, so a change waiting shows with the box closed.
+    bundleCredits: () => $('calc-bundle-q'),
   };
   /** The bar that lists what waits, with Undo and Apply. */
   function renderPending() {
@@ -2145,7 +2396,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const sum = creditSummary(c.trCredits, fusionTotal({ totals: { credits: c.fusionCredits } }, { totals: { credits: c.fusionNewCredits } }), totals());
     $('calc-sum-tr').textContent = num(sum.tr, 1);
     $('calc-sum-tr-split').textContent = c.trSplit ? `${num(c.trSplit.backlogCredits, 1)} backlog + ${num(c.trSplit.aheadCredits, 1)} ahead` : '';
-    // One Fusion tile, for the part that applies to this customer (ticked, with projects counted): both
+    // One Fusion figure, for the part that applies to this customer (ticked, with projects counted): both
     // added up when both do, with the split under it.
     const existing = c.fusionCredits !== null && c.fusionCredits !== undefined;
     const fresh = c.fusionNewCredits !== null && c.fusionNewCredits !== undefined;
@@ -2153,10 +2404,55 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-sum-fusion').textContent = existing || fresh ? num((c.fusionCredits ?? 0) + (c.fusionNewCredits ?? 0), 1) : fusionOff() && fnewOff() ? 'Left out' : '—';
     $('calc-sum-fusion-split').textContent = existing && fresh ? `${num(c.fusionCredits, 1)} existing + ${num(c.fusionNewCredits, 1)} new` : '';
     $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.total, 1);
-    $('calc-sum-extra').textContent = sum.extra ? `Includes ${num(sum.extra, 1)} extra` : '';
+    $('calc-sum-extra').textContent = num(sum.extra, 1);
+    $('calc-mix-extra').hidden = !(sum.extra > 0);
     $('calc-sum-bundles').textContent = sum.total ? num(sum.bundles) : '—';
     $('calc-sum-exact').textContent = sum.total && sum.bundles !== sum.exactBundles ? `${num(sum.exactBundles, 2)}, rounded up` : '';
+    renderMix(sum, existing ? c.fusionCredits : 0, fresh ? c.fusionNewCredits : 0, existing || fresh);
     renderImpact();
+  }
+
+  /**
+   * The strip's pictures: the bar of what the total is made of (each part's share is written by its
+   * figure too, so the bar itself is only a picture), and the bundles as cells, the last filled to what is used.
+   */
+  function renderMix(sum, fusionExisting, fusionNew, fusionCounts) {
+    const whole = sum.total > 0 ? sum.total : 0;
+    const parts = [['tr', sum.tr ?? 0], ['fx', fusionExisting ?? 0], ['fn', fusionNew ?? 0], ['extra', sum.extra]].filter(([, v]) => v > 0);
+    $('calc-mix-bar').replaceChildren(...(whole ? parts : []).map(([key, value]) => {
+      const seg = document.createElement('i');
+      seg.className = `calc-mix-seg calc-seg-${key}`;
+      seg.style.flexGrow = String(value / whole);
+      return seg;
+    }));
+    const share = (value) => {
+      if (!whole || !(value > 0)) return '';
+      const p = (value / whole) * 100;
+      return p < 1 ? '<1%' : `${Math.round(p)}%`;
+    };
+    $('calc-mix-tr-pct').textContent = share(sum.tr);
+    $('calc-mix-fusion-pct').textContent = share((fusionExisting ?? 0) + (fusionNew ?? 0));
+    $('calc-mix-extra-pct').textContent = share(sum.extra);
+    // Fusion's swatch: its part's colour, both colours when both count, grey when it does not count.
+    const key = $('calc-mix-fusion');
+    key.classList.toggle('calc-mix-both', fusionExisting > 0 && fusionNew > 0);
+    key.classList.toggle('calc-mix-new-only', !(fusionExisting > 0) && fusionNew > 0);
+    key.classList.toggle('calc-mix-off', !fusionCounts);
+    $('calc-mix-tr').classList.toggle('calc-mix-off', sum.tr === null);
+    // One cell a bundle while they fit; none past 60 (the figure says it).
+    const n = whole ? sum.bundles : 0;
+    const cells = $('calc-bundle-cells');
+    cells.hidden = !n || n > 60;
+    cells.classList.toggle('calc-cells-many', n > 12);
+    cells.replaceChildren(...(cells.hidden ? [] : Array.from({ length: n }, (_, i) => {
+      const cell = document.createElement('i');
+      const used = sum.exactBundles - (n - 1);
+      if (i === n - 1 && used < 0.995) {
+        cell.className = 'calc-cell-part';
+        cell.style.setProperty('--fill', `${Math.max(6, Math.round(used * 100))}%`);
+      }
+      return cell;
+    })));
   }
 
   // --- Impact: what the triage & remediation credits give back ---------------------------------
@@ -2284,10 +2580,21 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   // The extra % and the credits per bundle wait for Apply too.
   $('calc-extra').addEventListener('input', (event) => c.open && setNext({ extraPercent: event.target.value }, { redraw: false }));
-  $('calc-bundle-change').addEventListener('click', () => {
-    $('calc-bundle-item').hidden = false;
-    $('calc-bundle-change').hidden = true;
-    $('calc-bundle').focus();
+  // The credits per bundle, behind the "?" on Bundles: opens under it, closes with the "?", Escape or a click elsewhere.
+  const bundlePop = (open) => {
+    $('calc-bundle-item').hidden = !open;
+    $('calc-bundle-q').setAttribute('aria-expanded', String(open));
+    if (open) $('calc-bundle').focus();
+  };
+  $('calc-bundle-q').addEventListener('click', () => bundlePop($('calc-bundle-item').hidden));
+  $('calc-bundle-item').addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' && event.key !== 'Enter') return;
+    event.preventDefault();
+    bundlePop(false);
+    $('calc-bundle-q').focus();
+  });
+  document.addEventListener('click', (event) => {
+    if (!$('calc-bundle-item').hidden && !event.target.closest('#calc-bundle-item, #calc-bundle-q')) bundlePop(false);
   });
   $('calc-bundle').addEventListener('input', (event) => c.open && setNext({ bundleCredits: event.target.value }, { redraw: false }));
   $('calc-extra').addEventListener('change', (event) => (event.target.value = next().extraPercent || ''));
@@ -2364,17 +2671,20 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
             rows: est.rows.map((r) => ({ name: r.name, included: r.included, criticality: r.criticality, frequency: r.frequency, scansPerWeek: r.scansPerWeek, lines: r.lines, units: r.units, scans: r.scans, scansFrom: r.scansFrom, model: r.model, credits: r.credits })),
           }
         : null,
-      // Fusion for the customer's new code (not in Checkmarx One yet), its lines counted with cloc.
+      // Fusion for the customer's new code (not in Checkmarx One yet): its lines counted from git (cloc-fusion's
+      // engine, with how often each repository changes), read from a cloc-fusion report, or counted with cloc.
       fusionNew: fnCounted
         ? {
             periodMonths: fn.settings.periodMonths,
             defaultScans: fn.settings.defaultScans,
             defaultModel: fn.settings.defaultModel,
             models: fn.settings.models,
+            rules: fn.settings.byFrequency,
             leftOut: fn.settings.leftOut,
             byModel: fn.byModel,
+            byFrequency: fn.byFrequency,
             totals: fn.totals,
-            rows: fn.rows.map((r) => ({ name: r.name, file: r.file, included: r.included, lines: r.lines, units: r.units, scans: r.scans, scansFrom: r.scansFrom, model: r.model, credits: r.credits, languages: r.languages.filter((l) => l.counted && l.lines > 0).slice(0, 6) })),
+            rows: fn.rows.map((r) => ({ name: r.name, file: r.file, included: r.included, lines: r.lines, units: r.units, frequency: r.frequency, commits: r.commits, windowDays: r.activity?.windowDays ?? null, devs90: r.devs90, criticality: r.criticality, scans: r.scans, scansFrom: r.scansFrom, model: r.model, credits: r.credits, languages: r.languages.filter((l) => l.counted && l.lines > 0).slice(0, 6) })),
           }
         : null,
     };

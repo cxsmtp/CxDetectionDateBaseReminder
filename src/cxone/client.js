@@ -81,9 +81,11 @@ export class CxClient {
     try {
       const token = await this.#tokens.getToken();
       const claims = JSON.parse(Buffer.from(String(token).split('.')[1] ?? '', 'base64url').toString('utf8'));
+      // An email Checkmarx One says it has not verified is anyone's to type: it never identifies a person here.
+      const email = claims.email_verified === false ? '' : claims.email || '';
       return {
-        user: claims.preferred_username || claims.email || claims.name || claims.sub || '',
-        email: claims.email || '',
+        user: claims.preferred_username || email || claims.name || claims.sub || '',
+        email,
         name: claims.name || [claims.given_name, claims.family_name].filter(Boolean).join(' '),
         clientId: claims.azp || '',
       };
