@@ -40,7 +40,10 @@ const raw = (method, url, { host, headers = {}, body } = {}) =>
 
 let token = '';
 const call = async (method, p, body) => {
-  const r = await fetch(`http://127.0.0.1:${PORT}${p}`, { method, headers: { 'Content-Type': 'application/json', 'X-Calculator-Token': token }, body: body ? JSON.stringify(body) : undefined });
+  // A failed connection says why (refused, reset, timed out), and what the launcher last logged.
+  const r = await fetch(`http://127.0.0.1:${PORT}${p}`, { method, headers: { 'Content-Type': 'application/json', 'X-Calculator-Token': token }, body: body ? JSON.stringify(body) : undefined }).catch((error) => {
+    throw new Error(`${method} ${p}: ${error.message} (${error.cause?.code ?? error.cause?.message ?? 'no cause'}); launcher said: ${log.slice(-400)}`);
+  });
   return { status: r.status, body: await r.json() };
 };
 

@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { analyse, creditSummary, fusionEstimate, fusionImpact, overallImpact, planForecast, seriesRows, trImpact, trProjection } from '../public/calculator/model.js';
-import { numberContents, pdfFromJpegs, slideContent, slidesFileName } from '../public/calculator/slides.js';
+import { numberContents, pdfFromJpegs, slideContent, slidesFileName, slidesTitle } from '../public/calculator/slides.js';
 import { buildReport } from '../public/calculator/report.js';
 
 const totals = { weeks: ['2026-01-03', '2026-02-07', '2026-03-07', '2026-04-04'], bySeverity: { Critical: [10, 12, 14, 16], High: [100, 110, 120, 130], Medium: [5, 5, 5, 5], Low: [1, 1, 1, 1] } };
@@ -86,6 +86,10 @@ test('triage & remediation not in the projection says so on its page; Fusion not
   assert.ok(!s.pages.some((p) => p.kind === 'fusion'), 'no Fusion page');
   assert.equal(s.pages[1].kind, 'total');
   assert.equal(s.pages[1].lines.at(-1), 'Fusion (fr)');
+  // Two pages only: the PDF's title is still the total page's (it used to read a third page that is not there).
+  assert.equal(s.pages.length, 2);
+  assert.equal(slidesTitle(s), `${s.customer}: ${s.pages[1].title}`);
+  assert.equal(slidesTitle(slideContent(reportData({}))), `${s.customer}: Total credits required`);
   assert.equal(s.pages[0].figures[0].value, (152).toLocaleString('fr'));
   // Fusion with projects but no credits (no model rate) counts as not in it, too.
   const noRate = reportData({});
