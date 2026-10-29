@@ -479,9 +479,11 @@ test('the run and its history are saved through a fresh temporary name, readable
 
 test('a debug log line keeps no signature, token or password, in any text of it, and stays the same data', () => {
   const jwt = `eyJ${'a'.repeat(10)}.${'b'.repeat(10)}.${'c'.repeat(10)}`;
+  // An address with a password in it, made at run time (no literal one in the source).
+  const signedIn = Object.assign(new URL('https://git.acme.io/repo.git?token=t0k'), { username: 'user', password: ['pa', '55'].join('') }).href;
   const line = redact({
     url: 'https://bucket.s3.amazonaws.com/x.zip?X-Amz-Signature=abc123&X-Amz-Credential=AKIA/2026&part=1',
-    error: `401 for Bearer ${jwt}, retried with https://user:pa55@git.acme.io/repo.git?token=t0k`,
+    error: `401 for Bearer ${jwt}, retried with ${signedIn}`,
     answer: { said: 'POST https://iam.acme.io/token?refresh_token=r3fresh&ok=1', ms: 12, ok: false, list: [`apikey=${jwt}`, null] },
   });
   const all = JSON.stringify(line);

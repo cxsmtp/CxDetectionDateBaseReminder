@@ -545,7 +545,12 @@ export async function drawSlides(data, { t, lang = 'en', dir = 'ltr', look, calc
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
     pages.push({ bytes: new Uint8Array(await blob.arrayBuffer()), width: W, height: H });
   }
-  return { pages, title: content.heading(content.pages[2]) };
+  return { pages, title: slidesTitle(content) };
+}
+
+/** The PDF's title: the total page's heading. Its place moves (no Fusion page when Fusion is not counted, no Impact page without it). */
+export function slidesTitle(content) {
+  return content.heading(content.pages.find((p) => p.kind === 'total') ?? content.pages[0]);
 }
 
 /** The projection summary as a PDF Blob. */
