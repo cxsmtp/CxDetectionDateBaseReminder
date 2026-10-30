@@ -239,7 +239,7 @@ const STANDALONE_CSS = `
 `;
 
 // The script a projection report made with its levers carries (public/calculator/report-live.js and what it imports).
-const REPORT_RUNTIME = ['engines.js', 'look.js', 'calculator/model.js', 'calculator/charts.js', 'calculator/explain.js', 'calculator/report.js', 'calculator/levers.js', 'calculator/report-live.js'];
+const REPORT_RUNTIME = ['engines.js', 'look.js', 'calculator/model.js', 'calculator/charts.js', 'calculator/explain.js', 'calculator/report.js', 'calculator/slides.js', 'calculator/levers.js', 'calculator/report-live.js'];
 
 /**
  * That script, as written into the report, and the CSP source that allows it alone: the calculator asks for it

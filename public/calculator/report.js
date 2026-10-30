@@ -391,7 +391,7 @@ function fusionAppendix(f, L, edit = false) {
   ${left}
   <h3>${w('Models')}</h3>
   ${table(`<thead><tr><th>${w('Model')}</th><th>${w('Credits per 10K LOC')}</th><th>${w('Projects')}</th><th>${w('10K units × scans')}</th><th>${w('Credits')}</th></tr></thead><tbody>
-    ${f.byModel.map((m) => `<tr><td class="name">${esc(m.name || '—')}</td><td>${edit ? box(`rate.${m.id}`, m.rate, w('Credits per 10K LOC for {0}', esc(m.name || '—'))) : m.rate === null ? '—' : num(m.rate, 2)}</td><td>${num(m.projects)}</td><td>${num(m.unitScans)}</td><td>${num(m.credits, 1)}</td></tr>`).join('') || `<tr><td colspan="5">${w('No model set.')}</td></tr>`}
+    ${f.byModel.map((m) => `<tr><td class="name">${esc(m.name || '—')}</td><td>${edit ? box(`rate.${m.id}`, m.rate, w('Credits per 10K LOC for {0}', esc(m.name || '—')), L.t('Not set')) : m.rate === null ? '—' : num(m.rate, 2)}</td><td>${num(m.projects)}</td><td>${num(m.unitScans)}</td><td>${num(m.credits, 1)}</td></tr>`).join('') || `<tr><td colspan="5">${w('No model set.')}</td></tr>`}
   </tbody>`)}
   <h3>${w('By scan frequency')}</h3>
   ${table(`<thead><tr><th>${w('Scanned today')}</th><th>${w('Projects')}</th><th>${w('Fusion scans per project')}</th><th>${w('Model')}</th><th>${w('10K units')}</th><th>${w('Credits')}</th></tr></thead><tbody>
@@ -531,7 +531,7 @@ footer{color:var(--muted);font-size:12px;max-width:1000px;margin:0 auto;padding:
 .lv-note{margin:0 0 8px;padding:10px 12px;border-radius:8px;background:var(--soft);border:1px solid var(--soft-line);font-size:13px}
 .lv-on .scroll .lv-num{width:76px}
 .lv-pill{position:fixed;inset-inline-end:16px;bottom:16px;margin:0;padding:8px 14px;border-radius:999px;background:var(--head1);color:#fff;font-size:13px;box-shadow:0 6px 20px rgb(0 0 0 / .18);z-index:5} .lv-pill span{opacity:.75}
-.lv-panel-seen .lv-pill{display:none}
+.lv-panel-seen .lv-pill{display:none} .lv-pdf-opt{margin-top:6px;font-size:12.5px}
 @media (max-width:600px){.lv-total{justify-items:start;text-align:start} .lv-acts{justify-content:flex-start} .lv-sev thead{display:none} .lv-sev tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--row)} .lv-sev tr>*{border:0;padding:0} .lv-sev th[scope=row]{grid-column:1/-1}
   .lv-sev td::before{content:attr(data-label);display:block;font-size:11px;color:var(--muted)} .lv-sev td:nth-child(2),.lv-sev td:nth-child(3){grid-column:1/-1} .lv-slide{display:flex} .lv-slide input{flex:1;width:auto}}
 @media print{.levers,.lv-pill{display:none} .lv-num,.lv-pick{border:0;padding:0;background:none;appearance:none;-webkit-appearance:none;width:auto}}
@@ -637,7 +637,8 @@ function leversPanel(data, live, L) {
   <div class="lv-head">
     <div><h2 id="levers-h">${w('Try other numbers')}</h2><p class="sub">${w('Move any lever and every figure in this report follows. Nothing is sent anywhere and no Checkmarx One connection is needed: the changes stay in this file until you download your version.')}</p></div>
     <div class="lv-total" aria-live="polite"><span class="lv-eyebrow">${w('Your version')}</span><b data-out="total">${num(sum.total)}</b><span data-out="bundles">${w('credits · {0} bundles of {1}', num(sum.bundles), num(sum.settings.bundleCredits))}</span><span class="lv-was" data-out="was">${w('As sent: {0} credits', num(sent))}</span>
-      <span class="lv-acts"><button type="button" data-act="reset"${changed ? '' : ' disabled'}>${w('Back to the plan as sent')}</button><button type="button" class="lv-primary" data-act="download">${w('Download my version')}</button></span></div>
+      <span class="lv-acts"><button type="button" data-act="reset"${changed ? '' : ' disabled'}>${w('Back to the plan as sent')}</button><button type="button" data-act="pdf">${w('Download PDF')}</button><button type="button" class="lv-primary" data-act="download">${w('Download my version')}</button></span>
+      <label class="lv-check lv-pdf-opt"><input type="checkbox" data-pdf-calculations> ${w('Include the calculations in the PDF')}</label></div>
   </div>
   <div class="lv-grid">
     ${tr && plan ? `<fieldset class="lv-card lv-wide"><legend>${w('Triage & remediation, by severity')}</legend>

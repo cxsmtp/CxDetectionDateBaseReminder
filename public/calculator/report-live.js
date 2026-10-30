@@ -5,6 +5,7 @@
 // "Download my version" saves the report as it now stands, with the plan as sent kept to go back to.
 
 import { buildReport, reportFileName, reportMain } from './report.js';
+import { slidesFileName, slidesPdf } from './slides.js';
 import { changePeriod, leverData } from './levers.js';
 import { amount, wholeNumber } from './model.js';
 
@@ -98,18 +99,29 @@ function start() {
     if (act === 'reset') {
       inputs = clone(state.sentInputs);
       render({ panel: true });
+    } else if (act === 'pdf') {
+      // The calculator's own PDF summary, of the report as it now stands.
+      const button = event.target.closest('[data-act]');
+      button.disabled = true;
+      const data = leverData(state.base, inputs);
+      slidesPdf(data, { ...view, calculations: Boolean(main.querySelector('[data-pdf-calculations]')?.checked) })
+        .then((pdf) => save(pdf, slidesFileName(data.customer, new Date())))
+        .finally(() => { button.disabled = false; });
     } else if (act === 'download') {
       const data = leverData(state.base, inputs);
       const html = buildReport(data, { ...view, live: live() });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-      a.download = reportFileName(data.customer, new Date()).replace(/\.html$/, '_my-version.html');
-      document.body.append(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      save(new Blob([html], { type: 'text/html' }), reportFileName(data.customer, new Date()).replace(/\.html$/, '_my-version.html'));
     }
   });
+  const save = (blob, name) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  };
 }
 
 if (typeof document !== 'undefined') start();
