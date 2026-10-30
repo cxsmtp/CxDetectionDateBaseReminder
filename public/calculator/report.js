@@ -683,6 +683,9 @@ ${calculations(data, L)}
 ${provenance(data, L)}`;
 }
 
+/** A report with its levers runs that one script, by its hash, and reaches nothing: no connection, no form, no other script. */
+export const liveCspMeta = (hash) => `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${hash}; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">`;
+
 /** The figures and levers the runtime reads, as JSON that cannot end its <script> element. */
 const liveJson = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
 
@@ -699,7 +702,7 @@ export function buildReport(raw, { t, lang = 'en', dir = 'ltr', look, live = nul
   const customer = esc(data.customer || L.t('Customer'));
   const made = esc(new Date(data.generatedAt).toLocaleString(L.locale));
   return `<!doctype html>
-<html lang="${esc(lang)}" dir="${dir === 'rtl' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${live ? `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${live.runtime.hash}; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">` : ''}<title>${w('{0}: Checkmarx credits projection', customer)}</title>
+<html lang="${esc(lang)}" dir="${dir === 'rtl' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${live ? liveCspMeta(live.runtime.hash) : ''}<title>${w('{0}: Checkmarx credits projection', customer)}</title>
 <style>${STYLE}${ui === 'nextgen' ? nextgenStyle(accent) + lookStyle(lookName, accent) : ''}</style></head>
 <body>
 <header>
