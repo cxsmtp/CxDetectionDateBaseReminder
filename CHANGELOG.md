@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.07 | 446/s, 192 (connection failures on the host; main 435, 303) | 17.5 s | 3.2 s | 1028 | 0 vulnerabilities (qs 6.16.2) | Scan 94579243 of the branch: 71 open (1 / 32 / 22 / 15, 1 info), none new; the SCA result fixed (qs 6.16.2), the other 70 judged not exploitable before ([review](docs/security/mz-01.01.07-review.md)); the final code's rescan still queued at merge |
 | MZ-01.01.06 | — (browser code only) | — | — | 1022 | 0 vulnerabilities | Scan 3ce920fc of MZ-01.01.05's final code: 72 open (1 / 33 / 22 / 15, 1 info); 10 new checked: 1 fixed, 9 not exploitable ([review](docs/security/mz-01.01.05-review.md#the-scan-of-the-final-code-reviewed-in-mz-010106)) |
 | MZ-01.01.05 | 459/s, 89 with the release first (432–467 over four pairs; main 427–470, 454 and 171 in the control) | 15.7 s | 2.1 s | 1022 | 0 vulnerabilities | Scan 61a87e72 (with the AI engines): 73 open (5 / 29 / 26 / 12, 1 info); 20 new checked: 3 fixed, 3 hardened, the rest not exploitable ([review](docs/security/mz-01.01.05-review.md)); the final code's scan still queued at merge |
 | MZ-01.01.04 | 447/s, 200 (connection resets and timeouts on the host; main 426–460, 111–313) | 28.8 s | 2.2 s | 1006 | 0 vulnerabilities | Rescan ea771546: 69 open (1 / 32 / 21 / 14, 1 info), down from 76; 14 new checked: none exploitable, 4 hardened, 7 gone ([review](docs/security/mz-01.01.04-review.md)) |
@@ -92,6 +93,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.07 — 2026-10-30 13:00 UTC · [#130](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/130)
+
+- **Try other numbers in the report.** A projection report from the Cx Credits Calculator now has levers the customer can move in the file itself, with no connection to Checkmarx One: per severity the backlog to include, the false positives and the credits to triage and remediate one finding; the findings still to come, how much they fall with AI and more found by Fusion; the projection period, extra % and credits per bundle. Every figure, chart and table follows.
+- **Fusion tables the customer can change.** In the report's appendix, each model's credits per 10K LOC (as set in the calculator before generating; a model without one shows *Not set*) and the Fusion scans and model by scan frequency, and for each project when the details are included, are boxes the customer changes.
+- **Their version, and its PDF.** **Your version** shows the new total beside the total as sent; **Back to the plan as sent** undoes it all, **Download my version** saves the report with the changes, and **Download PDF** makes the calculator's PDF summary of it, in the browser.
+- **Include project names and details.** Beside **Generate projection report**, ticked by default. Unticked, no project is named anywhere in the report, the figures it carries or its PDF; the Fusion appendix says how many projects are scanned more than 5 times a week and the scans chosen for them, and the plan by scan frequency stays for the customer to change.
+- **Safe to send.** The report runs one script, allowed by its hash alone, and reaches nothing; the server emails a report with its levers only when that script is its own to the byte. qs is 6.16.2 (CVE-2026-110910, not reachable here).
+- **Status.** 1,028 tests pass and `npm audit --omit=dev` finds nothing. Benchmark: 446 requests a second with 192 failed, against main's 435 with 303, on routes the release does not change; report opens 17.5 s at p95 (main 19.8 s), triage polls 3.2 s (main 2.7 s, within main's own spread). Scan 94579243 of the branch (bad646e), SAST, SCA, KICS, containers, secrets and API security: 71 open (1 critical, 32 high, 22 medium, 15 low, 1 info), none new. The SCA result is fixed (qs 6.16.2, CVE-2026-110910); the other 70 (69 SAST, 1 KICS) were judged not exploitable before and wait for an administrator with SAST triage rights to mark them ([review](docs/security/mz-01.01.07-review.md)). The final code's rescan 9477a871 (cad438d) was still queued in Checkmarx One at merge, at the owner's call; it is reviewed with the next release.
 
 ## MZ-01.01.06 — 2026-10-29 11:59 UTC · [#129](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/129)
 
