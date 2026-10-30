@@ -333,7 +333,7 @@ How it is measured, and what is open and why: [Performance and security status](
 | [Performance and sizing](docs/performance.md) | The 3000-user benchmark and the recommended server size. |
 | [Performance and security status](docs/status.md) | Every version's benchmark, tests, dependency audit and Checkmarx One scan result. |
 | [Audit log and backups](docs/audit-and-backup.md) | The tamper-evident audit log, backups, restore, moving servers. |
-| [Cx Credits Calculator](docs/credit-projections.md) | A customer's credits for triage and remediation of their backlog and the findings still to come, and for Fusion scans; scope, an extra % and bundles, one-click projection reports and email; a permission an Admin gives to roles. |
+| [Cx Credits Calculator](docs/credit-projections.md) | A customer's credits for triage and remediation of their backlog and the findings still to come, and for Fusion scans; scope, an extra % and bundles, one-click projection reports with levers the customer moves (and their PDF), with or without project names, and email; a permission an Admin gives to roles. |
 | [Languages](docs/languages.md) | The fifteen languages, in the app and the interactive report, right-to-left Arabic and Hebrew, and how translations are kept current and reviewed. |
 | [Several tenants](docs/multi-tenant.md) | One server for several Checkmarx One tenants, each with its own connection, settings, credits, reports, audit log and people; a Super Admin manages them (with an activation code). |
 | [When a connection does not work](docs/troubleshooting.md) | Every email server, Checkmarx One, git host and .env file problem MissionZero recognises, and the steps that fix each one. |
