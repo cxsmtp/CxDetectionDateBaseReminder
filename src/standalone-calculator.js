@@ -238,6 +238,24 @@ const STANDALONE_CSS = `
 @media (max-width: 640px) { .shell.standalone .sa-names .field { min-width: 0; flex: 1 1 140px; } }
 `;
 
+// The script a projection report made with its levers carries (public/calculator/report-live.js and what it imports).
+const REPORT_RUNTIME = ['engines.js', 'look.js', 'calculator/model.js', 'calculator/charts.js', 'calculator/explain.js', 'calculator/report.js', 'calculator/levers.js', 'calculator/report-live.js'];
+
+/**
+ * That script, as written into the report, and the CSP source that allows it alone: the calculator asks for it
+ * when it makes a report (GET /calculator/report-live, and the standalone files carry it). Built once per start.
+ */
+export function reportRuntime({ root = PUBLIC } = {}) {
+  const key = `runtime\u0000${root}`;
+  if (cache.has(key)) return cache.get(key);
+  const index = new Map(REPORT_RUNTIME.map((file, i) => [file, i]));
+  const bundle = REPORT_RUNTIME.map((file) => wrapModule(file, fs.readFileSync(path.join(root, file), 'utf8'), index)).join('\n\n');
+  const text = `\n${scriptText(`(() => {\n'use strict';\nconst __m = [];\n${bundle}\n})();`)}\n`;
+  const runtime = { text, hash: contentHash(text) };
+  cache.set(key, runtime);
+  return runtime;
+}
+
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
 
 /** The files a module needs, itself first, following its relative imports and re-exports. */
