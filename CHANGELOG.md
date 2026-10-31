@@ -94,7 +94,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.01.07 — 2026-10-30 13:00 UTC · [#130](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/130)
+## MZ-01.01.07 — 2026-10-31 07:05 UTC · [#130](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/130)
 
 - **Try other numbers in the report.** A projection report from the Cx Credits Calculator now has levers the customer can move in the file itself, with no connection to Checkmarx One: per severity the backlog to include, the false positives and the credits to triage and remediate one finding; the findings still to come, how much they fall with AI and more found by Fusion; the projection period, extra % and credits per bundle. Every figure, chart and table follows.
 - **Fusion tables the customer can change.** In the report's appendix, each model's credits per 10K LOC (as set in the calculator before generating; a model without one shows *Not set*) and the Fusion scans and model by scan frequency, and for each project when the details are included, are boxes the customer changes.
