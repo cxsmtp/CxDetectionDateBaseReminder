@@ -13,3 +13,6 @@ data/
 # Private keys (the activation issuer key, certificates): never committed.
 *.pem
 *.key
+*.cram
+*.p12
+*.pfx
