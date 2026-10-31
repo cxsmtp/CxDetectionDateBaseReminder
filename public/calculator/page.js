@@ -47,6 +47,7 @@ import {
 } from './model.js';
 import { SEVERITY_COLOURS, debtFixChart, forecastChart, severityCharts } from './charts.js';
 import { buildReport, reportFileName, wording } from './report.js';
+import { leverData, leverInputs, recentRates } from './levers.js';
 import { slidesFileName, slidesPdf } from './slides.js';
 import { allSections, fusionImpactSections, impactSections, sectionHtml } from './explain.js';
 import { cleanFusionNew } from './profiles.js';
@@ -86,7 +87,28 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   // The report is written in the language the page is in.
   // The report generated last, for its PDF summary (only while its customer is open).
   let lastMade = null;
-  const reportHtml = (data, generatedAt) => buildReport({ ...data, generatedAt }, { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr', look: appLook() });
+  // The script a report carries for its levers (report-live.js, bundled): in the standalone files, kept in
+  // the page; on the server, asked for once. Without it (or for a report made before the levers) the report has none.
+  let runtime = null;
+  const runtimeReady = () => {
+    runtime ??= (async () => {
+      const kept = document.getElementById('cx-report-runtime');
+      return kept ? JSON.parse(kept.textContent) : api('/api/projections/report-runtime', { quiet: true });
+    })().catch(() => (runtime = null));
+    return runtime;
+  };
+  /** The report's own phrases in the page's language: those translated, for its script to write them again. */
+  const reportWords = (phrases = []) => (currentLanguage() === 'en' ? {} : Object.fromEntries(phrases.map((p) => [p, t(p)]).filter(([en, out]) => out && out !== en)));
+  /** The report's file, in the page's language: with its levers when its data keeps them. */
+  const reportHtml = async (data, generatedAt) => {
+    const view = { t, lang: currentLanguage(), dir: RTL.has(currentLanguage()) ? 'rtl' : 'ltr', look: appLook() };
+    const script = data.levers ? await runtimeReady() : null;
+    if (!script) return buildReport({ ...data, generatedAt }, view);
+    const { levers, summary, tr, fusion, ...rest } = data;
+    const base = { ...rest, generatedAt, tr: null, fusion: null, impact: data.impact ? true : null };
+    const now = leverData(base, levers);
+    return buildReport(now, { ...view, live: { inputs: levers, sentInputs: levers, sentTotal: creditSummary(now.tr?.totals?.credits ?? null, fusionTotal(now.fusion, now.fusionNew), now.summary?.settings).total, base, words: reportWords(script.phrases), runtime: { text: script.text, hash: script.hash } } });
+  };
   const savedAt = (iso) => `<time datetime="${esc(iso)}" translate="no">${esc(new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time>`;
 
   // ---- Customers ----------------------------------------------------------------------------
@@ -312,6 +334,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const projection = trProjection(analysis, tr(), { months: horizon(), fusion: fusionOn(), sast });
     return {
       analysis,
+      sast,
       // The debt and fixing rates over the last 6 months, for the report, whatever the trend is averaged over.
       recent: analyse(totalRows, fixedRows, 6),
       projection,
@@ -604,34 +627,6 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   });
 
   /** What the report keeps of the analysis for one severity (or the total). */
-  const debtFigures = (x) => ({ current: x.current, prior: x.prior, fixed: x.fixed, arrivals: x.arrivals, debtRate: x.debtRate, fixRate: x.fixRate, fixedMonthly: x.fixedMonthly, netMonthly: x.netMonthly, addedPct: x.addedPct, fixedPct: x.fixedPct });
-
-  /** The triage & remediation figures as the report keeps them: what explains every number too. */
-  const trData = (t) => ({
-    asOf: t.analysis.latestDate,
-    previousDate: t.analysis.previousDate,
-    lookbackMonths: t.analysis.lookbackMonths,
-    months: t.projection.months,
-    paced: t.projection.paced,
-    fusion: t.projection.fusion,
-    sastOnly: t.projection.sastOnly,
-    ahead: t.projection.ahead,
-    rows: t.projection.rows,
-    totals: t.projection.totals,
-    analysis: {
-      ...Object.fromEntries(SEVERITIES.map((s) => [s, debtFigures(t.analysis.perSeverity[s])])),
-      total: debtFigures(t.analysis.total),
-      spanMonths: t.analysis.spanMonths,
-    },
-    recent: t.recent ? {
-      months: 6,
-      spanMonths: t.recent.spanMonths,
-      ...Object.fromEntries([...SEVERITIES, 'total'].map((s) => {
-        const x = s === 'total' ? t.recent.total : t.recent.perSeverity[s];
-        return [s, { arrivals: x.arrivals, fixedMonthly: x.fixedMonthly, addedPct: x.addedPct, fixedPct: x.fixedPct }];
-      })),
-    } : null,
-  });
 
   /** How far along its track a slider's thumb is, for the filled part (0 is at the very start). */
   const fill = (value, max) => (max > 0 ? Math.round((Math.min(value, max) / max) * 1000) / 10 : 0);
@@ -2600,7 +2595,11 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   $('calc-extra').addEventListener('change', (event) => (event.target.value = next().extraPercent || ''));
   $('calc-bundle').addEventListener('change', (event) => (event.target.value = next().bundleCredits));
 
-  /** Everything a report shows, as figures: what the server keeps, and the file is built from. */
+  /**
+   * Everything a report shows, as figures: what the server keeps, and the file is built from. The figures
+   * that move are worked out from its levers (levers.js), as the report's own script works them out again
+   * when the customer changes one. Without project details nothing in it names a project.
+   */
   function reportData() {
     const t = trFigures();
     const est = estimate();
@@ -2608,17 +2607,29 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const fn = fnewEstimate();
     const fnCounted = fnewCounts(fn);
     const who = me()?.user;
-    const summary = creditSummary(t ? t.projection.totals.credits : null, fusionTotal(fusionCounted ? est : null, fnCounted ? fn : null), totals());
     const meta = tr()?.totals?.meta ?? {};
     const sc = scope();
-    return {
+    const details = $('calc-details')?.checked !== false;
+    const levers = leverInputs({
+      analysis: t?.analysis ?? null,
+      sast: t?.sast ?? null,
+      plan: tr() ?? {},
+      months: horizon(),
+      fusionOn: fusionOn(),
+      recent: recentRates(t?.recent),
+      weekly: t?.weekly ?? null,
+      fusion: fusionCounted ? { settings: est.settings, projects: scoped(), remainingCredits: c.remainingCredits } : null,
+      fusionNewRows: fnCounted ? fn.rows : null,
+      totals: totals(),
+      impact: impactOn() ? impact() : null,
+      details,
+    });
+    const base = {
       version: 2,
-      summary,
       organisation: me()?.organisationName ?? '',
       customer: c.open.name,
       preparedBy: who?.name || who?.email || '',
       generatedAt: new Date().toISOString(),
-      months: horizon(),
       source: {
         kind: meta.source === 'cxone' ? 'cxone' : t ? 'upload' : fusion().readAt ? 'cxone' : 'manual',
         readAt: meta.readAt ?? fusion().readAt ?? null,
@@ -2632,7 +2643,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         // Read from Checkmarx One: one branch per project, or every branch; and the projects left out as having nothing to analyse.
         ...(meta.source === 'cxone' && meta.branches ? { branches: meta.branches } : {}),
         leftOut: leftOutCounts(sc),
-        projectNames: sc.projects.map((id) => fusion().projects.find((p) => p.id === id)?.name ?? id),
+        // The projects picked one by one, by name: only with the project details.
+        details,
+        ...(details ? { projectNames: sc.projects.map((id) => fusion().projects.find((p) => p.id === id)?.name ?? id) } : {}),
         // Not every scan origin: those whose scans were counted (Fusion only, when the backlog came from the two exports).
         ...(() => {
           const known = knownOrigins().map((x) => x.origin);
@@ -2640,37 +2653,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
           return { origins: known.filter((o) => sc.origins.includes(o)), ...(t && meta.source !== 'cxone' ? { originsFusionOnly: true } : {}) };
         })(),
       },
-      tr: t
-        ? {
-            ...trData(t),
-            monthlyChange: t.analysis.monthlyChange,
-            history: t.analysis.history.map((h) => ({ month: h.month })),
-            weekly: t.weekly,
-            forecast: t.forecast,
-            bySeverity: t.bySeverity,
-          }
-        : null,
-      // What the triage & remediation credits give back, with this customer's assumptions.
-      impact: (() => {
-        if (!impactOn()) return null;
-        const trI = t ? trImpact(t.projection.rows, t.projection.months, impact()) : null;
-        const fuI = currentFusionImpact();
-        return trI || fuI ? { tr: trI, fusion: fuI, overall: overallImpact(trI, fuI) } : null;
-      })(),
-      fusion: fusionCounted
-        ? {
-            periodMonths: est.settings.periodMonths,
-            defaultScans: est.settings.defaultScans,
-            defaultModel: est.settings.defaultModel,
-            models: est.settings.models,
-            rules: est.settings.byFrequency,
-            byFrequency: est.byFrequency,
-            byModel: est.byModel,
-            totals: est.totals,
-            remainingCredits: c.remainingCredits,
-            rows: est.rows.map((r) => ({ name: r.name, included: r.included, criticality: r.criticality, frequency: r.frequency, scansPerWeek: r.scansPerWeek, lines: r.lines, units: r.units, scans: r.scans, scansFrom: r.scansFrom, model: r.model, credits: r.credits })),
-          }
-        : null,
+      tr: null,
+      fusion: null,
+      // What the triage & remediation credits give back, with this customer's assumptions (worked out with the rest).
+      impact: impactOn() ? true : null,
       // Fusion for the customer's new code (not in Checkmarx One yet): its lines counted from git (cloc-fusion's
       // engine, with how often each repository changes), read from a cloc-fusion report, or counted with cloc.
       fusionNew: fnCounted
@@ -2684,10 +2670,12 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
             byModel: fn.byModel,
             byFrequency: fn.byFrequency,
             totals: fn.totals,
-            rows: fn.rows.map((r) => ({ name: r.name, file: r.file, included: r.included, lines: r.lines, units: r.units, frequency: r.frequency, commits: r.commits, windowDays: r.activity?.windowDays ?? null, devs90: r.devs90, criticality: r.criticality, scans: r.scans, scansFrom: r.scansFrom, model: r.model, credits: r.credits, languages: r.languages.filter((l) => l.counted && l.lines > 0).slice(0, 6) })),
+            details,
+            rows: details ? fn.rows.map((r) => ({ name: r.name, file: r.file, included: r.included, lines: r.lines, units: r.units, frequency: r.frequency, commits: r.commits, windowDays: r.activity?.windowDays ?? null, devs90: r.devs90, criticality: r.criticality, scans: r.scans, scansFrom: r.scansFrom, model: r.model, credits: r.credits, languages: r.languages.filter((l) => l.counted && l.lines > 0).slice(0, 6) })) : [],
           }
         : null,
     };
+    return { ...leverData(base, levers), levers };
   }
 
   const hasData = () => Boolean(c.open?.tr?.totals || c.open?.fusion?.projects?.length || c.open?.fusionNew?.projects?.length);
@@ -2713,7 +2701,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
     try {
       const { report } = await api('/api/projections/reports', { method: 'POST', body: JSON.stringify({ customerId: c.open.id, data }) });
-      const html = reportHtml(data, report.createdAt);
+      const html = await reportHtml(data, report.createdAt);
       if (save) download(new Blob([html], { type: 'text/html' }), reportFileName(report.customer, report.createdAt));
       // Once the report is made, its three-page PDF summary can be downloaded too.
       lastMade = { customerId: c.open.id, report, data };
@@ -2828,7 +2816,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     try {
       if (event.target.closest('[data-download]')) {
         const { report } = await api(`/api/projections/reports/${encodeURIComponent(id)}`, { quiet: true });
-        download(new Blob([reportHtml(report.data, report.createdAt)], { type: 'text/html' }), reportFileName(report.customer, report.createdAt));
+        download(new Blob([await reportHtml(report.data, report.createdAt)], { type: 'text/html' }), reportFileName(report.customer, report.createdAt));
       } else if (event.target.closest('[data-pdf]')) {
         const { report } = await api(`/api/projections/reports/${encodeURIComponent(id)}`, { quiet: true });
         await downloadPdf(report);

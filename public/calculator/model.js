@@ -477,31 +477,34 @@ export function fusionEstimate(projects = [], value = {}) {
   const rows = projects.map((p) => {
     const lines = linesOf(p);
     const included = p.included !== false;
-    const units = unitsOf(lines);
+    // A report without project names keeps projects that work out alike as one row: `count` of them, their 10K units added up.
+    const count = wholeNumber(p.count) || 1;
+    const units = p.count ? wholeNumber(p.units) ?? 0 : unitsOf(lines);
     const { scans, from, model } = allocate(p, settings);
     const rate = models.get(model)?.creditsPer10k ?? null;
     const credits = included && units && rate !== null ? units * scans * rate : included && units && scans ? null : 0;
-    return { ...p, lines, included, units, scans, scansFrom: from, model, rate, credits, unknownLines: lines === null, unknownRate: included && units > 0 && scans > 0 && rate === null };
+    return { ...p, count, lines, included, units, scans, scansFrom: from, model, rate, credits, unknownLines: lines === null, unknownRate: included && units > 0 && scans > 0 && rate === null };
   });
   rows.sort((a, b) => (order.get(a.frequency) ?? 99) - (order.get(b.frequency) ?? 99) || (b.scansPerWeek ?? 0) - (a.scansPerWeek ?? 0) || String(a.name).localeCompare(String(b.name)));
   const counted = rows.filter((r) => r.included && r.units);
+  const projectCount = (list) => list.reduce((a, r) => a + r.count, 0);
   const totals = {
-    projects: counted.length,
+    projects: projectCount(counted),
     lines: counted.reduce((a, r) => a + r.lines, 0),
     units: counted.reduce((a, r) => a + r.units, 0),
-    scans: counted.reduce((a, r) => a + r.scans, 0),
+    scans: counted.reduce((a, r) => a + r.scans * r.count, 0),
     unitScans: counted.reduce((a, r) => a + r.units * r.scans, 0),
     credits: counted.reduce((a, r) => a + (r.credits ?? 0), 0),
-    unknownLines: rows.filter((r) => r.included && r.unknownLines).length,
-    unknownRate: rows.filter((r) => r.unknownRate).length,
+    unknownLines: projectCount(rows.filter((r) => r.included && r.unknownLines)),
+    unknownRate: projectCount(rows.filter((r) => r.unknownRate)),
   };
   const byFrequency = FREQUENCIES.map((f) => {
     const mine = counted.filter((r) => r.frequency === f.id);
-    return { id: f.id, projects: rows.filter((r) => r.frequency === f.id).length, units: mine.reduce((a, r) => a + r.units, 0), scans: mine.reduce((a, r) => a + r.scans, 0), credits: mine.reduce((a, r) => a + (r.credits ?? 0), 0) };
+    return { id: f.id, projects: projectCount(rows.filter((r) => r.frequency === f.id)), units: mine.reduce((a, r) => a + r.units, 0), scans: mine.reduce((a, r) => a + r.scans * r.count, 0), credits: mine.reduce((a, r) => a + (r.credits ?? 0), 0) };
   });
   const byModel = settings.models.map((m) => {
     const mine = counted.filter((r) => r.model === m.id);
-    return { id: m.id, name: m.name, rate: m.creditsPer10k, projects: mine.length, unitScans: mine.reduce((a, r) => a + r.units * r.scans, 0), credits: mine.reduce((a, r) => a + (r.credits ?? 0), 0) };
+    return { id: m.id, name: m.name, rate: m.creditsPer10k, projects: projectCount(mine), unitScans: mine.reduce((a, r) => a + r.units * r.scans, 0), credits: mine.reduce((a, r) => a + (r.credits ?? 0), 0) };
   });
   return { settings, rows, totals, byFrequency, byModel };
 }

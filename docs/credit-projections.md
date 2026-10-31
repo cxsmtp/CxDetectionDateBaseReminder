@@ -331,7 +331,8 @@ Fusion has frontier AI models read every line of each project on every Fusion sc
 **Download PDF summary** appears once the report is made: 16:9 pages to present, in the page's language: the three below and the impact. Tick **Include the calculations in the PDF** (beside **Generate projection report**, unticked by default) for the appendix too: the trend and every number worked out, step by step (eight or nine pages in all with the usual data). Page 1 is triage & remediation: the total of open vulnerabilities today (small), the findings still to come (only when counted), to triage with the severities taken whole and in part (*All Critical · All High · Medium: 12,000 of 80,000*), the credits with the false positives assumed, and the backlog trend and forecast, with debt added against fixes in one line. Page 2 is Checkmarx Fusion: projects, lines of code, scans and credits, and the credits by how often projects are scanned. Page 3 is the total credits required, in bundles, what they are for, and the assumptions. Page 4 is what all the credits give back: their value (or hours) for triage & remediation and Fusion together, what they cost, the return, the hours given back, where the value comes from, and the false positives cleared, how often Fusion reads every line and when the credits are paid back. It is drawn in your browser: nothing is sent anywhere. **PDF** beside each saved report on the **Projection reports** tab makes the same summary for that report.
 
 - The file is named after the customer and the time it was made, on your clock: `Globex_Cx-credits-projection_2026-10-09_2047.html`.
-- It is one HTML file with everything in it: no scripts and nothing loaded from anywhere. Open it in any browser, or print it to PDF (always in the light theme).
+- It is one HTML file with everything in it and nothing loaded from anywhere. Open it in any browser, or print it to PDF (always in the light theme, without the levers).
+- The customer can try other numbers in it, with no connection to Checkmarx One or to this server: see **The report's levers** below.
 - It is written in the language the page is in when it is made or downloaded again, right to left for Arabic and Hebrew.
 - **Auto**, **Light** and **Dark** at the top switch its theme. It opens light, whatever the theme you use in the app.
 - It is in the app's look when you make it: the command-center look with your accent (Fraunces and IBM Plex when the reader has them, else Palatino or Georgia and the system's sans), or the classic look. The PDF summary follows the same look.
@@ -344,6 +345,24 @@ Fusion has frontier AI models read every line of each project on every Fusion sc
 - **Projection reports** lists every report, newest first: customer, when, by whom, each part, the extra %, the total and the bundles. **This customer only** narrows it to the customer open. **Download** makes the same file again; **Delete** removes the report after you confirm, and is there only for Admins (the **Delete reports** permission).
 
 Up to 500 reports are kept per tenant (the oldest go first), each up to 4 MB, in the `projection-reports/` folder of the data folder, and in every backup.
+
+### The report's levers (from MZ-01.01.07)
+
+Under the answer, **Try other numbers** lets whoever opens the report change what the projection assumes, and every figure, chart and table in it follows at once:
+
+- **Triage & remediation, by severity**: for Critical, High, Medium and Low, a slider for the **Backlog to include** and one for the **False positives**, and boxes for the **Credits to triage one** and **Credits to remediate one**. Under them: **Count the findings still to come**, **New findings fall with AI** (% over a year) and, when Fusion is in the projection, **More found by Fusion**.
+- **Checkmarx Fusion**: in the appendix's Fusion tables, each model's **Credits per 10K LOC** (as set in the calculator when the report was made; a model with none shows an empty box, *Not set*, and counts nothing until a rate is typed), and the **Fusion scans per project** and **Model** by scan frequency. With project details, each project's **Fusion scans** and **Model** too.
+- **Overall**: the **Projection period** (Fusion scans follow it: 6 in 12 months are 12 in 24), **Extra credits (%)** and **Credits per bundle**.
+
+**Your version** shows the new total and its bundles beside the total **As sent**, and a small total stays at the bottom of the screen while the tables below are changed. **Back to the plan as sent** undoes every change. **Download my version** saves the report as it now stands; opened again, it shows those numbers and can still go back to the plan as sent. **Download PDF** makes the PDF summary of the report as it stands, in the report's language (tick **Include the calculations in the PDF** beside it for the appendix), drawn in the browser as the calculator draws it.
+
+The figures are worked out by the calculator's own code (`public/calculator/levers.js` and `model.js`), carried in the file as one script with the report's figures. The file's content security policy lets that one script run, by its hash, and nothing else: no other script, no connection, no form, nothing loaded. A report made before MZ-01.01.07 opens and downloads again as it was, without levers.
+
+### Include project names and details
+
+**Include project names and details**, beside **Generate projection report**, is ticked by default. Untick it before making a report for a customer who should not see the projects one by one: no project is named anywhere in the report, its PDF or the figures the file carries (projects that work out alike are kept as one row of their count and lines, which gives the same credits). The Fusion appendix then says so, with the projects scanned more than 5 times a week and the Fusion scans chosen for them, the projects and scans in all and the models to choose from; the **Models** and **By scan frequency** tables stay, and the customer can still change them. A project list picked one by one in the scope is counted, not named, and the new customer's code (counted from git, a cloc-fusion report or cloc) shows its totals without its repositories.
+
+**Email the report** sends the report with its levers as it is made. The server sends a report with a script only when that script is its own, to the byte, and the file's policy is the one above.
 
 ## On its own: the standalone calculator
 

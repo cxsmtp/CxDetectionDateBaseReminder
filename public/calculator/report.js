@@ -1,5 +1,7 @@
-// Cx Credits Calculator: the projection report, one self-contained HTML file (no scripts, nothing
-// loaded from anywhere), from the data a generated report keeps. Prints to PDF from the browser.
+// Cx Credits Calculator: the projection report, one self-contained HTML file (nothing loaded from
+// anywhere), from the data a generated report keeps. Prints to PDF from the browser. Made with its
+// levers (`live`), it carries its figures and one script (report-live.js and what it imports, allowed
+// by its hash alone) so the customer can try other numbers in the file, with no connection anywhere.
 // Every name and figure is escaped: the data may hold what a customer's exports or projects said.
 // It is written in the language the page is in (`t`, the page's translator), and has a light and
 // a dark theme the reader switches between with CSS alone (Auto follows their system).
@@ -94,7 +96,7 @@ function scopeLine(source, L) {
   const sc = cleanScope(source.scope);
   const parts = [
     sc.applications.length && `${w('Applications')}: ${esc(sc.applications.join(', '))}`,
-    sc.projects.length && `${w('Projects')}: ${esc((source.projectNames ?? sc.projects).slice(0, 20).join(', '))}${sc.projects.length > 20 ? ` ${esc(w('and {0} more', num(sc.projects.length - 20)))}` : ''}`,
+    sc.projects.length && (source.details === false ? `${w('Projects')}: ${w('{0} picked one by one', L.num(sc.projects.length))}` : `${w('Projects')}: ${esc((source.projectNames ?? sc.projects).slice(0, 20).join(', '))}${sc.projects.length > 20 ? ` ${esc(w('and {0} more', L.num(sc.projects.length - 20)))}` : ''}`),
     sc.groups.length && `${w('Groups')}: ${esc(sc.groups.join(', '))}`,
     sc.names.length && `${w('Project names')}: ${esc(sc.names.join(', '))}`,
     sc.initiators.length && `${w('Last scanned by')}: ${esc(sc.initiators.join(', '))}`,
@@ -370,25 +372,35 @@ function trAppendix(tr, L) {
 }
 
 /** Appendix: every Fusion figure. */
-function fusionAppendix(f, L) {
+function fusionAppendix(f, L, edit = false) {
   const { w, num, frequency } = L;
   const models = new Map(f.models.map((m) => [m.id, m]));
   const modelName = (id) => esc(models.get(id)?.name || '—');
-  return `<section class="appendix">
+  // With the levers, every box below can be changed and the whole report follows.
+  const box = (key, value, label, placeholder = '') => `<input class="lv-num" type="number" min="0" step="any" inputmode="decimal" data-lever="${esc(key)}" value="${value ?? ''}"${placeholder !== '' ? ` placeholder="${esc(placeholder)}"` : ''} aria-label="${label}">`;
+  const pick = (key, chosen, label) => `<select class="lv-pick" data-lever="${esc(key)}" aria-label="${label}">${f.models.map((m) => `<option value="${esc(m.id)}"${m.id === chosen ? ' selected' : ''}>${esc(m.name || '—')}</option>`).join('')}</select>`;
+  const scansCell = (b) => (edit ? box(`fscans.${b.id}`, f.rules[b.id]?.scans, w('Fusion scans per project'), f.defaultScans) : f.rules[b.id]?.scans ?? w('{0} (default)', num(f.defaultScans)));
+  const rows = (f.rows ?? []).filter((r) => r.included);
+  const fast = f.byFrequency.find((b) => b.id === 'more-5-week');
+  const left = f.details === false
+    ? `<p class="lv-note">${w('Project names and details were left out of this report.')} ${fast?.projects ? w('{0} projects are scanned more than 5 times a week, with {1} Fusion scans each chosen for them.', num(fast.projects), num(f.rules['more-5-week']?.scans ?? f.defaultScans)) : ''} ${w('{0} projects in all, {1} Fusion scans, {2} models to choose from.', num(f.totals.projects), num(f.totals.scans), num(f.models.length))}</p>`
+    : '';
+  return `<section class="appendix" id="fusion">
   <h2>${w('Checkmarx Fusion')}</h2>
-  <p class="sub">${w('Fusion scans over {0} months.', num(f.periodMonths))} ${w('Projects scanned most often come first.')}</p>
+  <p class="sub">${w('Fusion scans over {0} months.', num(f.periodMonths))} ${w('Projects scanned most often come first.')}${edit ? ` <b>${w('Every box can be changed: the whole report follows.')}</b>` : ''}</p>
+  ${left}
   <h3>${w('Models')}</h3>
   ${table(`<thead><tr><th>${w('Model')}</th><th>${w('Credits per 10K LOC')}</th><th>${w('Projects')}</th><th>${w('10K units × scans')}</th><th>${w('Credits')}</th></tr></thead><tbody>
-    ${f.byModel.map((m) => `<tr><td class="name">${esc(m.name || '—')}</td><td>${m.rate === null ? '—' : num(m.rate, 2)}</td><td>${num(m.projects)}</td><td>${num(m.unitScans)}</td><td>${num(m.credits, 1)}</td></tr>`).join('') || `<tr><td colspan="5">${w('No model set.')}</td></tr>`}
+    ${f.byModel.map((m) => `<tr><td class="name">${esc(m.name || '—')}</td><td>${edit ? box(`rate.${m.id}`, m.rate, w('Credits per 10K LOC for {0}', esc(m.name || '—')), L.t('Not set')) : m.rate === null ? '—' : num(m.rate, 2)}</td><td>${num(m.projects)}</td><td>${num(m.unitScans)}</td><td>${num(m.credits, 1)}</td></tr>`).join('') || `<tr><td colspan="5">${w('No model set.')}</td></tr>`}
   </tbody>`)}
   <h3>${w('By scan frequency')}</h3>
   ${table(`<thead><tr><th>${w('Scanned today')}</th><th>${w('Projects')}</th><th>${w('Fusion scans per project')}</th><th>${w('Model')}</th><th>${w('10K units')}</th><th>${w('Credits')}</th></tr></thead><tbody>
-    ${f.byFrequency.filter((b) => b.projects).map((b) => `<tr><td>${frequency(b.id)}</td><td>${num(b.projects)}</td><td>${f.rules[b.id]?.scans ?? w('{0} (default)', num(f.defaultScans))}</td><td class="name">${modelName(f.rules[b.id]?.model ?? f.defaultModel)}</td><td>${num(b.units)}</td><td>${num(b.credits, 1)}</td></tr>`).join('')}
+    ${f.byFrequency.filter((b) => b.projects).map((b) => `<tr><td>${frequency(b.id)}</td><td>${num(b.projects)}</td><td>${scansCell(b)}</td><td class="name">${edit && f.models.length ? pick(`fmodel.${b.id}`, f.rules[b.id]?.model ?? f.defaultModel, w('Model')) : modelName(f.rules[b.id]?.model ?? f.defaultModel)}</td><td>${num(b.units)}</td><td>${num(b.credits, 1)}</td></tr>`).join('')}
   </tbody>`)}
-  <h3>${w('Projects')}</h3>
+  ${rows.length ? `<h3>${w('Projects')}</h3>
   ${table(`<thead><tr><th>${w('Project')}</th><th>${w('Criticality')}</th><th>${w('Scanned today')}</th><th>${w('Lines of code')}</th><th>${w('10K units')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
-    ${f.rows.filter((r) => r.included).map((r) => `<tr><td class="name">${esc(r.name)}</td><td>${r.criticality ?? '—'}</td><td class="wrap">${frequency(r.frequency)}${r.scansPerWeek ? ` <small>${w('({0}/week)', num(r.scansPerWeek, 1))}</small>` : ''}</td><td>${num(r.lines)}</td><td>${num(r.units)}</td><td>${num(r.scans)}</td><td>${FROM[r.scansFrom] ? w(FROM[r.scansFrom]) : ''}</td><td class="name">${modelName(r.model)}</td><td>${r.credits === null || !r.units ? '—' : num(r.credits, 1)}</td></tr>`).join('')}
-  </tbody>`, 'dense')}
+    ${rows.map((r) => `<tr><td class="name">${esc(r.name)}</td><td>${r.criticality ?? '—'}</td><td class="wrap">${frequency(r.frequency)}${r.scansPerWeek ? ` <small>${w('({0}/week)', num(r.scansPerWeek, 1))}</small>` : ''}</td><td>${num(r.lines)}</td><td>${num(r.units)}</td><td>${edit && Number.isInteger(r.key) ? box(`pscans.${r.key}`, r.scans, w('Fusion scans for {0}', esc(r.name))) : num(r.scans)}</td><td>${FROM[r.scansFrom] ? w(FROM[r.scansFrom]) : ''}</td><td class="name">${edit && Number.isInteger(r.key) && f.models.length ? pick(`pmodel.${r.key}`, r.model, w('Model for {0}', esc(r.name))) : modelName(r.model)}</td><td>${r.credits === null || !r.units ? '—' : num(r.credits, 1)}</td></tr>`).join('')}
+  </tbody>`, 'dense')}` : ''}
 </section>`;
 }
 
@@ -414,7 +426,7 @@ function fusionNewAppendix(f, L) {
   <h2>${w('Fusion — new customer')}</h2>
   <p class="sub">${w('Fusion scans over {0} months.', num(f.periodMonths))} ${w('Code lines without blank and comment lines: counted from git with cloc-fusion\'s engine, read from a cloc-fusion report, or counted with cloc.')}</p>
   ${fusionNewScansNote(f, L)}
-  ${table(`<thead><tr><th>${w('Project')}</th><th>${w('Languages')}</th><th>${w('Lines of code')}</th>${activity ? `<th>${w('Change frequency')}</th><th>${w('Developers (90 days)')}</th>` : ''}<th>${w('10K units')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
+  ${f.details === false ? `<p class="lv-note">${w('Project names and details were left out of this report.')} ${w('{0} projects in all, {1} lines of code, {2} Fusion scans.', num(f.totals.projects), num(f.totals.lines), num(f.totals.scans))}</p>` : table(`<thead><tr><th>${w('Project')}</th><th>${w('Languages')}</th><th>${w('Lines of code')}</th>${activity ? `<th>${w('Change frequency')}</th><th>${w('Developers (90 days)')}</th>` : ''}<th>${w('10K units')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
     ${f.rows.filter((r) => r.included).map((r) => `<tr><td class="name">${esc(r.name)}</td><td class="wrap">${(r.languages ?? []).map((l) => `${esc(l.name)} ${num(l.lines)}`).join(', ') || '—'}</td><td>${num(r.lines)}</td>${activity ? `<td class="wrap">${freqCell(r)}</td><td>${r.devs90 === null || r.devs90 === undefined ? '—' : num(r.devs90)}</td>` : ''}<td>${num(r.units)}</td><td>${num(r.scans)}</td><td>${FROM_NEW[r.scansFrom] ? w(FROM_NEW[r.scansFrom]) : ''}</td><td class="name">${modelName(r.model)}</td><td>${r.credits === null || !r.units ? '—' : num(r.credits, 1)}</td></tr>`).join('')}
   </tbody>`, 'dense')}
 </section>`;
@@ -492,6 +504,37 @@ tr.gold td{font-weight:600;color:var(--gold)} table.dense td{padding:5px 8px;fon
 @media (max-width:640px){.cc-minis{grid-template-columns:minmax(0,1fr)}}
 .cc-mini h4{display:flex;align-items:center;gap:7px;margin:4px 0 2px;font-size:12.5px;font-weight:500;color:var(--muted)} .cc-mini .cc-swatch{width:10px;height:10px;border-radius:3px}
 footer{color:var(--muted);font-size:12px;max-width:1000px;margin:0 auto;padding:0 20px 32px}
+.levers{border-color:var(--soft-line);background:var(--soft)}
+.lv-head{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-start}
+.lv-head>div:first-child{flex:1 1 320px;max-width:62ch} .levers h2{margin:0 0 4px}
+.lv-total{display:grid;justify-items:end;gap:2px;text-align:end;font-size:13px;color:var(--muted)}
+.lv-eyebrow{font-size:12px} .lv-total b{font-size:32px;line-height:1.1;color:var(--accent);font-variant-numeric:tabular-nums}
+.lv-acts{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:8px}
+.lv-acts button{font:inherit;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.lv-acts button:disabled{opacity:.5;cursor:default} .lv-acts .lv-primary{background:var(--accent);border-color:transparent;color:#fff}
+:root:has(#theme-dark:checked) .lv-acts .lv-primary{color:#0d0f12}
+@media (prefers-color-scheme:dark){:root:not(:has(#theme-light:checked)) .lv-acts .lv-primary{color:#0d0f12}}
+.lv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:12px;margin-top:14px}
+.lv-card{border:1px solid var(--line);border-radius:8px;padding:10px 14px 12px;margin:0;background:var(--card);min-width:0} .lv-card legend{font-weight:600;padding:0 6px} .lv-wide{grid-column:1/-1}
+.lv-card p{margin:6px 0 0}
+.lv-scroll{overflow-x:auto} table.lv-sev{width:100%;border-collapse:collapse;font-size:13px}
+.lv-sev th,.lv-sev td{padding:6px;text-align:start;border-bottom:1px solid var(--row);vertical-align:middle} .lv-sev thead th{font-size:12px;color:var(--muted);font-weight:500} .lv-sev tbody tr:last-child>*{border-bottom:0}
+.lv-sev th[scope=row]{white-space:nowrap;font-weight:600}
+.lv-slide{display:inline-flex;align-items:center;gap:8px;min-width:0} .lv-slide input{width:150px;max-width:100%;accent-color:var(--accent)}
+.lv-slide output{min-width:9ch;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lv-num{width:84px;font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);text-align:end}
+.lv-pick{font:inherit;font-size:13px;padding:3px 4px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);max-width:16ch}
+.lv-row{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;margin-top:10px;font-size:13px} .lv-row label{display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px}
+.lv-check input{accent-color:var(--accent)}
+.lv-field{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;margin:8px 0 0;font-size:13px}
+.lv-field select{font:inherit;font-size:13px;padding:3px 4px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+.lv-note{margin:0 0 8px;padding:10px 12px;border-radius:8px;background:var(--soft);border:1px solid var(--soft-line);font-size:13px}
+.lv-on .scroll .lv-num{width:76px}
+.lv-pill{position:fixed;inset-inline-end:16px;bottom:16px;margin:0;padding:8px 14px;border-radius:999px;background:var(--head1);color:#fff;font-size:13px;box-shadow:0 6px 20px rgb(0 0 0 / .18);z-index:5} .lv-pill span{opacity:.75}
+.lv-panel-seen .lv-pill{display:none} .lv-pdf-opt{margin-top:6px;font-size:12.5px}
+@media (max-width:600px){.lv-total{justify-items:start;text-align:start} .lv-acts{justify-content:flex-start} .lv-sev thead{display:none} .lv-sev tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--row)} .lv-sev tr>*{border:0;padding:0} .lv-sev th[scope=row]{grid-column:1/-1}
+  .lv-sev td::before{content:attr(data-label);display:block;font-size:11px;color:var(--muted)} .lv-sev td:nth-child(2),.lv-sev td:nth-child(3){grid-column:1/-1} .lv-slide{display:flex} .lv-slide input{flex:1;width:auto}}
+@media print{.levers,.lv-pill{display:none} .lv-num,.lv-pick{border:0;padding:0;background:none;appearance:none;-webkit-appearance:none;width:auto}}
 @media (max-width:600px){header{padding:20px 16px} header h1{font-size:20px} main{padding:16px 10px 32px} section{padding:16px 14px}}
 @media print{:root{color-scheme:light;--bg:#fff;--card:#fff;--ink:#14171c;--muted:#5c636e;--line:#e2e5e9;--grid:#e2e5e9;--row:#eef0f3;--soft:#f4f6fb;--soft-line:#d5dcef;--gold:#2856c9;--accent:#2856c9}
   .theme{display:none} header,.bar,.live-dot{-webkit-print-color-adjust:exact;print-color-adjust:exact} section{break-inside:avoid-page;border:0;padding:0 0 12px}
@@ -562,17 +605,104 @@ export function countedFusion(data) {
   return { ...data, fusion: counts(data.fusion), fusionNew: counts(data.fusionNew) };
 }
 
-export function buildReport(raw, { t, lang = 'en', dir = 'ltr', look } = {}) {
+
+/** The total of a report's data, as its answer says it. */
+const reportTotal = (data) => creditSummary(data.tr?.totals?.credits ?? null, fusionTotal(data.fusion, data.fusionNew), data.summary?.settings);
+
+/**
+ * The levers, under the answer: per severity the backlog to include, the false positives and the credits
+ * per finding; what is still to come; Fusion's extra findings; the period, the extra % and the bundle.
+ * Each control is named by `data-lever`; the figures it moves are named by `data-out` (report-live.js).
+ */
+function leversPanel(data, live, L) {
+  const { w, num } = L;
+  const sum = reportTotal(data);
+  const sent = live.sentTotal;
+  const tr = data.tr;
+  const plan = live.inputs.tr?.plan;
+  const slider = (key, value, max, label, out) => `<span class="lv-slide"><input type="range" min="0" max="${max}" step="1" value="${Math.round(value)}" data-lever="${key}" aria-label="${label}"><output data-out="${key}">${out}</output></span>`;
+  const box = (key, value, label, extra = '') => `<input class="lv-num" type="number" min="0" step="any" inputmode="decimal" data-lever="${key}" value="${value ?? ''}" aria-label="${label}"${extra}>`;
+  const sevRows = tr ? SEVERITIES.map((s) => {
+    const r = tr.rows[s];
+    return `<tr><th scope="row"><i class="dot" style="background:${SEVERITY_COLOURS[s]}"></i>${w(s)}</th>
+      <td data-label="${w('Backlog to include')}">${slider(`sel.${s}`, r.selected, r.backlog, w('{0}: backlog to include', w(s)), w('{0} of {1}', num(r.selected), num(r.backlog)))}</td>
+      <td data-label="${w('False positives')}">${slider(`fp.${s}`, r.fp, 100, w('{0}: false positives %', w(s)), `${num(r.fp)}%`)}</td>
+      <td data-label="${w('Credits to triage one')}">${box(`tc.${s}`, r.triageCost, w('{0}: credits to triage one finding', w(s)))}</td>
+      <td data-label="${w('Credits to remediate one')}">${box(`rc.${s}`, r.remediationCost, w('{0}: credits to remediate one finding', w(s)))}</td></tr>`;
+  }).join('') : '';
+  const ahead = tr?.ahead ?? {};
+  const periods = [...new Set([3, 6, 12, 18, 24, 36, live.inputs.months])].sort((a, b) => a - b);
+  const changed = JSON.stringify(live.inputs) !== JSON.stringify(live.sentInputs);
+  return `<section class="levers" id="levers" aria-labelledby="levers-h">
+  <div class="lv-head">
+    <div><h2 id="levers-h">${w('Try other numbers')}</h2><p class="sub">${w('Move any lever and every figure in this report follows. Nothing is sent anywhere and no Checkmarx One connection is needed: the changes stay in this file until you download your version.')}</p></div>
+    <div class="lv-total" aria-live="polite"><span class="lv-eyebrow">${w('Your version')}</span><b data-out="total">${num(sum.total)}</b><span data-out="bundles">${w('credits · {0} bundles of {1}', num(sum.bundles), num(sum.settings.bundleCredits))}</span><span class="lv-was" data-out="was">${w('As sent: {0} credits', num(sent))}</span>
+      <span class="lv-acts"><button type="button" data-act="reset"${changed ? '' : ' disabled'}>${w('Back to the plan as sent')}</button><button type="button" data-act="pdf">${w('Download PDF')}</button><button type="button" class="lv-primary" data-act="download">${w('Download my version')}</button></span>
+      <label class="lv-check lv-pdf-opt"><input type="checkbox" data-pdf-calculations> ${w('Include the calculations in the PDF')}</label></div>
+  </div>
+  <div class="lv-grid">
+    ${tr && plan ? `<fieldset class="lv-card lv-wide"><legend>${w('Triage & remediation, by severity')}</legend>
+      <div class="lv-scroll"><table class="lv-sev"><thead><tr><th></th><th>${w('Backlog to include')}</th><th>${w('False positives')}</th><th>${w('Credits to triage one')}</th><th>${w('Credits to remediate one')}</th></tr></thead><tbody>${sevRows}</tbody></table></div>
+      <div class="lv-row">
+        <label class="lv-check"><input type="checkbox" data-lever="future"${ahead.includeFuture !== false ? ' checked' : ''}> ${w('Count the findings still to come')}</label>
+        <label>${w('New findings fall with AI')} ${slider('ai', ahead.aiDeclinePercent ?? 0, 90, w('New findings fall with AI'), w('{0}% over a year', num(ahead.aiDeclinePercent ?? 0)))}</label>
+        ${tr.fusion ? `<label>${w('More found by Fusion')} ${slider('up', ahead.fusionUpliftPercent ?? 0, 100, w('More found by Fusion'), `${num(ahead.fusionUpliftPercent ?? 0)}%`)}</label>` : ''}
+      </div>
+    </fieldset>` : ''}
+    ${data.fusion ? `<fieldset class="lv-card"><legend>${w('Checkmarx Fusion')}</legend>
+      <p class="sub">${data.fusion.details === false ? w('Each model\'s credits per 10K LOC and the Fusion scans and model by scan frequency are changed in the Fusion tables of the appendix.') : w('Each model\'s credits per 10K LOC and the Fusion scans and model by scan frequency and for each project are changed in the Fusion tables of the appendix.')}</p>
+      <p><a href="#fusion">${w('Go to the Fusion tables')}</a></p>
+    </fieldset>` : ''}
+    <fieldset class="lv-card"><legend>${w('Overall')}</legend>
+      <label class="lv-field">${w('Projection period')} <select data-lever="months">${periods.map((m) => `<option value="${m}"${m === live.inputs.months ? ' selected' : ''}>${w('{0} months', num(m))}</option>`).join('')}</select></label>
+      ${data.fusion ? `<p class="sub">${w('Fusion scans follow the period: 6 in 12 months are 12 in 24.')}</p>` : ''}
+      <label class="lv-field">${w('Extra credits (%)')} ${box('extra', sum.settings.extraPercent, w('Extra credits (%)'))}</label>
+      <label class="lv-field">${w('Credits per bundle')} ${box('bundle', sum.settings.bundleCredits, w('Credits per bundle'), ' step="1"')}</label>
+    </fieldset>
+  </div>
+</section>
+<p class="lv-pill" aria-hidden="true"><span>${w('Your version')}</span> <b data-out="pill">${num(sum.total)}</b> ${w('credits')}</p>`;
+}
+
+/** The body of the report: the runtime renders it again when a lever moves. */
+export function reportMain(raw, { t, lang = 'en', live = null } = {}) {
+  const data = countedFusion(raw);
+  const L = wording({ t, lang });
+  const { w } = L;
+  const sum = creditSummary(data.tr?.totals?.credits ?? null, fusionTotal(data.fusion, data.fusionNew), data.summary?.settings);
+  return `${answer(data, sum, L)}
+${live ? leversPanel(data, live, L) : ''}
+${story(data, L)}
+${impactSection(data, L)}
+${assumptions(data, sum, L)}
+${data.tr || data.fusion || data.fusionNew ? `<p class="appendix-title">${w('Appendix: every figure')}</p>` : ''}
+${data.tr ? trAppendix(data.tr, L) : ''}
+${data.fusion ? fusionAppendix(data.fusion, L, Boolean(live)) : ''}
+${data.fusionNew ? fusionNewAppendix(data.fusionNew, L) : ''}
+${calculations(data, L)}
+${provenance(data, L)}`;
+}
+
+/** A report with its levers runs that one script, by its hash, and reaches nothing: no connection, no form, no other script. */
+export const liveCspMeta = (hash) => `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${hash}; script-src-attr 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">`;
+
+/** The figures and levers the runtime reads, as JSON that cannot end its <script> element. */
+const liveJson = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
+
+/**
+ * `live`: the report with its levers: `{ inputs, sentInputs, base, words, runtime: { text, hash } }`, `inputs` from
+ * levers.js leverInputs (now and as sent), `base` the data that does not move, `words` the wording in the report's
+ * language, `runtime` the bundled report-live.js and its CSP hash. Without it, the report has no script at all.
+ */
+export function buildReport(raw, { t, lang = 'en', dir = 'ltr', look, live = null } = {}) {
   const data = countedFusion(raw);
   const { look: lookName, ui, theme, accent } = reportLook(look);
   const L = wording({ t, lang });
   const { w } = L;
   const customer = esc(data.customer || L.t('Customer'));
-  // Reports made before the extra % and bundles were added carry no summary: work it out with none.
-  const sum = creditSummary(data.tr?.totals?.credits ?? null, fusionTotal(data.fusion, data.fusionNew), data.summary?.settings);
   const made = esc(new Date(data.generatedAt).toLocaleString(L.locale));
   return `<!doctype html>
-<html lang="${esc(lang)}" dir="${dir === 'rtl' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${w('{0}: Checkmarx credits projection', customer)}</title>
+<html lang="${esc(lang)}" dir="${dir === 'rtl' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${live ? liveCspMeta(live.runtime.hash) : ''}<title>${w('{0}: Checkmarx credits projection', customer)}</title>
 <style>${STYLE}${ui === 'nextgen' ? nextgenStyle(accent) + lookStyle(lookName, accent) : ''}</style></head>
 <body>
 <header>
@@ -589,18 +719,11 @@ export function buildReport(raw, { t, lang = 'en', dir = 'ltr', look } = {}) {
     </fieldset>
   </div>
 </header>
-<main>
-${answer(data, sum, L)}
-${story(data, L)}
-${impactSection(data, L)}
-${assumptions(data, sum, L)}
-${data.tr || data.fusion || data.fusionNew ? `<p class="appendix-title">${w('Appendix: every figure')}</p>` : ''}
-${data.tr ? trAppendix(data.tr, L) : ''}
-${data.fusion ? fusionAppendix(data.fusion, L) : ''}
-${data.fusionNew ? fusionNewAppendix(data.fusionNew, L) : ''}
-${calculations(data, L)}
-${provenance(data, L)}
+<main${live ? ' class="lv-on"' : ''}>
+${reportMain(raw, { t, lang, live })}
 </main>
 <footer>${w("An estimate made with CxMissionZero's Cx Credits Calculator from Checkmarx One data and the assumptions above. Credit rates and the credits actually used are set by Checkmarx and your agreement with them.")}${data.tr?.history?.length ? ` ${w('Backlog history: {0} to {1}.', esc(monthLabel(data.tr.history[0].month)), esc(monthLabel(data.tr.history[data.tr.history.length - 1].month)))}` : ''}</footer>
+${live ? `<script type="application/json" id="cx-live">${liveJson({ base: live.base, inputs: live.inputs, sentInputs: live.sentInputs, sentTotal: live.sentTotal, words: live.words ?? {}, lang, dir, look: look ?? null })}</script>
+<script>${live.runtime.text}</script>` : ''}
 </body></html>`;
 }

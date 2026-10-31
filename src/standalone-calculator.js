@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { licenceGateScript } from './licence-gate.js';
+import { liveCspMeta } from '../public/calculator/report.js';
 
 /**
  * The Cx Credits Calculator as one HTML file that runs on its own, in any browser, with no server
@@ -16,7 +17,7 @@ import { licenceGateScript } from './licence-gate.js';
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
 // The modules, each after those it imports.
-const MODULES = ['engines.js', 'look.js', 'i18n.js', 'help-tips.js', 'calculator/model.js', 'calculator/charts.js', 'calculator/explain.js', 'calculator/report.js', 'calculator/slides.js', 'calculator/profiles.js', 'calculator/page.js', 'calculator/standalone.js'];
+const MODULES = ['engines.js', 'look.js', 'i18n.js', 'help-tips.js', 'calculator/model.js', 'calculator/charts.js', 'calculator/explain.js', 'calculator/report.js', 'calculator/slides.js', 'calculator/levers.js', 'calculator/profiles.js', 'calculator/page.js', 'calculator/standalone.js'];
 const SAMPLES = ['Total_Vulnerabilities_by_Severity.xlsx', 'Fixed_Vulnerabilities_by_Severity.xlsx'];
 /** cloc-fusion's one-file page (vendored with its engine, scripts/sync-cloc-fusion.mjs), from the repository's root. */
 export const CLOC_FUSION_PAGE = 'src/cloc-fusion/cloc-fusion.html';
@@ -187,6 +188,7 @@ ${standaloneMarkup(calculatorMarkup(read('index.html')), { launcher })}
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <script>${gate}</script>
 ${launcher ? `<script type="application/json" id="cx-launcher">"__CALCULATOR_LAUNCHER__"</script>\n<script>${launcherConfig}</script>` : `<script type="application/json" id="cx-cloc-fusion">${clocFusionData()}</script>`}
+<script type="application/json" id="cx-report-runtime">${JSON.stringify(reportRuntime({ root })).replace(/</g, '\\u003c')}</script>
 ${vendor}
 <script type="module">${main}</script>
 </body>
@@ -237,6 +239,58 @@ const STANDALONE_CSS = `
 .shell.standalone .sa-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 24px; color: var(--muted); font-size: 12px; }
 @media (max-width: 640px) { .shell.standalone .sa-names .field { min-width: 0; flex: 1 1 140px; } }
 `;
+
+// The script a projection report made with its levers carries (public/calculator/report-live.js and what it imports).
+const REPORT_RUNTIME = ['engines.js', 'look.js', 'calculator/model.js', 'calculator/charts.js', 'calculator/explain.js', 'calculator/report.js', 'calculator/slides.js', 'calculator/levers.js', 'calculator/report-live.js'];
+
+/**
+ * That script, as written into the report, and the CSP source that allows it alone: the calculator asks for it
+ * when it makes a report (GET /calculator/report-live, and the standalone files carry it). Built once per start.
+ */
+export function reportRuntime({ root = PUBLIC } = {}) {
+  const key = `runtime\u0000${root}`;
+  if (cache.has(key)) return cache.get(key);
+  const index = new Map(REPORT_RUNTIME.map((file, i) => [file, i]));
+  const bundle = REPORT_RUNTIME.map((file) => wrapModule(file, fs.readFileSync(path.join(root, file), 'utf8'), index)).join('\n\n');
+  const text = `\n${scriptText(`(() => {\n'use strict';\nconst __m = [];\n${bundle}\n})();`)}\n`;
+  // Every quoted text in the report's modules: the calculator passes on the translations it has of them.
+  const phrases = new Set();
+  for (const file of REPORT_RUNTIME) {
+    for (const m of fs.readFileSync(path.join(root, file), 'utf8').matchAll(/'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"/g)) {
+      const phrase = (m[1] ?? m[2]).replace(/\\(.)/g, '$1');
+      if (/\p{L}{2}/u.test(phrase) && /\s/.test(phrase.trim()) || /^[A-Z][a-z]+$/.test(phrase)) phrases.add(phrase);
+    }
+  }
+  const runtime = { text, hash: contentHash(text), phrases: [...phrases] };
+  cache.set(key, runtime);
+  return runtime;
+}
+
+/**
+ * Is this not the calculator's own report file? It has no script, handler or anything embedded or posted
+ * anywhere (checked in its tags; names in its text are escaped), except, in a report with its levers, exactly
+ * three parts this server makes: its content security policy, its figures as JSON (with no `<` in them) and
+ * the levers' script, this server's own to the byte. Those are taken out before the tags are checked.
+ */
+export function projectionFileProblem(html) {
+  let rest = html;
+  const runtime = reportRuntime();
+  const script = `<script>${runtime.text}</script>`;
+  if (rest.includes(script)) {
+    rest = rest.replace(script, '');
+    const csp = liveCspMeta(runtime.hash);
+    const json = rest.match(/<script type="application\/json" id="cx-live">([^<]*)<\/script>/);
+    if (!rest.includes(csp) || !json) return 'levers';
+    try {
+      JSON.parse(json[1]);
+    } catch {
+      return 'levers';
+    }
+    rest = rest.replace(csp, '').replace(json[0], '');
+  }
+  const tags = rest.match(/<[^>]*>/g) ?? [];
+  return tags.some((tag) => /^<\/?(script|iframe|object|embed|form|link|meta\s+http-equiv|base)\b|\son\w+\s*=|javascript:|\s(src|href|action)\s*=\s*(?!["']?#)/i.test(tag)) ? 'tags' : '';
+}
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
 

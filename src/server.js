@@ -56,7 +56,7 @@ import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_SEARCHABLE, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { reportI18n, reportWords } from './report-i18n.js';
 import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
-import { buildCalculatorLauncher, buildStandaloneCalculator } from './standalone-calculator.js';
+import { buildCalculatorLauncher, buildStandaloneCalculator, projectionFileProblem, reportRuntime } from './standalone-calculator.js';
 import { CLOC_FUSION, GIT_COUNT_LIMITS, clocFusionPage, connectionSource, createGitCounter, gitSource, listOrganizations, listRepositories, sweepLeftovers } from './fusion-git.js';
 import { reportFileName as projectionFileName } from '../public/calculator/report.js';
 import { MAX_PROJECTS, cleanOrigins, globMatch, readLimit } from '../public/calculator/model.js';
@@ -4381,6 +4381,11 @@ app.get('/api/projections/standalone', requireCalculator, (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.send(launcher ? buildCalculatorLauncher({ version: PACKAGE_VERSION }) : buildStandaloneCalculator({ version: PACKAGE_VERSION }));
 });
+/** The script a report carries for its levers (public/calculator/report-live.js, bundled), its CSP hash and the report's phrases. */
+app.get('/api/projections/report-runtime', requireCalculator, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(reportRuntime());
+});
 /** Reports made from the calculator, newest first (one customer's with ?customer=). */
 app.get('/api/projections/reports', requireCalculator, (req, res) => {
   res.json({ reports: projectionReports.list(String(req.query.customer ?? '')) });
@@ -4415,9 +4420,7 @@ app.post('/api/projections/reports/:id/email', requireCalculator, asyncRoute(asy
   if (bad.length) return res.status(400).json({ error: `Not an email address: ${bad.slice(0, 3).join(', ')}.` });
   if (to.includes(MAINTAINER_EMAIL.toLowerCase())) return res.status(400).json({ error: 'That address cannot be sent to from here.' });
   const html = String(req.body?.html ?? '');
-  // The calculator's own file: no script, no handlers, nothing embedded or posted anywhere (checked in its tags; names in text are escaped).
-  const tags = html.match(/<[^>]*>/g) ?? [];
-  if (!/^<!doctype html>/i.test(html) || Buffer.byteLength(html) > 3.5 * 1024 * 1024 || tags.some((tag) => /^<\/?(script|iframe|object|embed|form|link|meta\s+http-equiv|base)\b|\son\w+\s*=|javascript:|\s(src|href|action)\s*=\s*["']?(?!#)/i.test(tag))) {
+  if (!/^<!doctype html>/i.test(html) || Buffer.byteLength(html) > 3.5 * 1024 * 1024 || projectionFileProblem(html)) {
     return res.status(400).json({ error: 'That is not a projection report file.' });
   }
   const settings = sendingSettings();
