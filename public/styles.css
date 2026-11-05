@@ -3065,6 +3065,8 @@ ol.calc-how li.calc-total { font-weight: 600; }
 .calc-fsub-nav { margin: 0 0 16px; }
 .calc-fsub-nav .mode small { opacity: 0.75; font-weight: 400; }
 .calc-fsub-nav .mode[hidden] { display: none !important; }
+/* Aptos across the Cx Credits Calculator page (in-app), the same as the downloaded calculator; the rest of MZ keeps its own fonts. */
+#page-calculator { --font: "Aptos", "MZ Brand Sans", "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; --ng-display: "Aptos", "Aptos Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; }
 .calc-fsub[hidden] { display: none; }
 /* Saved projection reports, folded above the tabs. */
 .calc-saved { margin: 8px 0 16px; }

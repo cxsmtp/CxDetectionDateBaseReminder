@@ -218,6 +218,8 @@ const CONNECT_BAR = `<form class="sa-connect" id="sa-connect" autocomplete="off"
 
 // The page on its own: no menu, the head above the calculator, and nothing the app's server would answer.
 const STANDALONE_CSS = `
+/* Aptos as the one standard font across the downloaded calculator; MZ's own fonts stay as the fallback where Aptos is not installed. */
+:root { --font: "Aptos", "MZ Brand Sans", "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; --ng-display: "Aptos", "Aptos Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; }
 .shell.standalone { display: block; min-height: 100vh; }
 .shell.standalone .content { margin: 0 auto; max-width: 1480px; padding: 0 clamp(12px, 3vw, 32px) 24px; }
 .shell.standalone .sa-top { position: static; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; padding: 18px 0 14px; }
