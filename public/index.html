@@ -3555,12 +3555,17 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </form>
               <p class="hint" id="calc-empty" hidden>No customers yet. Start with <strong>New customer</strong>: each customer keeps its own Checkmarx One data, plan and Fusion projects, saved as you go.</p>
             </section>
+            <details class="panel calc-saved" id="calc-saved">
+              <summary>Saved projection reports <em class="calc-saved-count" id="calc-saved-count"></em></summary>
+              <label class="check calc-saved-mine"><input type="checkbox" id="calc-reports-mine" checked /> This customer only</label>
+              <p class="hint">Every report generated is kept here. Download it again at any time: the file is named after the customer and when the report was made.</p>
+              <div class="table-wrap"><table class="data-table"><thead><tr><th>Customer</th><th>Made</th><th>By</th><th>Triage &amp; remediation</th><th>Fusion</th><th>Extra</th><th>Total credits</th><th>Bundles</th><th></th></tr></thead><tbody id="calc-reports"></tbody></table></div>
+              <p class="hint" id="calc-reports-empty">No reports yet. <strong>Generate projection report</strong> makes one from the customer's triage &amp; remediation and Fusion figures.</p>
+            </details>
             <div class="ptabs" role="tablist" aria-label="Cx Credits Calculator" data-ptabs="calculator">
               <button type="button" role="tab" class="ptab" data-pt="tr">Triage &amp; remediation</button>
-              <button type="button" role="tab" class="ptab" data-pt="fusion">Fusion — existing customer</button>
-              <button type="button" role="tab" class="ptab" data-pt="fusion-new">Fusion — new customer</button>
+              <button type="button" role="tab" class="ptab" data-pt="fusion">Fusion</button>
               <button type="button" role="tab" class="ptab" data-pt="impact">Impact</button>
-              <button type="button" role="tab" class="ptab" data-pt="reports">Projection reports</button>
             </div>
 
             <div data-ptpanel="calculator:tr" class="calc-panel">
@@ -3588,10 +3593,19 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             </div>
 
             <div data-ptpanel="calculator:fusion" class="calc-panel" hidden>
+              <div class="calc-fsub-nav segmented" id="calc-fsub-nav" role="radiogroup" aria-label="Which Fusion to show">
+                <label class="mode"><input type="radio" name="calc-fsub" value="new" checked /> <span>New code <small>· counted from git, cloc-fusion or cloc</small></span></label>
+                <label class="mode calc-fsub-existing"><input type="radio" name="calc-fsub" value="existing" /> <span>In Checkmarx One <small>· projects already scanned</small></span></label>
+              </div>
+              <section class="panel calc-fusion-viz-panel" id="calc-fusion-viz-panel" hidden>
+                <div class="calc-section-head"><h2>Fusion visuals</h2><span class="hint">Hide any you don't need — the choice is remembered.</span></div>
+                <div class="calc-viz-grid" id="calc-fusion-viz"></div>
+              </section>
+              <div class="calc-fsub" data-fsub="existing">
               <section class="panel">
                 <h2>Fusion — existing customer: what each project needs</h2>
                 <p class="calc-notice calc-off-note" id="calc-fusion-off-note" hidden>Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings (Triage &amp; remediation counts 0% more found by Fusion) or the report. The settings below are kept. <button type="button" class="link" id="calc-fusion-include">Include it</button></p>
-                <p class="calc-notice" data-help-fold>Each project's lines of code are rounded up to whole 10K units on their own, and one Fusion scan costs its model's credits per 10K LOC. The projects come from Checkmarx One with how often each is scanned: the rules below start from that, and you can give more scans to the projects scanned most often or most critical.</p>
+                <p class="calc-notice" data-help-fold>Each project's lines of code are rounded up to whole 10K-LOC blocks on their own, and one Fusion scan costs its model's credits per 10K LOC. The projects come from Checkmarx One with how often each is scanned: the rules below start from that, and you can give more scans to the projects scanned most often or most critical.</p>
                 <div class="calc-terms">
                   <label class="field"><span>Default Fusion scans per project</span><input type="number" id="calc-default-scans" min="0" step="1" /></label>
                   <label class="field"><span>Default model</span><select id="calc-default-model"></select></label>
@@ -3603,7 +3617,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div class="calc-section-head"><h2>Fusion models</h2><button type="button" class="secondary" id="calc-add-model">Add a model</button></div>
                 <p class="hint">The models the tenant offers and their credits per 10K LOC, read with the projects when Checkmarx One says them; otherwise type them as Checkmarx One shows them when a scan is started.</p>
                 <div class="table-wrap"><table class="data-table calc-models"><thead><tr><th>Model</th><th>Credits per 10K LOC</th><th></th></tr></thead><tbody id="calc-models"></tbody></table></div>
-                <p class="hint" id="calc-models-empty">No model yet: projects are counted in scans and 10K units, without credits, until a model has its credits per 10K LOC.</p>
+                <p class="hint" id="calc-models-empty">No model yet: projects are counted in scans and 10K-LOC blocks, without credits, until a model has its credits per 10K LOC.</p>
               </section>
               <section class="panel">
                 <h2>Fusion scans by how often projects are scanned</h2>
@@ -3628,20 +3642,20 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 </div>
                 <div class="table-wrap">
                   <table class="data-table calc-projects">
-                    <thead id="calc-projects-head"><tr><th>Include</th><th data-sort="name" aria-sort="none"><button type="button" class="th-sort">Project</button></th><th data-sort="criticality" aria-sort="none"><button type="button" class="th-sort">Criticality</button></th><th data-sort="frequency" aria-sort="none"><button type="button" class="th-sort">Scanned today</button></th><th data-sort="lines" aria-sort="none"><button type="button" class="th-sort">Lines of code</button></th><th data-sort="units" aria-sort="none"><button type="button" class="th-sort">10K units</button></th><th data-sort="scans" aria-sort="none"><button type="button" class="th-sort">Fusion scans</button></th><th data-sort="model" aria-sort="none"><button type="button" class="th-sort">Model</button></th><th data-sort="credits" aria-sort="none"><button type="button" class="th-sort">Credits</button></th></tr></thead>
+                    <thead id="calc-projects-head"><tr><th>Include</th><th data-sort="name" aria-sort="none"><button type="button" class="th-sort">Project</button></th><th data-sort="criticality" aria-sort="none"><button type="button" class="th-sort">Criticality</button></th><th data-sort="frequency" aria-sort="none"><button type="button" class="th-sort">Scanned today</button></th><th data-sort="lines" aria-sort="none"><button type="button" class="th-sort">Lines of code</button></th><th data-sort="units" aria-sort="none"><button type="button" class="th-sort">10K-LOC blocks</button></th><th data-sort="scans" aria-sort="none"><button type="button" class="th-sort">Fusion scans</button></th><th data-sort="model" aria-sort="none"><button type="button" class="th-sort">Model</button></th><th data-sort="credits" aria-sort="none"><button type="button" class="th-sort">Credits</button></th></tr></thead>
                     <tbody id="calc-rows"></tbody>
                   </table>
                 </div>
                 <div class="calc-more" id="calc-rows-more" hidden><button type="button" class="secondary" id="calc-rows-more-btn">Show more</button></div>
                 <p class="hint" id="calc-rows-empty">No projects yet. <strong>Read from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.</p>
               </section>
-            </div>
+            </div><!-- /calc-fsub existing -->
 
-            <div data-ptpanel="calculator:fusion-new" class="calc-panel" hidden>
+            <div class="calc-fsub" data-fsub="new" hidden>
               <section class="panel">
                 <h2>Fusion — new customer: code not in Checkmarx One yet</h2>
                 <p class="calc-notice calc-off-note" id="calc-fnew-off-note" hidden>This part is left out of the projection (Add Fusion: New customer is unticked): none of it is counted in the credits or the report. The projects below are kept. <button type="button" class="link" id="calc-fnew-include">Include it</button></p>
-                <p class="calc-notice" data-help-fold>Count the customer's code lines one of three ways. Each way, each repository becomes a project below, counted the same way: code lines only, no blank or comment lines. Counted from git or read from a cloc-fusion report, a project also says how often it changes, which sets its Fusion scans, and how many people work on it. Each project's code lines are rounded up to whole 10K units, and one Fusion scan costs its model's credits per 10K LOC, as on the existing customer tab; the models are that tab's.</p>
+                <p class="calc-notice" data-help-fold>Count the customer's code lines one of three ways. Each way, each repository becomes a project below, counted the same way: code lines only, no blank or comment lines. Counted from git or read from a cloc-fusion report, a project also says how often it changes, which sets its Fusion scans, and how many people work on it. Each project's code lines are rounded up to whole 10K-LOC blocks, and one Fusion scan costs its model's credits per 10K LOC, as on the existing customer tab; the models are that tab's.</p>
                 <div class="segmented calc-fnew-ways" id="calc-fnew-ways" role="radiogroup" aria-label="How the code lines are counted">
                   <label class="mode"><input type="radio" name="calc-fnew-way" value="git" checked /> <span>Count from git</span></label>
                   <label class="mode"><input type="radio" name="calc-fnew-way" value="report" /> <span>Import a cloc-fusion report</span></label>
@@ -3740,7 +3754,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <p class="hint" id="calc-fnew-empty">No projects yet. Count the customer's repositories from git, import a cloc-fusion report or drop their cloc results above, or add a project by hand.</p>
                 <p class="hint" id="calc-fnew-again" hidden>Counting again replaces a project of the same repository (or, for one without, the same name); <b>Count again</b> on a git project measures it again at its latest commit.</p>
               </section>
-            </div>
+            </div><!-- /calc-fsub new -->
+            </div><!-- /calculator:fusion panel -->
 
             <div data-ptpanel="calculator:impact" class="calc-panel" hidden>
               <section class="panel">
@@ -3780,15 +3795,6 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <section class="panel" id="calc-impact-how"></section>
             </div>
 
-            <div data-ptpanel="calculator:reports" class="calc-panel" hidden>
-              <section class="panel">
-                <div class="calc-section-head"><h2>Projection reports</h2>
-                  <label class="check"><input type="checkbox" id="calc-reports-mine" checked /> This customer only</label></div>
-                <p class="hint">Every report generated is kept here. Download it again at any time: the file is named after the customer and when the report was made.</p>
-                <div class="table-wrap"><table class="data-table"><thead><tr><th>Customer</th><th>Made</th><th>By</th><th>Triage &amp; remediation</th><th>Fusion</th><th>Extra</th><th>Total credits</th><th>Bundles</th><th></th></tr></thead><tbody id="calc-reports"></tbody></table></div>
-                <p class="hint" id="calc-reports-empty">No reports yet. <strong>Generate projection report</strong> makes one from the customer's triage &amp; remediation and Fusion figures.</p>
-              </section>
-            </div>
           </div>
 
           <!-- ================= Get help ================= -->

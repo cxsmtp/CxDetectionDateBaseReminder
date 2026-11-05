@@ -133,7 +133,11 @@ test('credits required: both parts, an extra % on top, and whole bundles of cred
   assert.equal(sum.bundles, 3, '27,170.55 credits ÷ 10,000 = 2.72, rounded up to 3 bundles');
   assert.equal(creditSummary(20000, null, {}).bundles, 2, 'exactly 2 bundles is not rounded up to 3');
   assert.equal(creditSummary(null, 100, { bundleCredits: 50 }).bundles, 2);
-  assert.deepEqual(creditSummary(null, null, {}), { settings: { extraPercent: 0, bundleCredits: 10000 }, tr: null, fusion: null, base: 0, extra: 0, total: 0, exactBundles: 0, bundles: 0 });
+  assert.deepEqual(creditSummary(null, null, {}), { settings: { extraPercent: 0, bundleCredits: 10000 }, tr: null, fusion: null, base: 0, extra: 0, total: 0, exactBundles: 0, bundles: 0, trShown: null, fusionShown: null, extraShown: 0, totalShown: 0, bundlesShown: 0 });
+  // Round totals only: the shown figures are whole and add up (700.5 → 701), the exact parts are kept for the maths.
+  const shown = creditSummary(24000, 700.5, { extraPercent: 10 });
+  assert.deepEqual([shown.trShown, shown.fusionShown, shown.extraShown, shown.totalShown], [24000, 701, 2470, 27171]);
+  assert.equal(shown.trShown + shown.fusionShown + shown.extraShown, shown.totalShown);
   assert.deepEqual(totalsSettings({ extraPercent: '12.345', bundleCredits: '5,000' }), { extraPercent: 12.35, bundleCredits: 5000 });
   assert.deepEqual(totalsSettings({ extraPercent: -5, bundleCredits: 0 }), { extraPercent: 0, bundleCredits: 10000 });
   assert.equal(totalsSettings({ extraPercent: 9000 }).extraPercent, 500);

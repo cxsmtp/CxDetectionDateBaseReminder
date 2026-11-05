@@ -92,9 +92,15 @@ test('the projection report and its PDF show the new customer as its own part of
   assert.ok(pages.find((p) => p.kind === 'fusion').lines.some((l) => l.includes('New customer (code counted from git, a cloc-fusion report or cloc)')));
 });
 
-test('the page: two Fusion tabs, the two ticks under Add Fusion, and the new customer\'s part in the summary', () => {
+test('the page: one Fusion tab with its two sub-sections, the two ticks under Add Fusion, and the new customer\'s part in the summary', () => {
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.match(html, /data-pt="fusion">Fusion — existing customer<\/button>\s*<button type="button" role="tab" class="ptab" data-pt="fusion-new">Fusion — new customer<\/button>/);
+  // One Fusion tab (no separate "fusion-new" tab), with an "In Checkmarx One" / "New code" sub-switch over both sub-sections.
+  assert.match(html, /data-pt="fusion">Fusion<\/button>/);
+  assert.doesNotMatch(html, /data-pt="fusion-new"/);
+  assert.match(html, /name="calc-fsub" value="existing"/);
+  assert.match(html, /name="calc-fsub" value="new"/);
+  assert.match(html, /class="calc-fsub" data-fsub="existing"/);
+  assert.match(html, /class="calc-fsub" data-fsub="new" hidden/);
   assert.match(html, /id="calc-fusion-on" checked \/> Existing customer/);
   assert.match(html, /id="calc-fusion-new-on" checked \/> New customer/);
   // One Fusion tile, for the part that applies (both added up when both do).

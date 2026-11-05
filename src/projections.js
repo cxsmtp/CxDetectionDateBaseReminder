@@ -594,6 +594,10 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
     const summary = counted ? summaries.get(counted.id) : null;
     if (!summary) return;
     rows[i].openByEngine = Object.fromEntries(Object.entries(perEngine(summary)).map(([engine, { total }]) => [engine, SEVERITIES.reduce((n, s) => n + (total[s] ?? 0), 0)]));
+    // The open findings now, by severity across every engine: the per-project backlog the calculator can consolidate.
+    const bySeverity = Object.fromEntries(SEVERITIES.map((s) => [s, 0]));
+    for (const { total } of Object.values(perEngine(summary))) for (const s of SEVERITIES) bySeverity[s] += total[s] ?? 0;
+    rows[i].openBySeverity = bySeverity;
   });
   const readAt = new Date(now).toISOString();
   const meta = { source: 'cxone', readAt, projects: projects.length, ...(limited ? { projectsLimit: limit, projectsTotal: total } : {}), scans: weekly.scans, engines: weekly.engines, engineSplit: true, origins: [], originSplit: true, branches: branches === 'all' ? 'all' : 'primary' };

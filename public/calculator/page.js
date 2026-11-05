@@ -45,7 +45,7 @@ import {
   weeklyTrend,
   wholeNumber,
 } from './model.js';
-import { SEVERITY_COLOURS, debtFixChart, forecastChart, severityCharts } from './charts.js';
+import { PAGE_PALETTE, SEVERITY_COLOURS, barChart, debtFixChart, donutChart, forecastChart, lineChart, severityCharts } from './charts.js';
 import { buildReport, reportFileName, wording } from './report.js';
 import { leverData, leverInputs, recentRates } from './levers.js';
 import { slidesFileName, slidesPdf } from './slides.js';
@@ -545,7 +545,31 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         <h2>By severity</h2>
         <p class="hint">The backlog so far, then with the plan over the next ${num(months)} months (dashed). Each severity on its own scale.</p>
         ${severityCharts(f.bySeverity)}
-      </section>`;
+      </section>
+      ${byProjectSeverity()}`;
+  }
+
+  /** The consolidated backlog by project and severity (from Read from Checkmarx One); empty without per-project data. */
+  function byProjectSeverity() {
+    const rows = (fusion()?.projects ?? [])
+      .filter((p) => p.source !== 'manual' && p.openBySeverity)
+      .map((p) => ({ name: p.name, sev: p.openBySeverity, total: SEVERITIES.reduce((n, s) => n + (p.openBySeverity[s] ?? 0), 0) }))
+      .filter((r) => r.total > 0)
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+    if (!rows.length) return '';
+    const tot = Object.fromEntries(SEVERITIES.map((s) => [s, rows.reduce((n, r) => n + (r.sev[s] ?? 0), 0)]));
+    const grand = rows.reduce((n, r) => n + r.total, 0);
+    const head = (s) => `<th class="num"><span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span></th>`;
+    return `
+      <details class="panel calc-fold calc-byproject" open>
+        <summary><h2>Open vulnerabilities by project</h2><span class="hint">Consolidated backlog</span></summary>
+        <p class="hint">${num(rows.length)} projects, ${num(grand)} open findings now, by severity, from each project's latest scan read from Checkmarx One.</p>
+        <div class="table-wrap"><table class="data-table calc-byproject-table">
+          <thead><tr><th>Project</th>${SEVERITIES.map(head).join('')}<th class="num">Total</th></tr></thead>
+          <tbody>${rows.map((r) => `<tr><td translate="no">${esc(r.name)}</td>${SEVERITIES.map((s) => `<td class="num">${num(r.sev[s] ?? 0)}</td>`).join('')}<td class="num calc-total">${num(r.total)}</td></tr>`).join('')}</tbody>
+          <tfoot><tr><td>All projects</td>${SEVERITIES.map((s) => `<td class="num">${num(tot[s])}</td>`).join('')}<td class="num calc-total">${num(grand)}</td></tr></tfoot>
+        </table></div>
+      </details>`;
   }
 
   /**
@@ -799,7 +823,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const kpi = (label, value, sub, cls = '') => `<div class="rp-kpi ${cls}"><span class="rp-tile-label">${esc(label)}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${sub}</span></div>`;
     $('calc-fkpis').innerHTML = [
       kpi('Projects', num(t.projects), t.unknownLines ? `<span class="calc-warn">Still without lines of code: ${num(t.unknownLines)}</span>` : 'Included, with lines of code'),
-      kpi('10K LOC units', num(t.units), `${num(t.lines)} lines, each project rounded up`),
+      kpi('10K-LOC blocks', num(t.units), `${num(t.lines)} lines, each project rounded up`),
       kpi('Fusion scans', num(t.scans), `Over ${num(est.settings.periodMonths)} months`),
       kpi('Credits', num(t.credits, 1), t.unknownRate ? `<span class="calc-warn">Projects whose model has no credits per 10K LOC: ${num(t.unknownRate)}</span>` : `Over ${num(est.settings.periodMonths)} months`, 'calc-gold'),
       c.remainingCredits !== null ? kpi('Credits remaining in the tenant', num(c.remainingCredits), c.remainingCredits >= t.credits ? 'Enough for this projection' : `<span class="calc-warn">Short by ${num(t.credits - c.remainingCredits, 1)}</span>`) : '',
@@ -881,7 +905,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderTr();
     renderPending();
   };
-  $('calc-fusion-on').addEventListener('change', (event) => c.open && setNext({ fusionOn: event.target.checked }, { redraw: false }));
+  $('calc-fusion-on').addEventListener('change', (event) => { if (!c.open) return; setNext({ fusionOn: event.target.checked }, { redraw: false }); showFsub(event.target.checked ? 'existing' : 'new'); });
   $('calc-fusion-include').addEventListener('click', () => setFusionOn(true));
 
   // ---- Fusion — new customer: code not in Checkmarx One yet, its lines counted from git or with cloc
@@ -931,7 +955,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       <td>${counted.length || left
         ? `<span class="calc-lang-line" translate="no">${counted.slice(0, 3).map((l) => `${esc(l.name)} ${Math.round((l.lines / total) * 100)}%`).join(' · ')}${counted.length > 3 ? ` · +${counted.length - 3}` : ''}</span>${left ? `<span class="calc-lang-line">${esc(`${num(left)} lines not counted`)}</span>` : ''}<span class="calc-lang-bar">${counted.map((l) => `<i style="width:${((l.lines / total) * 100).toFixed(2)}%;background:${colourOf(l.name)}" title="${esc(`${l.name}: ${num(l.lines)}`)}"></i>`).join('')}</span>`
         : '—'}</td>
-      <td><input type="text" inputmode="numeric" class="calc-num" data-n="loc" value="${esc(typed ? p.locOverride : p.lines ?? '')}" placeholder="Type them" aria-label="Lines of code of ${esc(p.name)}" /><small class="hint calc-units">10K LOC units <b data-cell="units">${p.included && p.units ? num(p.units) : '—'}</b></small>${typed && p.languages.length ? `<small class="hint">${countedBy} ${num(newCustomerEstimate({ ...fnew(), projects: [{ ...p, locOverride: null }] }, fusion()).rows[0]?.lines)} <button type="button" class="link" data-fnew-reset>Use it</button></small>` : ''}</td>
+      <td><input type="text" inputmode="numeric" class="calc-num" data-n="loc" value="${esc(typed ? p.locOverride : p.lines ?? '')}" placeholder="Type them" aria-label="Lines of code of ${esc(p.name)}" /><small class="hint calc-units">10K-LOC blocks <b data-cell="units">${p.included && p.units ? num(p.units) : '—'}</b></small>${typed && p.languages.length ? `<small class="hint">${countedBy} ${num(newCustomerEstimate({ ...fnew(), projects: [{ ...p, locOverride: null }] }, fusion()).rows[0]?.lines)} <button type="button" class="link" data-fnew-reset>Use it</button></small>` : ''}</td>
       <td>${fnewFrequencyHtml(p)}</td>
       <td><input type="text" inputmode="numeric" class="calc-num" data-n="scansOverride" value="${esc(p.scansOverride ?? '')}" placeholder="${esc(num(p.scans))}" aria-label="Fusion scans for ${esc(p.name)}" /><span class="calc-scans-from" data-cell="from">${esc(FROM_NEW[p.scansFrom] ?? '')}</span></td>
       <td><select data-n="modelOverride" aria-label="Model for ${esc(p.name)}">${modelOptions(p.modelOverride, 'Automatic')}</select></td>
@@ -967,7 +991,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-fnew-kpis').innerHTML = f.projects.length
       ? [
           fnewKpi('Projects', num(tot.projects), tot.unknownLines ? `<span class="calc-warn">Still without lines of code: ${num(tot.unknownLines)}</span>` : 'Included, with lines of code'),
-          fnewKpi('10K LOC units', num(tot.units), `${num(tot.lines)} code lines, each project rounded up`),
+          fnewKpi('10K-LOC blocks', num(tot.units), `${num(tot.lines)} code lines, each project rounded up`),
           fnewKpi('Fusion scans', num(tot.scans), tot.withActivity ? esc(`Over ${num(est.settings.periodMonths)} months · ${num(tot.byRule)} by change frequency`) : `Over ${num(est.settings.periodMonths)} months`),
           fnewKpi('Credits', num(tot.credits, 1), tot.unknownRate ? `<span class="calc-warn">Projects whose model has no credits per 10K LOC: ${num(tot.unknownRate)}</span>` : `Over ${num(est.settings.periodMonths)} months`, 'calc-gold'),
         ].join('')
@@ -1142,6 +1166,21 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     } catch {}
     showWay(way);
   });
+
+  /** Fusion's two sub-sections in one tab: "In Checkmarx One" (projects already scanned) and "New code" (cloc-fusion). */
+  const showFsub = (pick) => {
+    // "In Checkmarx One" (existing-customer Fusion) is behind the Add Fusion: Existing customer tick — off by default.
+    const existingOn = Boolean($('calc-fusion-on')?.checked);
+    const existingTab = document.querySelector('.calc-fsub-existing');
+    if (existingTab) existingTab.hidden = !existingOn;
+    const shown = pick === 'existing' && existingOn ? 'existing' : 'new';
+    for (const input of document.querySelectorAll('input[name="calc-fsub"]')) input.checked = input.value === shown;
+    for (const box of document.querySelectorAll('#page-calculator .calc-fsub')) box.hidden = box.dataset.fsub !== shown;
+  };
+  $('calc-fsub-nav')?.addEventListener('change', (event) => {
+    if (event.target.name === 'calc-fsub') showFsub(event.target.value);
+  });
+  showFsub('new');
 
   /** The Admin's git connections, once: each one a choice in step 1, beside a token typed for one run. */
   async function loadConnections() {
@@ -2070,6 +2109,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const n = next();
     $('calc-fusion-on').checked = n.fusionOn;
     $('calc-fusion-new-on').checked = n.fusionNewOn;
+    showFsub(document.querySelector('input[name="calc-fsub"]:checked')?.value ?? 'new');
     $('calc-extra').value = n.extraPercent || '';
     $('calc-bundle').value = n.bundleCredits;
     // The bundle size is 10,000 for nearly every customer: it waits behind the "?" on Bundles, marked when it is another.
@@ -2350,7 +2390,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     };
     const rows = [
-      ['Project', 'Included', 'Criticality', 'Scanned today', 'Scans in the last year', 'Lines of code', '10K units', 'Fusion scans', 'Scans set by', 'Model', 'Credits per 10K LOC', 'Credits'],
+      ['Project', 'Included', 'Criticality', 'Scanned today', 'Scans in the last year', 'Lines of code', '10K-LOC blocks', 'Fusion scans', 'Scans set by', 'Model', 'Credits per 10K LOC', 'Credits'],
       ...sortedRows(est).map((r) => [r.name, r.included ? 'yes' : 'no', r.criticality ?? '', FREQ_LABEL[r.frequency] ?? '', r.scanCount ?? '', r.lines ?? '', r.units, r.scans, FROM_LABEL[r.scansFrom] ?? '', models.get(r.model)?.name ?? '', r.rate ?? '', r.credits ?? '']),
       [],
       ['Total', est.totals.projects, '', '', '', est.totals.lines, est.totals.units, est.totals.scans, '', '', '', est.totals.credits],
@@ -2381,30 +2421,81 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (tab.hidden && tab.classList.contains('active')) document.querySelector('[data-ptabs="calculator"] [data-pt="tr"]')?.click();
   }
 
+  // --- Fusion visuals: four graphs over the counted Fusion, each one the user can mute (hide) ---
+  const VIZ_COLOURS = ['#4f46e5', '#0d9488', '#d97706', '#db2777', '#2563eb', '#16a34a', '#9333ea', '#dc2626', '#0891b2', '#ca8a04', '#64748b'];
+  const vizHidden = () => { try { return new Set(JSON.parse(localStorage.getItem('cx-fusion-viz-hidden') || '[]')); } catch { return new Set(); } };
+
+  function renderFusionVisuals() {
+    const panel = $('calc-fusion-viz-panel');
+    const host = $('calc-fusion-viz');
+    if (!panel || !host) return;
+    const est = estimate();
+    const fn = fnewEstimate();
+    const parts = [fusionCounts(est) && est, fnewCounts(fn) && fn].filter(Boolean);
+    const rows = parts.flatMap((p) => p.rows.filter((r) => r.included && r.units));
+    if (!rows.length) { panel.hidden = true; host.innerHTML = ''; return; }
+    panel.hidden = false;
+    const totalCredits = rows.reduce((a, r) => a + (r.credits ?? 0), 0);
+    // 1 · credit mix by model
+    const byModel = new Map();
+    for (const p of parts) for (const m of p.byModel ?? []) byModel.set(m.name || 'No model', (byModel.get(m.name || 'No model') ?? 0) + (m.credits ?? 0));
+    const modelSeg = [...byModel.entries()].map(([label, value], i) => ({ label, value, colour: VIZ_COLOURS[i % VIZ_COLOURS.length] }));
+    // 2 · 10K-LOC blocks by repository (top 12 by blocks)
+    const repoBars = [...rows].sort((a, b) => (b.units ?? 0) - (a.units ?? 0)).slice(0, 12).map((r) => ({ label: r.name || '—', value: r.units ?? 0, sub: `${num(r.scans)} scans`, colour: PAGE_PALETTE.plan }));
+    // 3 · credits over the projection period (accrue evenly)
+    const months = Math.max(2, Math.min(horizon(), 36));
+    const pts = Array.from({ length: months }, (_, i) => ({ label: `M${i + 1}`, credits: Math.round((totalCredits * (i + 1)) / months) }));
+    // 4 · lines of code by language (from the new-code projects, which know their languages)
+    const langs = new Map();
+    for (const p of (fnewCounts(fn) ? (fnew()?.projects ?? []).filter((x) => x.included !== false) : [])) for (const [lang, n] of Object.entries(p.langs ?? {})) langs.set(lang, (langs.get(lang) ?? 0) + (wholeNumber(n) ?? 0));
+    const langBars = [...langs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([label, value], i) => ({ label, value, colour: VIZ_COLOURS[i % VIZ_COLOURS.length] }));
+    const cards = [
+      ['mix', 'Credit mix by model', donutChart(modelSeg, { centre: num(Math.round(totalCredits)), title: 'Credit mix by model' })],
+      ['repo', '10K-LOC blocks by repository', barChart(repoBars, { title: 'Blocks by repository' })],
+      ['period', 'Credits over the period', lineChart(pts, [{ key: 'credits', colour: '#0d9488', label: 'Credits', area: true }], { width: 380, height: 190, title: 'Credits over the period' })],
+      ['langs', 'Lines of code by language', barChart(langBars, { title: 'Lines by language' })],
+    ].filter(([, , svg]) => svg);
+    const hidden = vizHidden();
+    host.innerHTML = cards.map(([id, title, svg]) => `
+      <div class="calc-viz${hidden.has(id) ? ' muted' : ''}" data-viz="${id}">
+        <div class="calc-viz-head"><h3>${esc(title)}</h3><label class="calc-viz-mute"><input type="checkbox" data-viz-mute="${id}" ${hidden.has(id) ? '' : 'checked'} /> Show</label></div>
+        <div class="calc-viz-body">${svg}</div>
+      </div>`).join('');
+  }
+  $('calc-fusion-viz')?.addEventListener('change', (event) => {
+    const id = event.target?.dataset?.vizMute;
+    if (!id) return;
+    const hidden = vizHidden();
+    if (event.target.checked) hidden.delete(id); else hidden.add(id);
+    try { localStorage.setItem('cx-fusion-viz-hidden', JSON.stringify([...hidden])); } catch {}
+    event.target.closest('.calc-viz')?.classList.toggle('muted', !event.target.checked);
+  });
+
   function renderSummary() {
     gateImpact();
     $('calc-pdf').hidden = !(lastMade && lastMade.customerId === c.open?.id);
-    if (!c.open) return;
+    if (!c.open) { $('calc-fusion-viz-panel') && ($('calc-fusion-viz-panel').hidden = true); return; }
     const fn = fnewEstimate();
     c.fusionNewCredits = fnewCounts(fn) ? fn.totals.credits : null;
     // Fusion for the customer's projects in Checkmarx One and for its new code, together.
     const sum = creditSummary(c.trCredits, fusionTotal({ totals: { credits: c.fusionCredits } }, { totals: { credits: c.fusionNewCredits } }), totals());
-    $('calc-sum-tr').textContent = num(sum.tr, 1);
-    $('calc-sum-tr-split').textContent = c.trSplit ? `${num(c.trSplit.backlogCredits, 1)} backlog + ${num(c.trSplit.aheadCredits, 1)} ahead` : '';
+    $('calc-sum-tr').textContent = num(sum.trShown);
+    $('calc-sum-tr-split').textContent = c.trSplit ? `${num(Math.round(c.trSplit.backlogCredits))} backlog + ${num(Math.round(c.trSplit.aheadCredits))} ahead` : '';
     // One Fusion figure, for the part that applies to this customer (ticked, with projects counted): both
     // added up when both do, with the split under it.
     const existing = c.fusionCredits !== null && c.fusionCredits !== undefined;
     const fresh = c.fusionNewCredits !== null && c.fusionNewCredits !== undefined;
     $('calc-sum-fusion-label').textContent = existing && !fresh ? 'Fusion — existing' : fresh && !existing ? 'Fusion — new' : 'Fusion';
-    $('calc-sum-fusion').textContent = existing || fresh ? num((c.fusionCredits ?? 0) + (c.fusionNewCredits ?? 0), 1) : fusionOff() && fnewOff() ? 'Left out' : '—';
-    $('calc-sum-fusion-split').textContent = existing && fresh ? `${num(c.fusionCredits, 1)} existing + ${num(c.fusionNewCredits, 1)} new` : '';
-    $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.total, 1);
-    $('calc-sum-extra').textContent = num(sum.extra, 1);
-    $('calc-mix-extra').hidden = !(sum.extra > 0);
-    $('calc-sum-bundles').textContent = sum.total ? num(sum.bundles) : '—';
+    $('calc-sum-fusion').textContent = existing || fresh ? num(Math.round((c.fusionCredits ?? 0) + (c.fusionNewCredits ?? 0))) : fusionOff() && fnewOff() ? 'Left out' : '—';
+    $('calc-sum-fusion-split').textContent = existing && fresh ? `${num(Math.round(c.fusionCredits))} existing + ${num(Math.round(c.fusionNewCredits))} new` : '';
+    $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.totalShown);
+    $('calc-sum-extra').textContent = num(sum.extraShown);
+    $('calc-mix-extra').hidden = !(sum.extraShown > 0);
+    $('calc-sum-bundles').textContent = sum.totalShown ? num(sum.bundlesShown) : '—';
     $('calc-sum-exact').textContent = sum.total && sum.bundles !== sum.exactBundles ? `${num(sum.exactBundles, 2)}, rounded up` : '';
     renderMix(sum, existing ? c.fusionCredits : 0, fresh ? c.fusionNewCredits : 0, existing || fresh);
     renderImpact();
+    renderFusionVisuals();
   }
 
   /**
@@ -2793,16 +2884,18 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   function renderReports() {
     $('calc-reports-empty').hidden = c.reports.length > 0;
+    const count = $('calc-saved-count');
+    if (count) count.textContent = c.reports.length ? `(${num(c.reports.length)})` : '';
     $('calc-reports').innerHTML = c.reports
       .map(
         (r) => `<tr data-report="${esc(r.id)}">
         <td translate="no">${esc(r.customer)}</td>
         <td><time translate="no">${esc(fmtDateTime(r.createdAt))}</time></td>
         <td translate="no">${esc(r.createdBy)}</td>
-        <td class="num">${r.trCredits === null ? '—' : num(r.trCredits, 1)}</td>
-        <td class="num">${r.fusionCredits === null ? '—' : num(r.fusionCredits, 1)}</td>
+        <td class="num">${r.trCredits === null ? '—' : num(Math.round(r.trCredits))}</td>
+        <td class="num">${r.fusionCredits === null ? '—' : num(Math.round(r.fusionCredits))}</td>
         <td class="num">${r.extraPercent ? `${num(r.extraPercent, 2)}%` : '—'}</td>
-        <td class="num"><b>${num(r.totalCredits, 1)}</b></td>
+        <td class="num"><b>${num(Math.round(r.totalCredits))}</b></td>
         <td class="num">${r.bundles === undefined ? '—' : num(r.bundles)}</td>
         <td><button type="button" class="secondary" data-download>Download</button> <button type="button" class="ghost" data-pdf>PDF</button> ${can('reports.delete') ? '<button type="button" class="ghost calc-remove" data-delete-report>Delete</button>' : ''}</td></tr>`,
       )

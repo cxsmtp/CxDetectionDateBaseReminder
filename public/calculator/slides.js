@@ -236,8 +236,8 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
     calc.push({ label: w('To remediate (true positives)'), formula: fps.length === 1 ? `${num(reported)} × ${num(100 - fps[0])}% = ${num(T.truePositives)}` : `${SEVERITIES.filter((x) => tr.rows?.[x]?.truePositives > 0).map((x) => num(tr.rows[x].truePositives)).join(' + ')} = ${num(T.truePositives)}` });
     calc.push({ label: w('Triage & remediation credits'), formula: `${num(T.triageCredits)} + ${num(T.remediationCredits)} = ${num(T.credits)}` });
   }
-  if (fu) calc.push({ label: fn ? w('Fusion — existing customer') : w('Fusion credits'), formula: `Σ ${w('10K units × scans')} × ${w('Credits per 10K LOC')} = ${num(fu.totals?.credits)}` });
-  if (fn) calc.push({ label: w('Fusion — new customer'), formula: `Σ ${w('10K units × scans')} × ${w('Credits per 10K LOC')} = ${num(fn.totals?.credits)}` });
+  if (fu) calc.push({ label: fn ? w('Fusion — existing customer') : w('Fusion credits'), formula: `Σ ${w('10K-LOC blocks × scans')} × ${w('Credits per 10K LOC')} = ${num(fu.totals?.credits)}` });
+  if (fn) calc.push({ label: w('Fusion — new customer'), formula: `Σ ${w('10K-LOC blocks × scans')} × ${w('Credits per 10K LOC')} = ${num(fn.totals?.credits)}` });
   calc.push({ label: w('Total credits required'), formula: `${sum.tr !== null && sum.fusion !== null ? `${num(sum.tr)} + ${num(sum.fusion)} = ` : ''}${num(sum.base)}${sum.extra ? ` + ${num(sum.settings.extraPercent, 2)}% = ${num(sum.total)}` : ''}; ${num(sum.total)} ÷ ${num(sum.settings.bundleCredits)} = ${num(sum.exactBundles, 2)} → ${num(sum.bundles)}` });
   const an = (x) => tr?.analysis?.[x] ?? {};
   pages.push({

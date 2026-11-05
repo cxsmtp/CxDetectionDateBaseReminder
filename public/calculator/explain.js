@@ -118,7 +118,7 @@ export function fusionSection(f, L) {
     key: 'fusion-credits',
     title: w('Fusion credits'),
     lines: [
-      { text: w('Each project\'s lines of code are rounded up to whole 10K units; units × Fusion scans × the model\'s credits per 10K LOC:') },
+      { text: w('Each project\'s lines of code are rounded up to whole 10K-LOC blocks; units × Fusion scans × the model\'s credits per 10K LOC:') },
       ...(f.byModel ?? []).filter((m) => m.credits > 0).map((m) => ({ text: `${String(m.name || '—').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])}: ${num(m.unitScans)} × ${num(m.rate, 2)} = ${num(m.credits, 1)}`, sub: true })),
       { text: w('Total: {0}.', num(f.totals?.credits, 1)), total: true },
     ],
@@ -141,7 +141,7 @@ export function fusionNewSection(f, L) {
   }
   if (T.byDefault) lines.push({ text: w('{0} projects without a known change frequency: {1} Fusion scans each (the default).', num(T.byDefault), num(f.defaultScans)) });
   if (T.byProject) lines.push({ text: w('{0} projects with Fusion scans set for them.', num(T.byProject)) });
-  lines.push({ text: w('Each project\'s lines of code are rounded up to whole 10K units; units × Fusion scans × the model\'s credits per 10K LOC:') });
+  lines.push({ text: w('Each project\'s lines of code are rounded up to whole 10K-LOC blocks; units × Fusion scans × the model\'s credits per 10K LOC:') });
   for (const m of (f.byModel ?? []).filter((x) => x.credits > 0)) lines.push({ text: `${String(m.name || '—').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])}: ${num(m.unitScans)} × ${num(m.rate, 2)} = ${num(m.credits, 1)}`, sub: true });
   lines.push({ text: w('Total: {0}.', num(T.credits, 1)), total: true });
   return { key: 'fusion-new-credits', title: w('Fusion — new customer credits'), lines };

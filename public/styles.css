@@ -3061,6 +3061,18 @@ ol.calc-how li.calc-total { font-weight: 600; }
 /* Fusion — new customer: Count from git. The switch is a .segmented; the rest follows the calculator's panels in every look. */
 .calc-fnew-ways { margin: 0 0 12px; }
 .calc-fnew-way > .calc-cmd-label:first-child { margin-top: 0; }
+/* Fusion tab's two sub-sections — "In Checkmarx One" and "New code" — one shown at a time. */
+.calc-fsub-nav { margin: 0 0 16px; }
+.calc-fsub-nav .mode small { opacity: 0.75; font-weight: 400; }
+.calc-fsub-nav .mode[hidden] { display: none !important; }
+/* Aptos across the Cx Credits Calculator page (in-app), the same as the downloaded calculator; the rest of MZ keeps its own fonts. */
+#page-calculator { --font: "Aptos", "MZ Brand Sans", "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; --ng-display: "Aptos", "Aptos Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; }
+.calc-fsub[hidden] { display: none; }
+/* Saved projection reports, folded above the tabs. */
+.calc-saved { margin: 8px 0 16px; }
+.calc-saved > summary { cursor: pointer; font-weight: 600; }
+.calc-saved .calc-saved-count { font-weight: 400; color: var(--muted); font-style: normal; margin-left: 4px; }
+.calc-saved-mine { display: inline-flex; margin: 10px 0; }
 .calc-git-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px 18px; margin: 0 0 10px; }
 .calc-git-steps h3 { margin: 0 0 6px; font-size: 14px; }
 .calc-git-steps .field { margin: 0; }
@@ -3166,6 +3178,24 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .cc-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
 .cc-key { display: inline-flex; align-items: center; gap: 6px; }
 .cc-swatch { display: inline-block; width: 16px; height: 3px; border-radius: 2px; background: var(--c); }
+/* Donut legend swatches are squares; horizontal bar charts for repos/languages. */
+.cc-donut .cc-swatch { width: 11px; height: 11px; border-radius: 3px; }
+.cc-donut { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.cc-bars { display: flex; flex-direction: column; gap: 7px; }
+.cc-bar { display: grid; grid-template-columns: minmax(80px, 34%) 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
+.cc-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.cc-bar-track { height: 12px; border-radius: 6px; background: var(--surface-3, var(--border)); overflow: hidden; }
+.cc-bar-track i { display: block; height: 100%; border-radius: 6px; min-width: 3px; }
+.cc-bar-val { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; white-space: nowrap; }
+.cc-bar-val small { font-weight: 400; color: var(--muted); margin-left: 5px; }
+/* Fusion visuals: a grid of graph cards, each with a show/hide (mute) toggle. */
+.calc-viz-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.calc-viz { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--surface); }
+.calc-viz-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.calc-viz-head h3 { margin: 0; }
+.calc-viz-mute { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.calc-viz.muted .calc-viz-body { display: none; }
+.calc-viz.muted { background: var(--surface-2); opacity: 0.85; }
 .cc-swatch.dashed { background: repeating-linear-gradient(90deg, var(--c) 0 5px, transparent 5px 9px); }
 .calc-presenting .calc-edit, .calc-presenting #calc-alt, .calc-presenting .calc-source { display: none; }
 .terms-org { margin: 10px 0 4px; }
