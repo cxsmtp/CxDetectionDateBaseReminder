@@ -98,6 +98,17 @@ function openCounts(value) {
   return Object.keys(out).length ? out : null;
 }
 
+/** A project's open findings now, by severity (for the by-project consolidated table): whole counts, null when unknown. */
+function openSeverities(value) {
+  if (!value || typeof value !== 'object') return null;
+  const out = {};
+  for (const s of SEVERITIES) {
+    const count = wholeNumber(value[s]);
+    if (count !== null) out[s] = count;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /** {Jenkins: 12, …}: a project's scans in the year per scan origin, whole numbers; null when not given. */
 function originsOf(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -137,6 +148,8 @@ export function cleanFusion(value) {
     branchHow: BRANCH_HOWS.includes(p?.branchHow) ? p.branchHow : '',
     // Open findings now, per engine (its latest scan): unknown (null) for a project added by hand or read before.
     openByEngine: openCounts(p?.openByEngine),
+    // Open findings now, by severity (for the by-project consolidated table): unknown (null) when not read from Checkmarx One.
+    openBySeverity: openSeverities(p?.openBySeverity),
     // Where its scans came from, with its scans in the year from each, and the days they were counted over:
     // unknown (null) for a project added by hand or read before scan origins were recorded.
     origins: originsOf(p?.origins),

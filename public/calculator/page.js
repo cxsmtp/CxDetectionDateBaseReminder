@@ -545,7 +545,31 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         <h2>By severity</h2>
         <p class="hint">The backlog so far, then with the plan over the next ${num(months)} months (dashed). Each severity on its own scale.</p>
         ${severityCharts(f.bySeverity)}
-      </section>`;
+      </section>
+      ${byProjectSeverity()}`;
+  }
+
+  /** The consolidated backlog by project and severity (from Read from Checkmarx One); empty without per-project data. */
+  function byProjectSeverity() {
+    const rows = (fusion()?.projects ?? [])
+      .filter((p) => p.source !== 'manual' && p.openBySeverity)
+      .map((p) => ({ name: p.name, sev: p.openBySeverity, total: SEVERITIES.reduce((n, s) => n + (p.openBySeverity[s] ?? 0), 0) }))
+      .filter((r) => r.total > 0)
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+    if (!rows.length) return '';
+    const tot = Object.fromEntries(SEVERITIES.map((s) => [s, rows.reduce((n, r) => n + (r.sev[s] ?? 0), 0)]));
+    const grand = rows.reduce((n, r) => n + r.total, 0);
+    const head = (s) => `<th class="num"><span class="calc-sev"><i translate="no" style="background:${SEVERITY_COLOURS[s]}"></i>${s}</span></th>`;
+    return `
+      <details class="panel calc-fold calc-byproject" open>
+        <summary><h2>Open vulnerabilities by project</h2><span class="hint">Consolidated backlog</span></summary>
+        <p class="hint">${num(rows.length)} projects, ${num(grand)} open findings now, by severity, from each project's latest scan read from Checkmarx One.</p>
+        <div class="table-wrap"><table class="data-table calc-byproject-table">
+          <thead><tr><th>Project</th>${SEVERITIES.map(head).join('')}<th class="num">Total</th></tr></thead>
+          <tbody>${rows.map((r) => `<tr><td translate="no">${esc(r.name)}</td>${SEVERITIES.map((s) => `<td class="num">${num(r.sev[s] ?? 0)}</td>`).join('')}<td class="num calc-total">${num(r.total)}</td></tr>`).join('')}</tbody>
+          <tfoot><tr><td>All projects</td>${SEVERITIES.map((s) => `<td class="num">${num(tot[s])}</td>`).join('')}<td class="num calc-total">${num(grand)}</td></tr></tfoot>
+        </table></div>
+      </details>`;
   }
 
   /**
