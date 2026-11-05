@@ -196,7 +196,7 @@ function story(data, L) {
       <table class="calc">
         <tr><td>${w('Projects')}</td><td>${num(t.projects)}</td></tr>
         <tr><td>${w('Lines of code')}</td><td>${num(t.lines)}</td></tr>
-        <tr><td>${w('10K LOC units')}</td><td>${num(t.units)}</td></tr>
+        <tr><td>${w('10K-LOC blocks')}</td><td>${num(t.units)}</td></tr>
         <tr><td>${w('Fusion scans over {0} months', num(data.fusion.periodMonths))}</td><td>${num(t.scans)}</td></tr>
         <tr class="sum gold"><td>${w('Fusion credits')}</td><td>${num(t.credits, 1)}</td></tr>
       </table>
@@ -211,7 +211,7 @@ function story(data, L) {
       <table class="calc">
         <tr><td>${w('Projects')}</td><td>${num(t.projects)}</td></tr>
         <tr><td>${w('Code lines (no blank or comment lines)')}</td><td>${num(t.lines)}</td></tr>
-        <tr><td>${w('10K LOC units')}</td><td>${num(t.units)}</td></tr>
+        <tr><td>${w('10K-LOC blocks')}</td><td>${num(t.units)}</td></tr>
         <tr><td>${w('Fusion scans over {0} months', num(data.fusionNew.periodMonths))}</td><td>${num(t.scans)}</td></tr>
         ${t.withActivity ? `<tr><td>${w('Developers in the last 90 days (added up per project)')}</td><td>${num(t.developers)}</td></tr>` : ''}
         <tr class="sum gold"><td>${w('Fusion credits')}</td><td>${num(t.credits, 1)}</td></tr>
@@ -312,7 +312,7 @@ export function assumptionItems(data, sum, L) {
     const named = esc(origins.join(', '));
     items.push(!origins.length ? w('Scans from: no scan origin.') : data.source.originsFusionOnly ? w('Scans from: {0} (for Fusion: the two exports count every scan).', named) : w('Scans from: {0}.', named));
   }
-  if (data.fusion || data.fusionNew) items.push(w("Each project's lines of code are rounded up to whole 10K units on their own; one scan costs its model's credits per 10K LOC."));
+  if (data.fusion || data.fusionNew) items.push(w("Each project's lines of code are rounded up to whole 10K-LOC blocks on their own; one scan costs its model's credits per 10K LOC."));
   if (data.fusionNew?.leftOut?.length) items.push(w('New customer: code lines without blank and comment lines (counted from git with cloc-fusion\'s engine, read from a cloc-fusion report, or counted with cloc); not counted: {0}.', data.fusionNew.leftOut.map(esc).join(', ')));
   if (data.fusionNew?.totals?.byRule) items.push(w('New customer: a project whose change frequency is known (commits on its default branch in the last year) gets the Fusion scans of that frequency, as a Checkmarx One project scanned that often does on the Fusion tab.'));
   if (sum.settings.extraPercent) items.push(w('{0}% extra credits on top.', num(sum.settings.extraPercent, 2)));
@@ -390,15 +390,15 @@ function fusionAppendix(f, L, edit = false) {
   <p class="sub">${w('Fusion scans over {0} months.', num(f.periodMonths))} ${w('Projects scanned most often come first.')}${edit ? ` <b>${w('Every box can be changed: the whole report follows.')}</b>` : ''}</p>
   ${left}
   <h3>${w('Models')}</h3>
-  ${table(`<thead><tr><th>${w('Model')}</th><th>${w('Credits per 10K LOC')}</th><th>${w('Projects')}</th><th>${w('10K units × scans')}</th><th>${w('Credits')}</th></tr></thead><tbody>
+  ${table(`<thead><tr><th>${w('Model')}</th><th>${w('Credits per 10K LOC')}</th><th>${w('Projects')}</th><th>${w('10K-LOC blocks × scans')}</th><th>${w('Credits')}</th></tr></thead><tbody>
     ${f.byModel.map((m) => `<tr><td class="name">${esc(m.name || '—')}</td><td>${edit ? box(`rate.${m.id}`, m.rate, w('Credits per 10K LOC for {0}', esc(m.name || '—')), L.t('Not set')) : m.rate === null ? '—' : num(m.rate, 2)}</td><td>${num(m.projects)}</td><td>${num(m.unitScans)}</td><td>${num(m.credits, 1)}</td></tr>`).join('') || `<tr><td colspan="5">${w('No model set.')}</td></tr>`}
   </tbody>`)}
   <h3>${w('By scan frequency')}</h3>
-  ${table(`<thead><tr><th>${w('Scanned today')}</th><th>${w('Projects')}</th><th>${w('Fusion scans per project')}</th><th>${w('Model')}</th><th>${w('10K units')}</th><th>${w('Credits')}</th></tr></thead><tbody>
+  ${table(`<thead><tr><th>${w('Scanned today')}</th><th>${w('Projects')}</th><th>${w('Fusion scans per project')}</th><th>${w('Model')}</th><th>${w('10K-LOC blocks')}</th><th>${w('Credits')}</th></tr></thead><tbody>
     ${f.byFrequency.filter((b) => b.projects).map((b) => `<tr><td>${frequency(b.id)}</td><td>${num(b.projects)}</td><td>${scansCell(b)}</td><td class="name">${edit && f.models.length ? pick(`fmodel.${b.id}`, f.rules[b.id]?.model ?? f.defaultModel, w('Model')) : modelName(f.rules[b.id]?.model ?? f.defaultModel)}</td><td>${num(b.units)}</td><td>${num(b.credits, 1)}</td></tr>`).join('')}
   </tbody>`)}
   ${rows.length ? `<h3>${w('Projects')}</h3>
-  ${table(`<thead><tr><th>${w('Project')}</th><th>${w('Criticality')}</th><th>${w('Scanned today')}</th><th>${w('Lines of code')}</th><th>${w('10K units')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
+  ${table(`<thead><tr><th>${w('Project')}</th><th>${w('Criticality')}</th><th>${w('Scanned today')}</th><th>${w('Lines of code')}</th><th>${w('10K-LOC blocks')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
     ${rows.map((r) => `<tr><td class="name">${esc(r.name)}</td><td>${r.criticality ?? '—'}</td><td class="wrap">${frequency(r.frequency)}${r.scansPerWeek ? ` <small>${w('({0}/week)', num(r.scansPerWeek, 1))}</small>` : ''}</td><td>${num(r.lines)}</td><td>${num(r.units)}</td><td>${edit && Number.isInteger(r.key) ? box(`pscans.${r.key}`, r.scans, w('Fusion scans for {0}', esc(r.name))) : num(r.scans)}</td><td>${FROM[r.scansFrom] ? w(FROM[r.scansFrom]) : ''}</td><td class="name">${edit && Number.isInteger(r.key) && f.models.length ? pick(`pmodel.${r.key}`, r.model, w('Model for {0}', esc(r.name))) : modelName(r.model)}</td><td>${r.credits === null || !r.units ? '—' : num(r.credits, 1)}</td></tr>`).join('')}
   </tbody>`, 'dense')}` : ''}
 </section>`;
@@ -426,7 +426,7 @@ function fusionNewAppendix(f, L) {
   <h2>${w('Fusion — new customer')}</h2>
   <p class="sub">${w('Fusion scans over {0} months.', num(f.periodMonths))} ${w('Code lines without blank and comment lines: counted from git with cloc-fusion\'s engine, read from a cloc-fusion report, or counted with cloc.')}</p>
   ${fusionNewScansNote(f, L)}
-  ${f.details === false ? `<p class="lv-note">${w('Project names and details were left out of this report.')} ${w('{0} projects in all, {1} lines of code, {2} Fusion scans.', num(f.totals.projects), num(f.totals.lines), num(f.totals.scans))}</p>` : table(`<thead><tr><th>${w('Project')}</th><th>${w('Languages')}</th><th>${w('Lines of code')}</th>${activity ? `<th>${w('Change frequency')}</th><th>${w('Developers (90 days)')}</th>` : ''}<th>${w('10K units')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
+  ${f.details === false ? `<p class="lv-note">${w('Project names and details were left out of this report.')} ${w('{0} projects in all, {1} lines of code, {2} Fusion scans.', num(f.totals.projects), num(f.totals.lines), num(f.totals.scans))}</p>` : table(`<thead><tr><th>${w('Project')}</th><th>${w('Languages')}</th><th>${w('Lines of code')}</th>${activity ? `<th>${w('Change frequency')}</th><th>${w('Developers (90 days)')}</th>` : ''}<th>${w('10K-LOC blocks')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
     ${f.rows.filter((r) => r.included).map((r) => `<tr><td class="name">${esc(r.name)}</td><td class="wrap">${(r.languages ?? []).map((l) => `${esc(l.name)} ${num(l.lines)}`).join(', ') || '—'}</td><td>${num(r.lines)}</td>${activity ? `<td class="wrap">${freqCell(r)}</td><td>${r.devs90 === null || r.devs90 === undefined ? '—' : num(r.devs90)}</td>` : ''}<td>${num(r.units)}</td><td>${num(r.scans)}</td><td>${FROM_NEW[r.scansFrom] ? w(FROM_NEW[r.scansFrom]) : ''}</td><td class="name">${modelName(r.model)}</td><td>${r.credits === null || !r.units ? '—' : num(r.credits, 1)}</td></tr>`).join('')}
   </tbody>`, 'dense')}
 </section>`;

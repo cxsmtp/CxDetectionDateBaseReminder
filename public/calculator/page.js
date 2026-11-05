@@ -799,7 +799,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const kpi = (label, value, sub, cls = '') => `<div class="rp-kpi ${cls}"><span class="rp-tile-label">${esc(label)}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${sub}</span></div>`;
     $('calc-fkpis').innerHTML = [
       kpi('Projects', num(t.projects), t.unknownLines ? `<span class="calc-warn">Still without lines of code: ${num(t.unknownLines)}</span>` : 'Included, with lines of code'),
-      kpi('10K LOC units', num(t.units), `${num(t.lines)} lines, each project rounded up`),
+      kpi('10K-LOC blocks', num(t.units), `${num(t.lines)} lines, each project rounded up`),
       kpi('Fusion scans', num(t.scans), `Over ${num(est.settings.periodMonths)} months`),
       kpi('Credits', num(t.credits, 1), t.unknownRate ? `<span class="calc-warn">Projects whose model has no credits per 10K LOC: ${num(t.unknownRate)}</span>` : `Over ${num(est.settings.periodMonths)} months`, 'calc-gold'),
       c.remainingCredits !== null ? kpi('Credits remaining in the tenant', num(c.remainingCredits), c.remainingCredits >= t.credits ? 'Enough for this projection' : `<span class="calc-warn">Short by ${num(t.credits - c.remainingCredits, 1)}</span>`) : '',
@@ -931,7 +931,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       <td>${counted.length || left
         ? `<span class="calc-lang-line" translate="no">${counted.slice(0, 3).map((l) => `${esc(l.name)} ${Math.round((l.lines / total) * 100)}%`).join(' · ')}${counted.length > 3 ? ` · +${counted.length - 3}` : ''}</span>${left ? `<span class="calc-lang-line">${esc(`${num(left)} lines not counted`)}</span>` : ''}<span class="calc-lang-bar">${counted.map((l) => `<i style="width:${((l.lines / total) * 100).toFixed(2)}%;background:${colourOf(l.name)}" title="${esc(`${l.name}: ${num(l.lines)}`)}"></i>`).join('')}</span>`
         : '—'}</td>
-      <td><input type="text" inputmode="numeric" class="calc-num" data-n="loc" value="${esc(typed ? p.locOverride : p.lines ?? '')}" placeholder="Type them" aria-label="Lines of code of ${esc(p.name)}" /><small class="hint calc-units">10K LOC units <b data-cell="units">${p.included && p.units ? num(p.units) : '—'}</b></small>${typed && p.languages.length ? `<small class="hint">${countedBy} ${num(newCustomerEstimate({ ...fnew(), projects: [{ ...p, locOverride: null }] }, fusion()).rows[0]?.lines)} <button type="button" class="link" data-fnew-reset>Use it</button></small>` : ''}</td>
+      <td><input type="text" inputmode="numeric" class="calc-num" data-n="loc" value="${esc(typed ? p.locOverride : p.lines ?? '')}" placeholder="Type them" aria-label="Lines of code of ${esc(p.name)}" /><small class="hint calc-units">10K-LOC blocks <b data-cell="units">${p.included && p.units ? num(p.units) : '—'}</b></small>${typed && p.languages.length ? `<small class="hint">${countedBy} ${num(newCustomerEstimate({ ...fnew(), projects: [{ ...p, locOverride: null }] }, fusion()).rows[0]?.lines)} <button type="button" class="link" data-fnew-reset>Use it</button></small>` : ''}</td>
       <td>${fnewFrequencyHtml(p)}</td>
       <td><input type="text" inputmode="numeric" class="calc-num" data-n="scansOverride" value="${esc(p.scansOverride ?? '')}" placeholder="${esc(num(p.scans))}" aria-label="Fusion scans for ${esc(p.name)}" /><span class="calc-scans-from" data-cell="from">${esc(FROM_NEW[p.scansFrom] ?? '')}</span></td>
       <td><select data-n="modelOverride" aria-label="Model for ${esc(p.name)}">${modelOptions(p.modelOverride, 'Automatic')}</select></td>
@@ -967,7 +967,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-fnew-kpis').innerHTML = f.projects.length
       ? [
           fnewKpi('Projects', num(tot.projects), tot.unknownLines ? `<span class="calc-warn">Still without lines of code: ${num(tot.unknownLines)}</span>` : 'Included, with lines of code'),
-          fnewKpi('10K LOC units', num(tot.units), `${num(tot.lines)} code lines, each project rounded up`),
+          fnewKpi('10K-LOC blocks', num(tot.units), `${num(tot.lines)} code lines, each project rounded up`),
           fnewKpi('Fusion scans', num(tot.scans), tot.withActivity ? esc(`Over ${num(est.settings.periodMonths)} months · ${num(tot.byRule)} by change frequency`) : `Over ${num(est.settings.periodMonths)} months`),
           fnewKpi('Credits', num(tot.credits, 1), tot.unknownRate ? `<span class="calc-warn">Projects whose model has no credits per 10K LOC: ${num(tot.unknownRate)}</span>` : `Over ${num(est.settings.periodMonths)} months`, 'calc-gold'),
         ].join('')
@@ -1142,6 +1142,17 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     } catch {}
     showWay(way);
   });
+
+  /** Fusion's two sub-sections in one tab: "In Checkmarx One" (projects already scanned) and "New code" (cloc-fusion). */
+  const showFsub = (pick) => {
+    const shown = pick === 'new' ? 'new' : 'existing';
+    for (const input of document.querySelectorAll('input[name="calc-fsub"]')) input.checked = input.value === shown;
+    for (const box of document.querySelectorAll('#page-calculator .calc-fsub')) box.hidden = box.dataset.fsub !== shown;
+  };
+  $('calc-fsub-nav')?.addEventListener('change', (event) => {
+    if (event.target.name === 'calc-fsub') showFsub(event.target.value);
+  });
+  showFsub('existing');
 
   /** The Admin's git connections, once: each one a choice in step 1, beside a token typed for one run. */
   async function loadConnections() {
@@ -2350,7 +2361,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     };
     const rows = [
-      ['Project', 'Included', 'Criticality', 'Scanned today', 'Scans in the last year', 'Lines of code', '10K units', 'Fusion scans', 'Scans set by', 'Model', 'Credits per 10K LOC', 'Credits'],
+      ['Project', 'Included', 'Criticality', 'Scanned today', 'Scans in the last year', 'Lines of code', '10K-LOC blocks', 'Fusion scans', 'Scans set by', 'Model', 'Credits per 10K LOC', 'Credits'],
       ...sortedRows(est).map((r) => [r.name, r.included ? 'yes' : 'no', r.criticality ?? '', FREQ_LABEL[r.frequency] ?? '', r.scanCount ?? '', r.lines ?? '', r.units, r.scans, FROM_LABEL[r.scansFrom] ?? '', models.get(r.model)?.name ?? '', r.rate ?? '', r.credits ?? '']),
       [],
       ['Total', est.totals.projects, '', '', '', est.totals.lines, est.totals.units, est.totals.scans, '', '', '', est.totals.credits],
@@ -2389,19 +2400,19 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     c.fusionNewCredits = fnewCounts(fn) ? fn.totals.credits : null;
     // Fusion for the customer's projects in Checkmarx One and for its new code, together.
     const sum = creditSummary(c.trCredits, fusionTotal({ totals: { credits: c.fusionCredits } }, { totals: { credits: c.fusionNewCredits } }), totals());
-    $('calc-sum-tr').textContent = num(sum.tr, 1);
-    $('calc-sum-tr-split').textContent = c.trSplit ? `${num(c.trSplit.backlogCredits, 1)} backlog + ${num(c.trSplit.aheadCredits, 1)} ahead` : '';
+    $('calc-sum-tr').textContent = num(sum.trShown);
+    $('calc-sum-tr-split').textContent = c.trSplit ? `${num(Math.round(c.trSplit.backlogCredits))} backlog + ${num(Math.round(c.trSplit.aheadCredits))} ahead` : '';
     // One Fusion figure, for the part that applies to this customer (ticked, with projects counted): both
     // added up when both do, with the split under it.
     const existing = c.fusionCredits !== null && c.fusionCredits !== undefined;
     const fresh = c.fusionNewCredits !== null && c.fusionNewCredits !== undefined;
     $('calc-sum-fusion-label').textContent = existing && !fresh ? 'Fusion — existing' : fresh && !existing ? 'Fusion — new' : 'Fusion';
-    $('calc-sum-fusion').textContent = existing || fresh ? num((c.fusionCredits ?? 0) + (c.fusionNewCredits ?? 0), 1) : fusionOff() && fnewOff() ? 'Left out' : '—';
-    $('calc-sum-fusion-split').textContent = existing && fresh ? `${num(c.fusionCredits, 1)} existing + ${num(c.fusionNewCredits, 1)} new` : '';
-    $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.total, 1);
-    $('calc-sum-extra').textContent = num(sum.extra, 1);
-    $('calc-mix-extra').hidden = !(sum.extra > 0);
-    $('calc-sum-bundles').textContent = sum.total ? num(sum.bundles) : '—';
+    $('calc-sum-fusion').textContent = existing || fresh ? num(Math.round((c.fusionCredits ?? 0) + (c.fusionNewCredits ?? 0))) : fusionOff() && fnewOff() ? 'Left out' : '—';
+    $('calc-sum-fusion-split').textContent = existing && fresh ? `${num(Math.round(c.fusionCredits))} existing + ${num(Math.round(c.fusionNewCredits))} new` : '';
+    $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.totalShown);
+    $('calc-sum-extra').textContent = num(sum.extraShown);
+    $('calc-mix-extra').hidden = !(sum.extraShown > 0);
+    $('calc-sum-bundles').textContent = sum.totalShown ? num(sum.bundlesShown) : '—';
     $('calc-sum-exact').textContent = sum.total && sum.bundles !== sum.exactBundles ? `${num(sum.exactBundles, 2)}, rounded up` : '';
     renderMix(sum, existing ? c.fusionCredits : 0, fresh ? c.fusionNewCredits : 0, existing || fresh);
     renderImpact();
@@ -2793,16 +2804,18 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   function renderReports() {
     $('calc-reports-empty').hidden = c.reports.length > 0;
+    const count = $('calc-saved-count');
+    if (count) count.textContent = c.reports.length ? `(${num(c.reports.length)})` : '';
     $('calc-reports').innerHTML = c.reports
       .map(
         (r) => `<tr data-report="${esc(r.id)}">
         <td translate="no">${esc(r.customer)}</td>
         <td><time translate="no">${esc(fmtDateTime(r.createdAt))}</time></td>
         <td translate="no">${esc(r.createdBy)}</td>
-        <td class="num">${r.trCredits === null ? '—' : num(r.trCredits, 1)}</td>
-        <td class="num">${r.fusionCredits === null ? '—' : num(r.fusionCredits, 1)}</td>
+        <td class="num">${r.trCredits === null ? '—' : num(Math.round(r.trCredits))}</td>
+        <td class="num">${r.fusionCredits === null ? '—' : num(Math.round(r.fusionCredits))}</td>
         <td class="num">${r.extraPercent ? `${num(r.extraPercent, 2)}%` : '—'}</td>
-        <td class="num"><b>${num(r.totalCredits, 1)}</b></td>
+        <td class="num"><b>${num(Math.round(r.totalCredits))}</b></td>
         <td class="num">${r.bundles === undefined ? '—' : num(r.bundles)}</td>
         <td><button type="button" class="secondary" data-download>Download</button> <button type="button" class="ghost" data-pdf>PDF</button> ${can('reports.delete') ? '<button type="button" class="ghost calc-remove" data-delete-report>Delete</button>' : ''}</td></tr>`,
       )

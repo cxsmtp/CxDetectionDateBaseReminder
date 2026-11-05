@@ -3061,6 +3061,15 @@ ol.calc-how li.calc-total { font-weight: 600; }
 /* Fusion — new customer: Count from git. The switch is a .segmented; the rest follows the calculator's panels in every look. */
 .calc-fnew-ways { margin: 0 0 12px; }
 .calc-fnew-way > .calc-cmd-label:first-child { margin-top: 0; }
+/* Fusion tab's two sub-sections — "In Checkmarx One" and "New code" — one shown at a time. */
+.calc-fsub-nav { margin: 0 0 16px; }
+.calc-fsub-nav .mode small { opacity: 0.75; font-weight: 400; }
+.calc-fsub[hidden] { display: none; }
+/* Saved projection reports, folded above the tabs. */
+.calc-saved { margin: 8px 0 16px; }
+.calc-saved > summary { cursor: pointer; font-weight: 600; }
+.calc-saved .calc-saved-count { font-weight: 400; color: var(--muted); font-style: normal; margin-left: 4px; }
+.calc-saved-mine { display: inline-flex; margin: 10px 0; }
 .calc-git-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px 18px; margin: 0 0 10px; }
 .calc-git-steps h3 { margin: 0 0 6px; font-size: 14px; }
 .calc-git-steps .field { margin: 0; }

@@ -797,7 +797,18 @@ export function creditSummary(trCredits, fusionCredits, value = {}) {
   const extra = (base * settings.extraPercent) / 100;
   const total = base + extra;
   const exactBundles = total / settings.bundleCredits;
-  return { settings, tr, fusion, base, extra, total, exactBundles, bundles: total > 0 ? Math.ceil(exactBundles - 1e-9) : 0 };
+  // Round totals only: the strip, the total and the bundles are whole credits, and the rounded parts
+  // add up to the rounded total (no row-vs-total mismatch). Per-project figures stay exact, shown as they are.
+  const trShown = tr === null ? null : Math.round(tr);
+  const fusionShown = fusion === null ? null : Math.round(fusion);
+  const extraShown = Math.round(extra);
+  const totalShown = (trShown ?? 0) + (fusionShown ?? 0) + extraShown;
+  const bundlesShown = totalShown > 0 ? Math.ceil(totalShown / settings.bundleCredits - 1e-9) : 0;
+  return {
+    settings, tr, fusion, base, extra, total, exactBundles,
+    bundles: totalShown > 0 ? bundlesShown : 0,
+    trShown, fusionShown, extraShown, totalShown, bundlesShown,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
