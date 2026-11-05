@@ -3064,6 +3064,7 @@ ol.calc-how li.calc-total { font-weight: 600; }
 /* Fusion tab's two sub-sections — "In Checkmarx One" and "New code" — one shown at a time. */
 .calc-fsub-nav { margin: 0 0 16px; }
 .calc-fsub-nav .mode small { opacity: 0.75; font-weight: 400; }
+.calc-fsub-nav .mode[hidden] { display: none !important; }
 .calc-fsub[hidden] { display: none; }
 /* Saved projection reports, folded above the tabs. */
 .calc-saved { margin: 8px 0 16px; }

@@ -312,7 +312,7 @@ export function cleanReportData(value, depth = 0) {
 /** A new customer, its projections empty and its impact from the organisation's defaults. */
 export function newProfile({ name, by = '', impact = {} } = {}) {
   const now = new Date().toISOString();
-  return { id: newId(), name: text(name, 120) || 'New customer', planVersion: 4, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({ models: modelsNamed() }), fusionNew: cleanFusionNew({}), totals: totalsSettings({}), scope: cleanScope({}), impact: impactSettings(impact) };
+  return { id: newId(), name: text(name, 120) || 'New customer', planVersion: 4, createdAt: now, createdBy: text(by, 254), updatedAt: now, updatedBy: text(by, 254), tr: cleanTr({}), fusion: cleanFusion({ models: modelsNamed(), optOut: true }), fusionNew: cleanFusionNew({}), totals: totalsSettings({}), scope: cleanScope({}), impact: impactSettings(impact) };
 }
 
 /**

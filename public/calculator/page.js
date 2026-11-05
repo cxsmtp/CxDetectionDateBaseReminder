@@ -905,7 +905,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderTr();
     renderPending();
   };
-  $('calc-fusion-on').addEventListener('change', (event) => c.open && setNext({ fusionOn: event.target.checked }, { redraw: false }));
+  $('calc-fusion-on').addEventListener('change', (event) => { if (!c.open) return; setNext({ fusionOn: event.target.checked }, { redraw: false }); showFsub(event.target.checked ? 'existing' : 'new'); });
   $('calc-fusion-include').addEventListener('click', () => setFusionOn(true));
 
   // ---- Fusion — new customer: code not in Checkmarx One yet, its lines counted from git or with cloc
@@ -1169,14 +1169,18 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   /** Fusion's two sub-sections in one tab: "In Checkmarx One" (projects already scanned) and "New code" (cloc-fusion). */
   const showFsub = (pick) => {
-    const shown = pick === 'new' ? 'new' : 'existing';
+    // "In Checkmarx One" (existing-customer Fusion) is behind the Add Fusion: Existing customer tick — off by default.
+    const existingOn = Boolean($('calc-fusion-on')?.checked);
+    const existingTab = document.querySelector('.calc-fsub-existing');
+    if (existingTab) existingTab.hidden = !existingOn;
+    const shown = pick === 'existing' && existingOn ? 'existing' : 'new';
     for (const input of document.querySelectorAll('input[name="calc-fsub"]')) input.checked = input.value === shown;
     for (const box of document.querySelectorAll('#page-calculator .calc-fsub')) box.hidden = box.dataset.fsub !== shown;
   };
   $('calc-fsub-nav')?.addEventListener('change', (event) => {
     if (event.target.name === 'calc-fsub') showFsub(event.target.value);
   });
-  showFsub('existing');
+  showFsub('new');
 
   /** The Admin's git connections, once: each one a choice in step 1, beside a token typed for one run. */
   async function loadConnections() {
@@ -2105,6 +2109,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const n = next();
     $('calc-fusion-on').checked = n.fusionOn;
     $('calc-fusion-new-on').checked = n.fusionNewOn;
+    showFsub(document.querySelector('input[name="calc-fsub"]:checked')?.value ?? 'new');
     $('calc-extra').value = n.extraPercent || '';
     $('calc-bundle').value = n.bundleCredits;
     // The bundle size is 10,000 for nearly every customer: it waits behind the "?" on Bundles, marked when it is another.
