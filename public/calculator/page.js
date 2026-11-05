@@ -45,7 +45,7 @@ import {
   weeklyTrend,
   wholeNumber,
 } from './model.js';
-import { SEVERITY_COLOURS, debtFixChart, forecastChart, severityCharts } from './charts.js';
+import { PAGE_PALETTE, SEVERITY_COLOURS, barChart, debtFixChart, donutChart, forecastChart, lineChart, severityCharts } from './charts.js';
 import { buildReport, reportFileName, wording } from './report.js';
 import { leverData, leverInputs, recentRates } from './levers.js';
 import { slidesFileName, slidesPdf } from './slides.js';
@@ -2421,10 +2421,60 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (tab.hidden && tab.classList.contains('active')) document.querySelector('[data-ptabs="calculator"] [data-pt="tr"]')?.click();
   }
 
+  // --- Fusion visuals: four graphs over the counted Fusion, each one the user can mute (hide) ---
+  const VIZ_COLOURS = ['#4f46e5', '#0d9488', '#d97706', '#db2777', '#2563eb', '#16a34a', '#9333ea', '#dc2626', '#0891b2', '#ca8a04', '#64748b'];
+  const vizHidden = () => { try { return new Set(JSON.parse(localStorage.getItem('cx-fusion-viz-hidden') || '[]')); } catch { return new Set(); } };
+
+  function renderFusionVisuals() {
+    const panel = $('calc-fusion-viz-panel');
+    const host = $('calc-fusion-viz');
+    if (!panel || !host) return;
+    const est = estimate();
+    const fn = fnewEstimate();
+    const parts = [fusionCounts(est) && est, fnewCounts(fn) && fn].filter(Boolean);
+    const rows = parts.flatMap((p) => p.rows.filter((r) => r.included && r.units));
+    if (!rows.length) { panel.hidden = true; host.innerHTML = ''; return; }
+    panel.hidden = false;
+    const totalCredits = rows.reduce((a, r) => a + (r.credits ?? 0), 0);
+    // 1 · credit mix by model
+    const byModel = new Map();
+    for (const p of parts) for (const m of p.byModel ?? []) byModel.set(m.name || 'No model', (byModel.get(m.name || 'No model') ?? 0) + (m.credits ?? 0));
+    const modelSeg = [...byModel.entries()].map(([label, value], i) => ({ label, value, colour: VIZ_COLOURS[i % VIZ_COLOURS.length] }));
+    // 2 · 10K-LOC blocks by repository (top 12 by blocks)
+    const repoBars = [...rows].sort((a, b) => (b.units ?? 0) - (a.units ?? 0)).slice(0, 12).map((r) => ({ label: r.name || '—', value: r.units ?? 0, sub: `${num(r.scans)} scans`, colour: PAGE_PALETTE.plan }));
+    // 3 · credits over the projection period (accrue evenly)
+    const months = Math.max(2, Math.min(horizon(), 36));
+    const pts = Array.from({ length: months }, (_, i) => ({ label: `M${i + 1}`, credits: Math.round((totalCredits * (i + 1)) / months) }));
+    // 4 · lines of code by language (from the new-code projects, which know their languages)
+    const langs = new Map();
+    for (const p of (fnewCounts(fn) ? (fnew()?.projects ?? []).filter((x) => x.included !== false) : [])) for (const [lang, n] of Object.entries(p.langs ?? {})) langs.set(lang, (langs.get(lang) ?? 0) + (wholeNumber(n) ?? 0));
+    const langBars = [...langs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([label, value], i) => ({ label, value, colour: VIZ_COLOURS[i % VIZ_COLOURS.length] }));
+    const cards = [
+      ['mix', 'Credit mix by model', donutChart(modelSeg, { centre: num(Math.round(totalCredits)), title: 'Credit mix by model' })],
+      ['repo', '10K-LOC blocks by repository', barChart(repoBars, { title: 'Blocks by repository' })],
+      ['period', 'Credits over the period', lineChart(pts, [{ key: 'credits', colour: '#0d9488', label: 'Credits', area: true }], { width: 380, height: 190, title: 'Credits over the period' })],
+      ['langs', 'Lines of code by language', barChart(langBars, { title: 'Lines by language' })],
+    ].filter(([, , svg]) => svg);
+    const hidden = vizHidden();
+    host.innerHTML = cards.map(([id, title, svg]) => `
+      <div class="calc-viz${hidden.has(id) ? ' muted' : ''}" data-viz="${id}">
+        <div class="calc-viz-head"><h3>${esc(title)}</h3><label class="calc-viz-mute"><input type="checkbox" data-viz-mute="${id}" ${hidden.has(id) ? '' : 'checked'} /> Show</label></div>
+        <div class="calc-viz-body">${svg}</div>
+      </div>`).join('');
+  }
+  $('calc-fusion-viz')?.addEventListener('change', (event) => {
+    const id = event.target?.dataset?.vizMute;
+    if (!id) return;
+    const hidden = vizHidden();
+    if (event.target.checked) hidden.delete(id); else hidden.add(id);
+    try { localStorage.setItem('cx-fusion-viz-hidden', JSON.stringify([...hidden])); } catch {}
+    event.target.closest('.calc-viz')?.classList.toggle('muted', !event.target.checked);
+  });
+
   function renderSummary() {
     gateImpact();
     $('calc-pdf').hidden = !(lastMade && lastMade.customerId === c.open?.id);
-    if (!c.open) return;
+    if (!c.open) { $('calc-fusion-viz-panel') && ($('calc-fusion-viz-panel').hidden = true); return; }
     const fn = fnewEstimate();
     c.fusionNewCredits = fnewCounts(fn) ? fn.totals.credits : null;
     // Fusion for the customer's projects in Checkmarx One and for its new code, together.
@@ -2445,6 +2495,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-sum-exact').textContent = sum.total && sum.bundles !== sum.exactBundles ? `${num(sum.exactBundles, 2)}, rounded up` : '';
     renderMix(sum, existing ? c.fusionCredits : 0, fresh ? c.fusionNewCredits : 0, existing || fresh);
     renderImpact();
+    renderFusionVisuals();
   }
 
   /**

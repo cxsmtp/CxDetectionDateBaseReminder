@@ -3178,6 +3178,24 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .cc-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
 .cc-key { display: inline-flex; align-items: center; gap: 6px; }
 .cc-swatch { display: inline-block; width: 16px; height: 3px; border-radius: 2px; background: var(--c); }
+/* Donut legend swatches are squares; horizontal bar charts for repos/languages. */
+.cc-donut .cc-swatch { width: 11px; height: 11px; border-radius: 3px; }
+.cc-donut { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.cc-bars { display: flex; flex-direction: column; gap: 7px; }
+.cc-bar { display: grid; grid-template-columns: minmax(80px, 34%) 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
+.cc-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.cc-bar-track { height: 12px; border-radius: 6px; background: var(--surface-3, var(--border)); overflow: hidden; }
+.cc-bar-track i { display: block; height: 100%; border-radius: 6px; min-width: 3px; }
+.cc-bar-val { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; white-space: nowrap; }
+.cc-bar-val small { font-weight: 400; color: var(--muted); margin-left: 5px; }
+/* Fusion visuals: a grid of graph cards, each with a show/hide (mute) toggle. */
+.calc-viz-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.calc-viz { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--surface); }
+.calc-viz-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.calc-viz-head h3 { margin: 0; }
+.calc-viz-mute { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.calc-viz.muted .calc-viz-body { display: none; }
+.calc-viz.muted { background: var(--surface-2); opacity: 0.85; }
 .cc-swatch.dashed { background: repeating-linear-gradient(90deg, var(--c) 0 5px, transparent 5px 9px); }
 .calc-presenting .calc-edit, .calc-presenting #calc-alt, .calc-presenting .calc-source { display: none; }
 .terms-org { margin: 10px 0 4px; }
