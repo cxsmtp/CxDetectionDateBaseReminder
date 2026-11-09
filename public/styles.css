@@ -3285,6 +3285,21 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .calc-fh-out { font-size: 12.5px; }
 .calc-fh-foot { grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 10px; font-size: 13px; color: var(--muted); }
 @media (max-width: 720px) { .calc-fh { grid-template-columns: 1fr; } .calc-fh-side { justify-items: start; text-align: left; } }
+/* Git tokens: one line each, the platform, the masked token, the host. */
+.calc-git-token-add { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.calc-git-tokens { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2, transparent); }
+.calc-git-tokens-head { font-size: 12.5px; color: var(--muted); }
+.calc-git-token-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 13px; }
+.calc-git-token-row code { font-size: 12px; }
+/* The counted code's tab: tiles first, the repositories' log folded, Add by hand a small link. */
+.calc-fview-new .calc-fsub[data-fsub="new"] > section:first-child > .calc-notice[data-help-fold] { display: none; }
+[data-fview="fusion-git"] .calc-cf-bar { display: none; }
+.calc-fslot > #calc-fnew-kpis { margin: 0 0 4px; }
+.calc-fnew-log { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 10px 14px; }
+.calc-fnew-log > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.calc-fnew-log[open] > summary { margin-bottom: 10px; }
+.calc-fnew-hand { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-top: 8px; font-size: 13px; }
+h3.calc-sub { margin: 14px 0 2px; font-size: 14px; }
 /* In the Git and cloc-fusion tabs: the tab's own repositories only, and no second heading. */
 [data-fview="fusion-git"] #calc-fnew-rows tr[data-source="cloc"], [data-fview="fusion-cloc"] #calc-fnew-rows tr[data-source="git"] { display: none; }
 .calc-fview-new .calc-fsub[data-fsub="new"] > section:first-child > h2 { display: none; }

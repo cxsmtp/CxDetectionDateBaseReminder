@@ -854,10 +854,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const f = fusion();
     $('calc-models-empty').hidden = f.models.length > 0;
     // The default model is the one the projects use unless a rule says otherwise: marked, and named when it has no price.
-    const def = f.models.find((m) => m.id === f.defaultModel);
-    const unpriced = def && !(Number(def.creditsPer10k) > 0);
-    $('calc-models-warn').hidden = !unpriced;
-    if (unpriced) $('calc-models-warn').innerHTML = `<b translate="no">${esc(def.name)}</b> is the default model, used by the projects, and has no price yet: type its credits per 10K LOC, or Fusion credits stay 0.`;
+    modelsWarn();
     $('calc-models').innerHTML = f.models
       .map(
         (m) => `<tr data-model="${esc(m.id)}"${m.id === f.defaultModel ? ' class="calc-model-default"' : ''}>
@@ -868,6 +865,15 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         <td><button type="button" class="ghost calc-remove" data-remove-model>Remove</button></td></tr>`,
       )
       .join('');
+  }
+
+  /** Said when the default model, the one the projects use, has no price: the reason Fusion credits stay 0. */
+  function modelsWarn() {
+    const f = fusion();
+    const def = f.models.find((m) => m.id === f.defaultModel);
+    const unpriced = def && !(Number(def.creditsPer10k) > 0);
+    $('calc-models-warn').hidden = !unpriced;
+    if (unpriced) $('calc-models-warn').innerHTML = `<b translate="no">${esc(def.name)}</b> is the default model, used by the projects, and has no price yet: type its credits per 10K LOC, or Fusion credits stay 0.`;
   }
 
   function renderRules() {
@@ -1285,6 +1291,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderBasis() {
     if (!c.open) return;
     const all = estimates();
+    const view = document.querySelector('#page-calculator [data-ptpanel^="calculator:fusion-"]:not([hidden])')?.dataset.ptpanel.split(':')[1];
+    const shownRows = fnewEstimate().rows.filter((r) => (view === 'fusion-cloc' ? r.source === 'cloc' : r.source === 'git'));
+    $('calc-fnew-log-count').textContent = shownRows.length ? `(${num(shownRows.length)})` : '(none yet)';
     const used = basis();
     const months = horizon();
     // Repositories git (or cloc-fusion) counted that are not projects in Checkmarx One yet: by name.
@@ -1340,9 +1349,18 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     viz?.classList.toggle('calc-viz-elsewhere', !(inUse === mine || (inUse === 'both' && mine === 'cxone')));
     const parts = [viz, $('calc-fusion-pricing')];
     const counted = document.querySelector('#page-calculator .calc-fsub[data-fsub="new"]');
-    if (view === 'fusion') slot.append(...parts.filter(Boolean));
+    if (view === 'fusion') {
+      slot.append(...parts.filter(Boolean));
+      // The tiles go back to their place among the counted code's settings.
+      const kpis = $('calc-fnew-kpis');
+      const home = $('calc-fnew-log');
+      if (kpis && home && kpis.nextElementSibling !== home) home.before(kpis);
+    }
     else {
       slot.append(...parts.filter(Boolean), counted);
+      // The tiles (repositories, lines, developers, scans) lead the tab, under its header.
+      const kpis = $('calc-fnew-kpis');
+      if (kpis) slot.prepend(kpis);
       // Git: count from git only. cloc-fusion: its report, or cloc results.
       for (const label of document.querySelectorAll('#calc-fnew-ways .mode')) {
         const v = label.querySelector('input')?.value;
@@ -1354,6 +1372,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
     panel.classList.toggle('calc-fview-new', view !== 'fusion');
     panel.dataset.fview = view;
+    renderBasis();
   }
   for (const panel of document.querySelectorAll('#page-calculator [data-ptpanel^="calculator:fusion"]')) new MutationObserver(placeFusion).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
 
@@ -1378,7 +1397,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     git.chosen ??= new Set(list.length ? [list[0].id] : ['token']);
     $('calc-git-hosts').innerHTML = [
       ...list.map((x, i) => `<label class="calc-git-host"><input type="checkbox" name="calc-git-host" value="${esc(x.id)}"${git.chosen.has(x.id) ? ' checked' : ''} /><span><b translate="no">${esc(`${x.label} · ${x.host}${x.owner ? ` · ${x.owner}` : ''}`)}</b><small>${i === 0 ? 'A git connection the Admin already set up (the same tokens as Code authors). Nothing to type.' : 'Another git connection the Admin set up.'}</small></span></label>`),
-      `<label class="calc-git-host"><input type="checkbox" name="calc-git-host" value="token"${git.chosen.has('token') ? ' checked' : ''} /><span><b>A token for this run only</b><small>${standalone ? 'The customer’s own read-only token: git on this computer fetches the code and counts it here.' : 'The customer’s own read-only token, for a host connected or allowed by the Admin.'}</small></span></label>`,
+      `<label class="calc-git-host"><input type="checkbox" name="calc-git-host" value="token"${git.chosen.has('token') ? ' checked' : ''} /><span><b>Git tokens for this run only (one or more)</b><small>${standalone ? 'The customer’s own read-only token: git on this computer fetches the code and counts it here.' : 'The customer’s own read-only token, for a host connected or allowed by the Admin.'}</small></span></label>`,
     ].join('');
     hostChanged();
   }
@@ -1399,20 +1418,68 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   $('calc-git-hosts').addEventListener('change', hostSwitched);
   $('calc-git-provider').addEventListener('change', hostSwitched);
 
-  /** The token typed, as the server takes it (sent with each request of this run only, never kept here). */
-  function typedToken() {
-    if (!git.chosen?.has('token')) return null;
+  // ---- Several git tokens, one per platform or organisation: kept in this page's memory only, never saved ----
+  git.tokens = [];
+  const PROVIDER_NAMES = { github: 'GitHub', gitlab: 'GitLab', azure: 'Azure DevOps', bitbucket: 'Bitbucket' };
+  /** The platform a token is for, from how it starts (Azure DevOps tokens have no mark: picked by hand). */
+  const detectProvider = (token) =>
+    /^(ghp_|github_pat_|gho_|ghu_|ghs_)/.test(token) ? 'github' : /^(glpat-|gldt-|glptt-|glrt-)/.test(token) ? 'gitlab' : /^(ATBB|ATCTT|ATATT)/.test(token) ? 'bitbucket' : null;
+  const masked = (token) => (token.length > 10 ? `${token.slice(0, 4)}••••${token.slice(-4)}` : '••••');
+  const hostOf = (x) => { try { return new URL(x.address || GIT_ADDRESS[x.provider]).host; } catch { return x.address || x.provider; } };
+  $('calc-git-secret').addEventListener('input', () => {
+    const found = detectProvider($('calc-git-secret').value.trim());
+    if (found && $('calc-git-provider').value !== found) {
+      $('calc-git-provider').value = found;
+      $('calc-git-address').placeholder = GIT_ADDRESS[found];
+    }
+    $('calc-git-detected').textContent = found ? `${PROVIDER_NAMES[found]} detected` : $('calc-git-secret').value.trim() ? 'Pick the git host above (Azure DevOps tokens do not say which platform they are for)' : '';
+  });
+  /** The token in the field, added to the list (the field is cleared for the next one). */
+  function addTypedToken() {
     const token = $('calc-git-secret').value.trim();
-    if (!token) throw new Error('Paste the token first (1 · Where the code is).');
-    return { provider: $('calc-git-provider').value, address: $('calc-git-address').value.trim(), token };
+    if (!token) return false;
+    const entry = { provider: $('calc-git-provider').value, address: $('calc-git-address').value.trim(), token };
+    if (!git.tokens.some((x) => x.token === token && x.provider === entry.provider && x.address === entry.address)) git.tokens.push(entry);
+    $('calc-git-secret').value = '';
+    $('calc-git-detected').textContent = '';
+    renderTokens();
+    return true;
   }
-  /** Where the code is: the connections ticked and the token typed; at least one. */
+  function renderTokens() {
+    const box = $('calc-git-tokens');
+    box.hidden = !git.tokens.length;
+    box.innerHTML = git.tokens.length
+      ? `<div class="calc-git-tokens-head">${git.tokens.length === 1 ? '1 token' : `${num(git.tokens.length)} tokens`}: each one's organisations are found and counted; a repository two can see is counted once.</div>` +
+        git.tokens.map((x, i) => `<div class="calc-git-token-row"><span class="calc-fh-pill ok">${esc(PROVIDER_NAMES[x.provider] ?? x.provider)}</span><code translate="no">${esc(masked(x.token))}</code><span translate="no">${esc(hostOf(x))}</span><button type="button" class="link" data-token-remove="${i}">Remove</button></div>`).join('')
+      : '';
+  }
+  $('calc-git-token-add').addEventListener('click', () => {
+    if (!addTypedToken()) return setStatus('calc-git-status', 'Paste the token first (1 · Where the code is).', 'error');
+    hostSwitched();
+  });
+  $('calc-git-tokens').addEventListener('click', (event) => {
+    const i = event.target.closest('[data-token-remove]')?.dataset.tokenRemove;
+    if (i === undefined) return;
+    git.tokens.splice(Number(i), 1);
+    renderTokens();
+    hostSwitched();
+  });
+  /** The tokens typed, as the server takes them (each sent only with the requests for its own host, never kept). */
+  function typedTokens() {
+    if (!git.chosen?.has('token')) return [];
+    addTypedToken();
+    if (!git.tokens.length) throw new Error('Paste a token first (1 · Where the code is).');
+    return git.tokens.map((x) => ({ provider: x.provider, address: x.address, token: x.token }));
+  }
+  /** Where the code is: the connections ticked and the tokens typed; at least one. */
   function access() {
     const connections = [...(git.chosen ?? [])].filter((id) => id !== 'token' && git.connections?.some((x) => x.id === id));
-    const token = typedToken();
-    if (!connections.length && !token) throw new Error('Tick where the code is first (1 · Where the code is).');
-    return { connections, token };
+    const tokens = typedTokens();
+    if (!connections.length && !tokens.length) throw new Error('Tick where the code is first (1 · Where the code is).');
+    return { connections, tokens };
   }
+  /** One request per access: the Admin's connections together, then each token on its own. */
+  const accessParts = (how) => [...(how.connections.length ? [{ key: null, body: { connections: how.connections } }] : []), ...how.tokens.map((token, i) => ({ key: `token:${i}`, index: i, token, body: { connections: [], token } }))];
 
   /** What to list of a source: the organizations ticked and typed, and Everything this token can see. */
   function askOf(key) {
@@ -1432,12 +1499,17 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     setStatus('calc-git-status', 'Finding the organizations…', 'muted');
     $('calc-git-orgs-find').disabled = true;
     try {
-      const found = await api('/api/projections/git/organizations', { method: 'POST', body: JSON.stringify(how), quiet: true });
       git.orgs = {};
-      for (const s of found.sources ?? []) {
-        const own = git.connections?.find((x) => x.id === s.source)?.owner ?? '';
-        const ticked = new Set((s.organizations ?? []).filter((o) => own && o.id.toLowerCase() === own.toLowerCase()).map((o) => o.id));
-        git.orgs[s.source] = { ...s, ticked, everything: false };
+      for (const part of accessParts(how)) {
+        const found = await api('/api/projections/git/organizations', { method: 'POST', body: JSON.stringify(part.body), quiet: true });
+        for (const s of found.sources ?? []) {
+          // Each token's organisations kept apart: its own key, and which token in the label.
+          const key = s.source === 'token' && part.key ? part.key : s.source;
+          const label = s.source === 'token' && part.key && how.tokens.length > 1 ? `${s.label} · token ${part.index + 1}` : s.label;
+          const own = git.connections?.find((x) => x.id === s.source)?.owner ?? '';
+          const ticked = new Set((s.organizations ?? []).filter((o) => own && o.id.toLowerCase() === own.toLowerCase()).map((o) => o.id));
+          git.orgs[key] = { ...s, source: key, label, ticked, everything: false };
+        }
       }
       renderOrgs();
       setStatus('calc-git-status', '');
@@ -1473,17 +1545,27 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   });
 
   $('calc-git-list').addEventListener('click', async () => {
-    let body;
+    let how;
     try {
-      const how = access();
-      body = { connections: how.connections.map((id) => ({ id, ...askOf(id) })), ...(how.token ? { token: { ...how.token, ...askOf('token') } } : {}) };
+      how = access();
     } catch (error) {
       return setStatus('calc-git-status', error.message, 'error');
     }
     setStatus('calc-git-status', 'Listing the repositories…', 'muted');
     $('calc-git-list').disabled = true;
     try {
-      const found = await api('/api/projections/git/repositories', { method: 'POST', body: JSON.stringify(body), quiet: true });
+      const found = { repositories: [], problems: [], more: false };
+      for (const part of accessParts(how)) {
+        const body = part.key
+          ? { connections: [], token: { ...part.token, ...askOf(part.key) } }
+          : { connections: how.connections.map((id) => ({ id, ...askOf(id) })) };
+        const got = await api('/api/projections/git/repositories', { method: 'POST', body: JSON.stringify(body), quiet: true });
+        found.repositories.push(...(got.repositories ?? []).map((r) => (part.key ? { ...r, tokenIndex: part.index } : r)));
+        found.problems.push(...(got.problems ?? []));
+        found.more ||= Boolean(got.more);
+      }
+      // A repository two tokens can see is listed (and counted) once.
+      found.repositories = [...new Map(found.repositories.map((r) => [cleanUrl(r.url), r])).values()];
       // Ticked to start with: each one not archived and not a fork, up to the repositories a run takes.
       let ticked = 0;
       git.repos = (found.repositories ?? []).map((r) => ({ ...r, ticked: !r.archived && !r.fork && (ticked += 1) <= git.limit }));
@@ -1508,7 +1590,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     box.innerHTML = git.repos.length
       ? `<div class="calc-git-repos-head"><span></span><input type="search" class="calc-git-filter" data-git-filter placeholder="Filter" aria-label="Filter the repositories" value="${esc(git.filter)}" /><button type="button" class="link" data-git-all>Tick all shown</button><button type="button" class="link" data-git-none>Tick none</button></div>` +
         git.repos
-          .map((r, i) => `<label data-git-row="${i}"><input type="checkbox" data-git-repo="${i}"${r.ticked ? ' checked' : ''} /><span><span translate="no">${esc(r.path)}</span>${tags(r)}</span><span class="calc-git-size">${r.sizeBytes === null || r.sizeBytes === undefined ? '' : esc(bytes(r.sizeBytes))}</span></label>`)
+          .map((r, i) => `<label data-git-row="${i}"><input type="checkbox" data-git-repo="${i}"${r.ticked ? ' checked' : ''} /><span><span translate="no">${esc(r.path)}</span>${tags(r)}${git.tokens.length > 1 && Number.isInteger(r.tokenIndex) ? ` <span class="calc-git-tag">token ${r.tokenIndex + 1}</span>` : ''}</span><span class="calc-git-size">${r.sizeBytes === null || r.sizeBytes === undefined ? '' : esc(bytes(r.sizeBytes))}</span></label>`)
           .join('')
       : '';
     filterRepos();
@@ -1546,8 +1628,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   /** The repositories ticked (with what discovery said of them) and pasted, each once. */
   function wanted() {
-    const out = git.repos.filter((r) => r.ticked).map(({ source, url, fullName, id, org, project, branch, createdAt }) => ({ source, url, fullName, id, org, project, branch, createdAt }));
-    for (const line of $('calc-git-paste').value.split(/\r?\n/)) if (line.trim()) out.push({ url: line.trim() });
+    const out = git.repos.filter((r) => r.ticked).map(({ source, url, fullName, id, org, project, branch, createdAt, tokenIndex }) => ({ source, url, fullName, id, org, project, branch, createdAt, tokenIndex }));
+    // A pasted address goes with the token for its host, when one is typed for it.
+    const byHost = (url) => { try { const h = new URL(url).host; const i = git.tokens.findIndex((x) => hostOf(x) === h); return i >= 0 ? i : undefined; } catch { return undefined; } };
+    for (const line of $('calc-git-paste').value.split(/\r?\n/)) if (line.trim()) out.push({ url: line.trim(), tokenIndex: byHost(line.trim()) });
     return [...new Map(out.map((r) => [cleanUrl(r.url), r])).values()];
   }
   function countLabel() {
@@ -1562,7 +1646,25 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   $('calc-git-count').addEventListener('click', () => {
     const items = wanted();
     if (items.length > git.limit) return setStatus('calc-git-status', `At most ${num(git.limit)} repositories a run: tick fewer, and count the rest after.`, 'error');
-    startCount(items);
+    let how;
+    try {
+      how = access();
+    } catch (error) {
+      return setStatus('calc-git-status', error.message, 'error');
+    }
+    // One run for the Admin's connections, then one for each token's repositories, one after another.
+    const strip = ({ tokenIndex, ...item }) => item;
+    const runs = [];
+    const viaConnections = items.filter((r) => !Number.isInteger(r.tokenIndex) && (how.connections.length || !how.tokens.length));
+    const loose = items.filter((r) => !Number.isInteger(r.tokenIndex) && !how.connections.length && how.tokens.length);
+    if (viaConnections.length) runs.push({ items: viaConnections.map(strip), how: { connections: how.connections, token: null } });
+    how.tokens.forEach((token, i) => {
+      const mine = items.filter((r) => r.tokenIndex === i).concat(i === 0 ? loose : []);
+      if (mine.length) runs.push({ items: mine.map(strip), how: { connections: [], token } });
+    });
+    git.queue = runs.slice(1);
+    git.queueDone = { done: 0, failed: 0, runs: runs.length };
+    if (runs[0]) startCount(runs[0].items, { how: runs[0].how });
   });
 
   /** Count again: the project's repository at its latest commit, with the connection it was counted with when it is still there. */
@@ -1574,11 +1676,16 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   }
 
   /** Start a run, then follow it: each repository becomes a project of the customer open when it started. */
-  async function startCount(items, { projectId = null, connection = null } = {}) {
+  async function startCount(items, { projectId = null, connection = null, how: given = null } = {}) {
     if (!c.open || git.run || !items.length) return;
     let how;
     try {
-      how = connection ? { connections: [connection], token: null } : access();
+      if (given) how = given;
+      else if (connection) how = { connections: [connection], token: null };
+      else {
+        const all = access();
+        how = { connections: all.connections, token: all.tokens[0] ?? null };
+      }
     } catch (error) {
       return setStatus('calc-git-status', error.message, 'error');
     }
@@ -1665,7 +1772,24 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const rows = (run?.rows ?? []).filter(Boolean);
     const done = rows.filter((r) => r.state === 'done').length;
     const failed = rows.length - done;
-    if (run && c.open?.id !== run.customer) return toast('The count ended while another customer was open: open that customer and count again.', 'warn', 9000);
+    if (run && c.open?.id !== run.customer) { git.queue = []; return toast('The count ended while another customer was open: open that customer and count again.', 'warn', 9000); }
+    // Several tokens: the next token's run starts; the end says what all of them counted.
+    if (git.queueDone) {
+      git.queueDone.done += done;
+      git.queueDone.failed += failed;
+    }
+    if (git.queue?.length) {
+      const next = git.queue.shift();
+      setStatus('calc-git-status', `${num(git.queueDone.done)} counted so far; the next token's repositories now…`, 'muted');
+      return startCount(next.items, { how: next.how });
+    }
+    if (git.queueDone && git.queueDone.runs > 1) {
+      const all = git.queueDone;
+      git.queueDone = null;
+      if (!all.failed) return setStatus('calc-git-status', `${num(all.done)} counted with ${num(all.runs)} tokens: each is a project below.`, 'ok');
+      return setStatus('calc-git-status', `${num(all.done)} counted, ${num(all.failed)} not, with ${num(all.runs)} tokens: each says why above.`, all.done ? 'warn' : 'error');
+    }
+    git.queueDone = null;
     if (!failed) setStatus('calc-git-status', done === 1 ? 'Counted: it is a project below.' : `${num(done)} counted: each is a project below.`, 'ok');
     else setStatus('calc-git-status', `${num(done)} counted, ${num(failed)} not: each says why above.`, done ? 'warn' : 'error');
   }
@@ -1949,6 +2073,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (event.target.dataset.m === 'creditsPer10k') model.creditsPer10k = amount(event.target.value);
     saveFusion();
     refreshFigures();
+    modelsWarn();
   });
   // A model renamed or priced: the lists that offer it follow (the table itself stays, so the next field keeps its focus).
   $('calc-models').addEventListener('change', () => {

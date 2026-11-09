@@ -287,7 +287,10 @@ test('the page: Count from git across connections and organizations, Import a cl
   assert.match(html, /<option value="api">The platform's API: archives, no git<\/option>/);
   // Developers and 10K-LOC blocks sit inside Change frequency and Lines of code, so the table fits a 1440 screen.
   assert.match(html, /<th>Lines of code<\/th><th>Change frequency<\/th><th>Fusion scans<\/th>/);
-  assert.match(html, /<input type="password" id="calc-git-secret" spellcheck="false" autocomplete="off" \/>/);
+  assert.match(html, /<input type="password" id="calc-git-secret" spellcheck="false" autocomplete="off" placeholder="Paste a token: GitHub, GitLab, Azure DevOps, Bitbucket…" \/>/);
+  // Several tokens, one after another: Add this token, and the list of those added (kept in memory only).
+  assert.match(html, /id="calc-git-token-add">Add this token<\/button>/);
+  assert.match(html, /id="calc-git-tokens" hidden/);
   assert.match(html, /id="calc-git-offline" hidden>This file on its own cannot reach git/);
   const page = fs.readFileSync(new URL('../public/calculator/page.js', import.meta.url), 'utf8');
   assert.match(page, /developers in the last 90 days/);
