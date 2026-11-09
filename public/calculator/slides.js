@@ -108,6 +108,11 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
     : [];
   const devLine = fn?.totals?.withActivity ? [w('New customer developers in the last 90 days: {0} (added up per project).', num(fn.totals.developers))] : [];
   const newLine = fn ? [w('New customer (code counted from git, a cloc-fusion report or cloc): {0} projects, {1} lines, {2} Fusion scans, {3} credits.', num(fn.totals?.projects), num(fn.totals?.lines), num(fn.totals?.scans), num(fn.totals?.credits)), ...scansLine, ...devLine] : [];
+  // The Fusion estimates side by side (when the report shows them): the one in the credits named first.
+  const cmp = data.fusionCompare?.rows?.length > 1 ? [...data.fusionCompare.rows].sort((a, b) => Number(b.used) - Number(a.used)) : [];
+  const cmpLines = cmp.length
+    ? [w('Fusion worked out {0} ways; only the one in the credits counts, the others are to compare:', num(cmp.length)), ...cmp.map((r) => `${r.used ? w('In the credits') : w('To compare')} · ${w(r.label)}: ${num(r.projects)} · ${num(r.lines)} ${w('lines of code')} · ${num(Math.round(r.credits))} ${w('credits')}`)]
+    : [];
   if (fu) {
     const T = fu.totals ?? {};
     const label = (id) => w(FREQUENCIES.find((x) => x.id === id)?.label ?? '—');
@@ -124,7 +129,7 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
         { label: w('Fusion credits'), value: num(T.credits), key: true },
       ],
       bars: bars.length ? { title: w('Fusion credits by how often projects are scanned'), items: bars } : null,
-      lines: [...(models.length ? [`${w('Models')}: ${models.join('; ')}`] : []), ...newLine],
+      lines: [...(models.length ? [`${w('Models')}: ${models.join('; ')}`] : []), ...newLine, ...cmpLines],
     });
   } else if (fn) {
     const T = fn.totals ?? {};
@@ -139,7 +144,7 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
         { label: w('Fusion credits'), value: num(T.credits), key: true },
       ],
       bars: null,
-      lines: [...scansLine, ...devLine],
+      lines: [...scansLine, ...devLine, ...cmpLines],
     });
   }
 

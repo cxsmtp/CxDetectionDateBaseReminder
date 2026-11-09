@@ -3083,6 +3083,25 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
           }
         : null,
     };
+    // The Fusion estimates side by side (ticked, and when more than one has projects): the one in the credits marked.
+    if ($('calc-compare')?.checked !== false) {
+      const all = estimates();
+      const inUse = basis();
+      const rows = Object.entries(BASES)
+        .filter(([b]) => all[b]?.projects)
+        .map(([b, d]) => ({ key: b, label: d.title, what: d.what, projects: all[b].projects, lines: all[b].lines, units: all[b].units, scans: all[b].scans, credits: all[b].credits, used: inUse === b || (inUse === 'both' && b !== 'cloc') }));
+      if (rows.length > 1) base.fusionCompare = { periodMonths: horizon(), rows };
+    }
+    // Open vulnerabilities by project and severity (ticked, with the project names): from the last read of Checkmarx One.
+    if ($('calc-sev-report')?.checked && details) {
+      const rows = (fusion()?.projects ?? [])
+        .filter((p) => p.source !== 'manual' && p.openBySeverity)
+        .map((p) => ({ name: p.name, sev: Object.fromEntries(SEVERITIES.map((s) => [s, p.openBySeverity[s] ?? 0])) }))
+        .map((r) => ({ ...r, total: SEVERITIES.reduce((n, s) => n + r.sev[s], 0) }))
+        .filter((r) => r.total > 0)
+        .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+      if (rows.length) base.bySeverity = { severities: [...SEVERITIES], rows };
+    }
     return { ...leverData(base, levers), levers };
   }
 

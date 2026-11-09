@@ -137,3 +137,26 @@ test('one Fusion estimate in the credits: counted code is split into git and clo
   assert.equal(git.credits + cloc.credits, all.credits);
   assert.equal(git.units + cloc.units, all.units);
 });
+
+test('the report: the Fusion estimates side by side (the one in the credits marked) and the open vulnerabilities by project, each only when sent', async () => {
+  const { buildReport } = await import('../public/calculator/report.js');
+  const base = { version: 2, customer: 'Acme', organisation: 'CX', generatedAt: '2026-11-09T12:00:00.000Z', source: { kind: 'cxone' }, tr: null, fusion: null, fusionNew: null };
+  const shown = (html) => html.replace(/<script[\s\S]*?<\/script>/g, '');
+  const plain = shown(buildReport(base, {}));
+  assert.doesNotMatch(plain, /<section class="compare">/);
+  assert.doesNotMatch(plain, /id="by-severity"/);
+  const html = shown(buildReport({
+    ...base,
+    fusionCompare: { periodMonths: 12, rows: [
+      { key: 'cxone', label: 'From Checkmarx One projects', projects: 186, lines: 14200000, units: 1512, scans: 1049, credits: 102348, used: true },
+      { key: 'git', label: 'From code counted in git', projects: 267, lines: 19600000, units: 2071, scans: 921, credits: 86964, used: false },
+    ] },
+    bySeverity: { severities: ['critical', 'high', 'medium', 'low'], rows: [{ name: 'pay<b>ments', sev: { critical: 3, high: 12, medium: 40, low: 9 }, total: 64 }] },
+  }, {}));
+  const cmp = html.slice(html.indexOf('<section class="compare">'), html.indexOf('</section>', html.indexOf('<section class="compare">')));
+  assert.match(cmp, /<tr class="used"><td class="name">From Checkmarx One projects<\/td>[\s\S]*?<b>102,348<\/b>[\s\S]*?In the credits/);
+  assert.match(cmp, /From code counted in git[\s\S]*?To compare/);
+  assert.match(html, /id="by-severity"[\s\S]*?pay&lt;b&gt;ments[\s\S]*?<b>64<\/b>/, 'a project name is escaped');
+  // One estimate alone is not "compared".
+  assert.doesNotMatch(shown(buildReport({ ...base, fusionCompare: { periodMonths: 12, rows: [{ key: 'cxone', label: 'x', projects: 1, lines: 1, units: 1, scans: 1, credits: 1, used: true }] } }, {})), /<section class="compare">/);
+});

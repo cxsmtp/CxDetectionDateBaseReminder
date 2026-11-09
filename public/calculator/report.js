@@ -404,6 +404,37 @@ function fusionAppendix(f, L, edit = false) {
 </section>`;
 }
 
+/** The Fusion estimates worked out, side by side: the one in the credits marked; the others are not added on top. */
+function fusionCompareSection(data, L) {
+  const cmp = data.fusionCompare;
+  if (!cmp?.rows?.length || cmp.rows.length < 2) return '';
+  const { w, num } = L;
+  return `<section class="compare">
+  <h2>${w('Fusion: the estimates compared')}</h2>
+  <p class="sub">${w('Fusion worked out each way it can be, over {0} months. Only the one marked is in the credits; the others are shown to compare, never added on top.', num(cmp.periodMonths))}</p>
+  ${table(`<thead><tr><th>${w('Estimate')}</th><th>${w('Projects or repositories')}</th><th>${w('Lines of code')}</th><th>${w('10K-LOC blocks')}</th><th>${w('Fusion scans')}</th><th>${w('Credits')}</th><th></th></tr></thead><tbody>
+    ${cmp.rows.map((r) => `<tr${r.used ? ' class="used"' : ''}><td class="name">${w(r.label)}</td><td>${num(r.projects)}</td><td>${num(r.lines)}</td><td>${num(r.units)}</td><td>${num(r.scans)}</td><td><b>${num(Math.round(r.credits))}</b></td><td>${r.used ? `<b>${w('In the credits')}</b>` : w('To compare')}</td></tr>`).join('')}
+  </tbody>`)}
+</section>`;
+}
+
+/** Appendix: the open vulnerabilities of each project by severity, from the last read of Checkmarx One. */
+function severityAppendix(data, L) {
+  const sv = data.bySeverity;
+  if (!sv?.rows?.length) return '';
+  const { w, num } = L;
+  const tot = Object.fromEntries(sv.severities.map((s) => [s, sv.rows.reduce((n, r) => n + (r.sev[s] ?? 0), 0)]));
+  const grand = sv.rows.reduce((n, r) => n + r.total, 0);
+  const head = (s) => `<th><span class="sev-dot" style="background:${SEVERITY_COLOURS[s] ?? '#888'}"></span>${w(s)}</th>`;
+  return `<section class="appendix" id="by-severity">
+  <h2>${w('Open vulnerabilities by project')}</h2>
+  <p class="sub">${w('{0} projects, {1} open findings, by severity: each project at its latest scan read from Checkmarx One.', num(sv.rows.length), num(grand))}</p>
+  ${table(`<thead><tr><th>${w('Project')}</th>${sv.severities.map(head).join('')}<th>${w('Total')}</th></tr></thead><tbody>
+    ${sv.rows.map((r) => `<tr><td class="name">${esc(r.name)}</td>${sv.severities.map((s) => `<td>${num(r.sev[s] ?? 0)}</td>`).join('')}<td><b>${num(r.total)}</b></td></tr>`).join('')}
+  </tbody><tfoot><tr><td>${w('All projects')}</td>${sv.severities.map((s) => `<td>${num(tot[s])}</td>`).join('')}<td><b>${num(grand)}</b></td></tr></tfoot>`, 'dense')}
+</section>`;
+}
+
 // Where a new customer's project's Fusion scans came from.
 const FROM_NEW = { default: 'Default', frequency: 'Change frequency', criticality: 'Criticality', project: 'Set for the project' };
 
@@ -539,6 +570,10 @@ footer{color:var(--muted);font-size:12px;max-width:1000px;margin:0 auto;padding:
 @media print{:root{color-scheme:light;--bg:#fff;--card:#fff;--ink:#14171c;--muted:#5c636e;--line:#e2e5e9;--grid:#e2e5e9;--row:#eef0f3;--soft:#f4f6fb;--soft-line:#d5dcef;--gold:#2856c9;--accent:#2856c9}
   .theme{display:none} header,.bar,.live-dot{-webkit-print-color-adjust:exact;print-color-adjust:exact} section{break-inside:avoid-page;border:0;padding:0 0 12px}
   .appendix-title{break-before:page} .scroll{overflow:visible;border:0} table.dense{font-size:10px} td:not(.name):not(:first-child){white-space:normal}}
+
+.compare tr.used td{background:color-mix(in srgb,var(--accent,#2f3e7a) 9%,transparent)}
+.compare tr.used td:first-child{box-shadow:inset 3px 0 0 var(--accent,#2f3e7a)}
+.sev-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
 `;
 
 /**
@@ -673,10 +708,12 @@ export function reportMain(raw, { t, lang = 'en', live = null } = {}) {
   return `${answer(data, sum, L)}
 ${live ? leversPanel(data, live, L) : ''}
 ${story(data, L)}
+${fusionCompareSection(data, L)}
 ${impactSection(data, L)}
 ${assumptions(data, sum, L)}
 ${data.tr || data.fusion || data.fusionNew ? `<p class="appendix-title">${w('Appendix: every figure')}</p>` : ''}
 ${data.tr ? trAppendix(data.tr, L) : ''}
+${severityAppendix(data, L)}
 ${data.fusion ? fusionAppendix(data.fusion, L, Boolean(live)) : ''}
 ${data.fusionNew ? fusionNewAppendix(data.fusionNew, L) : ''}
 ${calculations(data, L)}
