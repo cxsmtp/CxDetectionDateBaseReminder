@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.08 | 523/s, 0 (main 510, 0) | 266 ms | 76 ms | 1031 | 0 vulnerabilities | No new scan (connector needs signing in again); latest: rescan 9477a871 of MZ-01.01.07, 70 open (1 / 32 / 21 / 15, 1 info), none new |
 | MZ-01.01.07 | 446/s, 192 (connection failures on the host; main 435, 303) | 17.5 s | 3.2 s | 1028 | 0 vulnerabilities (qs 6.16.2) | Rescan 9477a871 of the final code (cad438d): 70 open (1 / 32 / 21 / 15, 1 info), none new; the qs SCA result fixed (6.16.2, CVE-2026-110910), the other 69 SAST + 1 KICS judged not exploitable before ([review](docs/security/mz-01.01.07-review.md)) |
 | MZ-01.01.06 | — (browser code only) | — | — | 1022 | 0 vulnerabilities | Scan 3ce920fc of MZ-01.01.05's final code: 72 open (1 / 33 / 22 / 15, 1 info); 10 new checked: 1 fixed, 9 not exploitable ([review](docs/security/mz-01.01.05-review.md#the-scan-of-the-final-code-reviewed-in-mz-010106)) |
 | MZ-01.01.05 | 459/s, 89 with the release first (432–467 over four pairs; main 427–470, 454 and 171 in the control) | 15.7 s | 2.1 s | 1022 | 0 vulnerabilities | Scan 61a87e72 (with the AI engines): 73 open (5 / 29 / 26 / 12, 1 info); 20 new checked: 3 fixed, 3 hardened, the rest not exploitable ([review](docs/security/mz-01.01.05-review.md)); the final code's scan still queued at merge |
@@ -93,6 +94,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.08 — 2026-11-09 20:29 UTC · [#132](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/132)
+
+- **Three Fusion tabs, one estimate in the credits.** Fusion · Checkmarx One, Fusion · from Git and Fusion · cloc-fusion each open with what they found and their credits; **Use this instead** picks the one in the credits, so the same code is never counted twice, and **Leave Fusion out** takes Fusion out. Fusion pricing marks the model the projects use and says when it has no price, the reason Fusion credits stayed 0.
+- **Several Git tokens.** Fusion · from Git takes one token after another (GitHub, GitLab and Bitbucket recognised from the token), finds each one's organisations and repositories, counts a repository two can see once, and counts them all in one go; the tokens are never saved or printed. The tab leads with its tiles, with the repositories counted folded under them.
+- **Customer ▾ and a page that is never switched off.** One menu lists the customers with New, Rename and Delete; a customer is made straight away when there is none, named after Your organisation, and **Apply** is always in the settings block.
+- **The report compares, and lists by project.** **Fusion estimates side by side** shows each estimate worked out with the one in the credits marked (in the PDF too); **Open vulnerabilities by project** adds each project's open findings by severity to the appendix.
+- **The standalone calculator keeps its customers.** It opens at the same address every run (127.0.0.1:47317), so the customers saved in the browser come back; a read says how far it is and how long is left; the head is one line, with the key's state as a badge.
+- **Status.** 1,031 tests pass and `npm audit --omit=dev` finds nothing. Benchmark: 523 requests a second with 0 failed against main's 510 with 0; report opens 266 ms at p95 (main 772 ms), triage results 76 ms (main 100 ms), no finding sent twice. No new Checkmarx One scan: the connector needs signing in again; the latest, MZ-01.01.07's rescan 9477a871, has 70 open and none new.
 
 ## MZ-01.01.07 — 2026-10-31 07:05 UTC · [#130](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/130)
 
