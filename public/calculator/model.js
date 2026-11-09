@@ -622,8 +622,14 @@ export function newCustomerSettings(value = {}) {
     defaultModel: typeof v.defaultModel === 'string' && v.defaultModel ? v.defaultModel.slice(0, 60) : null,
     leftOut: Array.isArray(v.leftOut) ? [...new Set(v.leftOut.map((l) => String(l ?? '').trim().slice(0, 60)).filter(Boolean))].slice(0, MAX_CLOC_LANGUAGES) : [...CLOC_LEFT_OUT],
     optOut: v.optOut === true,
+    // Which counted code is in the credits: 'git' (counted from git, and projects added by hand) or 'cloc'
+    // (a cloc-fusion report or cloc results). None (saved before the Fusion tabs): all of it, as before.
+    basis: v.basis === 'git' || v.basis === 'cloc' ? v.basis : null,
   };
 }
+
+/** Where a new customer's project was counted: 'cloc' for a cloc-fusion report or cloc results, else 'git' (git, or typed by hand). */
+export const fusionSourceOf = (p) => (p?.activity?.engine === 'report' || (!p?.git && p?.file) ? 'cloc' : 'git');
 
 const FREQUENCY_IDS = new Set(FREQUENCIES.map((f) => f.id));
 
@@ -665,9 +671,11 @@ export function newCustomerEstimate(value = {}, fusionValue = {}) {
       .sort((a, b) => b.lines - a.lines);
     const devs90 = wholeNumber(p.activity?.devs90);
     const commits = wholeNumber(p.activity?.commits);
-    return { ...p, lines, included, units, frequency, criticality, commits, devs90, scans, scansFrom: from, model, rate, credits, languages, unknownLines: lines === null, unknownRate: included && units > 0 && scans > 0 && rate === null };
+    const source = fusionSourceOf(p);
+    return { ...p, source, inBasis: !own.basis || own.basis === source, lines, included, units, frequency, criticality, commits, devs90, scans, scansFrom: from, model, rate, credits, languages, unknownLines: lines === null, unknownRate: included && units > 0 && scans > 0 && rate === null };
   });
-  const counted = rows.filter((r) => r.included && r.units);
+  // Only the counted code the basis names is in the credits (the Git tab's or the cloc-fusion tab's).
+  const counted = rows.filter((r) => r.inBasis && r.included && r.units);
   const totals = {
     projects: counted.length,
     lines: counted.reduce((a, r) => a + r.lines, 0),
@@ -675,8 +683,8 @@ export function newCustomerEstimate(value = {}, fusionValue = {}) {
     scans: counted.reduce((a, r) => a + r.scans, 0),
     unitScans: counted.reduce((a, r) => a + r.units * r.scans, 0),
     credits: counted.reduce((a, r) => a + (r.credits ?? 0), 0),
-    unknownLines: rows.filter((r) => r.included && r.unknownLines).length,
-    unknownRate: rows.filter((r) => r.unknownRate).length,
+    unknownLines: rows.filter((r) => r.inBasis && r.included && r.unknownLines).length,
+    unknownRate: rows.filter((r) => r.inBasis && r.unknownRate).length,
     // Where the scans came from: the change frequency (or criticality), this tab's default, or the project's own.
     byRule: counted.filter((r) => r.scansFrom === 'frequency' || r.scansFrom === 'criticality').length,
     byDefault: counted.filter((r) => r.scansFrom === 'default').length,

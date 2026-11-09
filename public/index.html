@@ -3571,7 +3571,9 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             </section>
             <div class="ptabs" role="tablist" aria-label="Cx Credits Calculator" data-ptabs="calculator">
               <button type="button" role="tab" class="ptab" data-pt="tr">Triage &amp; remediation</button>
-              <button type="button" role="tab" class="ptab" data-pt="fusion">Fusion</button>
+              <button type="button" role="tab" class="ptab" data-pt="fusion">Fusion · Checkmarx One</button>
+              <button type="button" role="tab" class="ptab" data-pt="fusion-git">Fusion · from Git</button>
+              <button type="button" role="tab" class="ptab" data-pt="fusion-cloc">Fusion · cloc-fusion</button>
               <button type="button" role="tab" class="ptab" data-pt="impact">Impact</button>
               <button type="button" role="tab" class="ptab" data-pt="reports">Generated reports <em class="calc-saved-count" id="calc-saved-count"></em></button>
             </div>
@@ -3601,10 +3603,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             </div>
 
             <div data-ptpanel="calculator:fusion" class="calc-panel" hidden>
-              <div class="calc-fsub-nav segmented" id="calc-fsub-nav" role="radiogroup" aria-label="Which Fusion to show">
-                <label class="mode"><input type="radio" name="calc-fsub" value="new" checked /> <span>New code <small>· counted from git, cloc-fusion or cloc</small></span></label>
-                <label class="mode calc-fsub-existing"><input type="radio" name="calc-fsub" value="existing" /> <span>In Checkmarx One <small>· projects already scanned</small></span></label>
-              </div>
+              <section class="calc-fh" id="calc-fh-fusion" aria-live="polite"></section>
+              <div class="calc-fslot" data-fslot="fusion"></div>
               <section class="panel calc-fusion-viz-panel" id="calc-fusion-viz-panel" hidden>
                 <div class="calc-section-head"><h2>Fusion visuals</h2><span class="hint">Hide any you don't need — the choice is remembered.</span></div>
                 <div class="calc-viz-grid" id="calc-fusion-viz"></div>
@@ -3613,6 +3613,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div class="calc-section-head"><h2>Fusion pricing</h2><button type="button" class="secondary" id="calc-add-model">Add a model</button></div>
                 <p class="hint">Credits per 10K LOC for each model — this is what turns lines of code into Fusion credits, for new code counted from git and for projects already in Checkmarx One alike. Read with the projects when Checkmarx One gives it; otherwise type it as Checkmarx One shows when a scan is started. <b>Without a rate here, Fusion credits stay 0.</b></p>
                 <div class="table-wrap"><table class="data-table calc-models"><thead><tr><th>Model</th><th>Credits per 10K LOC</th><th></th></tr></thead><tbody id="calc-models"></tbody></table></div>
+                <p class="calc-notice calc-warn-note" id="calc-models-warn" hidden></p>
                 <p class="hint" id="calc-models-empty">No model yet: projects are counted in scans and 10K-LOC blocks, without credits, until a model has its credits per 10K LOC.</p>
               </section>
               <div class="calc-fsub" data-fsub="existing">
@@ -3764,6 +3765,16 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </section>
             </div><!-- /calc-fsub new -->
             </div><!-- /calculator:fusion panel -->
+
+            <div data-ptpanel="calculator:fusion-git" class="calc-panel" hidden>
+              <section class="calc-fh" id="calc-fh-fusion-git" aria-live="polite"></section>
+              <div class="calc-fslot" data-fslot="fusion-git"></div>
+            </div>
+
+            <div data-ptpanel="calculator:fusion-cloc" class="calc-panel" hidden>
+              <section class="calc-fh" id="calc-fh-fusion-cloc" aria-live="polite"></section>
+              <div class="calc-fslot" data-fslot="fusion-cloc"></div>
+            </div>
 
             <div data-ptpanel="calculator:impact" class="calc-panel" hidden>
               <section class="panel">

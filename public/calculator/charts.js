@@ -206,15 +206,16 @@ export function donutChart(segments, { palette = PAGE_PALETTE, size = 184, title
       const [x1i, y1i] = at(a1, ri);
       const [x0i, y0i] = at(a0, ri);
       a0 = a1;
-      const d = frac >= 0.9999
-        ? `M${at(-Math.PI / 2, r).join(',')} A${r},${r} 0 1 1 ${at(-Math.PI / 2 + 0.001, r).join(',')} M${at(-Math.PI / 2, ri).join(',')} A${ri},${ri} 0 1 0 ${at(-Math.PI / 2 + 0.001, ri).join(',')}`
-        : `M${x0o},${y0o} A${r},${r} 0 ${big} 1 ${x1o},${y1o} L${x1i},${y1i} A${ri},${ri} 0 ${big} 0 ${x0i},${y0i} Z`;
-      return `<path d="${d}" style="fill:${s.colour};stroke:var(--surface,#fff);stroke-width:1.5"><title>${esc(`${s.label}: ${num(s.value, 1)}${suffix} (${Math.round(frac * 100)}%)`)}</title></path>`;
+      const tip = `<title>${esc(`${s.label}: ${num(s.value, 1)}${suffix} (${Math.round(frac * 100)}%)`)}</title>`;
+      // One part of the whole: a plain ring (an arc whose ends meet is drawn off the chart by browsers).
+      if (frac >= 0.9999) return `<circle cx="${c}" cy="${c}" r="${((r + ri) / 2).toFixed(2)}" style="fill:none;stroke:${s.colour};stroke-width:${(r - ri).toFixed(2)}">${tip}</circle>`;
+      const d = `M${x0o},${y0o} A${r},${r} 0 ${big} 1 ${x1o},${y1o} L${x1i},${y1i} A${ri},${ri} 0 ${big} 0 ${x0i},${y0i} Z`;
+      return `<path d="${d}" style="fill:${s.colour};stroke:var(--surface,#fff);stroke-width:1.5">${tip}</path>`;
     })
     .join('');
   const centreTxt = centre ? `<text x="${c}" y="${c}" text-anchor="middle" dominant-baseline="central" style="fill:${palette.ink};font-size:${Math.round(size * 0.14)}px;font-weight:600">${esc(centre)}</text>` : '';
   const legend = `<figcaption class="cc-legend">${items.map((s) => `<span class="cc-key"><i class="cc-swatch" translate="no" style="--c:${s.colour}"></i>${esc(s.label)} · ${esc(num(s.value, 1))}${esc(suffix)}</span>`).join('')}</figcaption>`;
-  return `<figure class="cc-chart cc-donut"><svg viewBox="0 0 ${size} ${size}" role="img" aria-label="${esc(title)}" style="width:${size}px;max-width:100%;height:auto;display:block;overflow:visible">${arcs}${centreTxt}</svg>${legend}</figure>`;
+  return `<figure class="cc-chart cc-donut"><svg viewBox="0 0 ${size} ${size}" role="img" aria-label="${esc(title)}" style="width:${size}px;max-width:100%;height:auto;display:block;overflow:hidden">${arcs}${centreTxt}</svg>${legend}</figure>`;
 }
 
 /** Horizontal bars (repositories, languages …). `bars`: [{ label, value, colour? }]; `sub` optional second line per bar. */

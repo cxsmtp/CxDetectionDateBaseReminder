@@ -135,8 +135,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const first = c.customers.find((x) => x.id === last) ?? c.customers[0];
     if (first) return open(first.id);
     show(null);
-    // The first visit: a customer in the organisation's name, read from Checkmarx One straight away.
-    if (me()?.organisationName) await create().catch((error) => handleAuthLoss(error));
+    // No customer yet (the first visit, a fresh download, or the last one deleted): one is made straight away,
+    // in the organisation's name when it is known, so the page is never left with everything switched off.
+    await create().catch((error) => handleAuthLoss(error) || toast(error.message, 'bad'));
   }
 
   function renderCustomers() {
@@ -151,11 +152,20 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const named = c.open ? `“${c.open.name}”` : '';
     $('calc-rename').textContent = c.open ? `Rename ${named}…` : 'Rename…';
     $('calc-delete').textContent = c.open ? `Delete ${named}…` : 'Delete…';
-    for (const id of ['calc-rename', 'calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-bundle-q', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches', 'calc-max-projects', 'calc-apply', 'calc-undo']) $(id).disabled = !c.open;
+    for (const id of ['calc-rename', 'calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-bundle-q', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches', 'calc-max-projects']) $(id).disabled = !c.open;
   }
 
   function renderOrg() {
     const org = me()?.organisationName;
+    // A customer still under its made-up name ("Customer 1") takes the organisation's name as it is typed;
+    // a name someone chose is never replaced.
+    const name = String(org ?? '').trim();
+    if (name && c.open && /^Customer \d+$/.test(c.open.name) && !c.customers.some((x) => x.id !== c.open.id && x.name.toLowerCase() === name.toLowerCase())) {
+      c.open.name = name;
+      c.customers = c.customers.map((x) => (x.id === c.open.id ? { ...x, name } : x));
+      save({ name });
+      renderCustomers();
+    }
     if (standalone) {
       $('calc-org-line').innerHTML = org ? `<span>Name on the reports:</span> <b translate="no">${esc(org)}</b>` : 'Give your organisation’s name at the top, for the reports.';
       return;
@@ -355,7 +365,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     c.customers = c.customers.filter((x) => x.id !== id);
     c.open = null;
     if (c.customers[0]) open(c.customers[0].id);
-    else show(null);
+    else await create().catch((error) => handleAuthLoss(error) || toast(error.message, 'bad'));
   });
 
   // ---- Triage & remediation -----------------------------------------------------------------
@@ -843,13 +853,18 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderModels() {
     const f = fusion();
     $('calc-models-empty').hidden = f.models.length > 0;
+    // The default model is the one the projects use unless a rule says otherwise: marked, and named when it has no price.
+    const def = f.models.find((m) => m.id === f.defaultModel);
+    const unpriced = def && !(Number(def.creditsPer10k) > 0);
+    $('calc-models-warn').hidden = !unpriced;
+    if (unpriced) $('calc-models-warn').innerHTML = `<b translate="no">${esc(def.name)}</b> is the default model, used by the projects, and has no price yet: type its credits per 10K LOC, or Fusion credits stay 0.`;
     $('calc-models').innerHTML = f.models
       .map(
-        (m) => `<tr data-model="${esc(m.id)}">
+        (m) => `<tr data-model="${esc(m.id)}"${m.id === f.defaultModel ? ' class="calc-model-default"' : ''}>
         <td>${m.source === 'tenant' || m.source === 'catalog'
-          ? `<span class="calc-model-name" translate="no">${esc(m.name)}</span> <span class="calc-badge">${m.source === 'tenant' ? 'From Checkmarx One' : 'Checkmarx One model'}</span>${m.description ? `<small class="hint" translate="no">${esc(m.description)}</small>` : ''}`
+          ? `<span class="calc-model-name" translate="no">${esc(m.name)}</span> <span class="calc-badge">${m.source === 'tenant' ? 'From Checkmarx One' : 'Checkmarx One model'}</span>${m.id === f.defaultModel ? ' <span class="calc-badge calc-badge-default">Default · used by the projects</span>' : ''}${m.description ? `<small class="hint" translate="no">${esc(m.description)}</small>` : ''}`
           : `<input type="text" value="${esc(m.name)}" maxlength="80" data-m="name" aria-label="Model name" translate="no" placeholder="Type the model's name, as Checkmarx One shows it" />`}</td>
-        <td><input type="text" inputmode="decimal" class="calc-num" value="${esc(m.creditsPer10k ?? '')}" data-m="creditsPer10k" aria-label="Credits per 10K LOC" placeholder="Type the credits" /></td>
+        <td><input type="text" inputmode="decimal" class="calc-num" value="${esc(m.creditsPer10k ?? '')}" data-m="creditsPer10k" aria-label="Credits per 10K LOC" placeholder="${esc(m.id === f.defaultModel ? 'Price needed' : 'Credits')}" /></td>
         <td><button type="button" class="ghost calc-remove" data-remove-model>Remove</button></td></tr>`,
       )
       .join('');
@@ -889,7 +904,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const manual = p.source === 'manual';
     const scanned = wholeNumber(p.loc);
     const changed = !manual && wholeNumber(p.locOverride) !== null && wholeNumber(p.locOverride) !== scanned;
-    return `<tr data-row="${esc(p.id)}" class="${p.included ? '' : 'calc-off'}">
+    return `<tr data-row="${esc(p.id)}" data-source="${esc(p.source ?? 'git')}" class="${p.included ? '' : 'calc-off'}">
       <td><input type="checkbox" data-p="included"${p.included ? ' checked' : ''} aria-label="Include ${esc(p.name)}" /></td>
       <td>${manual ? `<span class="calc-name-cell"><input type="text" data-p="name" value="${esc(p.name)}" maxlength="200" aria-label="Project name" translate="no" /><button type="button" class="ghost calc-remove" data-remove-project>Remove</button></span>` : `<span translate="no">${esc(p.name)}</span>`}</td>
       <td>${manual ? `<select data-p="criticality" aria-label="Criticality"><option value="">—</option>${CRITICALITIES.map((k) => `<option${p.criticality === k ? ' selected' : ''}>${k}</option>`).join('')}</select>` : p.criticality ?? '—'}</td>
@@ -960,7 +975,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderTr();
     renderPending();
   };
-  $('calc-fusion-on').addEventListener('change', (event) => { if (!c.open) return; setNext({ fusionOn: event.target.checked }, { redraw: false }); showFsub(event.target.checked ? 'existing' : 'new'); });
+  $('calc-fusion-on').addEventListener('change', (event) => { if (!c.open) return; setNext({ fusionOn: event.target.checked }, { redraw: false }); });
   $('calc-fusion-include').addEventListener('click', () => setFusionOn(true));
 
   // ---- Fusion — new customer: code not in Checkmarx One yet, its lines counted from git or with cloc
@@ -1222,20 +1237,125 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     showWay(way);
   });
 
-  /** Fusion's two sub-sections in one tab: "In Checkmarx One" (projects already scanned) and "New code" (cloc-fusion). */
-  const showFsub = (pick) => {
-    // "In Checkmarx One" (existing-customer Fusion) is behind the Add Fusion: Existing customer tick — off by default.
-    const existingOn = Boolean($('calc-fusion-on')?.checked);
-    const existingTab = document.querySelector('.calc-fsub-existing');
-    if (existingTab) existingTab.hidden = !existingOn;
-    const shown = pick === 'existing' && existingOn ? 'existing' : 'new';
-    for (const input of document.querySelectorAll('input[name="calc-fsub"]')) input.checked = input.value === shown;
-    for (const box of document.querySelectorAll('#page-calculator .calc-fsub')) box.hidden = box.dataset.fsub !== shown;
+  /** Fusion's parts, each in a tab of its own now: both always drawn, the tabs show one at a time. */
+  const showFsub = () => {
+    for (const box of document.querySelectorAll('#page-calculator .calc-fsub')) box.hidden = false;
   };
-  $('calc-fsub-nav')?.addEventListener('change', (event) => {
-    if (event.target.name === 'calc-fsub') showFsub(event.target.value);
+  showFsub();
+
+  // ---- The three Fusion tabs: Checkmarx One, from Git, cloc-fusion; one estimate in the credits ---------
+  const BASES = {
+    cxone: { tab: 'fusion', kick: 'Fusion · existing customer', title: 'From Checkmarx One projects', short: 'Checkmarx One', what: 'projects' },
+    git: { tab: 'fusion-git', kick: 'Fusion · from Git', title: 'From code counted in git', short: 'from Git', what: 'repositories' },
+    cloc: { tab: 'fusion-cloc', kick: 'Fusion · cloc-fusion', title: 'From a cloc-fusion report or cloc results', short: 'cloc-fusion', what: 'repositories' },
+  };
+  /** The estimate in the credits: one of the three, or none. A customer saved with both parts on counts both until one is chosen. */
+  function basis() {
+    if (!c.open) return 'none';
+    const cx = !fusionOff();
+    const nw = !fnewOff();
+    if (cx && nw) return 'both';
+    if (cx) return 'cxone';
+    if (nw) return fnew().basis ?? 'git';
+    return 'none';
+  }
+  /** Every estimate, worked out whichever is chosen, so each tab can show its own and the others beside it. */
+  function estimates() {
+    const cx = fusionEstimate(scoped(), { ...fusion(), optOut: false }).totals;
+    const one = (b) => newCustomerEstimate({ ...fnew(), basis: b, optOut: false }, fusion()).totals;
+    return { cxone: cx, git: one('git'), cloc: one('cloc') };
+  }
+  /** Use one estimate (or none) in the credits: at once, as picking it is the whole change. */
+  function useBasis(b) {
+    if (!c.open) return;
+    if (b === 'git' || b === 'cloc') fnew().basis = b;
+    fusion().optOut = b !== 'cxone';
+    fnew().optOut = !(b === 'git' || b === 'cloc');
+    if (c.next) Object.assign(c.next, { fusionOn: b === 'cxone', fusionNewOn: b === 'git' || b === 'cloc' });
+    saveFusion();
+    saveFnew();
+    renderFusion();
+    renderFusionNew();
+    renderTr();
+    renderPending();
+    renderSummary();
+    placeFusion();
+  }
+  const credits = (t) => (t && t.projects ? num(Math.round(t.credits)) : '—');
+  function renderBasis() {
+    if (!c.open) return;
+    const all = estimates();
+    const used = basis();
+    const months = horizon();
+    // Repositories git (or cloc-fusion) counted that are not projects in Checkmarx One yet: by name.
+    const inCx = new Set(scoped().map((p) => String(p.name ?? '').toLowerCase().split('/').pop()));
+    const notInCx = (b) => fnewEstimate().rows.filter((r) => r.source === b && r.included && !inCx.has(String(r.name ?? '').toLowerCase().split('/').pop()));
+    for (const [b, d] of Object.entries(BASES)) {
+      const box = $(`calc-fh-${d.tab}`);
+      if (!box) continue;
+      const t = all[b];
+      const on = used === b || (used === 'both' && b === 'cxone');
+      const connection = b === 'cxone'
+        ? (tr()?.totals?.meta?.source === 'cxone' || scoped().length ? `<span class="calc-fh-pill ok">Read from Checkmarx One · ${num(scoped().length)} projects</span>` : '<span class="calc-fh-pill">Not read yet: connect the key at the top and Read from Checkmarx One</span>')
+        : b === 'git'
+          ? (t.projects ? `<span class="calc-fh-pill ok">Counted from git · ${num(t.projects)} repositories</span>` : '<span class="calc-fh-pill">Nothing counted yet: give a token below and count the repositories</span>')
+          : (t.projects ? `<span class="calc-fh-pill ok">Imported · ${num(t.projects)} repositories</span>` : '<span class="calc-fh-pill">Nothing imported yet: download cloc-fusion, send it to the customer, import the report they send back</span>');
+      const facts = t.projects
+        ? `<span><b>${num(t.projects)}</b> ${d.what}</span><span><b>${num(t.lines)}</b> lines of code</span><span><b>${num(t.units)}</b> 10K-LOC blocks</span><span><b>${num(t.scans)}</b> Fusion scans</span><span class="hint">${b === 'cxone' ? 'scans from how often each project was scanned in the last 12 months' : 'scans from the commits on each default branch'}</span>`
+        : '';
+      const others = Object.entries(BASES).filter(([k]) => k !== b && all[k].projects).map(([k, o]) => `<div class="calc-fh-alt">${esc(o.short)}: ${credits(all[k])}${used === k ? ' · <b>in use</b>' : ` · <button type="button" class="link" data-use-basis="${esc(k)}">use instead</button>`}</div>`).join('');
+      const extra = b !== 'cxone' && scoped().length && notInCx(b).length ? `<div class="calc-fh-foot">${num(notInCx(b).length)} of these repositories are not projects in Checkmarx One yet (matched by name).</div>` : '';
+      const both = used === 'both' && b !== 'git' && b !== 'cloc' ? '' : '';
+      box.innerHTML = `
+        <div class="calc-fh-main">
+          <div class="calc-fh-kick calc-fh-${b}">${esc(d.kick)}</div>
+          <h2>${esc(d.title)}</h2>
+          <div class="calc-fh-conn">${connection}</div>
+          ${facts ? `<div class="calc-fh-facts">${facts}</div>` : ''}
+        </div>
+        <div class="calc-fh-side">
+          <div class="calc-fh-credits"><b>${credits(t)}</b><span>credits over ${num(months)} months</span></div>
+          ${on ? '<span class="calc-fh-used">✓ Used in the credits</span>' : `<button type="button" class="primary" data-use-basis="${esc(b)}"${t.projects ? '' : ' disabled'}>${used === 'none' ? 'Use this' : 'Use this instead'}</button>`}
+          ${others}
+          ${used === 'none' ? '<div class="calc-fh-alt"><b>Fusion is left out</b></div>' : '<button type="button" class="link calc-fh-out" data-use-basis="none">Leave Fusion out</button>'}
+        </div>
+        ${used === 'both' ? `<div class="calc-fh-foot">Both Checkmarx One and the counted code are in the credits (saved that way before). Pick one with <b>Use this instead</b>, so no code is counted twice.</div>` : ''}${extra}${both}`;
+    }
+  }
+  document.getElementById('page-calculator').addEventListener('click', (event) => {
+    const pick = event.target.closest('[data-use-basis]');
+    if (pick && !pick.disabled) useBasis(pick.dataset.useBasis);
   });
-  showFsub('new');
+
+  /** The parts the three Fusion tabs share (visuals, pricing, the counted code) go to the tab in view. */
+  function placeFusion() {
+    const panel = [...document.querySelectorAll('#page-calculator [data-ptpanel^="calculator:fusion"]')].find((x) => !x.hidden);
+    if (!panel) return;
+    const view = panel.dataset.ptpanel.split(':')[1];
+    const slot = panel.querySelector('.calc-fslot');
+    // The visuals draw the estimate in the credits: shown on that estimate's tab only.
+    const viz = $('calc-fusion-viz-panel');
+    const mine = { fusion: 'cxone', 'fusion-git': 'git', 'fusion-cloc': 'cloc' }[view];
+    const inUse = basis();
+    viz?.classList.toggle('calc-viz-elsewhere', !(inUse === mine || (inUse === 'both' && mine === 'cxone')));
+    const parts = [viz, $('calc-fusion-pricing')];
+    const counted = document.querySelector('#page-calculator .calc-fsub[data-fsub="new"]');
+    if (view === 'fusion') slot.append(...parts.filter(Boolean));
+    else {
+      slot.append(...parts.filter(Boolean), counted);
+      // Git: count from git only. cloc-fusion: its report, or cloc results.
+      for (const label of document.querySelectorAll('#calc-fnew-ways .mode')) {
+        const v = label.querySelector('input')?.value;
+        label.hidden = view === 'fusion-git' ? true : v === 'git';
+      }
+      $('calc-fnew-ways').hidden = view === 'fusion-git';
+      if (view === 'fusion-git') showWay('git');
+      else if (way === 'git' || !['report', 'cloc'].includes(document.querySelector('input[name="calc-fnew-way"]:checked')?.value)) showWay('report');
+    }
+    panel.classList.toggle('calc-fview-new', view !== 'fusion');
+    panel.dataset.fview = view;
+  }
+  for (const panel of document.querySelectorAll('#page-calculator [data-ptpanel^="calculator:fusion"]')) new MutationObserver(placeFusion).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
 
   /** The Admin's git connections, once: each one a choice in step 1, beside a token typed for one run. */
   async function loadConnections() {
@@ -2164,7 +2284,6 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const n = next();
     $('calc-fusion-on').checked = n.fusionOn;
     $('calc-fusion-new-on').checked = n.fusionNewOn;
-    showFsub(document.querySelector('input[name="calc-fsub"]:checked')?.value ?? 'new');
     $('calc-extra').value = n.extraPercent || '';
     $('calc-bundle').value = n.bundleCredits;
     // The bundle size is 10,000 for nearly every customer: it waits behind the "?" on Bundles, marked when it is another.
@@ -2209,8 +2328,13 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   /** The bar that lists what waits, with Undo and Apply. */
   function renderPending() {
     const changes = c.open ? pending() : [];
-    $('calc-pending').hidden = !changes.length;
-    $('calc-pending-count').textContent = changes.length === 1 ? '1 change not applied yet' : `${num(changes.length)} changes not applied yet`;
+    // Apply is always in view in the settings block: quiet while everything is applied, lit when something waits.
+    const idle = !changes.length;
+    $('calc-pending').hidden = !c.open;
+    $('calc-pending').classList.toggle('idle', idle);
+    $('calc-apply').disabled = !c.open || idle;
+    $('calc-undo').hidden = idle;
+    $('calc-pending-count').textContent = idle ? 'Every setting is applied' : changes.length === 1 ? '1 change not applied yet' : `${num(changes.length)} changes not applied yet`;
     $('calc-pending-list').replaceChildren(...changes.map((x) => Object.assign(document.createElement('li'), { textContent: x.reads ? `${x.label} (reads Checkmarx One again)` : x.label })));
     const waiting = new Set(changes.map((x) => x.key));
     for (const [key, el] of Object.entries(MARKED)) el()?.classList.toggle('calc-changed', waiting.has(key));
@@ -2278,6 +2402,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   const readFinished = () => new Promise((resolve) => reading.waiters.push(resolve));
   const settle = (ok) => {
     reading.branches = null;
+    reading.startedAt = null;
+    reading.lastPct = 0;
     for (const resolve of reading.waiters.splice(0)) resolve(ok);
     renderPending();
   };
@@ -2289,10 +2415,19 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-read').disabled = running || !c.open;
     if (!running) return;
     const part = job.total ? job.done / job.total : 0;
-    bar.value = Math.round(job.step === 'summaries' ? 60 + part * 40 : part * 60);
-    if (job.step === 'summaries') setStatus('calc-read-note', `Reading the findings of each scan: ${num(job.done)} of ${num(job.total)}…`, 'muted');
-    else if (job.total) setStatus('calc-read-note', `Reading the projects and their scans: ${num(job.done)} of ${num(job.total)}…`, 'muted');
-    else setStatus('calc-read-note', 'Reading the projects…', 'muted');
+    const pct = Math.round(job.step === 'summaries' ? 60 + part * 40 : part * 60);
+    bar.value = pct;
+    // How long is left, from the pace so far (shown once there is a pace to go by).
+    const now = Date.now();
+    if (!reading.startedAt || pct < (reading.lastPct ?? 0)) reading.startedAt = now;
+    reading.lastPct = pct;
+    const spent = (now - reading.startedAt) / 1000;
+    const left = pct >= 3 && spent > 5 ? (spent * (100 - pct)) / pct : null;
+    const eta = left === null ? '' : left < 90 ? ' · under 2 minutes left' : ` · about ${num(Math.round(left / 60))} minutes left`;
+    const lock = ' The settings unlock and the figures fill in when the read is done.';
+    if (job.step === 'summaries') setStatus('calc-read-note', `Reading from Checkmarx One: ${pct}% — the findings of each scan, ${num(job.done)} of ${num(job.total)}${eta}.${lock}`, 'reading');
+    else if (job.total) setStatus('calc-read-note', `Reading from Checkmarx One: ${pct}% — projects and their scans, ${num(job.done)} of ${num(job.total)}${eta}.${lock}`, 'reading');
+    else setStatus('calc-read-note', `Reading from Checkmarx One: the list of projects…${lock}`, 'reading');
   }
 
   /** The last read, under the button, when nothing else is said there. */
@@ -2528,6 +2663,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   function renderSummary() {
     gateImpact();
+    queueMicrotask(renderBasis);
     $('calc-pdf').hidden = !(lastMade && lastMade.customerId === c.open?.id);
     if (!c.open) { $('calc-fusion-viz-panel') && ($('calc-fusion-viz-panel').hidden = true); return; }
     const fn = fnewEstimate();
@@ -2542,7 +2678,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const fresh = c.fusionNewCredits !== null && c.fusionNewCredits !== undefined;
     $('calc-sum-fusion-label').textContent = 'Fusion';
     $('calc-sum-fusion').textContent = existing || fresh ? num(Math.round((c.fusionCredits ?? 0) + (c.fusionNewCredits ?? 0))) : fusionOff() && fnewOff() ? 'Left out' : '—';
-    $('calc-sum-fusion-split').textContent = existing && fresh ? `${num(Math.round(c.fusionCredits))} existing + ${num(Math.round(c.fusionNewCredits))} new` : '';
+    const inUse = basis();
+    $('calc-sum-fusion-split').textContent = existing && fresh ? `${num(Math.round(c.fusionCredits))} Checkmarx One + ${num(Math.round(c.fusionNewCredits))} counted code` : BASES[inUse] ? `Fusion · ${BASES[inUse].short}${existing || fresh ? '' : ' · nothing counted yet'}` : '';
     $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.totalShown);
     $('calc-sum-extra').textContent = num(sum.extraShown);
     $('calc-mix-extra').hidden = !(sum.extraShown > 0);
