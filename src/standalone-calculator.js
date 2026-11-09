@@ -360,9 +360,11 @@ if (!fs.existsSync(path.join(dir, '.complete'))) {
   }
   fs.writeFileSync(path.join(dir, '.complete'), '');
 }
-const { startLauncher } = await import(pathToFileURL(path.join(dir, 'src', 'calculator-launcher.js')).href);
+const { startLauncher, DEFAULT_PORT } = await import(pathToFileURL(path.join(dir, 'src', 'calculator-launcher.js')).href);
 try {
-  await startLauncher({ html: HTML, port: Number(option('--port') ?? 0), open: !args.includes('--no-open') });
+  // The same port every run (unless --port says another), so the browser shows the customers saved before.
+  const asked = option('--port');
+  await startLauncher({ html: HTML, port: asked ? Number(asked) : DEFAULT_PORT, fallback: !asked, open: !args.includes('--no-open') });
 } catch (error) {
   console.error(\`The calculator could not start: \${error.message}\`);
   process.exit(1);

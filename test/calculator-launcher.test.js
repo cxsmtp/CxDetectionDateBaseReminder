@@ -183,3 +183,27 @@ test('without git on this computer, the launcher says so plainly', async () => {
     await launcher.close();
   }
 });
+
+test('the same port every run, so saved customers come back; a busy port falls back and says so', async () => {
+  const { DEFAULT_PORT } = await import('../src/calculator-launcher.js');
+  assert.equal(DEFAULT_PORT, 47317);
+  assert.match(buildCalculatorLauncher({ version: 't' }), /port: asked \? Number\(asked\) : DEFAULT_PORT, fallback: !asked/);
+  const html = '<!doctype html><script type="application/json" id="cx-launcher">"__CALCULATOR_LAUNCHER__"</script>';
+  const busy = http.createServer();
+  await new Promise((resolve) => busy.listen(0, '127.0.0.1', resolve));
+  const taken = busy.address().port;
+  const lines = [];
+  const launcher = await startLauncher({ html, port: taken, fallback: true, open: false, log: (l) => lines.push(l) });
+  try {
+    assert.notEqual(new URL(launcher.url).port, String(taken));
+    assert.ok(lines.some((l) => l.includes(`Port ${taken} is in use`)));
+  } finally {
+    await launcher.close();
+    busy.close();
+  }
+  // Without fallback (an explicit --port), a busy port is an error, not a silent move.
+  const again = http.createServer();
+  await new Promise((resolve) => again.listen(0, '127.0.0.1', resolve));
+  await assert.rejects(startLauncher({ html, port: again.address().port, open: false, log: () => {} }), /EADDRINUSE/);
+  again.close();
+});

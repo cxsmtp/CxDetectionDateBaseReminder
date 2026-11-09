@@ -61,7 +61,10 @@ function typedSource(input) {
 /** What to list of the token's account: the organizations ticked (or the one typed), or everything it can see. */
 const typedAsk = (input) => ({ orgs: (Array.isArray(input?.token?.orgs) ? input.token.orgs : input?.owner !== undefined ? [input.owner] : []).map(String).filter(Boolean), everything: input?.token?.everything === true });
 
-export async function startLauncher({ html, port = 0, host = '127.0.0.1', open = true, log = console.log, connect = (connection) => new CxClient(connection), gitBin = 'git' } = {}) {
+/** The launcher's own port: fixed, so the browser finds the customers saved in earlier runs at the same address. */
+export const DEFAULT_PORT = 47317;
+
+export async function startLauncher({ html, port = 0, fallback = false, host = '127.0.0.1', open = true, log = console.log, connect = (connection) => new CxClient(connection), gitBin = 'git' } = {}) {
   // Plain http, so this computer only: the page's secret and the API key never cross a network.
   if (!['127.0.0.1', 'localhost', '::1'].includes(String(host))) throw new Error(`The calculator only serves this computer (127.0.0.1), not ${host}.`);
   const secret = randomBytes(24).toString('base64url');
@@ -158,13 +161,23 @@ export async function startLauncher({ html, port = 0, host = '127.0.0.1', open =
     }
   });
 
+  // The browser keeps customers and reports per address (127.0.0.1:<port>), so the same port every run is what
+  // makes them come back. Only when that port is taken does it fall back to any free one, and says so.
   await new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(port, host, resolve);
+    const attempt = (p, retry) => {
+      server.once('error', (error) => {
+        if (retry && error.code === 'EADDRINUSE') {
+          log(`Port ${p} is in use (is the calculator already open in another window?). Starting on another port: customers saved before are not shown in this window. Close the other one and start again to see them.`);
+          attempt(0, false);
+        } else reject(error);
+      });
+      server.listen(p, host, resolve);
+    };
+    attempt(port, fallback);
   });
   const url = `http://127.0.0.1:${server.address().port}/`;
   log(`Cx Credits Calculator: ${url}`);
-  log('Paste a Checkmarx One API key at the top of the page to read the tenant. Nothing is kept: press Ctrl+C to stop.');
+  log('Paste a Checkmarx One API key at the top of the page to read the tenant. The key is not kept; customers and reports are saved in this browser for this address. Press Ctrl+C to stop.');
   if (open) openBrowser(url);
   return { url, server, close: () => new Promise((resolve) => server.close(resolve)) };
 }
