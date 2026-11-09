@@ -5582,6 +5582,23 @@
   "To compare": "להשוואה",
   "use instead": "שימוש במקום זאת",
   "Use this instead": "שימוש בזה במקום",
-  "What counts as code": "מה נחשב קוד"
+  "What counts as code": "מה נחשב קוד",
+  "Live from Checkmarx One": "בזמן אמת מ-Checkmarx One",
+  "Reading the projects": "קריאת הפרויקטים",
+  "Scans in the year": "סריקות בשנה",
+  "The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.": "הנתונים מתמלאים ככל שהפרויקטים מגיעים: בינתיים אפשר לנסות את רמות החומרה, התקופה או ההיקף.",
+  "The figures change when the read is done; until then they are the last read’s.": "הנתונים משתנים כשהקריאה מסתיימת; עד אז הם נתוני הקריאה האחרונה.",
+  "Reading Checkmarx One": "קריאת Checkmarx One",
+  "Reading Checkmarx One · {0}%": "קריאת Checkmarx One · {0}%",
+  "Read from Checkmarx One · done": "נקרא מ-Checkmarx One · הושלם",
+  "Reading Checkmarx One stopped": "קריאת Checkmarx One נעצרה",
+  "Listing the projects…": "הצגת הפרויקטים…",
+  "{0} projects read": "{0} פרויקטים נקראו",
+  "1 project read": "פרויקט אחד נקרא",
+  "The read stopped": "הקריאה נעצרה",
+  "Checkmarx One could not be read": "לא ניתן היה לקרוא את Checkmarx One",
+  "Read for another customer": "קריאה עבור לקוח אחר",
+  "Every figure is from the whole read now.": "כל הנתונים מבוססים כעת על הקריאה המלאה.",
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion עוקב כעת אחר ההיקף; תעדוף ותיקון יעקבו אחריו כשהקריאה תסתיים."
  }
 }

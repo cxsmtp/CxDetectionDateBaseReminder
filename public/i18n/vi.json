@@ -5582,6 +5582,23 @@
   "To compare": "Để so sánh",
   "use instead": "dùng thay thế",
   "Use this instead": "Dùng mục này thay thế",
-  "What counts as code": "Những gì được tính là mã"
+  "What counts as code": "Những gì được tính là mã",
+  "Live from Checkmarx One": "Trực tiếp từ Checkmarx One",
+  "Reading the projects": "Đang đọc các dự án",
+  "Scans in the year": "Số lần quét trong năm",
+  "The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.": "Các số liệu được điền dần khi dữ liệu dự án về: trong lúc chờ, hãy thử thay đổi mức độ nghiêm trọng, kỳ hoặc phạm vi.",
+  "The figures change when the read is done; until then they are the last read’s.": "Số liệu sẽ thay đổi khi đọc xong; trước đó, đây là số liệu của lần đọc gần nhất.",
+  "Reading Checkmarx One": "Đang đọc Checkmarx One",
+  "Reading Checkmarx One · {0}%": "Đang đọc Checkmarx One · {0}%",
+  "Read from Checkmarx One · done": "Đã đọc từ Checkmarx One · hoàn tất",
+  "Reading Checkmarx One stopped": "Đã dừng đọc Checkmarx One",
+  "Listing the projects…": "Đang liệt kê các dự án…",
+  "{0} projects read": "Đã đọc {0} dự án",
+  "1 project read": "Đã đọc 1 dự án",
+  "The read stopped": "Quá trình đọc đã dừng",
+  "Checkmarx One could not be read": "Không thể đọc Checkmarx One",
+  "Read for another customer": "Lần đọc cho khách hàng khác",
+  "Every figure is from the whole read now.": "Giờ đây mọi số liệu đều lấy từ toàn bộ lần đọc.",
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion giờ đã theo phạm vi; phân loại và khắc phục sẽ theo khi đọc xong."
  }
 }

@@ -5582,6 +5582,23 @@
   "To compare": "Sebagai pembanding",
   "use instead": "gunakan sebagai gantinya",
   "Use this instead": "Gunakan ini sebagai gantinya",
-  "What counts as code": "Yang dihitung sebagai kode"
+  "What counts as code": "Yang dihitung sebagai kode",
+  "Live from Checkmarx One": "Langsung dari Checkmarx One",
+  "Reading the projects": "Membaca proyek",
+  "Scans in the year": "Pemindaian dalam setahun",
+  "The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.": "Angka terisi seiring proyek diterima: sementara itu, coba tingkat keparahan, periode, atau cakupan.",
+  "The figures change when the read is done; until then they are the last read’s.": "Angka berubah setelah pembacaan selesai; sampai saat itu, angka berasal dari pembacaan terakhir.",
+  "Reading Checkmarx One": "Membaca Checkmarx One",
+  "Reading Checkmarx One · {0}%": "Membaca Checkmarx One · {0}%",
+  "Read from Checkmarx One · done": "Dibaca dari Checkmarx One · selesai",
+  "Reading Checkmarx One stopped": "Pembacaan Checkmarx One terhenti",
+  "Listing the projects…": "Menampilkan daftar proyek…",
+  "{0} projects read": "{0} proyek dibaca",
+  "1 project read": "1 proyek dibaca",
+  "The read stopped": "Pembacaan terhenti",
+  "Checkmarx One could not be read": "Checkmarx One tidak dapat dibaca",
+  "Read for another customer": "Pembacaan untuk pelanggan lain",
+  "Every figure is from the whole read now.": "Semua angka kini berasal dari pembacaan lengkap.",
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion kini mengikuti cakupan; triase & perbaikan akan mengikutinya setelah pembacaan selesai."
  }
 }

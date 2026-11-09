@@ -5582,6 +5582,23 @@
   "To compare": "للمقارنة",
   "use instead": "استخدامه بدلًا من ذلك",
   "Use this instead": "استخدام هذا بدلًا من ذلك",
-  "What counts as code": "ما الذي يُحتسب كودًا"
+  "What counts as code": "ما الذي يُحتسب كودًا",
+  "Live from Checkmarx One": "مباشرةً من Checkmarx One",
+  "Reading the projects": "جارٍ قراءة المشاريع",
+  "Scans in the year": "الفحوص خلال السنة",
+  "The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.": "تُملأ الأرقام مع وصول المشاريع: جرّب في الأثناء درجات الخطورة أو الفترة أو النطاق.",
+  "The figures change when the read is done; until then they are the last read’s.": "تتغير الأرقام عند انتهاء القراءة؛ وحتى ذلك الحين تبقى أرقام آخر قراءة.",
+  "Reading Checkmarx One": "جارٍ القراءة من Checkmarx One",
+  "Reading Checkmarx One · {0}%": "جارٍ القراءة من Checkmarx One · {0}%",
+  "Read from Checkmarx One · done": "القراءة من Checkmarx One · اكتملت",
+  "Reading Checkmarx One stopped": "توقفت القراءة من Checkmarx One",
+  "Listing the projects…": "جارٍ عرض المشاريع…",
+  "{0} projects read": "عدد المشاريع المقروءة: {0}",
+  "1 project read": "تمت قراءة مشروع واحد",
+  "The read stopped": "توقفت القراءة",
+  "Checkmarx One could not be read": "تعذّرت القراءة من Checkmarx One",
+  "Read for another customer": "قراءة لعميل آخر",
+  "Every figure is from the whole read now.": "أصبحت كل الأرقام الآن مستمدة من القراءة الكاملة.",
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "يتبع Fusion النطاق الآن؛ ويتبعه الفرز والمعالجة عند انتهاء القراءة."
  }
 }

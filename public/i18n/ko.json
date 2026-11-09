@@ -5582,6 +5582,23 @@
   "To compare": "비교용",
   "use instead": "대신 사용",
   "Use this instead": "대신 이 항목 사용",
-  "What counts as code": "코드로 집계되는 항목"
+  "What counts as code": "코드로 집계되는 항목",
+  "Live from Checkmarx One": "Checkmarx One 실시간 데이터",
+  "Reading the projects": "프로젝트를 읽는 중",
+  "Scans in the year": "연간 스캔 수",
+  "The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.": "프로젝트를 읽는 대로 수치가 채워집니다. 그동안 심각도, 기간 또는 범위를 변경해 보십시오.",
+  "The figures change when the read is done; until then they are the last read’s.": "수치는 읽기가 완료되면 변경됩니다. 그때까지는 마지막 읽기의 수치가 표시됩니다.",
+  "Reading Checkmarx One": "Checkmarx One을 읽는 중",
+  "Reading Checkmarx One · {0}%": "Checkmarx One을 읽는 중 · {0}%",
+  "Read from Checkmarx One · done": "Checkmarx One에서 읽기 · 완료",
+  "Reading Checkmarx One stopped": "Checkmarx One 읽기가 중지되었습니다",
+  "Listing the projects…": "프로젝트 목록을 가져오는 중…",
+  "{0} projects read": "프로젝트 {0}개 읽음",
+  "1 project read": "프로젝트 1개 읽음",
+  "The read stopped": "읽기가 중지되었습니다",
+  "Checkmarx One could not be read": "Checkmarx One을 읽을 수 없습니다",
+  "Read for another customer": "다른 고객을 위한 읽기",
+  "Every figure is from the whole read now.": "이제 모든 수치가 전체 읽기 결과를 기준으로 합니다.",
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion은 이제 범위를 따르며, 분류 및 조치는 읽기가 완료되면 범위를 따릅니다."
  }
 }

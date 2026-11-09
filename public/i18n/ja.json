@@ -5582,6 +5582,23 @@
   "To compare": "比較用",
   "use instead": "代わりに使用",
   "Use this instead": "代わりにこれを使用",
-  "What counts as code": "コードとして集計する対象"
+  "What counts as code": "コードとして集計する対象",
+  "Live from Checkmarx One": "Checkmarx Oneからのライブデータ",
+  "Reading the projects": "プロジェクトを読み込んでいます",
+  "Scans in the year": "年間スキャン数",
+  "The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.": "プロジェクトの読み込みに合わせて数値が表示されていきます。その間に重大度、期間、範囲を変更してお試しください。",
+  "The figures change when the read is done; until then they are the last read’s.": "数値は読み込みの完了時に更新されます。それまでは前回の読み込み結果の数値です。",
+  "Reading Checkmarx One": "Checkmarx Oneを読み込んでいます",
+  "Reading Checkmarx One · {0}%": "Checkmarx Oneを読み込んでいます · {0}%",
+  "Read from Checkmarx One · done": "Checkmarx Oneからの読み込み · 完了",
+  "Reading Checkmarx One stopped": "Checkmarx Oneの読み込みが停止しました",
+  "Listing the projects…": "プロジェクトを一覧表示しています…",
+  "{0} projects read": "プロジェクト{0}件を読み込み済み",
+  "1 project read": "プロジェクト1件を読み込み済み",
+  "The read stopped": "読み込みが停止しました",
+  "Checkmarx One could not be read": "Checkmarx Oneを読み込めませんでした",
+  "Read for another customer": "別の顧客向けの読み込み",
+  "Every figure is from the whole read now.": "すべての数値が読み込み全体の結果に基づくようになりました。",
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusionは範囲の変更をすぐに反映します。トリアージと修正は読み込みの完了後に反映します。"
  }
 }

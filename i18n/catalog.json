@@ -37299,5 +37299,107 @@
    "sign in › h3 › How it is counted",
    "Dashboard › h3 › How it is counted"
   ]
+ },
+ "Live from Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Reading the projects": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Scans in the year": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "The figures change when the read is done; until then they are the last read’s.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Reading Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Reading Checkmarx One · {0}%": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Read from Checkmarx One · done": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Reading Checkmarx One stopped": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Listing the projects…": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0} projects read": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "1 project read": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "The read stopped": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Checkmarx One could not be read": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Read for another customer": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Every figure is from the whole read now.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Fusion follows the scope now; triage & remediation does when the read is done.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
  }
 }

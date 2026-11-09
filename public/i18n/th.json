@@ -5582,6 +5582,23 @@
   "To compare": "เพื่อเปรียบเทียบ",
   "use instead": "ใช้แทน",
   "Use this instead": "ใช้รายการนี้แทน",
-  "What counts as code": "สิ่งที่นับเป็นโค้ด"
+  "What counts as code": "สิ่งที่นับเป็นโค้ด",
+  "Live from Checkmarx One": "ข้อมูลสดจาก Checkmarx One",
+  "Reading the projects": "กำลังอ่านโปรเจกต์",
+  "Scans in the year": "จำนวนการสแกนในหนึ่งปี",
+  "The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.": "ตัวเลขจะแสดงเพิ่มขึ้นเรื่อย ๆ เมื่อได้รับข้อมูลโปรเจกต์ ระหว่างนี้ลองปรับระดับความรุนแรง ช่วงเวลา หรือขอบเขตได้",
+  "The figures change when the read is done; until then they are the last read’s.": "ตัวเลขจะเปลี่ยนเมื่ออ่านเสร็จ ก่อนหน้านั้นจะเป็นตัวเลขจากการอ่านครั้งล่าสุด",
+  "Reading Checkmarx One": "กำลังอ่าน Checkmarx One",
+  "Reading Checkmarx One · {0}%": "กำลังอ่าน Checkmarx One · {0}%",
+  "Read from Checkmarx One · done": "อ่านจาก Checkmarx One · เสร็จแล้ว",
+  "Reading Checkmarx One stopped": "การอ่าน Checkmarx One หยุดลงแล้ว",
+  "Listing the projects…": "กำลังแสดงรายการโปรเจกต์…",
+  "{0} projects read": "อ่านแล้ว {0} โปรเจกต์",
+  "1 project read": "อ่านแล้ว 1 โปรเจกต์",
+  "The read stopped": "การอ่านหยุดลงแล้ว",
+  "Checkmarx One could not be read": "อ่าน Checkmarx One ไม่ได้",
+  "Read for another customer": "การอ่านสำหรับลูกค้ารายอื่น",
+  "Every figure is from the whole read now.": "ตอนนี้ตัวเลขทั้งหมดมาจากการอ่านที่ครบถ้วนแล้ว",
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion ใช้ขอบเขตปัจจุบันแล้ว ส่วนการคัดกรองและการแก้ไขจะใช้ขอบเขตนี้เมื่ออ่านเสร็จ"
  }
 }

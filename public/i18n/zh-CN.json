@@ -5582,6 +5582,23 @@
   "To compare": "供比较",
   "use instead": "改用",
   "Use this instead": "改用此项",
-  "What counts as code": "哪些内容算作代码"
+  "What counts as code": "哪些内容算作代码",
+  "Live from Checkmarx One": "来自 Checkmarx One 的实时数据",
+  "Reading the projects": "正在读取项目",
+  "Scans in the year": "一年内扫描次数",
+  "The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.": "数值会随着项目读取逐步填入：在此期间可先尝试调整严重程度、期间或范围。",
+  "The figures change when the read is done; until then they are the last read’s.": "读取完成后数值才会更新；在此之前显示的是上次读取的数值。",
+  "Reading Checkmarx One": "正在读取 Checkmarx One",
+  "Reading Checkmarx One · {0}%": "正在读取 Checkmarx One · {0}%",
+  "Read from Checkmarx One · done": "已从 Checkmarx One 读取 · 完成",
+  "Reading Checkmarx One stopped": "Checkmarx One 读取已停止",
+  "Listing the projects…": "正在列出项目…",
+  "{0} projects read": "已读取 {0} 个项目",
+  "1 project read": "已读取 1 个项目",
+  "The read stopped": "读取已停止",
+  "Checkmarx One could not be read": "无法读取 Checkmarx One",
+  "Read for another customer": "为另一位客户读取",
+  "Every figure is from the whole read now.": "现在所有数值均来自完整读取的数据。",
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion 现已随范围更新；研判与修复会在读取完成后随之更新。"
  }
 }

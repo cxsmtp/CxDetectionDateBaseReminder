@@ -5582,6 +5582,23 @@
   "To compare": "Para comparar",
   "use instead": "usar em vez disso",
   "Use this instead": "Usar esta em vez disso",
-  "What counts as code": "O que conta como código"
+  "What counts as code": "O que conta como código",
+  "Live from Checkmarx One": "Ao vivo do Checkmarx One",
+  "Reading the projects": "Lendo os projetos",
+  "Scans in the year": "Varreduras no ano",
+  "The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.": "Os números são preenchidos à medida que os projetos chegam: enquanto isso, experimente as gravidades, o período ou o escopo.",
+  "The figures change when the read is done; until then they are the last read’s.": "Os números mudam quando a leitura termina; até lá, são os da última leitura.",
+  "Reading Checkmarx One": "Lendo o Checkmarx One",
+  "Reading Checkmarx One · {0}%": "Lendo o Checkmarx One · {0}%",
+  "Read from Checkmarx One · done": "Leitura do Checkmarx One · concluída",
+  "Reading Checkmarx One stopped": "A leitura do Checkmarx One parou",
+  "Listing the projects…": "Listando os projetos…",
+  "{0} projects read": "{0} projetos lidos",
+  "1 project read": "1 projeto lido",
+  "The read stopped": "A leitura parou",
+  "Checkmarx One could not be read": "Não foi possível ler o Checkmarx One",
+  "Read for another customer": "Leitura para outro cliente",
+  "Every figure is from the whole read now.": "Agora todos os números vêm da leitura completa.",
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "O Fusion já segue o escopo; triagem e correção seguirão quando a leitura terminar."
  }
 }
