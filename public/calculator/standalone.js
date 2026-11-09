@@ -192,6 +192,11 @@ export function startStandalone({ samples = {} } = {}) {
   const showError = (id, error) => setStatus(id, error.message, 'error');
   const fmtDateTime = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
 
+  // On its own, the Customer ▾ menu sits in the head, beside the title (in the app it stays at the top of the page).
+  const head = document.querySelector('.sa-top .topbar-title');
+  const customer = document.querySelector('#page-calculator .calc-customer');
+  if (head && customer) head.after(customer);
+
   // The theme: light to start with, or light or dark as chosen here.
   const applyTheme = (theme) => {
     if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
@@ -319,7 +324,7 @@ export function startStandalone({ samples = {} } = {}) {
       shell.classList.toggle('can-read', connected);
       $('sa-disconnect').hidden = !connected;
       $('sa-key').placeholder = connected ? 'Connected: paste another key to switch' : 'Paste the API key';
-      setStatus('sa-connect-status', connected ? `Connected to tenant ${state.tenant}` : 'Not connected: the two exports work meanwhile.', connected ? 'ok' : 'muted');
+      setStatus('sa-connect-status', connected ? `Connected · ${state.tenant}` : 'Not connected · the two exports work meanwhile', connected ? 'ok' : 'muted');
       calculator.refresh();
     };
     $('sa-connect').addEventListener('submit', async (event) => {

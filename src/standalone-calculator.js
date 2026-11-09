@@ -164,8 +164,7 @@ export function buildStandaloneCalculator({ version = '', root = PUBLIC, launche
   <div class="content">
     <header class="topbar sa-top">
       <div class="topbar-title">
-        <div class="title-row"><h1>Cx Credits Calculator</h1></div>
-        <p class="sa-sub">${launcher ? 'The credits a customer needs, read from Checkmarx One with an API key, or from two exports. Runs on its own on this computer: customers and reports stay in this browser.' : 'The credits a customer needs, from two Checkmarx One exports. Runs on its own in this browser: nothing leaves it.'}</p>
+        <div class="title-row"><h1 title="${launcher ? 'The credits a customer needs, read from Checkmarx One with an API key, or from two exports. Runs on its own on this computer: customers and reports stay in this browser.' : 'The credits a customer needs, from two Checkmarx One exports. Runs on its own in this browser: nothing leaves it.'}">Cx Credits Calculator</h1></div>
       </div>
       ${launcher ? CONNECT_BAR : ''}
       <div class="sa-names">
@@ -203,10 +202,13 @@ ${read('fonts/OFL.txt').replace(/--/g, '- -')}
 
 // The launcher's page: the key, and where it connects (worked out from the key unless given).
 const CONNECT_BAR = `<form class="sa-connect" id="sa-connect" autocomplete="off">
-        <label class="field sa-key"><span>Checkmarx One API key</span><input type="password" id="sa-key" spellcheck="false" placeholder="Paste the API key" autocomplete="off" /></label>
-        <button type="submit" class="primary sm" id="sa-connect-go">Connect</button>
-        <button type="button" class="ghost sm" id="sa-disconnect" hidden>Disconnect</button>
-        <span class="status" id="sa-connect-status" aria-live="polite"></span>
+        <div class="sa-key-head"><span class="sa-kick">Triage &amp; remediation · Fusion</span><label for="sa-key" class="sa-key-label">Checkmarx One API key</label><span class="status" id="sa-connect-status" aria-live="polite"></span></div>
+        <div class="sa-key-row">
+          <input type="password" id="sa-key" class="sa-key" spellcheck="false" placeholder="Paste the API key" autocomplete="off" />
+          <button type="submit" class="primary sm" id="sa-connect-go">Connect</button>
+          <button type="button" class="link" id="sa-disconnect" hidden>Disconnect</button>
+        </div>
+        <p class="sa-key-note">Reads the backlog by severity and its trend, and the projects Fusion · Checkmarx One is worked out from.</p>
         <details class="sa-advanced"><summary>Advanced</summary>
           <div class="sa-advanced-grid">
             <label class="field"><span>API URL</span><input id="sa-base" spellcheck="false" placeholder="From the key" /></label>
@@ -222,9 +224,15 @@ const STANDALONE_CSS = `
 :root { --font: "Aptos", "MZ Brand Sans", "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; --ng-display: "Aptos", "Aptos Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; }
 .shell.standalone { display: block; min-height: 100vh; }
 .shell.standalone .content { margin: 0 auto; max-width: 1480px; padding: 0 clamp(12px, 3vw, 32px) 24px; }
-.shell.standalone .sa-top { position: static; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; padding: 18px 0 14px; }
-.shell.standalone .sa-top .topbar-title { flex: 1 1 320px; min-width: 0; }
-.shell.standalone .sa-top h1 { white-space: normal; overflow: visible; }
+/* The head on one line: title, Customer ▾ and when it was saved, then the names for the report and the tools; the key below. */
+.shell.standalone .sa-top { position: static; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 14px 0 12px; }
+.shell.standalone .sa-top .topbar-title { flex: none; min-width: 0; }
+.shell.standalone .sa-top h1 { white-space: nowrap; overflow: visible; font-size: clamp(20px, 2.2vw, 26px); margin: 0; }
+.shell.standalone .sa-top .calc-customer { flex: 0 1 auto; min-width: 0; }
+.shell.standalone .sa-top .sa-names { margin-left: auto; }
+.shell.standalone .sa-top .sa-names .field { min-width: 150px; flex: 0 1 170px; }
+.shell.standalone .sa-top .sa-names .field > span { font-size: 11px; }
+.shell.standalone .sa-top .sa-names input { padding-top: 6px; padding-bottom: 6px; }
 .shell.standalone .sa-sub { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 .shell.standalone .sa-names { display: flex; flex-wrap: wrap; gap: 10px; }
 .shell.standalone .sa-names .field { margin: 0; min-width: 180px; }
@@ -232,10 +240,24 @@ const STANDALONE_CSS = `
 .shell.standalone #sa-theme { min-width: 36px; display: inline-flex; align-items: center; justify-content: center; }
 .shell.standalone #sa-theme svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
 .shell.standalone:not(.can-read) #calc-read, .shell.standalone:not(.can-read) .calc-branches, .shell.standalone:not(.can-read) .calc-read-limit, .shell.standalone:not(.can-read) .calc-source-state, .shell.standalone:not(.can-read) .calc-origins, .shell.standalone:not(.can-read) .calc-apply-read, .shell.standalone #calc-email-open, .shell.standalone #calc-email-form, .shell.standalone .calc-toolbar { display: none !important; }
-.shell.standalone .sa-connect { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); order: 5; }
-.shell.standalone .sa-connect .sa-key { margin: 0; flex: 1 1 320px; max-width: 520px; }
-.shell.standalone .sa-connect .status { align-self: center; }
-.shell.standalone .sa-advanced { flex: 1 1 100%; font-size: 13px; }
+/* The key card: what it is for and its state on one line, the key with Connect, then a note and Advanced. */
+.shell.standalone .sa-connect { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); order: 5; }
+.shell.standalone .sa-key-head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.shell.standalone .sa-kick { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); }
+.shell.standalone .sa-key-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.shell.standalone #sa-connect-status { margin-left: auto; font-size: 12px; font-weight: 600; }
+.shell.standalone #sa-connect-status.ok, .shell.standalone #sa-connect-status.muted { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; }
+.shell.standalone #sa-connect-status.ok { background: color-mix(in srgb, var(--ok, #157347) 12%, transparent); color: var(--ok, #157347); border: 1px solid color-mix(in srgb, var(--ok, #157347) 30%, transparent); }
+.shell.standalone #sa-connect-status.muted { background: var(--surface-2, transparent); color: var(--muted); border: 1px solid var(--border); }
+.shell.standalone #sa-connect-status.ok::before, .shell.standalone #sa-connect-status.muted::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.shell.standalone .sa-key-row { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; }
+.shell.standalone .sa-key-row .sa-key { flex: 1 1 auto; min-width: 0; margin: 0; }
+.shell.standalone .sa-key-note { grid-column: 1; margin: 0; font-size: 12px; color: var(--muted); align-self: center; }
+.shell.standalone .sa-advanced { grid-column: 1 / -1; font-size: 12.5px; }
+.shell.standalone .sa-advanced > summary { color: var(--accent); font-weight: 600; cursor: pointer; width: max-content; }
+/* Back up and Restore as links, the theme as a small framed icon, as in the head of the design. */
+.shell.standalone .sa-actions button.ghost:not(#sa-theme) { color: var(--accent); font-weight: 600; padding: 0 6px; }
+.shell.standalone #sa-theme { border: 1px solid var(--border-strong); border-radius: 8px; width: 32px; height: 32px; min-width: 32px; padding: 0; }
 .shell.standalone .sa-advanced-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 12px; margin-top: 8px; }
 .shell.standalone .sa-advanced .field { margin: 0; }
 .shell.standalone .sa-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 24px; color: var(--muted); font-size: 12px; }

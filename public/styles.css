@@ -2862,8 +2862,35 @@ a.button-like.primary:hover { filter: brightness(1.05); }
 
 .calc-page { display: grid; gap: 14px; }
 .calc-head { display: grid; gap: 10px; }
-.calc-customer { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
+.calc-customer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .calc-customer .field { margin-bottom: 0; flex: 1 1 220px; }
+/* Customer ▾: one button; its menu lists the saved customers, then New, Rename and Delete. */
+.calc-cust-pick { position: relative; }
+.calc-cust-btn { display: inline-flex; align-items: center; gap: 8px; max-width: min(420px, 80vw); padding: 7px 12px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+.calc-cust-btn small { color: var(--muted); font-size: 12px; font-weight: 500; }
+.calc-cust-btn b { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.calc-cust-btn svg { flex: none; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+.calc-cust-btn[aria-expanded="true"] { border-color: var(--accent); }
+.calc-cust-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 40; display: grid; gap: 2px; min-width: 290px; max-width: min(420px, 92vw); padding: 6px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); box-shadow: 0 14px 34px -14px rgba(20, 16, 6, 0.45); }
+.calc-cust-menu[hidden] { display: none; }
+.calc-cust-list { display: grid; gap: 2px; max-height: 300px; overflow: auto; padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+.calc-cust-list[hidden] { display: none; }
+/* Menu lines, not buttons: the looks' button sheen and shadow (nextgen.css, every look) stay off them. */
+/* Pinned to the menu's id: the looks' rule lists many exceptions, which gives it more weight than a class rule. */
+#calc-cust-menu button.calc-cust-item, #calc-cust-menu button.calc-cust-act { box-shadow: none !important; background: none !important; border: 0 !important; transform: none !important; min-height: 0; }
+#calc-cust-menu button.calc-cust-item:is(:hover, :focus-visible), #calc-cust-menu button.calc-cust-act:is(:hover, :focus-visible) { background: var(--surface-2, rgba(0, 0, 0, 0.05)) !important; }
+.calc-cust-item, .calc-cust-act { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.calc-cust-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.calc-cust-item small { flex: none; color: var(--muted); font-size: 12px; }
+.calc-cust-item.on { font-weight: 650; }
+.calc-cust-item.on::after { content: "✓"; flex: none; font-weight: 700; }
+.calc-cust-item:hover, .calc-cust-item:focus-visible, .calc-cust-act:hover, .calc-cust-act:focus-visible { background: var(--surface-2, rgba(0, 0, 0, 0.05)); outline: none; }
+.calc-cust-act { font-weight: 600; font-size: 13.5px; }
+.calc-cust-act.danger { color: var(--bad, #b4413a); }
+.calc-cust-act:disabled { opacity: 0.45; cursor: default; background: none; }
+.calc-rename-field { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.calc-rename-field[hidden] { display: none; }
+.calc-rename-field input { width: 240px; padding: 6px 9px; }
 .calc-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 /* The summary: one strip. The settings, what the credits are for (a bar, each part's figure and share under it)
    and the total with its bundles; the bundle size behind the "?" on Bundles. Wide: three columns; narrower:

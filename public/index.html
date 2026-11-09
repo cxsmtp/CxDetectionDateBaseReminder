@@ -3432,13 +3432,18 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             </div>
             <section class="panel calc-head">
               <div class="calc-customer">
-                <label class="field"><span>Customer</span><select id="calc-customer" translate="no"></select></label>
-                <label class="field calc-rename"><span>Name</span><input type="text" id="calc-name" maxlength="120" autocomplete="off" translate="no" /></label>
-                <div class="calc-head-actions">
-                  <button type="button" class="secondary" id="calc-new">New customer</button>
-                  <button type="button" class="link danger" id="calc-delete">Delete customer</button>
-                  <span class="status" id="calc-saved" aria-live="polite"></span>
+                <div class="calc-cust-pick">
+                  <button type="button" class="calc-cust-btn" id="calc-cust-btn" aria-haspopup="true" aria-expanded="false" aria-controls="calc-cust-menu"><small>Customer</small> <b id="calc-cust-current" translate="no">None yet</b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg></button>
+                  <div class="calc-cust-menu" id="calc-cust-menu" role="menu" aria-label="Customers" hidden>
+                    <div class="calc-cust-list" id="calc-cust-list" role="group" aria-label="Saved customers"></div>
+                    <button type="button" class="calc-cust-act" id="calc-new" role="menuitem">+ New customer</button>
+                    <button type="button" class="calc-cust-act" id="calc-rename" role="menuitem">Rename…</button>
+                    <button type="button" class="calc-cust-act danger" id="calc-delete" role="menuitem">Delete…</button>
+                  </div>
                 </div>
+                <label class="calc-rename-field" id="calc-rename-field" hidden><span>Name</span><input type="text" id="calc-name" maxlength="120" autocomplete="off" translate="no" /></label>
+                <select id="calc-customer" translate="no" hidden aria-hidden="true" tabindex="-1"></select>
+                <span class="status" id="calc-saved" aria-live="polite"></span>
               </div>
               <div class="calc-heart" id="calc-heart">
                 <div class="calc-heart-head">
@@ -3562,7 +3567,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <button type="submit" class="primary">Send</button>
                 <span class="status" id="calc-email-status" aria-live="polite"></span>
               </form>
-              <p class="hint" id="calc-empty" hidden>No customers yet. Start with <strong>New customer</strong>: each customer keeps its own Checkmarx One data, plan and Fusion projects, saved as you go.</p>
+              <p class="hint" id="calc-empty" hidden>No customers yet. Open <strong>Customer</strong> and choose <strong>New customer</strong>: each customer keeps its own Checkmarx One data, plan and Fusion projects, saved as you go.</p>
             </section>
             <div class="ptabs" role="tablist" aria-label="Cx Credits Calculator" data-ptabs="calculator">
               <button type="button" role="tab" class="ptab" data-pt="tr">Triage &amp; remediation</button>

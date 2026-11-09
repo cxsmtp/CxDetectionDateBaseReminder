@@ -142,7 +142,16 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   function renderCustomers() {
     $('calc-empty').hidden = c.customers.length > 0;
     $('calc-customer').innerHTML = c.customers.map((x) => `<option value="${esc(x.id)}"${x.id === c.open?.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
-    for (const id of ['calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-bundle-q', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches', 'calc-max-projects', 'calc-apply', 'calc-undo']) $(id).disabled = !c.open;
+    // The Customer ▾ menu: the saved customers (the one open ticked, each with when it was saved), then New, Rename, Delete.
+    $('calc-cust-current').textContent = c.open?.name ?? (c.customers.length ? 'Choose a customer' : 'None yet');
+    $('calc-cust-list').innerHTML = c.customers
+      .map((x) => `<button type="button" class="calc-cust-item${x.id === c.open?.id ? ' on' : ''}" role="menuitemradio" aria-checked="${x.id === c.open?.id}" data-customer="${esc(x.id)}"><span translate="no">${esc(x.name)}</span>${x.updatedAt ? `<small>saved ${savedAt(x.updatedAt)}</small>` : ''}</button>`)
+      .join('');
+    $('calc-cust-list').hidden = !c.customers.length;
+    const named = c.open ? `“${c.open.name}”` : '';
+    $('calc-rename').textContent = c.open ? `Rename ${named}…` : 'Rename…';
+    $('calc-delete').textContent = c.open ? `Delete ${named}…` : 'Delete…';
+    for (const id of ['calc-rename', 'calc-customer', 'calc-name', 'calc-delete', 'calc-generate', 'calc-extra', 'calc-bundle', 'calc-bundle-q', 'calc-horizon', 'calc-email-open', 'calc-restart', 'calc-scope-toggle', 'calc-scope-clear', 'calc-app-input', 'calc-project-input', 'calc-leave-no-code', 'calc-leave-no-findings', 'calc-all-branches', 'calc-max-projects', 'calc-apply', 'calc-undo']) $(id).disabled = !c.open;
   }
 
   function renderOrg() {
@@ -260,6 +269,53 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   });
 
   $('calc-customer').addEventListener('change', () => open($('calc-customer').value));
+
+  // ---- The Customer ▾ menu ----------------------------------------------------------------
+  const custMenu = $('calc-cust-menu');
+  const custBtn = $('calc-cust-btn');
+  function custMenuOpen(on) {
+    custMenu.hidden = !on;
+    custBtn.setAttribute('aria-expanded', String(on));
+    if (on) (custMenu.querySelector('.calc-cust-item.on') ?? custMenu.querySelector('button:not([disabled])'))?.focus();
+  }
+  custBtn.addEventListener('click', () => custMenuOpen(custMenu.hidden));
+  custMenu.addEventListener('click', (event) => {
+    const item = event.target.closest('[data-customer]');
+    if (!item) return;
+    custMenuOpen(false);
+    if (item.dataset.customer === c.open?.id) return;
+    $('calc-customer').value = item.dataset.customer;
+    $('calc-customer').dispatchEvent(new Event('change'));
+  });
+  // New, Rename and Delete close the menu first; their own handlers below do the work.
+  for (const id of ['calc-new', 'calc-rename', 'calc-delete']) $(id).addEventListener('click', () => custMenuOpen(false), { capture: true });
+  document.addEventListener('click', (event) => {
+    if (!custMenu.hidden && !event.target.closest('.calc-cust-pick')) custMenuOpen(false);
+  });
+  custMenu.addEventListener('keydown', (event) => {
+    const items = [...custMenu.querySelectorAll('button:not([disabled])')];
+    const at = items.indexOf(document.activeElement);
+    if (event.key === 'Escape') { custMenuOpen(false); custBtn.focus(); }
+    else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      items[(at + (event.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus();
+    }
+  });
+  /** Rename: the name field shows beside the menu; Enter or leaving it puts it away. */
+  function renameOpen(on) {
+    $('calc-rename-field').hidden = !on;
+    if (on) {
+      $('calc-name').value = c.open?.name ?? '';
+      $('calc-name').focus();
+      $('calc-name').select();
+    }
+  }
+  $('calc-rename').addEventListener('click', () => c.open && renameOpen(true));
+  $('calc-name').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === 'Escape') { event.preventDefault(); renameOpen(false); custBtn.focus(); }
+  });
+  $('calc-name').addEventListener('blur', () => renameOpen(false));
+
   $('calc-name').addEventListener('input', () => {
     const name = $('calc-name').value.trim();
     if (!c.open || !name) return;
@@ -281,8 +337,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   $('calc-new').addEventListener('click', async () => {
     try {
       await create();
-      $('calc-name').focus();
-      $('calc-name').select();
+      renameOpen(true);
     } catch (error) {
       if (!handleAuthLoss(error)) toast(error.message, 'bad');
     }
