@@ -3440,6 +3440,11 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <span class="status" id="calc-saved" aria-live="polite"></span>
                 </div>
               </div>
+              <div class="calc-heart" id="calc-heart">
+                <div class="calc-heart-head">
+                  <span class="calc-heart-title">Projection settings</span>
+                  <span class="calc-heart-sub">The heart of the projection. Change anything here, then <b>Apply</b> to work out every number below.</span>
+                </div>
               <div class="calc-source">
                 <button type="button" class="secondary" id="calc-read">Read from Checkmarx One</button>
                 <label class="pill-check calc-branches" title="Unticked: each project's primary branch only (as set in Checkmarx One, else main, else master), so no finding is counted twice. Ticked: the scans of every branch, which is also what Fusion is charged for when feature branches are scanned with it."><input type="checkbox" id="calc-all-branches" /> Every branch</label>
@@ -3504,6 +3509,15 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 </form>
                 </details>
               </div>
+              <div class="calc-pending" id="calc-pending" role="region" aria-labelledby="calc-pending-count" hidden>
+                <div class="calc-pending-text"><b id="calc-pending-count" aria-live="polite"></b><ul id="calc-pending-list"></ul></div>
+                <div class="calc-pending-actions">
+                  <button type="button" class="calc-pending-undo" id="calc-undo">Undo</button>
+                  <button type="button" class="calc-pending-go" id="calc-apply">Apply</button>
+                </div>
+              </div>
+              <p class="hint calc-apply-hint"><span>Nothing changes until <b>Apply</b>: change anything in this block and an <b>Apply</b> appears; it applies every setting at once, the project filters too, and works every figure below out again.</span> <span class="calc-apply-read">A change that needs Checkmarx One read again (<b>Every branch</b>, more <b>Projects to read</b>) asks first.</span></p>
+              </div><!-- /calc-heart -->
               <div class="calc-strip" role="group" aria-label="Credits required">
                 <div class="calc-strip-set">
                   <label class="calc-strip-field"><span class="calc-strip-label">Projection period</span><select id="calc-horizon"><option value="6">6 months</option><option value="12">12 months</option><option value="18">18 months</option><option value="24">24 months</option><option value="36">36 months</option></select></label>
@@ -3532,14 +3546,6 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   </div>
                 </div>
               </div>
-              <div class="calc-pending" id="calc-pending" role="region" aria-labelledby="calc-pending-count" hidden>
-                <div class="calc-pending-text"><b id="calc-pending-count" aria-live="polite"></b><ul id="calc-pending-list"></ul></div>
-                <div class="calc-pending-actions">
-                  <button type="button" class="calc-pending-undo" id="calc-undo">Undo</button>
-                  <button type="button" class="calc-pending-go" id="calc-apply">Apply</button>
-                </div>
-              </div>
-              <p class="hint calc-apply-hint"><span>Nothing changes until <b>Apply</b>: it applies every setting above at once, the project filters too, and works the figures out again.</span> <span class="calc-apply-read">A change that needs Checkmarx One read again (<b>Every branch</b>, more <b>Projects to read</b>) asks first.</span></p>
               <div class="calc-report-bar">
                 <p class="hint" id="calc-org-line"></p>
                 <div class="calc-report-actions">
@@ -3598,6 +3604,12 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <div class="calc-section-head"><h2>Fusion visuals</h2><span class="hint">Hide any you don't need — the choice is remembered.</span></div>
                 <div class="calc-viz-grid" id="calc-fusion-viz"></div>
               </section>
+              <section class="panel calc-fusion-pricing" id="calc-fusion-pricing">
+                <div class="calc-section-head"><h2>Fusion pricing</h2><button type="button" class="secondary" id="calc-add-model">Add a model</button></div>
+                <p class="hint">Credits per 10K LOC for each model — this is what turns lines of code into Fusion credits, for new code counted from git and for projects already in Checkmarx One alike. Read with the projects when Checkmarx One gives it; otherwise type it as Checkmarx One shows when a scan is started. <b>Without a rate here, Fusion credits stay 0.</b></p>
+                <div class="table-wrap"><table class="data-table calc-models"><thead><tr><th>Model</th><th>Credits per 10K LOC</th><th></th></tr></thead><tbody id="calc-models"></tbody></table></div>
+                <p class="hint" id="calc-models-empty">No model yet: projects are counted in scans and 10K-LOC blocks, without credits, until a model has its credits per 10K LOC.</p>
+              </section>
               <div class="calc-fsub" data-fsub="existing">
               <section class="panel">
                 <h2>Fusion — existing customer: what each project needs</h2>
@@ -3609,12 +3621,6 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <label class="field"><span>When frequency and criticality both set a number</span>
                     <select id="calc-combine"><option value="higher">Use the higher</option><option value="frequency">Scan frequency wins</option><option value="criticality">Criticality wins</option></select></label>
                 </div>
-              </section>
-              <section class="panel">
-                <div class="calc-section-head"><h2>Fusion models</h2><button type="button" class="secondary" id="calc-add-model">Add a model</button></div>
-                <p class="hint">The models the tenant offers and their credits per 10K LOC, read with the projects when Checkmarx One says them; otherwise type them as Checkmarx One shows them when a scan is started.</p>
-                <div class="table-wrap"><table class="data-table calc-models"><thead><tr><th>Model</th><th>Credits per 10K LOC</th><th></th></tr></thead><tbody id="calc-models"></tbody></table></div>
-                <p class="hint" id="calc-models-empty">No model yet: projects are counted in scans and 10K-LOC blocks, without credits, until a model has its credits per 10K LOC.</p>
               </section>
               <section class="panel">
                 <h2>Fusion scans by how often projects are scanned</h2>

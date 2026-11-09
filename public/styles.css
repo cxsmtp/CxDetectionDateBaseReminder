@@ -3223,6 +3223,13 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .dash-top .totals > div.sla-over, .dash-top .totals > div.sla-soon { border-color: var(--border); }
 
 /* ---- Cx Credits Calculator, MZ-01.00.67: scope, what the projection counts, one-click bar ---- */
+/* The "heart": the settings block that drives every number below. Bounded so it reads as one unit. */
+.calc-heart { display: grid; gap: 10px; border: 1.5px solid var(--border-strong); border-radius: 14px; background: var(--surface-2, var(--surface)); padding: 12px 14px; box-shadow: inset 0 0 0 1px var(--surface); }
+.calc-heart-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.calc-heart-title { font-weight: 700; font-size: 13px; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); }
+.calc-heart-sub { font-size: 12.5px; color: var(--muted); }
+.calc-heart > .calc-source:first-of-type { border-top: 0; padding-top: 0; }
+.calc-heart .calc-apply-hint { margin: 2px 0 0; }
 .calc-scope { display: grid; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
 .calc-scope-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-width: 0; }
 .calc-scope-leave { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 8px 0 4px; }
