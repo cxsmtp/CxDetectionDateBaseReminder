@@ -17,7 +17,7 @@ import { liveCspMeta } from '../public/calculator/report.js';
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
 // The modules, each after those it imports.
-const MODULES = ['engines.js', 'look.js', 'i18n.js', 'help-tips.js', 'calculator/model.js', 'calculator/charts.js', 'calculator/explain.js', 'calculator/report.js', 'calculator/slides.js', 'calculator/levers.js', 'calculator/profiles.js', 'calculator/page.js', 'calculator/standalone.js'];
+const MODULES = ['engines.js', 'look.js', 'i18n.js', 'help-tips.js', 'speedsters.js', 'calculator/model.js', 'calculator/charts.js', 'calculator/explain.js', 'calculator/report.js', 'calculator/slides.js', 'calculator/levers.js', 'calculator/profiles.js', 'calculator/page.js', 'calculator/standalone.js'];
 const SAMPLES = ['Total_Vulnerabilities_by_Severity.xlsx', 'Fixed_Vulnerabilities_by_Severity.xlsx'];
 /** cloc-fusion's one-file page (vendored with its engine, scripts/sync-cloc-fusion.mjs), from the repository's root. */
 export const CLOC_FUSION_PAGE = 'src/cloc-fusion/cloc-fusion.html';
@@ -202,18 +202,30 @@ ${read('fonts/OFL.txt').replace(/--/g, '- -')}
 
 // The launcher's page: the key, and where it connects (worked out from the key unless given).
 const CONNECT_BAR = `<form class="sa-connect" id="sa-connect" autocomplete="off">
-        <div class="sa-key-head"><span class="sa-kick">Triage &amp; remediation · Fusion</span><label for="sa-key" class="sa-key-label">Checkmarx One API key</label><span class="status" id="sa-connect-status" aria-live="polite"></span></div>
-        <div class="sa-key-row">
-          <input type="password" id="sa-key" class="sa-key" spellcheck="false" placeholder="Paste the API key" autocomplete="off" />
-          <button type="submit" class="primary sm" id="sa-connect-go">Connect</button>
-          <button type="button" class="link" id="sa-disconnect" hidden>Disconnect</button>
+        <div class="sa-keybox">
+          <div class="sa-key-head"><span class="sa-kick">Triage &amp; remediation · Fusion</span><label for="sa-key" class="sa-key-label">Checkmarx One API key</label><span class="status" id="sa-connect-status" aria-live="polite"></span></div>
+          <div class="sa-key-row">
+            <input type="password" id="sa-key" class="sa-key" spellcheck="false" placeholder="Paste the API key" autocomplete="off" />
+            <button type="submit" class="primary sm" id="sa-connect-go">Connect</button>
+            <button type="button" class="link" id="sa-disconnect" hidden>Disconnect</button>
+          </div>
+          <p class="sa-key-note">Reads the backlog by severity and its trend, and the projects Fusion · Checkmarx One is worked out from.</p>
         </div>
-        <p class="sa-key-note">Reads the backlog by severity and its trend, and the projects Fusion · Checkmarx One is worked out from.</p>
+        <div class="sa-keybox sa-keybox-git">
+          <div class="sa-key-head"><span class="sa-kick sa-kick-git">Fusion · from Git</span><label for="sa-git-token" class="sa-key-label">Git tokens</label><span class="status" id="sa-git-status" aria-live="polite"></span></div>
+          <div class="sa-key-row">
+            <select id="sa-git-provider" class="sa-git-provider" aria-label="Git host"><option value="github">GitHub</option><option value="gitlab">GitLab</option><option value="azure">Azure DevOps</option><option value="bitbucket">Bitbucket</option></select>
+            <input type="password" id="sa-git-token" class="sa-key" spellcheck="false" placeholder="Paste a read-only token (one or more)" autocomplete="off" />
+            <button type="button" class="secondary sm" id="sa-git-add">Add</button>
+          </div>
+          <div class="sa-git-list" id="sa-git-list"><span class="sa-key-note">Optional: each token's organisations and repositories are counted on Fusion · from Git. Kept for this run only.</span></div>
+        </div>
         <details class="sa-advanced"><summary>Advanced</summary>
           <div class="sa-advanced-grid">
             <label class="field"><span>API URL</span><input id="sa-base" spellcheck="false" placeholder="From the key" /></label>
             <label class="field"><span>IAM URL</span><input id="sa-iam" spellcheck="false" placeholder="From the key" /></label>
             <label class="field"><span>Tenant</span><input id="sa-tenant" spellcheck="false" placeholder="From the key" /></label>
+            <label class="field"><span>Git address (a self-hosted git)</span><input id="sa-git-address" spellcheck="false" placeholder="The platform's own" /></label>
           </div>
         </details>
       </form>`;
@@ -240,8 +252,21 @@ const STANDALONE_CSS = `
 .shell.standalone #sa-theme { min-width: 36px; display: inline-flex; align-items: center; justify-content: center; }
 .shell.standalone #sa-theme svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
 .shell.standalone:not(.can-read) #calc-read, .shell.standalone:not(.can-read) .calc-branches, .shell.standalone:not(.can-read) .calc-read-limit, .shell.standalone:not(.can-read) .calc-source-state, .shell.standalone:not(.can-read) .calc-origins, .shell.standalone:not(.can-read) .calc-apply-read, .shell.standalone #calc-email-open, .shell.standalone #calc-email-form, .shell.standalone .calc-toolbar { display: none !important; }
-/* The key card: what it is for and its state on one line, the key with Connect, then a note and Advanced. */
-.shell.standalone .sa-connect { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); order: 5; }
+/* The key card: the Checkmarx One key and the git tokens side by side, each with what it is for and its state on one line; Advanced below. */
+.shell.standalone .sa-connect { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 22px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); order: 5; }
+.shell.standalone .sa-keybox { display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; align-content: start; min-width: 0; }
+.shell.standalone .sa-keybox-git { padding-inline-start: 22px; border-inline-start: 1px solid var(--border); }
+.shell.standalone .sa-kick-git { color: #0d7f74; }
+.shell.standalone .sa-git-provider { flex: none; width: auto; margin: 0; padding-top: 6px; padding-bottom: 6px; }
+.shell.standalone #sa-git-status { margin-left: auto; font-size: 12px; font-weight: 600; }
+.shell.standalone .sa-git-list { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 22px; }
+.shell.standalone .sa-git-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 10px; border-radius: 999px; font-size: 12px; border: 1px solid color-mix(in srgb, #0d7f74 35%, transparent); background: color-mix(in srgb, #0d7f74 9%, transparent); animation: readfx-pop .35s ease-out; }
+.shell.standalone .sa-git-chip b { font-weight: 600; }
+.shell.standalone .sa-git-chip code { font-size: 11.5px; color: var(--muted); }
+.shell.standalone .sa-git-chip button { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 6px; border-radius: 999px; }
+.shell.standalone .sa-git-chip button:hover { color: var(--danger, #c4372f); }
+.shell.standalone .sa-git-list .link { font-size: 12px; }
+@media (max-width: 900px) { .shell.standalone .sa-connect { grid-template-columns: minmax(0, 1fr); } .shell.standalone .sa-keybox-git { padding-inline-start: 0; border-inline-start: 0; padding-top: 10px; border-top: 1px solid var(--border); } }
 .shell.standalone .sa-key-head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .shell.standalone .sa-kick { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); }
 .shell.standalone .sa-key-label { font-size: 13px; font-weight: 600; color: var(--muted); }

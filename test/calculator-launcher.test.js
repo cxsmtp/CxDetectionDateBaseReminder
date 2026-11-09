@@ -207,3 +207,13 @@ test('the same port every run, so saved customers come back; a busy port falls b
   await assert.rejects(startLauncher({ html, port: again.address().port, open: false, log: () => {} }), /EADDRINUSE/);
   again.close();
 });
+
+test('the launcher page has git tokens beside the API key, and the read panel', () => {
+  const html = buildStandaloneCalculator({ version: '9.9.9', launcher: true });
+  for (const id of ['sa-key', 'sa-git-token', 'sa-git-provider', 'sa-git-add', 'sa-git-list', 'sa-git-address', 'calc-readfx', 'calc-readfx-feed', 'calc-readfx-runner', 'calc-readfx-pill']) assert.match(html, new RegExp(`id="${id}"`), id);
+  // The git token field is a password field, and the page's own token list is where it goes (never saved).
+  assert.match(html, /<input type="password" id="sa-git-token"/);
+  // The exports-only page has no key bar, but keeps the read panel markup (hidden, never opened without a read).
+  const plain = buildStandaloneCalculator({ version: '9.9.9' });
+  assert.doesNotMatch(plain, /id="sa-git-token"/);
+});

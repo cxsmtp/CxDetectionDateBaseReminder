@@ -3285,6 +3285,79 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .calc-fh-out { font-size: 12.5px; }
 .calc-fh-foot { grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 10px; font-size: 13px; color: var(--muted); }
 @media (max-width: 720px) { .calc-fh { grid-template-columns: 1fr; } .calc-fh-side { justify-items: start; text-align: left; } }
+/* The read panel, on the right while Checkmarx One is read: a fast thing runs the read's track, the totals climb,
+   and each project slides in as it is read. The page beside it fills in meanwhile (room is made for it on wide screens). */
+.calc-readfx { position: fixed; inset-inline-end: 20px; top: 96px; z-index: 40; width: 320px; max-height: calc(100vh - 120px); overflow: auto; display: grid; gap: 12px; padding: 16px 16px 14px; border: 1.5px solid var(--border-strong); border-radius: 18px; background: var(--surface); box-shadow: 0 18px 50px rgb(15 23 42 / 0.18); animation: readfx-in 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.15); }
+.calc-readfx[hidden] { display: none; }
+.calc-readfx::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; border-radius: 18px 18px 0 0; background: linear-gradient(90deg, transparent, var(--accent), #0d9488, transparent); background-size: 200% 100%; animation: readfx-sheen 2.2s linear infinite; }
+.calc-readfx.done::before { background: var(--ok); animation: none; }
+.calc-readfx.failed::before { background: var(--danger); animation: none; }
+.calc-readfx-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.calc-readfx-kick { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); display: inline-flex; align-items: center; gap: 6px; }
+.calc-readfx-kick::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #dc2626; box-shadow: 0 0 0 0 rgb(220 38 38 / 0.5); animation: readfx-live 1.4s ease-out infinite; }
+.calc-readfx.done .calc-readfx-kick::before { background: var(--ok); animation: none; }
+.calc-readfx-head h3 { margin: 2px 0 0; font-size: 18px; line-height: 1.25; }
+.calc-readfx.done h3 { color: var(--ok); }
+.calc-readfx.failed h3 { color: var(--danger); }
+.calc-readfx-track { position: relative; height: 40px; }
+.calc-readfx-track::before { content: ""; position: absolute; inset: auto 0 2px; height: 6px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 16%, transparent); }
+.calc-readfx-fill { position: absolute; inset-inline-start: 0; bottom: 2px; height: 6px; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488); transition: width 1.2s ease-out; }
+.calc-readfx.done .calc-readfx-fill { background: var(--ok); }
+.calc-readfx-runner.flare-icon { position: absolute; bottom: 7px; inset-inline-start: 0; transition: inset-inline-start 1.2s ease-out; }
+[dir="rtl"] .calc-readfx-runner svg { transform: scaleX(-1); }
+.calc-readfx-pct { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: -4px; }
+.calc-readfx-pct b { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.calc-readfx-pct span { font-size: 12px; color: var(--muted); text-align: end; }
+.calc-readfx-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; }
+.calc-readfx-stats > div { padding: 8px 10px; border-radius: 12px; background: var(--surface-2, color-mix(in srgb, var(--muted) 7%, transparent)); border: 1px solid var(--border); }
+.calc-readfx-stats dt { font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.calc-readfx-stats dd { margin: 2px 0 0; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.calc-readfx-bump { animation: readfx-bump 0.7s ease-out; }
+.calc-readfx-sev { display: grid; gap: 5px; }
+.calc-readfx-sev:empty { display: none; }
+.calc-readfx-sevrow { display: grid; grid-template-columns: 62px 1fr auto; align-items: center; gap: 8px; font-size: 12px; }
+.calc-readfx-sevname { color: var(--muted); }
+.calc-readfx-bar { height: 7px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 14%, transparent); overflow: hidden; }
+.calc-readfx-bar i { display: block; height: 100%; width: 0; border-radius: inherit; transition: width 0.9s cubic-bezier(0.2, 0.8, 0.3, 1); }
+.calc-readfx-sevrow b { font-variant-numeric: tabular-nums; min-width: 44px; text-align: end; }
+.calc-readfx-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-height: 40px; }
+.calc-readfx-feed li { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); animation: readfx-pop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.25); }
+.calc-readfx-feed li:first-child { border-color: color-mix(in srgb, var(--ok) 45%, transparent); background: color-mix(in srgb, var(--ok) 7%, var(--surface)); }
+.calc-readfx-feed li:nth-child(n + 4) { opacity: 0.75; }
+.calc-readfx-feed li:nth-child(n + 6) { opacity: 0.5; }
+.calc-readfx-feed li:nth-child(n + 8) { opacity: 0.3; }
+.calc-readfx-tick { width: 18px; height: 18px; border-radius: 50%; background: var(--ok); position: relative; }
+.calc-readfx-tick::after { content: ""; position: absolute; left: 6px; top: 3px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.calc-readfx-what { display: grid; min-width: 0; }
+.calc-readfx-what b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.calc-readfx-what small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.calc-readfx-n { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.calc-readfx-note { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+.calc-readfx-pill { position: fixed; inset-inline-end: 20px; bottom: 20px; z-index: 40; display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text, inherit); font-size: 13px; font-weight: 600; box-shadow: 0 8px 26px rgb(15 23 42 / 0.16); cursor: pointer; animation: readfx-in 0.3s ease-out; }
+.calc-readfx-pill[hidden] { display: none; }
+.calc-readfx-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: readfx-live 1.4s ease-out infinite; }
+/* Wide screens: the page steps aside for the panel, so nothing is hidden under it. */
+@media (min-width: 1240px) {
+  #page-calculator { transition: padding-inline-end 0.35s ease; }
+  body.calc-readfx-on #page-calculator { padding-inline-end: 344px; }
+}
+@media (max-width: 760px) {
+  .calc-readfx { top: auto; bottom: calc(12px + env(safe-area-inset-bottom)); inset-inline: 12px; width: auto; max-height: 52vh; }
+  .calc-readfx-feed li:nth-child(n + 4) { display: none; }
+}
+.calc-readfx.done .calc-readfx-runner svg { width: 26px; height: 26px; }
+.calc-readfx.done .tick-disc { transform-box: fill-box; transform-origin: center; animation: tick-pop 0.36s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+.calc-readfx.done .tick-mark { stroke-dasharray: 1; stroke-dashoffset: 1; animation: tick-draw 0.3s ease-out 0.2s forwards; }
+@keyframes readfx-in { from { transform: translateX(24px) scale(0.98); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes readfx-pop { from { transform: translateX(28px) scale(0.96); opacity: 0; } 60% { transform: translateX(-3px); opacity: 1; } to { transform: none; } }
+@keyframes readfx-bump { 0% { color: var(--accent); transform: translateY(-2px); } 100% { color: inherit; transform: none; } }
+@keyframes readfx-live { 0% { box-shadow: 0 0 0 0 rgb(220 38 38 / 0.45); } 100% { box-shadow: 0 0 0 9px rgb(220 38 38 / 0); } }
+@keyframes readfx-sheen { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .calc-readfx.done .tick-mark { stroke-dashoffset: 0; }
+  .calc-readfx, .calc-readfx::before, .calc-readfx-feed li, .calc-readfx .tick-disc, .calc-readfx .tick-mark, .calc-readfx-bump, .calc-readfx-kick::before, .calc-readfx-dot, .calc-readfx-pill { animation: none !important; }
+  .calc-readfx-fill, .calc-readfx-runner.flare-icon, .calc-readfx-bar i, #page-calculator { transition: none !important; }
+}
 /* Git tokens: one line each, the platform, the masked token, the host. */
 .calc-git-token-add { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .calc-git-tokens { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2, transparent); }

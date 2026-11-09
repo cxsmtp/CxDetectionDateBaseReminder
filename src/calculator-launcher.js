@@ -6,7 +6,7 @@ import { CxClient } from './cxone/client.js';
 import { deriveConnection } from './cxone/endpoints.js';
 import { branchScopeOf } from './cxone/branches.js';
 import { DEFAULT_ENGINES, cleanEngines } from './engines.js';
-import { TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
+import { TenantReadStore, readFusionOffer, readJobView, readProgressOf, readTenant, seriesFor } from './projections.js';
 import { CLOC_FUSION, GIT_COUNT_LIMITS, clocFusionPage, createGitCounter, gitSource, listOrganizations, listRepositories, sweepLeftovers } from './fusion-git.js';
 import { MAX_PROJECTS, cleanOrigins, readLimit } from '../public/calculator/model.js';
 
@@ -74,7 +74,7 @@ export async function startLauncher({ html, port = 0, fallback = false, host = '
   const counter = createGitCounter({ log, bin: gitBin, maxRunning: 1 });
   sweepLeftovers();
 
-  const readView = (job) => (job ? { id: job.id, state: job.state, step: job.step, done: job.done, total: job.total, startedAt: job.startedAt, finishedAt: job.finishedAt ?? null, error: job.error ?? null, ...(job.state === 'done' ? { result: job.result } : {}) } : { state: 'none' });
+  const readView = (job, url) => readJobView(job, { since: url?.searchParams.get('since') });
 
   const routes = {
     'GET /launcher/status': () => ({ connected: Boolean(state.client), tenant: state.connection?.tenant ?? '', baseUrl: state.connection?.baseUrl ?? '' }),
@@ -102,24 +102,24 @@ export async function startLauncher({ html, port = 0, fallback = false, host = '
     'POST /api/projections/read': (input) => {
       if (!state.client) throw Object.assign(new Error('Connect to Checkmarx One first: paste the API key at the top.'), { status: 409 });
       if (state.job?.state === 'running') return readView(state.job);
-      const job = { id: randomUUID(), state: 'running', step: 'projects', done: 0, total: 0, startedAt: new Date().toISOString() };
+      const job = { id: randomUUID(), state: 'running', step: 'projects', done: 0, total: 0, read: 0, found: 0, startedAt: new Date().toISOString(), live: {} };
       state.job = job;
       const client = state.client;
       Promise.all([
-        readTenant(client, { branches: branchScopeOf(input?.branches), maxProjects: readLimit(input?.maxProjects), onProgress: (step, done, total) => Object.assign(job, { step, done, total }) }),
-        readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null })),
+        readTenant(client, { branches: branchScopeOf(input?.branches), maxProjects: readLimit(input?.maxProjects), onProgress: readProgressOf(job), live: job.live }),
+        readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null })).then((offer) => Object.assign(job.live ?? {}, { offer }) && offer),
       ])
         .then(([{ perProject, ...tenant }, offer]) => {
           state.read.save(perProject);
-          Object.assign(job, { state: 'done', result: { ...tenant, ...offer }, finishedAt: new Date().toISOString() });
+          Object.assign(job, { state: 'done', result: { ...tenant, ...offer }, finishedAt: new Date().toISOString(), live: null });
           log(`Read ${tenant.projects?.length ?? 0} projects from Checkmarx One.`);
         })
         .catch((error) => {
-          Object.assign(job, { state: 'failed', error: error.status === 401 || error.status === 403 ? 'Checkmarx One refused the read: check the API key may read projects and scans.' : `Checkmarx One could not be read: ${error.message}`, finishedAt: new Date().toISOString() });
+          Object.assign(job, { state: 'failed', error: error.status === 401 || error.status === 403 ? 'Checkmarx One refused the read: check the API key may read projects and scans.' : `Checkmarx One could not be read: ${error.message}`, finishedAt: new Date().toISOString(), live: null });
         });
       return readView(job);
     },
-    'GET /api/projections/read': () => readView(state.job),
+    'GET /api/projections/read': (_input, url) => readView(state.job, url),
     'POST /api/projections/series': (input) => {
       const read = state.read.get();
       if (!read?.weeks?.length) throw Object.assign(new Error('Read Checkmarx One first: the scope is worked out from the last read.'), { status: 409 });

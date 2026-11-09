@@ -53,6 +53,7 @@ import { allSections, fusionImpactSections, impactSections, sectionHtml } from '
 import { cleanFusionNew } from './profiles.js';
 import { RTL, currentLanguage, t } from '../i18n.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines } from '../engines.js';
+import { nextSpeedster } from '../speedsters.js';
 
 const OPEN_KEY = 'mz-calc-customer';
 const FREQ_LABEL = Object.fromEntries(FREQUENCIES.map((f) => [f.id, f.label]));
@@ -178,6 +179,12 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   }
 
   function show(customer) {
+    // Leaving a customer that was filling in as the projects came in: it keeps what it had, and gets the read when it ends only if still open.
+    if (reading.stream && c.open?.id === reading.customer && customer?.id !== reading.customer) {
+      leaveStream();
+      reading.stream = false;
+      if (c.pending?.id === reading.customer) flush();
+    }
     c.open = customer;
     c.remainingCredits = null;
     renderCustomers();
@@ -251,6 +258,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     while (c.saving) await c.saving;
     const job = c.pending;
     if (!job) return;
+    // A customer filling in as Checkmarx One is read is saved when the read ends, with every project (settle).
+    if (reading.stream && job.id === reading.customer) return;
     c.pending = null;
     const run = (async () => {
       try {
@@ -1452,6 +1461,33 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       ? `<div class="calc-git-tokens-head">${git.tokens.length === 1 ? '1 token' : `${num(git.tokens.length)} tokens`}: each one's organisations are found and counted; a repository two can see is counted once.</div>` +
         git.tokens.map((x, i) => `<div class="calc-git-token-row"><span class="calc-fh-pill ok">${esc(PROVIDER_NAMES[x.provider] ?? x.provider)}</span><code translate="no">${esc(masked(x.token))}</code><span translate="no">${esc(hostOf(x))}</span><button type="button" class="link" data-token-remove="${i}">Remove</button></div>`).join('')
       : '';
+    git.onTokens?.();
+  }
+  /**
+   * A token given beside the API key (the standalone calculator's head): added to the same list, ready on
+   * Fusion · from Git. The platform from how the token starts, else the one picked. Returns the platform, or null.
+   */
+  function addGitToken({ provider = '', address = '', token = '' } = {}) {
+    const value = String(token).trim();
+    if (!value) return null;
+    const kind = detectProvider(value) ?? (PROVIDER_NAMES[provider] ? provider : null);
+    if (!kind) return null;
+    const entry = { provider: kind, address: String(address).trim(), token: value };
+    if (!git.tokens.some((x) => x.token === entry.token && x.provider === entry.provider && x.address === entry.address)) git.tokens.push(entry);
+    git.chosen = new Set([...(git.chosen ?? []), 'token']);
+    const box = $('calc-git-hosts').querySelector('input[value="token"]');
+    renderTokens();
+    if (box) {
+      box.checked = true;
+      hostSwitched();
+    }
+    return kind;
+  }
+  const gitTokens = () => git.tokens.map((x) => ({ provider: x.provider, platform: PROVIDER_NAMES[x.provider] ?? x.provider, masked: masked(x.token), host: hostOf(x) }));
+  function removeGitToken(i) {
+    git.tokens.splice(Number(i), 1);
+    renderTokens();
+    if ($('calc-git-hosts').querySelector('input[value="token"]')) hostSwitched();
   }
   $('calc-git-token-add').addEventListener('click', () => {
     if (!addTypedToken()) return setStatus('calc-git-status', 'Paste the token first (1 · Where the code is).', 'error');
@@ -1460,9 +1496,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   $('calc-git-tokens').addEventListener('click', (event) => {
     const i = event.target.closest('[data-token-remove]')?.dataset.tokenRemove;
     if (i === undefined) return;
-    git.tokens.splice(Number(i), 1);
-    renderTokens();
-    hostSwitched();
+    removeGitToken(i);
   });
   /** The tokens typed, as the server takes them (each sent only with the requests for its own host, never kept). */
   function typedTokens() {
@@ -2287,6 +2321,11 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     renderRules();
     renderProjects();
     const fromTenant = tr()?.totals?.meta?.source === 'cxone';
+    // Filling in as the projects come in: Fusion follows the scope now, the backlog's weeks when the read is done (applyRead).
+    if (reading.stream && c.open.id === reading.customer) {
+      if (!quiet && narrowed()) setStatus('calc-scope-status', 'Fusion follows the scope now; triage & remediation does when the read is done.', 'muted');
+      return renderTr();
+    }
     if (!fromTenant) {
       if (!quiet && narrowed()) setStatus('calc-scope-status', 'Fusion follows the scope. Triage & remediation comes from the two exports, which cover every project.', 'warn');
       return renderTr();
@@ -2522,15 +2561,23 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   // ---- Reading Checkmarx One: both tabs come from the tenant's projects and their scans ----------
 
   // `branches`: what the read running takes ('all' or 'primary'), so Every branch is not shown as waiting meanwhile.
-  const reading = { customer: null, timer: null, auto: false, waiters: [], branches: null };
+  // `stream`: a customer with nothing read yet gets the figures as the projects come in (`rows`: those in so far);
+  // `before`: what it had (projects added by hand), put back if it is left before the read ends.
+  const reading = { customer: null, timer: null, auto: false, waiters: [], branches: null, stream: false, rows: [], before: null };
   /** Resolves when the read running now has finished (true when it gave data). */
   const readFinished = () => new Promise((resolve) => reading.waiters.push(resolve));
   const settle = (ok) => {
     reading.branches = null;
     reading.startedAt = null;
     reading.lastPct = 0;
+    const streamed = reading.stream;
+    reading.stream = false;
+    reading.rows = [];
+    reading.before = null;
     for (const resolve of reading.waiters.splice(0)) resolve(ok);
     renderPending();
+    // What was changed while it streamed waited for the read: saved now.
+    if (streamed && c.pending) flush();
   };
 
   function readProgress(job) {
@@ -2539,8 +2586,11 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     bar.hidden = !running;
     $('calc-read').disabled = running || !c.open;
     if (!running) return;
-    const part = job.total ? job.done / job.total : 0;
-    const pct = Math.round(job.step === 'summaries' ? 60 + part * 40 : part * 60);
+    // Two things side by side: the projects read (their scans and lines of code), and those with their findings in.
+    const total = job.total || 0;
+    const read = job.read ?? (job.step === 'projects' ? job.done : total);
+    const found = job.found ?? (job.step === 'summaries' ? job.done : 0);
+    const pct = total ? Math.min(99, Math.round(((read * 0.6 + found * 0.4) / total) * 100)) : 0;
     bar.value = pct;
     // How long is left, from the pace so far (shown once there is a pace to go by).
     const now = Date.now();
@@ -2548,12 +2598,207 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     reading.lastPct = pct;
     const spent = (now - reading.startedAt) / 1000;
     const left = pct >= 3 && spent > 5 ? (spent * (100 - pct)) / pct : null;
-    const eta = left === null ? '' : left < 90 ? ' · under 2 minutes left' : ` · about ${num(Math.round(left / 60))} minutes left`;
-    const lock = ' The settings unlock and the figures fill in when the read is done.';
-    if (job.step === 'summaries') setStatus('calc-read-note', `Reading from Checkmarx One: ${pct}% — the findings of each scan, ${num(job.done)} of ${num(job.total)}${eta}.${lock}`, 'reading');
-    else if (job.total) setStatus('calc-read-note', `Reading from Checkmarx One: ${pct}% — projects and their scans, ${num(job.done)} of ${num(job.total)}${eta}.${lock}`, 'reading');
-    else setStatus('calc-read-note', `Reading from Checkmarx One: the list of projects…${lock}`, 'reading');
+    const eta = left === null ? '' : left < 90 ? 'under 2 minutes left' : `about ${num(Math.round(left / 60))} minutes left`;
+    const fill = reading.stream ? ' The figures fill in as the projects come in.' : ' The figures change when the read is done.';
+    if (total) setStatus('calc-read-note', `Reading from Checkmarx One: ${pct}% — ${num(read)} of ${num(total)} projects read, ${num(found)} with their findings in${eta ? ` · ${eta}` : ''}.${fill}`, 'reading');
+    else setStatus('calc-read-note', `Reading from Checkmarx One: the list of projects…${fill}`, 'reading');
+    readFx({ job, pct, eta, read, found, total });
   }
+
+  // ---- The read panel, on the right: each project as it is read, the totals climbing, the severities in so far ----
+  const fx = { queue: [], drip: null, seen: 0, hidden: false, open: false, shown: {}, done: null, runner: null, feed: 0 };
+  const FX_FEED = 8;
+  const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  /** A figure in the panel that climbs to its new value. */
+  function countTo(id, value, format = num) {
+    const el = $(id);
+    const from = fx.shown[id] ?? 0;
+    fx.shown[id] = value;
+    if (from === value || reduceMotion()) return void (el.textContent = format(value));
+    const start = performance.now();
+    const step = (t) => {
+      const k = Math.min(1, (t - start) / 700);
+      el.textContent = format(Math.round(from + (value - from) * (1 - (1 - k) ** 3)));
+      if (k < 1 && fx.shown[id] === value) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    el.classList.remove('calc-readfx-bump');
+    void el.offsetWidth;
+    el.classList.add('calc-readfx-bump');
+  }
+  const short = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : n >= 1e4 ? `${Math.round(n / 1e3)}K` : num(n));
+  function fxShow(open) {
+    fx.open = open;
+    $('calc-readfx').hidden = !open;
+    $('calc-readfx-pill').hidden = open || !(reading.timer || fx.done);
+    document.body.classList.toggle('calc-readfx-on', open);
+    if (open) fxPlace();
+  }
+  /** Level with the top of the calculator (below the head and the keys), then held near the top of the window as the page scrolls. */
+  function fxPlace() {
+    const panel = $('calc-readfx');
+    if (panel.hidden) return;
+    if (window.matchMedia?.('(max-width: 760px)').matches) return void (panel.style.top = panel.style.maxHeight = '');
+    const top = Math.max(16, Math.round($('page-calculator').getBoundingClientRect().top));
+    panel.style.top = `${top}px`;
+    panel.style.maxHeight = `calc(100vh - ${top + 20}px)`;
+  }
+  window.addEventListener('scroll', () => fx.open && fxPlace(), { passive: true });
+  window.addEventListener('resize', () => fx.open && fxPlace());
+  function fxStart() {
+    clearTimeout(fx.closer);
+    Object.assign(fx, { queue: [], seen: 0, shown: {}, done: null, feed: 0 });
+    $('calc-readfx').classList.remove('done', 'failed');
+    $('calc-readfx-title').textContent = 'Reading the projects';
+    $('calc-readfx-feed').replaceChildren();
+    $('calc-readfx-sev').replaceChildren();
+    for (const id of ['calc-readfx-read', 'calc-readfx-loc', 'calc-readfx-scans', 'calc-readfx-open']) $(id).textContent = '0';
+    $('calc-readfx-fill').style.width = '0%';
+    // A different fast thing each read, as on CxMissionZero's progress flares.
+    const s = nextSpeedster();
+    const runner = $('calc-readfx-runner');
+    runner.innerHTML = s.svg;
+    runner.title = s.name;
+    runner.classList.remove('settling');
+    runner.style.insetInlineStart = '0%';
+    $('calc-readfx-note').textContent = reading.stream ? 'The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.' : 'The figures change when the read is done; until then they are the last read’s.';
+    fxShow(!fx.hidden);
+  }
+  function readFx({ job, pct, eta, read, total }) {
+    if (!fx.open && $('calc-readfx-pill').hidden && !fx.hidden) fxStart();
+    $('calc-readfx-pill-text').textContent = total ? `Reading Checkmarx One · ${pct}%` : 'Reading Checkmarx One';
+    $('calc-readfx-pct').textContent = `${pct}%`;
+    $('calc-readfx-eta').textContent = total ? `${num(read)} of ${num(total)} projects${eta ? ` · ${eta}` : ''}` : 'Listing the projects…';
+    $('calc-readfx-fill').style.width = `${pct}%`;
+    $('calc-readfx-runner').style.insetInlineStart = `calc(${pct}% - ${(pct / 100) * 64}px)`;
+    const live = job.live;
+    if (!live) return;
+    countTo('calc-readfx-read', read);
+    countTo('calc-readfx-loc', live.loc ?? 0, short);
+    countTo('calc-readfx-scans', live.scans ?? 0);
+    const open = live.open ?? {};
+    countTo('calc-readfx-open', SEVERITIES.reduce((n, s) => n + (open[s] ?? 0), 0));
+    renderFxSeverities(open);
+    // Each project read since the last look, dripped in one after another over the next second and a half.
+    const fresh = (live.recent ?? []).filter((x) => x.n > fx.seen);
+    if (fresh.length) fx.seen = fresh[fresh.length - 1].n;
+    fx.queue.push(...fresh.slice(-FX_FEED * 3));
+    if (fx.queue.length > FX_FEED * 3) fx.queue.splice(0, fx.queue.length - FX_FEED * 3);
+    dripFeed();
+  }
+  function renderFxSeverities(open) {
+    const box = $('calc-readfx-sev');
+    const shown = SEVERITIES.filter((s) => s !== 'Info');
+    const max = Math.max(1, ...shown.map((s) => open[s] ?? 0));
+    if (box.children.length !== shown.length) {
+      box.replaceChildren(
+        ...shown.map((s) => {
+          const row = document.createElement('div');
+          row.className = 'calc-readfx-sevrow';
+          row.innerHTML = `<span class="calc-readfx-sevname">${esc(s)}</span><span class="calc-readfx-bar"><i></i></span><b translate="no">0</b>`;
+          row.querySelector('i').style.background = SEVERITY_COLOURS[s];
+          return row;
+        }),
+      );
+    }
+    shown.forEach((s, i) => {
+      const row = box.children[i];
+      row.querySelector('i').style.width = `${Math.round(((open[s] ?? 0) / max) * 100)}%`;
+      row.querySelector('b').textContent = num(open[s] ?? 0);
+    });
+  }
+  function dripFeed() {
+    if (fx.drip || !fx.queue.length) return;
+    const gap = Math.max(60, Math.min(260, 1400 / fx.queue.length));
+    const next = () => {
+      const item = fx.queue.shift();
+      if (!item) return void (fx.drip = null);
+      const li = document.createElement('li');
+      const facts = [item.loc ? `${short(item.loc)} lines` : 'no code counted', `${num(item.scans ?? 0)} scans in the year`, ...(item.criticality ? [`criticality ${item.criticality}`] : [])];
+      li.innerHTML = `<span class="calc-readfx-tick" aria-hidden="true"></span><span class="calc-readfx-what"><b translate="no">${esc(item.name)}</b><small>${esc(facts.join(' · '))}</small></span><span class="calc-readfx-n" translate="no">#${num(item.n)}</span>`;
+      const feed = $('calc-readfx-feed');
+      feed.prepend(li);
+      while (feed.children.length > FX_FEED) feed.lastElementChild.remove();
+      fx.drip = setTimeout(next, gap);
+    };
+    next();
+  }
+  /** The read ended: the runner glides to a stop and the panel says what was read, then folds away. */
+  function fxEnd(ok, text) {
+    if (!fx.open && $('calc-readfx-pill').hidden) return;
+    fx.done = ok ? 'done' : 'failed';
+    clearTimeout(fx.drip);
+    fx.drip = null;
+    const panel = $('calc-readfx');
+    panel.classList.add(ok ? 'done' : 'failed');
+    $('calc-readfx-title').textContent = text;
+    if (ok) {
+      $('calc-readfx-pct').textContent = '100%';
+      $('calc-readfx-fill').style.width = '100%';
+      $('calc-readfx-runner').style.insetInlineStart = 'calc(100% - 64px)';
+      const runner = $('calc-readfx-runner');
+      runner.classList.add('settling');
+      // It glides to a stop, then the tick pops in (as the progress flares do).
+      setTimeout(() => {
+        runner.classList.remove('settling');
+        runner.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="tick-disc" cx="12" cy="12" r="11" fill="#16a34a" /><path class="tick-mark" pathLength="1" d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>';
+      }, reduceMotion() ? 0 : 520);
+      $('calc-readfx-eta').textContent = 'Every figure is from the whole read now.';
+      $('calc-readfx-pill-text').textContent = 'Read from Checkmarx One · done';
+    } else $('calc-readfx-pill-text').textContent = 'Reading Checkmarx One stopped';
+    if (ok) fx.closer = setTimeout(() => { fx.done = null; fxShow(false); }, 6000);
+  }
+  $('calc-readfx-hide').addEventListener('click', () => {
+    fx.hidden = true;
+    fxShow(false);
+  });
+  $('calc-readfx-pill').addEventListener('click', () => {
+    fx.hidden = false;
+    clearTimeout(fx.closer);
+    fxShow(true);
+  });
+
+  /** What has come in so far, put in the customer open (a customer with nothing read yet only): shown, not saved until the read ends. */
+  function applyLive(live) {
+    if (!live) return;
+    // The rows complete since the last look (from where this page had them; a gap is asked for again next time).
+    if (live.rowsFrom === reading.rows.length && live.rows?.length) reading.rows.push(...live.rows);
+    if (!reading.stream || !c.open || c.open.id !== reading.customer) return;
+    const f = fusion();
+    const manual = reading.before?.projects ?? [];
+    f.projects = [...reading.rows.map((p) => ({ ...p, locOverride: null, included: true, scansOverride: null, modelOverride: null })), ...manual];
+    if (live.offer?.models?.length && !reading.modelsIn) {
+      reading.modelsIn = true;
+      mergeModels(f, live.offer.models);
+      c.remainingCredits = live.offer.remainingCredits ?? null;
+    }
+    if (FREQUENCIES.every((q) => f.byFrequency[q.id].scans === null)) for (const q of FREQUENCIES) f.byFrequency[q.id].scans = suggestedScans(q.id, f.periodMonths);
+    // Nothing counted from git or cloc yet: Fusion · Checkmarx One is the estimate in the credits, from the first projects in.
+    if (!reading.basisSet && reading.rows.length && !['cxone', 'both'].includes(basis()) && !(fnew().projects ?? []).length) {
+      reading.basisSet = true;
+      f.optOut = false;
+      fnew().optOut = true;
+      if (c.next) Object.assign(c.next, { fusionOn: true, fusionNewOn: false });
+      saveFusion();
+      saveFnew();
+      renderPending();
+      placeFusion();
+    }
+    if (live.tr?.totals && live.tr?.fixed) {
+      const first = !tr().totals;
+      c.open.tr = { ...tr(), totals: live.tr.totals, fixed: live.tr.fixed };
+      if (first) syncDraft();
+    }
+    // Someone changing a figure meanwhile (a field in use, a slider held) is not redrawn under their hands: the next look shows it.
+    const field = document.activeElement;
+    if (fx.pointer || (field?.closest?.('#page-calculator') && field.matches('input, select, textarea'))) return void (reading.redraw = true);
+    reading.redraw = false;
+    renderTr();
+    renderFusion();
+  }
+  $('page-calculator').addEventListener('pointerdown', () => (fx.pointer = true));
+  document.addEventListener('pointerup', () => (fx.pointer = false));
+  document.addEventListener('pointercancel', () => (fx.pointer = false));
 
   /** The last read, under the button, when nothing else is said there. */
   function renderReadNote() {
@@ -2564,56 +2809,103 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     note.innerHTML = at ? `Last read <time translate="no">${esc(fmtDateTime(at))}</time>` : 'Not read yet';
   }
 
+  /** Follow a read for the customer open: a customer with nothing read yet gets the figures as they come in. */
+  function follow() {
+    reading.customer = c.open.id;
+    reading.stream = !c.open.tr?.totals && !(c.open.fusion?.projects ?? []).some((p) => p.source !== 'manual');
+    reading.rows = [];
+    reading.modelsIn = false;
+    reading.basisSet = false;
+    reading.before = reading.stream ? { projects: (c.open.fusion?.projects ?? []).filter((p) => p.source === 'manual'), tr: c.open.tr } : null;
+    fxStart();
+  }
+
   /** Start a read (or follow the one running in this tenant), then put what it found in the customer open. */
   async function readCxOne({ auto = false, branches = next().allBranches ? 'all' : 'primary' } = {}) {
     if (!c.open || reading.timer || offline()) return;
-    reading.customer = c.open.id;
     reading.auto = auto;
     reading.branches = branches;
+    follow();
     setStatus('calc-read-note', 'Reading the projects…', 'muted');
     try {
       // One branch per project (its primary branch) unless "Every branch" is ticked.
       readProgress(await api('/api/projections/read', { method: 'POST', body: JSON.stringify({ branches, maxProjects: readLimit(scope().maxProjects) }), quiet: true }));
-      poll();
+      poll(400);
     } catch (error) {
       readProgress(null);
+      leaveStream();
       settle(false);
+      fxEnd(false, 'Checkmarx One could not be read');
       if (handleAuthLoss(error)) return;
-      if (auto && error.status === 409) return setStatus('calc-read-note', 'Not connected to Checkmarx One: connect it under Settings, or use the two exports.', 'muted');
+      if (auto && error.status === 409) {
+        fx.done = null;
+        fxShow(false);
+        return setStatus('calc-read-note', 'Not connected to Checkmarx One: connect it under Settings, or use the two exports.', 'muted');
+      }
       showError('calc-read-note', error);
     }
   }
 
-  function poll() {
+  /** A streamed customer left (or the read failed before anything came in): what it had before is put back. */
+  function leaveStream() {
+    if (!reading.stream || !reading.before) return;
+    const customer = c.customers.find((x) => x.id === reading.customer) ?? (c.open?.id === reading.customer ? c.open : null);
+    if (!customer) return;
+    if (customer.fusion) customer.fusion.projects = reading.before.projects;
+    customer.tr = reading.before.tr;
+    // What waits to be saved for it keeps its own changes, not the projects shown meanwhile.
+    if (c.pending?.id === customer.id && 'tr' in c.pending.patch) c.pending.patch.tr = reading.before.tr;
+  }
+
+  function poll(wait = 1500) {
     reading.timer = setTimeout(async () => {
       let job;
       try {
-        job = await api('/api/projections/read', { quiet: true });
+        job = await api(`/api/projections/read?since=${reading.rows.length}`, { quiet: true });
       } catch (error) {
         reading.timer = null;
         readProgress(null);
         settle(false);
+        fxEnd(false, 'Checkmarx One could not be read');
         if (!handleAuthLoss(error)) showError('calc-read-note', error);
         return;
       }
       if (job.state === 'running') {
+        applyLive(job.live);
         readProgress(job);
         return poll();
       }
       reading.timer = null;
       readProgress(null);
       if (job.state === 'failed') {
+        const some = reading.stream && reading.rows.length;
         settle(false);
-        return setStatus('calc-read-note', job.error || 'Checkmarx One could not be read.', 'error');
+        fxEnd(false, 'The read stopped');
+        return setStatus('calc-read-note', `${job.error || 'Checkmarx One could not be read.'}${some ? ` The figures shown are from the ${num(some)} projects read before it stopped: read again for them all.` : ''}`, 'error');
       }
-      const blank = c.open && !c.open.tr?.totals && !c.open.fusion?.projects?.length;
+      const blank = c.open && ((!c.open.tr?.totals && !c.open.fusion?.projects?.length) || (reading.stream && c.open.id === reading.customer));
       if (job.state !== 'done' || !c.open || (c.open.id !== reading.customer && !blank)) {
         settle(false);
+        fxEnd(false, 'Read for another customer');
         return renderReadNote();
       }
+      const count = job.result?.projects?.length ?? 0;
       applyRead(job.result);
       settle(true);
-    }, 1500);
+      fxEnd(true, count === 1 ? '1 project read' : `${num(count)} projects read`);
+    }, wait);
+  }
+
+  /** The tenant's models replace those read before; models typed here stay. A model already here by that name keeps its place (and so the projects set to it) and the credits typed for it. */
+  function mergeModels(f, models) {
+    const named = (n) => String(n ?? '').trim().toLowerCase();
+    const fresh = models.map((t) => {
+      const old = f.models.find((m) => m.id === t.id || named(m.name) === named(t.name));
+      return old ? { ...t, id: old.id, creditsPer10k: t.creditsPer10k ?? old.creditsPer10k, description: t.description || old.description } : t;
+    });
+    const taken = new Set(fresh.map((m) => m.id));
+    f.models = [...fresh, ...f.models.filter((m) => m.source !== 'tenant' && !taken.has(m.id))].slice(0, 20);
+    if (!f.models.some((m) => m.id === f.defaultModel)) f.defaultModel = f.models[0]?.id ?? null;
   }
 
   function applyRead(body) {
@@ -2638,16 +2930,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (found.length && c.next?.scope.origins) c.next = topSettings({ ...c.next, scope: { ...c.next.scope, origins: [...c.next.scope.origins, ...found] } });
     // The tenant's models replace those read before; models typed here stay. A model already here by that name
     // keeps its place (and so the projects set to it) and the credits typed for it.
-    if (body.models?.length) {
-      const named = (n) => String(n ?? '').trim().toLowerCase();
-      const fresh = body.models.map((t) => {
-        const old = f.models.find((m) => m.id === t.id || named(m.name) === named(t.name));
-        return old ? { ...t, id: old.id, creditsPer10k: t.creditsPer10k ?? old.creditsPer10k, description: t.description || old.description } : t;
-      });
-      const taken = new Set(fresh.map((m) => m.id));
-      f.models = [...fresh, ...f.models.filter((m) => m.source !== 'tenant' && !taken.has(m.id))].slice(0, 20);
-      if (!f.models.some((m) => m.id === f.defaultModel)) f.defaultModel = f.models[0]?.id ?? null;
-    }
+    if (body.models?.length) mergeModels(f, body.models);
     // No number set for any frequency yet: start from the scans each group runs today.
     if (FREQUENCIES.every((q) => f.byFrequency[q.id].scans === null)) for (const q of FREQUENCIES) f.byFrequency[q.id].scans = suggestedScans(q.id, f.periodMonths);
     c.remainingCredits = body.remainingCredits ?? null;
@@ -2685,9 +2968,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     } catch {}
     if (!c.open) return;
     if (job?.state === 'running') {
-      reading.customer = c.open.id;
+      follow();
       readProgress(job);
-      return poll();
+      return poll(400);
     }
     if (!empty) return;
     // A read finished in the last few minutes (for another customer, say) serves this one too.
@@ -3260,6 +3543,12 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   });
 
   gateImpact();
-  return { load, renderOrg, refresh: () => c.open && show(c.open), autoRead };
+  return {
+    load,
+    renderOrg,
+    refresh: () => c.open && show(c.open),
+    autoRead,
+    git: { add: addGitToken, list: gitTokens, remove: removeGitToken, detect: detectProvider, onChange: (fn) => (git.onTokens = fn), open: () => document.querySelector('[data-ptabs] [data-pt="fusion-git"]')?.click() },
+  };
 }
 

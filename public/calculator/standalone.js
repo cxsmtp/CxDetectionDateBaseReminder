@@ -124,7 +124,7 @@ function localApi(store, names, launcher = null) {
       return { ok: true };
     }],
     // Reading Checkmarx One: through the launcher when there is one, else the two exports stand in.
-    ['GET', /^\/api\/projections\/read$/, async () => (launcher ? toLauncher(launcher, '/api/projections/read') : { state: 'none' })],
+    ['GET', /^\/api\/projections\/read$/, async (_body, _m, query) => (launcher ? toLauncher(launcher, `/api/projections/read${query.has('since') ? `?since=${encodeURIComponent(query.get('since'))}` : ''}`) : { state: 'none' })],
     ['POST', /^\/api\/projections\/(read|series)$/, async (body, m) => {
       if (launcher) return toLauncher(launcher, `/api/projections/${m[1]}`, { method: 'POST', body: JSON.stringify(body ?? {}) });
       throw fail(409, 'This calculator works from the two Checkmarx One exports: drop them below, or load the sample data.');
@@ -354,6 +354,48 @@ export function startStandalone({ samples = {} } = {}) {
     });
     // A reload while the launcher is still connected stays connected.
     toLauncher(launcher, '/launcher/status').then(showState, (error) => setStatus('sa-connect-status', error.message, 'error'));
+    startGitTokens();
+  }
+
+  /**
+   * Git tokens beside the API key: each one added to Fusion · from Git's list (held in the page's memory for this
+   * run, never saved or printed), shown here as its platform and its last characters.
+   */
+  function startGitTokens() {
+    const git = calculator.git;
+    const NOTE = '<span class="sa-key-note">Optional: each token’s organisations and repositories are counted on Fusion · from Git. Kept for this run only.</span>';
+    const render = () => {
+      const list = git.list();
+      $('sa-git-list').innerHTML = list.length
+        ? list.map((x, i) => `<span class="sa-git-chip"><b>${esc(x.platform)}</b><code translate="no">${esc(x.masked)}</code><button type="button" data-sa-git-remove="${i}" aria-label="Remove this token" title="Remove">×</button></span>`).join('') + '<button type="button" class="link" id="sa-git-count">Count on Fusion · from Git →</button>'
+        : NOTE;
+      setStatus('sa-git-status', list.length ? `${list.length === 1 ? '1 token' : `${list.length} tokens`} · this run only` : '', list.length ? 'ok' : 'muted');
+    };
+    git.onChange(render);
+    $('sa-git-token').addEventListener('input', () => {
+      const found = git.detect($('sa-git-token').value.trim());
+      if (found) $('sa-git-provider').value = found;
+    });
+    const add = () => {
+      const token = $('sa-git-token').value.trim();
+      if (!token) return setStatus('sa-git-status', 'Paste a git token first.', 'error');
+      const kind = git.add({ provider: $('sa-git-provider').value, address: $('sa-git-address').value, token });
+      if (!kind) return setStatus('sa-git-status', 'Pick the git host for this token.', 'error');
+      $('sa-git-token').value = '';
+      render();
+    };
+    $('sa-git-add').addEventListener('click', add);
+    $('sa-git-token').addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      add();
+    });
+    $('sa-git-list').addEventListener('click', (event) => {
+      const i = event.target.closest('[data-sa-git-remove]')?.dataset.saGitRemove;
+      if (i !== undefined) return git.remove(i);
+      if (event.target.closest('#sa-git-count')) git.open();
+    });
+    render();
   }
 
   startHelpTips();

@@ -55,7 +55,7 @@ import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
 import { BULK_SEVERITIES, REPORT_SEARCHABLE, REPORT_TOP_N, generateHtmlReport, selectTopFindings } from './html-report.js';
 import { reportI18n, reportWords } from './report-i18n.js';
-import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readTenant, seriesFor } from './projections.js';
+import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readJobView, readProgressOf, readTenant, seriesFor } from './projections.js';
 import { buildCalculatorLauncher, buildStandaloneCalculator, projectionFileProblem, reportRuntime } from './standalone-calculator.js';
 import { CLOC_FUSION, GIT_COUNT_LIMITS, clocFusionPage, connectionSource, createGitCounter, gitSource, listOrganizations, listRepositories, sweepLeftovers } from './fusion-git.js';
 import { reportFileName as projectionFileName } from '../public/calculator/report.js';
@@ -4448,7 +4448,7 @@ app.delete('/api/projections/reports/:id', requirePermission('reports.delete'), 
  * a big tenant, so it runs in the background, one per tenant, and the page follows it.
  */
 const calculatorReads = new Map();
-const readView = (job) => (job ? { id: job.id, state: job.state, step: job.step, done: job.done, total: job.total, startedAt: job.startedAt, finishedAt: job.finishedAt ?? null, error: job.error ?? null, ...(job.state === 'done' ? { result: job.result } : {}) } : { state: 'none' });
+const readView = (job, since = null) => readJobView(job, { since });
 app.post(
   '/api/projections/read',
   requireCalculator,
@@ -4458,29 +4458,29 @@ app.post(
     const key = tenancy.current().id;
     const running = calculatorReads.get(key);
     if (running?.state === 'running') return res.status(202).json(readView(running));
-    const job = { id: randomUUID(), state: 'running', step: 'projects', done: 0, total: 0, startedAt: new Date().toISOString(), by: req.user.email };
+    const job = { id: randomUUID(), state: 'running', step: 'projects', done: 0, total: 0, read: 0, found: 0, startedAt: new Date().toISOString(), by: req.user.email, live: {} };
     calculatorReads.set(key, job);
     // Each project's weeks stay on the server, for any scope picked later; the page gets the rest.
     const reads = tenancy.current().projectionReads;
     Promise.all([
       // One branch per project (its primary branch) unless every branch is asked for.
-      readTenant(client, { branches: branchScopeOf(req.body?.branches), maxProjects: readLimit(req.body?.maxProjects), onProgress: (step, done, total) => Object.assign(job, { step, done, total }) }),
-      readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null })),
+      readTenant(client, { branches: branchScopeOf(req.body?.branches), maxProjects: readLimit(req.body?.maxProjects), onProgress: readProgressOf(job), live: job.live }),
+      readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null })).then((offer) => Object.assign(job.live ?? {}, { offer }) && offer),
     ])
       .then(([{ perProject, ...tenant }, offer]) => {
         reads.save(perProject);
-        Object.assign(job, { state: 'done', result: { ...tenant, ...offer }, finishedAt: new Date().toISOString() });
+        Object.assign(job, { state: 'done', result: { ...tenant, ...offer }, finishedAt: new Date().toISOString(), live: null });
       })
       .catch((error) => {
         console.error(`[calculator] Reading Checkmarx One failed: ${error.message}`);
-        Object.assign(job, { state: 'failed', error: error.status === 401 || error.status === 403 ? 'Checkmarx One refused the read: check the connection under Settings → Checkmarx One.' : `Checkmarx One could not be read: ${error.message}`, finishedAt: new Date().toISOString() });
+        Object.assign(job, { state: 'failed', error: error.status === 401 || error.status === 403 ? 'Checkmarx One refused the read: check the connection under Settings → Checkmarx One.' : `Checkmarx One could not be read: ${error.message}`, finishedAt: new Date().toISOString(), live: null });
       });
     res.status(202).json(readView(job));
   },
 );
 app.get('/api/projections/read', requireCalculator, (req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json(readView(calculatorReads.get(tenancy.current().id)));
+  res.json(readView(calculatorReads.get(tenancy.current().id), req.query.since));
 });
 /** The backlog and fixes, week by week, of the projects in a customer's scope, the engines and scan origins chosen, from the last read. */
 app.post('/api/projections/series', requireCalculator, (req, res) => {

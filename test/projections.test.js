@@ -10,7 +10,7 @@ import { generateKeyPairSync, sign } from 'node:crypto';
 
 import { aheadMonths, aheadSettings, allocate, analyse, backlogForecast, cleanScope, readLimit, creditSummary, frequencyOf, fusionEstimate, fusionSettings, globMatch, inScope, planForecast, resolveSelected, scopeActive, seriesRows, severityForecast, severityPlan, suggestedScans, totalsSettings, trCost, trProjection, unitsOf, weeklyTrend, SEVERITIES } from '../public/calculator/model.js';
 import { buildReport, reportFileName } from '../public/calculator/report.js';
-import { MAX_PROFILE_BYTES, ProjectionStore, ReportStore, TenantReadStore, cleanFusion, cleanReportData, cleanTr, countersOf, readFusionOffer, readFusionProjects, readTenant, seriesFor, weeklyBacklog } from '../src/projections.js';
+import { MAX_PROFILE_BYTES, ProjectionStore, ReportStore, TenantReadStore, cleanFusion, cleanReportData, cleanTr, countersOf, readFusionOffer, readFusionProjects, readJobView, readProgressOf, readTenant, seriesFor, weeklyBacklog } from '../src/projections.js';
 import { ActivationStore, checkCode } from '../src/activation.js';
 import { Terms, cleanName } from '../src/terms.js';
 import { STATE_DIRS } from '../src/data-dir.js';
@@ -406,7 +406,7 @@ test('one read of the tenant gives both tabs: the Fusion projects and the weekly
   assert.deepEqual(out.tr.fixed.bySeverity.Medium, [0, 0, 0, 3]);
   assert.equal(out.tr.totals.meta.source, 'cxone');
   assert.deepEqual([out.tr.totals.meta.projects, out.tr.totals.meta.scans], [1, 2]);
-  assert.deepEqual(steps, ['projects 0/1', 'projects 1/1', 'summaries 0/2', 'summaries 2/2']);
+  assert.deepEqual(steps, ['projects 0/1', 'projects 1/1', 'summaries 1/1']);
   // What is saved keeps where it came from.
   const saved = cleanTr({ totals: out.tr.totals, fixed: out.tr.fixed });
   assert.equal(saved.totals.meta.source, 'cxone');
@@ -707,4 +707,52 @@ test('Fusion opted out: kept with the customer, on by default, and only a real t
   assert.equal(kept.optOut, true);
   assert.equal(kept.projects.length, 1, 'the projects and settings stay, to count again later');
   assert.equal(cleanFusion(JSON.parse(JSON.stringify(kept))).optOut, true);
+});
+
+test('a read shows what is in so far while it goes on: names as read, projects with their findings, the weeks', async () => {
+  const now = Date.parse('2026-10-09T00:00:00Z');
+  const ids = Array.from({ length: 45 }, (_, i) => `p${i + 1}`);
+  const at = (days) => new Date(now - days * 86400000).toISOString();
+  const job = { id: 'j', state: 'running', step: 'projects', done: 0, total: 0, read: 0, found: 0, live: {} };
+  const seen = [];
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  let summaryCalls = 0;
+  const client = {
+    async *paginate(url) {
+      if (url === '/api/projects') for (const id of ids) yield { id, name: `Repo ${id}`, createdAt: '2020-01-01T00:00:00Z' };
+    },
+    async request(url, { query } = {}) {
+      if (url === '/api/scans') return query['to-date'] ? { scans: [] } : { filteredTotalCount: 1, scans: [{ id: `s-${query['project-id']}`, createdAt: at(3) }] };
+      if (url === '/api/scan-summary') {
+        // The second batch's findings wait: the first batch is to be shown meanwhile.
+        if ((summaryCalls += 1) > 1) await gate;
+        return { scansSummaries: query['scan-ids'].map((scanId) => ({ scanId, sastCounters: { severityCounters: [{ severity: 'HIGH', counter: 2 }] } })) };
+      }
+      if (url === '/api/projects/last-scan') return {};
+      if (url.startsWith('/api/sast-metadata/')) return { loc: 12000 };
+      throw new Error(`unexpected ${url}`);
+    },
+  };
+  const done = readTenant(client, { now, weeks: 4, live: job.live, onProgress: readProgressOf(job) });
+  for (let i = 0; i < 200 && job.found < 20; i += 1) await new Promise((r) => setTimeout(r, 5));
+  const view = readJobView(job, { since: '0' });
+  assert.equal(view.found, 20, 'the first batch of 20 is complete');
+  assert.ok(view.read >= 20, 'and more are read meanwhile');
+  assert.equal(view.live.rows.length, 20);
+  assert.equal(view.live.rowsIn, 20);
+  assert.ok(view.live.recent.every((x) => /^Repo p\d+$/.test(x.name)), 'the projects are named');
+  assert.equal(view.live.open.High, 40);
+  assert.ok(view.live.loc >= 20 * 12000);
+  assert.deepEqual(view.live.tr.totals.bySeverity.High.at(-1), 40, 'the weeks of the 20 complete');
+  assert.equal(view.live.tr.totals.meta.partial, true);
+  assert.equal(readJobView(job, { since: '20' }).live.rows.length, 0, 'only the rows the page has not had');
+  assert.equal(readJobView(job).live, undefined, 'nothing more unless asked');
+  seen.push(view.read);
+  release();
+  const out = await done;
+  assert.equal(out.projects.length, 45);
+  assert.deepEqual(out.tr.totals.bySeverity.High.at(-1), 90);
+  assert.equal(out.tr.totals.meta.partial, undefined);
+  assert.equal(job.found, 45);
 });

@@ -3831,6 +3831,26 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </section>
             </div>
 
+            <!-- While Checkmarx One is read: each project as it comes in, on the right; the figures on the left fill in meanwhile. -->
+            <aside class="calc-readfx" id="calc-readfx" hidden aria-labelledby="calc-readfx-title">
+              <div class="calc-readfx-head">
+                <div><span class="calc-readfx-kick">Live from Checkmarx One</span><h3 id="calc-readfx-title">Reading the projects</h3></div>
+                <button type="button" class="link" id="calc-readfx-hide">Hide</button>
+              </div>
+              <div class="calc-readfx-track" aria-hidden="true"><div class="calc-readfx-fill" id="calc-readfx-fill"></div><span class="calc-readfx-runner flare-icon" id="calc-readfx-runner"></span></div>
+              <div class="calc-readfx-pct"><b id="calc-readfx-pct">0%</b><span id="calc-readfx-eta" aria-live="polite"></span></div>
+              <dl class="calc-readfx-stats">
+                <div><dt>Projects read</dt><dd id="calc-readfx-read">0</dd></div>
+                <div><dt>Lines of code</dt><dd id="calc-readfx-loc">0</dd></div>
+                <div><dt>Scans in the year</dt><dd id="calc-readfx-scans">0</dd></div>
+                <div><dt>Open findings</dt><dd id="calc-readfx-open">0</dd></div>
+              </dl>
+              <div class="calc-readfx-sev" id="calc-readfx-sev"></div>
+              <ol class="calc-readfx-feed" id="calc-readfx-feed"></ol>
+              <p class="calc-readfx-note" id="calc-readfx-note">The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.</p>
+            </aside>
+            <button type="button" class="calc-readfx-pill" id="calc-readfx-pill" hidden><span class="calc-readfx-dot" aria-hidden="true"></span><span id="calc-readfx-pill-text">Reading Checkmarx One</span></button>
+
           </div>
 
           <!-- ================= Get help ================= -->
