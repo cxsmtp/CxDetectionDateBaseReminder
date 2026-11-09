@@ -37401,5 +37401,11 @@
   "seen": [
    "calculator"
   ]
+ },
+ "Saved when the read is done": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
  }
 }

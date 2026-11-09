@@ -5599,6 +5599,7 @@
   "Checkmarx One could not be read": "Checkmarx One konnte nicht gelesen werden",
   "Read for another customer": "Lesevorgang für einen anderen Kunden",
   "Every figure is from the whole read now.": "Alle Werte stammen jetzt aus dem vollständigen Lesevorgang.",
-  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion folgt jetzt dem Umfang; Triage & Behebung folgt, sobald der Lesevorgang abgeschlossen ist."
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion folgt jetzt dem Umfang; Triage & Behebung folgt, sobald der Lesevorgang abgeschlossen ist.",
+  "Saved when the read is done": "Wird gespeichert, sobald der Lesevorgang abgeschlossen ist"
  }
 }

@@ -5599,6 +5599,7 @@
   "Checkmarx One could not be read": "无法读取 Checkmarx One",
   "Read for another customer": "为另一位客户读取",
   "Every figure is from the whole read now.": "现在所有数值均来自完整读取的数据。",
-  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion 现已随范围更新；研判与修复会在读取完成后随之更新。"
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion 现已随范围更新；研判与修复会在读取完成后随之更新。",
+  "Saved when the read is done": "读取完成后保存"
  }
 }

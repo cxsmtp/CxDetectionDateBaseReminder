@@ -5599,6 +5599,7 @@
   "Checkmarx One could not be read": "Không thể đọc Checkmarx One",
   "Read for another customer": "Lần đọc cho khách hàng khác",
   "Every figure is from the whole read now.": "Giờ đây mọi số liệu đều lấy từ toàn bộ lần đọc.",
-  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion giờ đã theo phạm vi; phân loại và khắc phục sẽ theo khi đọc xong."
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion giờ đã theo phạm vi; phân loại và khắc phục sẽ theo khi đọc xong.",
+  "Saved when the read is done": "Sẽ lưu khi đọc xong"
  }
 }

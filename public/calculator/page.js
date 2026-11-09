@@ -259,7 +259,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     const job = c.pending;
     if (!job) return;
     // A customer filling in as Checkmarx One is read is saved when the read ends, with every project (settle).
-    if (reading.stream && job.id === reading.customer) return;
+    if (reading.stream && job.id === reading.customer) return void saved('Saved when the read is done', null, 'muted');
     c.pending = null;
     const run = (async () => {
       try {
@@ -2822,7 +2822,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   /** Start a read (or follow the one running in this tenant), then put what it found in the customer open. */
   async function readCxOne({ auto = false, branches = next().allBranches ? 'all' : 'primary' } = {}) {
-    if (!c.open || reading.timer || offline()) return;
+    if (!c.open || reading.timer || reading.starting || offline()) return;
+    // One read followed at a time: a second start meanwhile (Connect and the page opening at once) is left out.
+    reading.starting = true;
     reading.auto = auto;
     reading.branches = branches;
     follow();
@@ -2830,8 +2832,10 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     try {
       // One branch per project (its primary branch) unless "Every branch" is ticked.
       readProgress(await api('/api/projections/read', { method: 'POST', body: JSON.stringify({ branches, maxProjects: readLimit(scope().maxProjects) }), quiet: true }));
+      reading.starting = false;
       poll(400);
     } catch (error) {
+      reading.starting = false;
       readProgress(null);
       leaveStream();
       settle(false);
@@ -2858,6 +2862,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   }
 
   function poll(wait = 1500) {
+    clearTimeout(reading.timer);
     reading.timer = setTimeout(async () => {
       let job;
       try {
@@ -2960,13 +2965,15 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
 
   /** A customer with nothing read yet reads Checkmarx One by itself; a read already running is followed. */
   async function autoRead() {
-    if (!c.open || reading.timer || offline()) return;
+    if (!c.open || reading.timer || reading.starting || offline()) return;
     const empty = !c.open.tr?.totals && !c.open.fusion?.projects?.length;
     let job = null;
+    reading.starting = true;
     try {
       job = await api('/api/projections/read', { quiet: true });
     } catch {}
-    if (!c.open) return;
+    reading.starting = false;
+    if (!c.open || reading.timer) return;
     if (job?.state === 'running') {
       follow();
       readProgress(job);

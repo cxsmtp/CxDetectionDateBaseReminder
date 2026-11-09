@@ -5599,6 +5599,7 @@
   "Checkmarx One could not be read": "Checkmarx Oneを読み込めませんでした",
   "Read for another customer": "別の顧客向けの読み込み",
   "Every figure is from the whole read now.": "すべての数値が読み込み全体の結果に基づくようになりました。",
-  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusionは範囲の変更をすぐに反映します。トリアージと修正は読み込みの完了後に反映します。"
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusionは範囲の変更をすぐに反映します。トリアージと修正は読み込みの完了後に反映します。",
+  "Saved when the read is done": "読み込みの完了時に保存されます"
  }
 }

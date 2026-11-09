@@ -5599,6 +5599,7 @@
   "Checkmarx One could not be read": "تعذّرت القراءة من Checkmarx One",
   "Read for another customer": "قراءة لعميل آخر",
   "Every figure is from the whole read now.": "أصبحت كل الأرقام الآن مستمدة من القراءة الكاملة.",
-  "Fusion follows the scope now; triage & remediation does when the read is done.": "يتبع Fusion النطاق الآن؛ ويتبعه الفرز والمعالجة عند انتهاء القراءة."
+  "Fusion follows the scope now; triage & remediation does when the read is done.": "يتبع Fusion النطاق الآن؛ ويتبعه الفرز والمعالجة عند انتهاء القراءة.",
+  "Saved when the read is done": "يتم الحفظ عند انتهاء القراءة"
  }
 }
