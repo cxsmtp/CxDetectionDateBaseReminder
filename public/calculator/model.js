@@ -435,7 +435,8 @@ export function fusionSettings(value = {}) {
   return {
     periodMonths,
     defaultScans: scans(v.defaultScans) ?? 1,
-    defaultModel: model(v.defaultModel) ?? models[0]?.id ?? null,
+    // When no model was chosen, prefer opus-5.5 (the newest), else the first model listed (tenant or catalogue).
+    defaultModel: model(v.defaultModel) ?? (models.find((m) => /opus[-\s]?5\.?5/i.test(m.name)) ?? models[0])?.id ?? null,
     combine: COMBINE.includes(v.combine) ? v.combine : 'higher',
     models,
     byFrequency: Object.fromEntries(FREQUENCIES.map((f) => [f.id, rule(byFrequency[f.id])])),

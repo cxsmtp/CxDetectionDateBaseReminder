@@ -335,7 +335,7 @@ test('the models Checkmarx One offers: a new customer starts with them, a read n
   assert.deepEqual(CHECKMARX_MODELS, ['opus-4.7', 'haiku-4.5', 'opus-5.0', 'opus-5.5', 'mythos-5.1']);
   const fresh = newProfile({ name: 'Acme' });
   assert.deepEqual(fresh.fusion.models.map((m) => [m.id, m.name, m.creditsPer10k, m.source]), CHECKMARX_MODELS.map((n) => [`cx-${n.replace('.', '-')}`, n, null, 'catalog']), 'named; their credits left to type');
-  assert.equal(fresh.fusion.defaultModel, 'cx-opus-4-7');
+  assert.equal(fresh.fusion.defaultModel, 'cx-opus-5-5');
   assert.deepEqual(modelsNamed([' a ', 'a', '']).map((m) => m.name), ['a']);
   assert.equal(fusionSettings({ models: [{ id: 'x', name: 'x', source: 'evil' }] }).models[0].source, 'manual');
   const offer = await readFusionOffer({
