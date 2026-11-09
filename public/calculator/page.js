@@ -2485,7 +2485,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     // added up when both do, with the split under it.
     const existing = c.fusionCredits !== null && c.fusionCredits !== undefined;
     const fresh = c.fusionNewCredits !== null && c.fusionNewCredits !== undefined;
-    $('calc-sum-fusion-label').textContent = existing && !fresh ? 'Fusion — existing' : fresh && !existing ? 'Fusion — new' : 'Fusion';
+    $('calc-sum-fusion-label').textContent = 'Fusion';
     $('calc-sum-fusion').textContent = existing || fresh ? num(Math.round((c.fusionCredits ?? 0) + (c.fusionNewCredits ?? 0))) : fusionOff() && fnewOff() ? 'Left out' : '—';
     $('calc-sum-fusion-split').textContent = existing && fresh ? `${num(Math.round(c.fusionCredits))} existing + ${num(Math.round(c.fusionNewCredits))} new` : '';
     $('calc-sum-total').textContent = sum.tr === null && sum.fusion === null ? '—' : num(sum.totalShown);

@@ -3558,17 +3558,11 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </form>
               <p class="hint" id="calc-empty" hidden>No customers yet. Start with <strong>New customer</strong>: each customer keeps its own Checkmarx One data, plan and Fusion projects, saved as you go.</p>
             </section>
-            <details class="panel calc-saved" id="calc-saved">
-              <summary>Saved projection reports <em class="calc-saved-count" id="calc-saved-count"></em></summary>
-              <label class="check calc-saved-mine"><input type="checkbox" id="calc-reports-mine" checked /> This customer only</label>
-              <p class="hint">Every report generated is kept here. Download it again at any time: the file is named after the customer and when the report was made.</p>
-              <div class="table-wrap"><table class="data-table"><thead><tr><th>Customer</th><th>Made</th><th>By</th><th>Triage &amp; remediation</th><th>Fusion</th><th>Extra</th><th>Total credits</th><th>Bundles</th><th></th></tr></thead><tbody id="calc-reports"></tbody></table></div>
-              <p class="hint" id="calc-reports-empty">No reports yet. <strong>Generate projection report</strong> makes one from the customer's triage &amp; remediation and Fusion figures.</p>
-            </details>
             <div class="ptabs" role="tablist" aria-label="Cx Credits Calculator" data-ptabs="calculator">
               <button type="button" role="tab" class="ptab" data-pt="tr">Triage &amp; remediation</button>
               <button type="button" role="tab" class="ptab" data-pt="fusion">Fusion</button>
               <button type="button" role="tab" class="ptab" data-pt="impact">Impact</button>
+              <button type="button" role="tab" class="ptab" data-pt="reports">Generated reports <em class="calc-saved-count" id="calc-saved-count"></em></button>
             </div>
 
             <div data-ptpanel="calculator:tr" class="calc-panel">
@@ -3796,6 +3790,15 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               <div class="calc-kpis" id="calc-impact-fusion"></div>
               <p class="hint" id="calc-impact-fusion-empty" hidden>No Fusion projects yet: add them, with their lines of code, on the Fusion tab.</p>
               <section class="panel" id="calc-impact-how"></section>
+            </div>
+
+            <div data-ptpanel="calculator:reports" class="calc-panel" hidden>
+              <section class="panel">
+                <div class="calc-section-head"><h2>Generated reports</h2><label class="check calc-saved-mine"><input type="checkbox" id="calc-reports-mine" checked /> This customer only</label></div>
+                <p class="hint">Every report generated is kept here. Download it again at any time: the file is named after the customer and when the report was made.</p>
+                <div class="table-wrap"><table class="data-table"><thead><tr><th>Customer</th><th>Made</th><th>By</th><th>Triage &amp; remediation</th><th>Fusion</th><th>Extra</th><th>Total credits</th><th>Bundles</th><th></th></tr></thead><tbody id="calc-reports"></tbody></table></div>
+                <p class="hint" id="calc-reports-empty">No reports yet. <strong>Generate projection report</strong> makes one from the customer's triage &amp; remediation and Fusion figures.</p>
+              </section>
             </div>
 
           </div>
