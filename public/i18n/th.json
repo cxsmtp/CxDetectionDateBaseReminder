@@ -5600,6 +5600,13 @@
   "Read for another customer": "การอ่านสำหรับลูกค้ารายอื่น",
   "Every figure is from the whole read now.": "ตอนนี้ตัวเลขทั้งหมดมาจากการอ่านที่ครบถ้วนแล้ว",
   "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion ใช้ขอบเขตปัจจุบันแล้ว ส่วนการคัดกรองและการแก้ไขจะใช้ขอบเขตนี้เมื่ออ่านเสร็จ",
-  "Saved when the read is done": "บันทึกเมื่ออ่านเสร็จ"
+  "Saved when the read is done": "บันทึกเมื่ออ่านเสร็จ",
+  "New findings counted (%)": "ผลการตรวจพบใหม่ที่นับรวม (%)",
+  "{0} a month × {1} months": "{0} ต่อเดือน × {1} เดือน",
+  "{0} a month × {1} months × {2}%": "{0} ต่อเดือน × {1} เดือน × {2}%",
+  "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>ผลการตรวจพบใหม่ที่นับรวม</b>: {0}% นับรวมผลการตรวจพบใหม่ต่อเดือนเท่ากับ {1} เดือนที่ผ่านมา ({2} ต่อเดือน) {3}% นับรวมครึ่งหนึ่ง และ {4}% ไม่นับรวมเลย ลดค่านี้เมื่อลูกค้าคาดว่าจะมีผลการตรวจพบใหม่น้อยลง และเพิ่มค่านี้เมื่อจะมีโค้ดหรือโปรเจกต์เพิ่มขึ้น",
+  "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "นับรวมที่ {0}% ของอัตรานั้น (ผลการตรวจพบใหม่ที่นับรวม): {1} × {0}% = เทียบเท่า {2} เดือน",
+  "New findings counted": "ผลการตรวจพบใหม่ที่นับรวม",
+  "{0}% of the last months' pace": "{0}% ของอัตราในช่วงเดือนที่ผ่านมา"
  }
 }

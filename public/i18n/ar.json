@@ -5600,6 +5600,13 @@
   "Read for another customer": "قراءة لعميل آخر",
   "Every figure is from the whole read now.": "أصبحت كل الأرقام الآن مستمدة من القراءة الكاملة.",
   "Fusion follows the scope now; triage & remediation does when the read is done.": "يتبع Fusion النطاق الآن؛ ويتبعه الفرز والمعالجة عند انتهاء القراءة.",
-  "Saved when the read is done": "يتم الحفظ عند انتهاء القراءة"
+  "Saved when the read is done": "يتم الحفظ عند انتهاء القراءة",
+  "New findings counted (%)": "الاكتشافات الجديدة المحتسبة (%)",
+  "{0} a month × {1} months": "{0} شهريًا × {1} أشهر",
+  "{0} a month × {1} months × {2}%": "{0} شهريًا × {1} أشهر × {2}%",
+  "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>الاكتشافات الجديدة المحتسبة</b>: عند {0}% تُحتسب شهريًا اكتشافات جديدة بعدد ما كان في آخر {1} أشهر ({2} شهريًا)، وعند {3}% نصف هذا العدد، وعند {4}% لا شيء. خفّض النسبة عندما يتوقع العميل اكتشافات جديدة أقل، وارفعها عندما يُتوقع مزيد من الكود أو المشاريع.",
+  "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "محتسبة بنسبة {0}% من تلك الوتيرة (الاكتشافات الجديدة المحتسبة): {1} × {0}% = ما يعادل {2} شهرًا.",
+  "New findings counted": "الاكتشافات الجديدة المحتسبة",
+  "{0}% of the last months' pace": "{0}% من وتيرة الأشهر الأخيرة"
  }
 }

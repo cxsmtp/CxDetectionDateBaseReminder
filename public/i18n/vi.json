@@ -5600,6 +5600,13 @@
   "Read for another customer": "Lần đọc cho khách hàng khác",
   "Every figure is from the whole read now.": "Giờ đây mọi số liệu đều lấy từ toàn bộ lần đọc.",
   "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion giờ đã theo phạm vi; phân loại và khắc phục sẽ theo khi đọc xong.",
-  "Saved when the read is done": "Sẽ lưu khi đọc xong"
+  "Saved when the read is done": "Sẽ lưu khi đọc xong",
+  "New findings counted (%)": "Phát hiện mới được tính (%)",
+  "{0} a month × {1} months": "{0} mỗi tháng × {1} tháng",
+  "{0} a month × {1} months × {2}%": "{0} mỗi tháng × {1} tháng × {2}%",
+  "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>Phát hiện mới được tính</b>: {0}% tính số phát hiện mới mỗi tháng bằng {1} tháng gần nhất ({2} mỗi tháng), {3}% tính một nửa, {4}% không tính. Hãy giảm khi khách hàng dự kiến có ít phát hiện mới hơn, và tăng khi sắp có thêm mã hoặc dự án.",
+  "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "Tính theo {0}% tốc độ đó (Phát hiện mới được tính): {1} × {0}% = tương đương {2} tháng.",
+  "New findings counted": "Phát hiện mới được tính",
+  "{0}% of the last months' pace": "{0}% tốc độ của những tháng gần nhất"
  }
 }

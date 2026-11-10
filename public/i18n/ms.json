@@ -5600,6 +5600,13 @@
   "Read for another customer": "Bacaan untuk pelanggan lain",
   "Every figure is from the whole read now.": "Semua angka kini daripada bacaan penuh.",
   "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion kini mengikut skop; triaj & pembaikan akan mengikutinya apabila bacaan selesai.",
-  "Saved when the read is done": "Disimpan apabila bacaan selesai"
+  "Saved when the read is done": "Disimpan apabila bacaan selesai",
+  "New findings counted (%)": "Penemuan baharu yang dikira (%)",
+  "{0} a month × {1} months": "{0} sebulan × {1} bulan",
+  "{0} a month × {1} months × {2}%": "{0} sebulan × {1} bulan × {2}%",
+  "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>Penemuan baharu yang dikira</b>: {0}% mengira penemuan baharu sebulan sebanyak dalam {1} bulan terakhir ({2} sebulan), {3}% separuh daripadanya dan {4}% tiada langsung. Turunkan nilai ini apabila pelanggan menjangkakan penemuan baharu yang lebih sedikit, dan naikkan apabila lebih banyak kod atau projek akan datang.",
+  "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "Dikira pada {0}% daripada kadar itu (Penemuan baharu yang dikira): {1} × {0}% = bersamaan {2} bulan.",
+  "New findings counted": "Penemuan baharu yang dikira",
+  "{0}% of the last months' pace": "{0}% daripada kadar bulan-bulan terakhir"
  }
 }

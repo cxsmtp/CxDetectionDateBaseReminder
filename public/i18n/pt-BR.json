@@ -5600,6 +5600,13 @@
   "Read for another customer": "Leitura para outro cliente",
   "Every figure is from the whole read now.": "Agora todos os números vêm da leitura completa.",
   "Fusion follows the scope now; triage & remediation does when the read is done.": "O Fusion já segue o escopo; triagem e correção seguirão quando a leitura terminar.",
-  "Saved when the read is done": "Será salvo quando a leitura terminar"
+  "Saved when the read is done": "Será salvo quando a leitura terminar",
+  "New findings counted (%)": "Novos achados contabilizados (%)",
+  "{0} a month × {1} months": "{0} por mês × {1} meses",
+  "{0} a month × {1} months × {2}%": "{0} por mês × {1} meses × {2}%",
+  "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>Novos achados contabilizados</b>: com {0}%, são contabilizados por mês tantos novos achados quanto nos últimos {1} meses ({2} por mês); com {3}%, metade; com {4}%, nenhum. Diminua o valor quando o cliente esperar menos novos achados e aumente-o quando houver mais código ou projetos a caminho.",
+  "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "Contabilizados a {0}% desse ritmo (Novos achados contabilizados): {1} × {0}% = o equivalente a {2} meses.",
+  "New findings counted": "Novos achados contabilizados",
+  "{0}% of the last months' pace": "{0}% do ritmo dos últimos meses"
  }
 }

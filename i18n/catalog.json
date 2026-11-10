@@ -37407,5 +37407,47 @@
   "seen": [
    "calculator"
   ]
+ },
+ "New findings counted (%)": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0} a month × {1} months": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0} a month × {1} months × {2}%": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "New findings counted": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "{0}% of the last months' pace": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
  }
 }

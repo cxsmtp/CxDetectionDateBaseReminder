@@ -5600,6 +5600,13 @@
   "Read for another customer": "为另一位客户读取",
   "Every figure is from the whole read now.": "现在所有数值均来自完整读取的数据。",
   "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion 现已随范围更新；研判与修复会在读取完成后随之更新。",
-  "Saved when the read is done": "读取完成后保存"
+  "Saved when the read is done": "读取完成后保存",
+  "New findings counted (%)": "计入的新增检测结果（%）",
+  "{0} a month × {1} months": "每月 {0} × {1} 个月",
+  "{0} a month × {1} months × {2}%": "每月 {0} × {1} 个月 × {2}%",
+  "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>计入的新增检测结果</b>：{0}% 表示每月计入的新增检测结果与最近 {1} 个月相同（每月 {2}），{3}% 为一半，{4}% 则不计入。如果客户预计新增检测结果会减少，请调低；如果将有更多代码或项目加入，请调高。",
+  "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "按该速度的 {0}% 计入（计入的新增检测结果）：{1} × {0}% = 相当于 {2} 个月的量。",
+  "New findings counted": "计入的新增检测结果",
+  "{0}% of the last months' pace": "最近几个月速度的 {0}%"
  }
 }

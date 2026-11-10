@@ -5600,6 +5600,13 @@
   "Read for another customer": "別の顧客向けの読み込み",
   "Every figure is from the whole read now.": "すべての数値が読み込み全体の結果に基づくようになりました。",
   "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusionは範囲の変更をすぐに反映します。トリアージと修正は読み込みの完了後に反映します。",
-  "Saved when the read is done": "読み込みの完了時に保存されます"
+  "Saved when the read is done": "読み込みの完了時に保存されます",
+  "New findings counted (%)": "計上する新規検出結果（%）",
+  "{0} a month × {1} months": "月{0}件 × {1}か月",
+  "{0} a month × {1} months × {2}%": "月{0}件 × {1}か月 × {2}%",
+  "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>計上する新規検出結果</b>：{0}%では過去{1}か月間と同じ件数の新規検出結果を毎月計上し（月{2}件）、{3}%ではその半分、{4}%では計上しません。顧客が新規検出結果の減少を見込む場合は下げ、コードやプロジェクトの増加が見込まれる場合は上げてください。",
+  "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "そのペースの{0}%で計上（計上する新規検出結果）：{1} × {0}% = {2}か月分。",
+  "New findings counted": "計上する新規検出結果",
+  "{0}% of the last months' pace": "過去数か月のペースの{0}%"
  }
 }

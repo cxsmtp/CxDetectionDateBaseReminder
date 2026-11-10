@@ -5600,6 +5600,13 @@
   "Read for another customer": "Lesevorgang für einen anderen Kunden",
   "Every figure is from the whole read now.": "Alle Werte stammen jetzt aus dem vollständigen Lesevorgang.",
   "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion folgt jetzt dem Umfang; Triage & Behebung folgt, sobald der Lesevorgang abgeschlossen ist.",
-  "Saved when the read is done": "Wird gespeichert, sobald der Lesevorgang abgeschlossen ist"
+  "Saved when the read is done": "Wird gespeichert, sobald der Lesevorgang abgeschlossen ist",
+  "New findings counted (%)": "Berücksichtigte neue Funde (%)",
+  "{0} a month × {1} months": "{0} pro Monat × {1} Monate",
+  "{0} a month × {1} months × {2}%": "{0} pro Monat × {1} Monate × {2} %",
+  "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>Berücksichtigte neue Funde</b>: Bei {0} % werden pro Monat so viele neue Funde berücksichtigt wie in den letzten {1} Monaten ({2} pro Monat), bei {3} % halb so viele, bei {4} % keine. Senken Sie den Wert, wenn der Kunde weniger neue Funde erwartet, und erhöhen Sie ihn, wenn mehr Code oder Projekte hinzukommen.",
+  "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "Mit {0} % dieses Tempos berücksichtigt (Berücksichtigte neue Funde): {1} × {0} % = entspricht {2} Monaten.",
+  "New findings counted": "Berücksichtigte neue Funde",
+  "{0}% of the last months' pace": "{0} % des Tempos der letzten Monate"
  }
 }

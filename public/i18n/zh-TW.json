@@ -5600,6 +5600,13 @@
   "Read for another customer": "為另一位客戶讀取",
   "Every figure is from the whole read now.": "現在所有數值皆來自完整讀取的資料。",
   "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion 現已隨範圍更新；研判與修補會在讀取完成後隨之更新。",
-  "Saved when the read is done": "讀取完成後儲存"
+  "Saved when the read is done": "讀取完成後儲存",
+  "New findings counted (%)": "計入的新增檢測結果（%）",
+  "{0} a month × {1} months": "每月 {0} × {1} 個月",
+  "{0} a month × {1} months × {2}%": "每月 {0} × {1} 個月 × {2}%",
+  "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>計入的新增檢測結果</b>：{0}% 表示每月計入的新增檢測結果與最近 {1} 個月相同（每月 {2}），{3}% 為一半，{4}% 則不計入。若客戶預期新增檢測結果會減少，請調低；若將有更多程式碼或專案加入，請調高。",
+  "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "以該速度的 {0}% 計入（計入的新增檢測結果）：{1} × {0}% = 相當於 {2} 個月的量。",
+  "New findings counted": "計入的新增檢測結果",
+  "{0}% of the last months' pace": "最近幾個月速度的 {0}%"
  }
 }

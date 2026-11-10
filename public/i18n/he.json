@@ -5600,6 +5600,13 @@
   "Read for another customer": "קריאה עבור לקוח אחר",
   "Every figure is from the whole read now.": "כל הנתונים מבוססים כעת על הקריאה המלאה.",
   "Fusion follows the scope now; triage & remediation does when the read is done.": "Fusion עוקב כעת אחר ההיקף; תעדוף ותיקון יעקבו אחריו כשהקריאה תסתיים.",
-  "Saved when the read is done": "יישמר כשהקריאה תסתיים"
+  "Saved when the read is done": "יישמר כשהקריאה תסתיים",
+  "New findings counted (%)": "ממצאים חדשים שנספרים (%)",
+  "{0} a month × {1} months": "{0} בחודש × {1} חודשים",
+  "{0} a month × {1} months × {2}%": "{0} בחודש × {1} חודשים × {2}%",
+  "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>ממצאים חדשים שנספרים</b>: ב-{0}% נספרים בכל חודש ממצאים חדשים כמו ב-{1} החודשים האחרונים ({2} בחודש), ב-{3}% מחצית מזה, וב-{4}% אף אחד. יש להוריד את הערך כשהלקוח צופה פחות ממצאים חדשים, ולהעלות אותו כשצפויים עוד קוד או פרויקטים.",
+  "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "נספרים לפי {0}% מהקצב הזה (ממצאים חדשים שנספרים): {1} × {0}% = שווה ערך ל-{2} חודשים.",
+  "New findings counted": "ממצאים חדשים שנספרים",
+  "{0}% of the last months' pace": "{0}% מהקצב של החודשים האחרונים"
  }
 }
