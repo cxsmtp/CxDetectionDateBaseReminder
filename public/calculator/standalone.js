@@ -12,7 +12,7 @@ import { startHelpTips } from '../help-tips.js';
 
 const DB_NAME = 'cx-credits-calculator';
 const NAMES_KEY = 'cxcalc-names';
-// A new key with the futuristic look: everyone starts in its dark, then keeps what they choose.
+// The futuristic look's theme: light to start with, then what each person chooses (the theme button).
 const THEME_KEY = 'cxcalc-theme-future';
 const GIT_ONLY_LAUNCHER = 'This file on its own cannot reach git: download cloc-fusion (the button on this tab) and import its report, upload cloc results, or count from git with the launcher (cx-credits-calculator.mjs).';
 
@@ -217,15 +217,15 @@ export function startStandalone({ samples = {} } = {}) {
     setup.querySelector('.sa-setup-body').append(keys, heart);
   }
 
-  // The theme: the futuristic dark to start with, or light or dark as chosen here.
+  // The theme: light to start with, or light or dark as chosen here.
   const applyTheme = (theme) => {
     if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
     else delete document.documentElement.dataset.theme;
   };
   try {
-    applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+    applyTheme(localStorage.getItem(THEME_KEY) || 'light');
   } catch {
-    applyTheme('dark');
+    applyTheme('light');
   }
   $('sa-theme').addEventListener('click', () => {
     const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;

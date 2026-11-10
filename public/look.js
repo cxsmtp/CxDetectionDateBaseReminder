@@ -35,8 +35,8 @@ export function reportLook(look = {}) {
   return {
     look: name,
     ui,
-    // Files made from the app open light, whatever the maker's screen is set to; the reader can switch. Future opens in its dark.
-    theme: name === 'future' ? 'dark' : 'light',
+    // Files made from the app open light, whatever the maker's screen is set to; the reader can switch.
+    theme: 'light',
     accent: Object.hasOwn(NEXTGEN_ACCENTS, look?.accent ?? '') ? look.accent : 'indigo',
   };
 }

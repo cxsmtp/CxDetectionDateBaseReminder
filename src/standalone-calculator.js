@@ -149,7 +149,7 @@ export function buildStandaloneCalculator({ version = '', root = PUBLIC, launche
   const csp = standaloneCsp([gate, ...(launcher ? [launcherConfig] : []), ...vendorScripts, main], { launcher, styles: [css] });
   const label = version ? `MZ-${version.split('.').map((n) => n.padStart(2, '0')).join('.')}` : '';
   const html = `<!doctype html>
-<html lang="en" data-ui="nextgen" data-look="future" class="sa-future" data-theme="dark">
+<html lang="en" data-ui="nextgen" data-look="future" class="sa-future" data-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
