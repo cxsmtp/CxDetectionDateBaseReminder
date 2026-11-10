@@ -38,6 +38,12 @@ function useLook(look) {
   FONT = `"MZ Jakarta", "Plus Jakarta Sans", ${CLASSIC_FONT}`;
   // The reader's own look (Cabin, Residence…): its band at the top, ink, lines and colour, on a white page.
   const p = lookPalette(reportLook(look).look, accent);
+  if (p?.future) {
+    // Future: its deep space page, cyan light and violet, as the standalone calculator looks.
+    const c = p.dark;
+    C = { ...CLASSIC, page: c.bg, head: '#0a1226', ink: c.ink, muted: c.muted, line: c.line, soft: c.surface, key: c.surface2, accent: c.glow, fusion: '#34f5a4', from: c.glow, to: c.glow2, eyebrow: '#94a3c6' };
+    return;
+  }
   if (p) {
     const c = p.light;
     C = { ...CLASSIC, head: p.head, ink: c.ink, muted: c.muted, line: c.line, soft: tint(c.accent, 0.05), key: tint(c.accent, 0.1), accent: c.accent, from: c.accent, to: c.button };
@@ -108,11 +114,6 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
     : [];
   const devLine = fn?.totals?.withActivity ? [w('New customer developers in the last 90 days: {0} (added up per project).', num(fn.totals.developers))] : [];
   const newLine = fn ? [w('New customer (code counted from git, a cloc-fusion report or cloc): {0} projects, {1} lines, {2} Fusion scans, {3} credits.', num(fn.totals?.projects), num(fn.totals?.lines), num(fn.totals?.scans), num(fn.totals?.credits)), ...scansLine, ...devLine] : [];
-  // The Fusion estimates side by side (when the report shows them): the one in the credits named first.
-  const cmp = data.fusionCompare?.rows?.length > 1 ? [...data.fusionCompare.rows].sort((a, b) => Number(b.used) - Number(a.used)) : [];
-  const cmpLines = cmp.length
-    ? [w('Fusion worked out {0} ways; only the one in the credits counts, the others are to compare:', num(cmp.length)), ...cmp.map((r) => `${r.used ? w('In the credits') : w('To compare')} · ${w(r.label)}: ${num(r.projects)} · ${num(r.lines)} ${w('lines of code')} · ${num(Math.round(r.credits))} ${w('credits')}`)]
-    : [];
   if (fu) {
     const T = fu.totals ?? {};
     const label = (id) => w(FREQUENCIES.find((x) => x.id === id)?.label ?? '—');
@@ -129,7 +130,7 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
         { label: w('Fusion credits'), value: num(T.credits), key: true },
       ],
       bars: bars.length ? { title: w('Fusion credits by how often projects are scanned'), items: bars } : null,
-      lines: [...(models.length ? [`${w('Models')}: ${models.join('; ')}`] : []), ...newLine, ...cmpLines],
+      lines: [...(models.length ? [`${w('Models')}: ${models.join('; ')}`] : []), ...newLine],
     });
   } else if (fn) {
     const T = fn.totals ?? {};
@@ -144,7 +145,7 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
         { label: w('Fusion credits'), value: num(T.credits), key: true },
       ],
       bars: null,
-      lines: [...scansLine, ...devLine, ...cmpLines],
+      lines: [...scansLine, ...devLine],
     });
   }
 
@@ -316,8 +317,18 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
     return y + rows.length * (opts.lead ?? 40);
   };
   ctx.direction = rtl ? 'rtl' : 'ltr';
-  ctx.fillStyle = C.white;
+  ctx.fillStyle = C.page ?? C.white;
   ctx.fillRect(0, 0, W, H);
+  if (C.page) {
+    // Future: an aurora in the corners of the page.
+    for (const [x, colour] of [[0, C.from], [W, C.to]]) {
+      const glow = ctx.createRadialGradient(x, 0, 0, x, 0, 900);
+      glow.addColorStop(0, `${colour}2e`);
+      glow.addColorStop(1, `${colour}00`);
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
   // The band at the top: who it is for, and what this page is.
   ctx.fillStyle = C.head;
   ctx.fillRect(0, 0, W, 170);
@@ -329,10 +340,10 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
     ctx.fillStyle = line;
     ctx.fillRect(0, 170, W, 6);
   }
-  text(content.eyebrow, 80, 66, { size: 26, colour: '#c3c8cf' });
+  text(content.eyebrow, 80, 66, { size: 26, colour: C.eyebrow ?? '#c3c8cf' });
   ctx.font = font(48, 600);
   text(wrap(ctx, content.heading(page), W - 360)[0] ?? '', 80, 128, { size: 48, weight: 600, colour: C.white });
-  text(content.of(index, total), W - 80, 66, { size: 26, colour: '#c3c8cf', align: 'end' });
+  text(content.of(index, total), W - 80, 66, { size: 26, colour: C.eyebrow ?? '#c3c8cf', align: 'end' });
   if (page.subtitle) lines(page.subtitle, 80, 232, W - 160, { size: 30, colour: C.muted });
   text(content.footer, 80, H - 40, { size: 22, colour: C.muted });
 

@@ -12,7 +12,7 @@ import path from 'node:path';
 import { CLOC_FUSION_PAGE, buildCalculatorLauncher, buildStandaloneCalculator, moduleGraph } from '../src/standalone-calculator.js';
 import { CLOC_FUSION } from '../src/cloc-fusion/origin.js';
 import { createHash } from 'node:crypto';
-import { startLauncher } from '../src/calculator-launcher.js';
+import { DATA_FILE, dataFileStore, startLauncher } from '../src/calculator-launcher.js';
 import { makeRepo, startGitHost } from './fake-git-host.js';
 import { freePort } from './free-port.js';
 import { mockApiKey } from './test-credentials.js';
@@ -47,8 +47,10 @@ const call = async (method, p, body) => {
   return { status: r.status, body: await r.json() };
 };
 
+let launcherDir = '';
 test.before(async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'launcher-'));
+  launcherDir = dir;
   const file = path.join(dir, 'cx-credits-calculator.mjs');
   fs.writeFileSync(file, buildCalculatorLauncher({ version: '9.9.9' }));
   children.push(spawn(process.execPath, ['loadtest/mock-cxone.mjs'], { env: { ...process.env, PORT: String(MOCK_PORT), LAT: '1', PROJECTS: '3', RISKS: '4' }, stdio: 'ignore' }));
@@ -216,4 +218,42 @@ test('the launcher page has git tokens beside the API key, and the read panel', 
   // The exports-only page has no key bar, but keeps the read panel markup (hidden, never opened without a read).
   const plain = buildStandaloneCalculator({ version: '9.9.9' });
   assert.doesNotMatch(plain, /id="sa-git-token"/);
+});
+
+test('the data file: made in the folder the calculator was started from, saved to, and read back next time', async () => {
+  const file = path.join(launcherDir, DATA_FILE);
+  assert.ok(fs.existsSync(file), 'made at start when it is not there');
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')).customers, []);
+  assert.match(log, /Your data stays with you: customers and reports are saved to .*cx-credits-calculator-data\.json/);
+  const page = await fetch(`http://127.0.0.1:${PORT}/`).then((r) => r.text());
+  assert.match(page, /id="sa-file-note"[^>]*>[\s\S]*?saved to <code translate="no">cx-credits-calculator-data\.json<\/code> in the folder you started the calculator from/);
+  const secret = JSON.parse(page.match(/id="cx-launcher">(\{[^}]*\})</)[1]).token;
+  const ask = async (method, body) => {
+    const r = await fetch(`http://127.0.0.1:${PORT}/launcher/data`, { method, headers: { 'Content-Type': 'application/json', 'X-Calculator-Token': secret }, body: body ? JSON.stringify(body) : undefined });
+    return { status: r.status, body: await r.json() };
+  };
+  const first = await ask('GET');
+  assert.equal(first.status, 200);
+  assert.equal(first.body.file, file);
+  const customer = { id: 'c1', name: 'Globex', createdAt: '2026-11-10T10:00:00.000Z' };
+  const saved = await ask('POST', { kind: 'cx-credits-calculator', version: 1, names: { organisation: 'CX', preparedBy: 'Sam' }, customers: [customer], reports: [] });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.customers, 1);
+  const onDisk = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.deepEqual(onDisk.customers, [customer]);
+  assert.equal(onDisk.names.organisation, 'CX');
+  assert.deepEqual((await ask('GET')).body.data.customers, [customer], 'read back as saved');
+  assert.equal((await ask('POST', { customers: 'no' })).status, 400, 'not this calculator\'s data');
+  assert.deepEqual(fs.readdirSync(launcherDir).filter((f) => f.endsWith('.tmp')), [], 'no half-written file left');
+});
+
+test('the data file: one that is not this calculator\'s data is left as it is, never written over', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'launcher-data-'));
+  const file = path.join(dir, DATA_FILE);
+  fs.writeFileSync(file, '{ not json');
+  const store = dataFileStore(file);
+  assert.throws(() => store.read(), (e) => e.status === 409 && /left as it is/.test(e.message));
+  assert.throws(() => store.save({ kind: 'cx-credits-calculator', customers: [], reports: [] }), (e) => e.status === 409);
+  assert.equal(fs.readFileSync(file, 'utf8'), '{ not json');
+  fs.rmSync(dir, { recursive: true, force: true });
 });

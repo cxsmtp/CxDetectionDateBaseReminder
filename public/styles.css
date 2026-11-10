@@ -3239,6 +3239,7 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
   .calc-page .ptab { flex: 1 1 0; white-space: normal; text-align: center; }
   .calc-table-head h2, .calc-table-head input[type="search"] { flex: 1 1 100%; }
   .calc-report-bar button { width: 100%; }
+  .calc-report-go { flex: 1 1 100%; margin-left: 0; }
 }
 
 /* Find a vulnerability (Dashboard scope bar): a search box with its button, and the line saying the data is only that. */
@@ -3409,7 +3410,10 @@ details.calc-fold > summary .hint { margin: 0; }
 .calc-scope-checks { border: 0; padding: 0; margin: 0; background: none; }
 .calc-scope-checks legend { padding: 0 0 4px; }
 .calc-scope-checks > div { display: flex; flex-wrap: wrap; gap: 6px; }
-.calc-report-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.calc-report-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 auto; }
+/* The report options wrap among themselves; Generate stays on their line, at the right, instead of dropping below. */
+.calc-report-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; }
+.calc-report-go { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: none; margin-left: auto; }
 .calc-email { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; }
 .calc-email .field { margin: 0; flex: 1 1 320px; }
 .calc-steps { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; margin: 6px 0 12px; }

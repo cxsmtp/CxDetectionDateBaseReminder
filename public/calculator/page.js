@@ -2807,8 +2807,18 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     next();
   }
   /** The read ended: the runner glides to a stop and the panel says what was read, then folds away. */
-  function fxEnd(ok, text) {
+  function fxEnd(ok, text, result = null) {
     if (!fx.open && $('calc-readfx-pill').hidden) return;
+    // The totals from the whole read (a quick read can end before any figure came in on the way).
+    const rows = Array.isArray(result?.projects) ? result.projects : null;
+    if (ok && rows) {
+      const open = Object.fromEntries(SEVERITIES.map((s) => [s, rows.reduce((n, r) => n + (r.openBySeverity?.[s] ?? 0), 0)]));
+      countTo('calc-readfx-read', rows.length);
+      countTo('calc-readfx-loc', rows.reduce((n, r) => n + (r.loc ?? 0), 0), short);
+      countTo('calc-readfx-scans', rows.reduce((n, r) => n + (r.scanCount ?? 0), 0));
+      countTo('calc-readfx-open', SEVERITIES.reduce((n, s) => n + open[s], 0));
+      renderFxSeverities(open);
+    }
     fx.done = ok ? 'done' : 'failed';
     clearTimeout(fx.drip);
     fx.drip = null;
@@ -2980,7 +2990,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       const count = job.result?.projects?.length ?? 0;
       applyRead(job.result);
       settle(true);
-      fxEnd(true, count === 1 ? '1 project read' : `${num(count)} projects read`);
+      fxEnd(true, count === 1 ? '1 project read' : `${num(count)} projects read`, job.result);
     }, wait);
   }
 
@@ -3457,15 +3467,6 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
           }
         : null,
     };
-    // The Fusion estimates side by side (ticked, and when more than one has projects): the one in the credits marked.
-    if ($('calc-compare')?.checked !== false) {
-      const all = estimates();
-      const inUse = basis();
-      const rows = Object.entries(BASES)
-        .filter(([b]) => all[b]?.projects)
-        .map(([b, d]) => ({ key: b, label: d.title, what: d.what, projects: all[b].projects, lines: all[b].lines, units: all[b].units, scans: all[b].scans, credits: all[b].credits, used: inUse === b || (inUse === 'both' && b !== 'cloc') }));
-      if (rows.length > 1) base.fusionCompare = { periodMonths: horizon(), rows };
-    }
     // Open vulnerabilities by project and severity (ticked, with the project names): from the last read of Checkmarx One.
     if ($('calc-sev-report')?.checked && details) {
       const rows = (fusion()?.projects ?? [])

@@ -12,7 +12,8 @@ import { startHelpTips } from '../help-tips.js';
 
 const DB_NAME = 'cx-credits-calculator';
 const NAMES_KEY = 'cxcalc-names';
-const THEME_KEY = 'cxcalc-theme';
+// A new key with the futuristic look: everyone starts in its dark, then keeps what they choose.
+const THEME_KEY = 'cxcalc-theme-future';
 const GIT_ONLY_LAUNCHER = 'This file on its own cannot reach git: download cloc-fusion (the button on this tab) and import its report, upload cloc results, or count from git with the launcher (cx-credits-calculator.mjs).';
 
 /** The browser's database: customers and reports, each by id. Falls back to memory when it cannot be opened. */
@@ -216,15 +217,15 @@ export function startStandalone({ samples = {} } = {}) {
     setup.querySelector('.sa-setup-body').append(keys, heart);
   }
 
-  // The theme: light to start with, or light or dark as chosen here.
+  // The theme: the futuristic dark to start with, or light or dark as chosen here.
   const applyTheme = (theme) => {
     if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
     else delete document.documentElement.dataset.theme;
   };
   try {
-    applyTheme(localStorage.getItem(THEME_KEY) || 'light');
+    applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
   } catch {
-    applyTheme('light');
+    applyTheme('dark');
   }
   $('sa-theme').addEventListener('click', () => {
     const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
@@ -269,9 +270,25 @@ export function startStandalone({ samples = {} } = {}) {
   let names = readNames();
   $('sa-org').value = names.organisation;
   $('sa-by').value = names.preparedBy;
-  const store = openStore();
   // Served by the launcher: it reads Checkmarx One once the API key is given (window.CX_LAUNCHER = {token}).
   const launcher = window.CX_LAUNCHER && typeof window.CX_LAUNCHER === 'object' ? window.CX_LAUNCHER : null;
+  // With the launcher, every change is also written to its data file (see startDataFile): the browser's store, and a
+  // save soon after each change to it.
+  const base = openStore();
+  let changed = () => {};
+  const store = {
+    ...base,
+    put: async (name, value) => {
+      const out = await base.put(name, value);
+      changed();
+      return out;
+    },
+    remove: async (name, id) => {
+      const out = await base.remove(name, id);
+      changed();
+      return out;
+    },
+  };
   let connected = false;
   const calculator = initCalculator({
     api: localApi(store, () => names, launcher),
@@ -301,7 +318,71 @@ export function startStandalone({ samples = {} } = {}) {
         localStorage.setItem(NAMES_KEY, JSON.stringify(names));
       } catch {}
       calculator.renderOrg();
+      changed();
     });
+  }
+
+  /**
+   * The launcher's data file (cx-credits-calculator-data.json, in the folder it was started from): loaded when the page
+   * opens, the file winning over what this browser had (each customer and report cleaned as Restore cleans them), then
+   * written after each change. An empty file takes what this browser already had, so nothing kept before is lost.
+   */
+  async function startDataFile() {
+    const note = $('sa-file-note');
+    const say = (text, kind = '') => {
+      if (!note) return;
+      note.querySelector('.sa-file-state').textContent = text;
+      note.classList.toggle('bad', kind === 'bad');
+    };
+    let got;
+    try {
+      got = await toLauncher(launcher, '/launcher/data');
+    } catch (error) {
+      say(error.message, 'bad');
+      return;
+    }
+    if (!got?.file) return;
+    if (note) {
+      note.hidden = false;
+      // The file's name on the line; where it is, in full, on hover.
+      note.title = `Saved to ${got.file}`;
+    }
+    const file = got.data ?? {};
+    const customers = Array.isArray(file.customers) ? file.customers.slice(0, MAX_PROFILES) : [];
+    const reports = Array.isArray(file.reports) ? file.reports.slice(0, MAX_REPORTS) : [];
+    if (customers.length || reports.length) {
+      for (const c of await base.all('customers')) await base.remove('customers', c.id);
+      for (const r of await base.all('reports')) await base.remove('reports', r.id);
+      for (const c of customers) if (c && typeof c.id === 'string') await base.put('customers', restoreProfile(c));
+      for (const r of reports) if (r && typeof r.id === 'string') await base.put('reports', { ...newReport({ customerId: r.customerId, customer: r.customer, by: r.createdBy, data: r.data }), id: text(r.id, 100) || newId(), createdAt: iso(r.createdAt) ?? new Date().toISOString() });
+      if (file.names && (file.names.organisation || file.names.preparedBy)) {
+        names = { organisation: String(file.names.organisation ?? '').slice(0, 120), preparedBy: String(file.names.preparedBy ?? '').slice(0, 120) };
+        $('sa-org').value = names.organisation;
+        $('sa-by').value = names.preparedBy;
+        try {
+          localStorage.setItem(NAMES_KEY, JSON.stringify(names));
+        } catch {}
+      }
+    }
+    let timer = null;
+    let saving = Promise.resolve();
+    const save = async () => {
+      timer = null;
+      const body = { kind: 'cx-credits-calculator', version: 1, names, customers: await base.all('customers'), reports: await base.all('reports') };
+      try {
+        const done = await toLauncher(launcher, '/launcher/data', { method: 'POST', body: JSON.stringify(body) });
+        say(`Saved ${fmtDateTime(done.savedAt)}`);
+      } catch (error) {
+        say(`Not saved to the file: ${error.message}`, 'bad');
+      }
+    };
+    changed = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => (saving = saving.then(save)), 600);
+    };
+    // Nothing in the file yet: what this browser has goes in it now.
+    if (!customers.length && !reports.length) changed();
+    else say(`Loaded ${customers.length === 1 ? '1 customer' : `${customers.length} customers`} and ${reports.length === 1 ? '1 report' : `${reports.length} reports`} from it`);
   }
 
   // Everything kept here, as one file to keep or move to another browser; and back.
@@ -490,5 +571,6 @@ export function startStandalone({ samples = {} } = {}) {
   store.persistent.then((ok) => {
     if (!ok) toast('This browser does not let this page keep data: customers and reports last until the page is closed. Use Back up to keep them.', 'warn', 12000);
   });
-  calculator.load();
+  // With the launcher, its data file first, so the customers shown are the ones it keeps.
+  (launcher ? startDataFile() : Promise.resolve()).finally(() => calculator.load());
 }

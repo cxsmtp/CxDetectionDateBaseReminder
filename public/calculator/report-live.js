@@ -55,6 +55,8 @@ function start() {
   /** The body again: the levers' panel stays as it is (a slider being moved keeps moving), its figures follow. */
   const render = ({ panel = false } = {}) => {
     const focused = document.activeElement?.dataset?.lever;
+    // The levers opened stay open when the body is written again (the period redraws the panel too).
+    const opened = main.querySelector('.levers .lv-fold')?.open === true;
     const tpl = document.createElement('template');
     tpl.innerHTML = reportMain(leverData(state.base, inputs), { ...view, live: live() });
     const fresh = tpl.content.querySelector('.levers');
@@ -68,6 +70,8 @@ function start() {
       fresh.replaceWith(old);
     }
     main.replaceChildren(tpl.content);
+    const fold = main.querySelector('.levers .lv-fold');
+    if (fold && opened) fold.open = true;
     if (focused) main.querySelector(`[data-lever="${CSS.escape(focused)}"]`)?.focus();
   };
 

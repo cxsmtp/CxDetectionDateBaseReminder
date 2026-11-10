@@ -1,4 +1,6 @@
+import fs from 'node:fs';
 import http from 'node:http';
+import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 
@@ -27,13 +29,13 @@ const json = (res, status, body) => {
   res.end(JSON.stringify(body));
 };
 
-async function body(req) {
+async function body(req, limit = 8 * 1024 * 1024) {
   let size = 0;
   const parts = [];
   for await (const chunk of req) {
     size += chunk.length;
-    // A scope's project ids: up to MAX_PROJECTS of them.
-    if (size > 8 * 1024 * 1024) throw Object.assign(new Error('Too large.'), { status: 413 });
+    // A scope's project ids: up to MAX_PROJECTS of them (the data file: every customer and report, so more).
+    if (size > limit) throw Object.assign(new Error('Too large.'), { status: 413 });
     parts.push(chunk);
   }
   if (!parts.length) return {};
@@ -61,10 +63,57 @@ function typedSource(input) {
 /** What to list of the token's account: the organizations ticked (or the one typed), or everything it can see. */
 const typedAsk = (input) => ({ orgs: (Array.isArray(input?.token?.orgs) ? input.token.orgs : input?.owner !== undefined ? [input.owner] : []).map(String).filter(Boolean), everything: input?.token?.everything === true });
 
+/** The data file's name: kept in the folder the calculator was started from, so the data stays with whoever runs it. */
+export const DATA_FILE = 'cx-credits-calculator-data.json';
+const DATA_LIMIT = 256 * 1024 * 1024;
+const emptyData = () => ({ kind: 'cx-credits-calculator', version: 1, savedAt: null, names: { organisation: '', preparedBy: '' }, customers: [], reports: [] });
+
+/**
+ * The customers, reports and names on the reports, kept in one JSON file beside where the launcher was started (the
+ * page cleans each one as it loads them, as Restore does). Made when it is not there; a file that is not this
+ * calculator's data is left as it is, and nothing is written over it.
+ */
+export function dataFileStore(file) {
+  let broken = '';
+  const read = () => {
+    if (!fs.existsSync(file)) {
+      write(emptyData());
+      return emptyData();
+    }
+    try {
+      const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (data?.kind !== 'cx-credits-calculator' || !Array.isArray(data.customers) || !Array.isArray(data.reports)) throw new Error('not this calculator\'s data');
+      broken = '';
+      return data;
+    } catch (error) {
+      broken = `${file} could not be read (${error.message}): it is left as it is and nothing is saved over it. Move it away and start again to keep the data in a new file.`;
+      throw Object.assign(new Error(broken), { status: 409 });
+    }
+  };
+  // Written whole to a file beside it, then put in its place: a stop half-way never leaves half a file.
+  const write = (data) => {
+    if (broken) throw Object.assign(new Error(broken), { status: 409 });
+    const tmp = `${file}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, `${JSON.stringify(data, null, 1)}\n`, { mode: 0o600 });
+    fs.renameSync(tmp, file);
+  };
+  return {
+    file,
+    read,
+    save: (input) => {
+      if (input?.kind !== 'cx-credits-calculator' || !Array.isArray(input.customers) || !Array.isArray(input.reports)) throw Object.assign(new Error('That is not this calculator\'s data.'), { status: 400 });
+      const names = input.names && typeof input.names === 'object' ? { organisation: String(input.names.organisation ?? '').slice(0, 120), preparedBy: String(input.names.preparedBy ?? '').slice(0, 120) } : emptyData().names;
+      const savedAt = new Date().toISOString();
+      write({ kind: 'cx-credits-calculator', version: 1, savedAt, names, customers: input.customers, reports: input.reports });
+      return { savedAt, customers: input.customers.length, reports: input.reports.length };
+    },
+  };
+}
+
 /** The launcher's own port: fixed, so the browser finds the customers saved in earlier runs at the same address. */
 export const DEFAULT_PORT = 47317;
 
-export async function startLauncher({ html, port = 0, fallback = false, host = '127.0.0.1', open = true, log = console.log, connect = (connection) => new CxClient(connection), gitBin = 'git' } = {}) {
+export async function startLauncher({ html, port = 0, fallback = false, host = '127.0.0.1', open = true, log = console.log, connect = (connection) => new CxClient(connection), gitBin = 'git', dataFile = null } = {}) {
   // Plain http, so this computer only: the page's secret and the API key never cross a network.
   if (!['127.0.0.1', 'localhost', '::1'].includes(String(host))) throw new Error(`The calculator only serves this computer (127.0.0.1), not ${host}.`);
   const secret = randomBytes(24).toString('base64url');
@@ -75,8 +124,23 @@ export async function startLauncher({ html, port = 0, fallback = false, host = '
   sweepLeftovers();
 
   const readView = (job, url) => readJobView(job, { since: url?.searchParams.get('since') });
+  // The data file, made now when it is not there yet.
+  const data = dataFile ? dataFileStore(path.resolve(dataFile)) : null;
+  if (data) {
+    try {
+      data.read();
+    } catch (error) {
+      log(error.message);
+    }
+  }
 
   const routes = {
+    // The data file: read when the page opens, written after each change.
+    'GET /launcher/data': () => (data ? { file: data.file, data: data.read() } : { file: null, data: null }),
+    'POST /launcher/data': (input) => {
+      if (!data) throw Object.assign(new Error('This launcher keeps no data file.'), { status: 409 });
+      return { file: data.file, ...data.save(input) };
+    },
     'GET /launcher/status': () => ({ connected: Boolean(state.client), tenant: state.connection?.tenant ?? '', baseUrl: state.connection?.baseUrl ?? '' }),
     // Connect with a key: checked against Checkmarx One once, then kept in memory only.
     'POST /launcher/connect': async (input) => {
@@ -152,7 +216,7 @@ export async function startLauncher({ html, port = 0, fallback = false, host = '
     if (!route) return json(res, 404, { error: 'Not found.' });
     if (req.headers['x-calculator-token'] !== secret) return json(res, 403, { error: 'Open the calculator at the address the launcher printed.' });
     try {
-      json(res, 200, await route(req.method === 'POST' ? await body(req) : null, url));
+      json(res, 200, await route(req.method === 'POST' ? await body(req, url.pathname === '/launcher/data' ? DATA_LIMIT : undefined) : null, url));
     } catch (error) {
       if (error.status) return json(res, error.status, { error: error.message });
       // Unexpected: the details (paths, internals) go to the launcher's own window, not to the page.
@@ -177,7 +241,8 @@ export async function startLauncher({ html, port = 0, fallback = false, host = '
   });
   const url = `http://127.0.0.1:${server.address().port}/`;
   log(`Cx Credits Calculator: ${url}`);
-  log('Paste a Checkmarx One API key at the top of the page to read the tenant. The key is not kept; customers and reports are saved in this browser for this address. Press Ctrl+C to stop.');
+  log(data ? `Your data stays with you: customers and reports are saved to ${data.file}, in the folder the calculator was started from, and loaded from it next time.` : 'Customers and reports are saved in this browser for this address.');
+  log('Paste a Checkmarx One API key at the top of the page to read the tenant. The key is not kept. Press Ctrl+C to stop.');
   if (open) openBrowser(url);
   return { url, server, close: () => new Promise((resolve) => server.close(resolve)) };
 }

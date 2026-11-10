@@ -149,7 +149,7 @@ export function buildStandaloneCalculator({ version = '', root = PUBLIC, launche
   const csp = standaloneCsp([gate, ...(launcher ? [launcherConfig] : []), ...vendorScripts, main], { launcher, styles: [css] });
   const label = version ? `MZ-${version.split('.').map((n) => n.padStart(2, '0')).join('.')}` : '';
   const html = `<!doctype html>
-<html lang="en" data-ui="nextgen">
+<html lang="en" data-ui="nextgen" data-look="future" class="sa-future" data-theme="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -178,10 +178,11 @@ export function buildStandaloneCalculator({ version = '', root = PUBLIC, launche
         <button type="button" class="ghost sm" id="sa-theme" aria-label="Light or dark" title="Light or dark"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" /></svg></button>
       </div>
     </header>
+    ${launcher ? '<p class="sa-file-note" id="sa-file-note" hidden><span class="sa-file-icon" aria-hidden="true"></span><span class="sa-file-text">Your data stays with you: saved to <code translate="no">cx-credits-calculator-data.json</code> in the folder you started the calculator from, and loaded from it next time.</span><span class="sa-file-state" aria-live="polite"></span></p>' : ''}
     <main>
 ${standaloneMarkup(calculatorMarkup(read('index.html')), { launcher })}
     </main>
-    <footer class="sa-foot"><span>Cx Credits Calculator${label ? ` · from CxMissionZero ${escapeText(label)}` : ''}</span><span>Customers and reports are kept in this browser only: use Back up to keep them elsewhere.</span></footer>
+    <footer class="sa-foot"><span>Cx Credits Calculator${label ? ` · from CxMissionZero ${escapeText(label)}` : ''}</span><span>${launcher ? 'Customers and reports are saved in the data file beside where the calculator was started, and in this browser.' : 'Customers and reports are kept in this browser only: use Back up to keep them elsewhere.'}</span></footer>
   </div>
 </div>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
@@ -334,6 +335,84 @@ body.calc-presenting-on .calc-heart-compact { display: none; }
 .shell.standalone .sa-advanced .field { margin: 0; }
 .shell.standalone .sa-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 24px; color: var(--muted); font-size: 12px; }
 @media (max-width: 640px) { .shell.standalone .sa-names .field { min-width: 0; flex: 1 1 140px; } }
+/* ===== The futuristic theme (the standalone calculator, a next-gen tool): deep space with an aurora and a faint grid,
+   glass cards with a soft glow, cyan and violet light, figures in a gradient. A light version too. Golden buttons untouched. */
+:root[data-ui="nextgen"].sa-future {
+  --fx-cyan: #0891b2; --fx-violet: #7c3aed; --fx-glow: rgb(8 145 178 / 0.18);
+  color-scheme: light;
+  --bg: #eef3fb; --surface: rgb(255 255 255 / 0.88); --surface-2: rgb(244 248 255 / 0.92); --surface-3: #e3ebf8;
+  --border: rgb(37 99 235 / 0.14); --border-strong: rgb(37 99 235 / 0.28);
+  --text: #0b1324; --muted: #4f5d78;
+  --accent: #0e7490; --accent-2: #6d28d9; --accent-ink: #ffffff; --accent-soft: rgb(8 145 178 / 0.10);
+  --primary: #0e7490; --primary-hover: #0b5f76; --primary-ink: #ffffff;
+  --ok: #047857; --ok-soft: rgb(4 120 87 / 0.10); --danger: #be123c; --danger-soft: rgb(190 18 60 / 0.08); --warn: #b45309;
+  --shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 18px 40px -26px rgb(37 99 235 / 0.35);
+  --shadow-pop: 0 0 0 1px rgb(37 99 235 / 0.12), 0 22px 48px -20px rgb(37 99 235 / 0.4);
+  --radius: 14px; --radius-sm: 9px;
+  --ng-head: #4f5d78;
+  --fx-bg: radial-gradient(1100px 600px at 8% -10%, rgb(34 211 238 / 0.20), transparent 60%), radial-gradient(900px 560px at 100% 0%, rgb(139 92 246 / 0.16), transparent 60%), radial-gradient(800px 500px at 50% 110%, rgb(59 130 246 / 0.12), transparent 60%);
+  --fx-grid: rgb(37 99 235 / 0.06);
+}
+:root[data-ui="nextgen"].sa-future[data-theme="dark"] {
+  --fx-cyan: #5ee7ff; --fx-violet: #a78bfa; --fx-glow: rgb(94 231 255 / 0.22);
+  color-scheme: dark;
+  --bg: #050914; --surface: rgb(14 22 42 / 0.86); --surface-2: rgb(20 30 56 / 0.9); --surface-3: #18243f;
+  --border: rgb(120 170 255 / 0.14); --border-strong: rgb(120 190 255 / 0.30);
+  --text: #e9f0ff; --muted: #94a3c6;
+  --accent: #5ee7ff; --accent-2: #a78bfa; --accent-ink: #031018; --accent-soft: rgb(94 231 255 / 0.10);
+  --primary: #22d3ee; --primary-hover: #5ee7ff; --primary-ink: #031018;
+  --ok: #34f5a4; --ok-soft: rgb(52 245 164 / 0.10); --danger: #ff5c7a; --danger-soft: rgb(255 92 122 / 0.10); --warn: #ffc857; --warn-soft: rgb(255 200 87 / 0.10);
+  --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 20px 48px -28px rgb(0 0 0 / 0.9);
+  --shadow-pop: 0 0 0 1px rgb(94 231 255 / 0.16), 0 24px 56px -22px rgb(0 0 0 / 0.95);
+  --ng-head: #94a3c6;
+  --fx-bg: radial-gradient(1100px 620px at 6% -12%, rgb(34 211 238 / 0.16), transparent 60%), radial-gradient(900px 560px at 100% -4%, rgb(139 92 246 / 0.20), transparent 60%), radial-gradient(900px 600px at 50% 115%, rgb(37 99 235 / 0.16), transparent 62%);
+  --fx-grid: rgb(120 170 255 / 0.05);
+}
+/* Deep space behind everything: the aurora, and a faint grid fading out. */
+:root.sa-future body { background-color: var(--bg) !important; background-image: var(--fx-bg), linear-gradient(var(--fx-grid) 1px, transparent 1px), linear-gradient(90deg, var(--fx-grid) 1px, transparent 1px) !important; background-size: auto, auto, auto, 44px 44px, 44px 44px !important; color: var(--text); }
+:root.sa-future .shell.standalone, :root.sa-future .shell.standalone .content, :root.sa-future .shell.standalone main, :root.sa-future #page-calculator { background: transparent !important; }
+:root.sa-future .shell.standalone::before, :root.sa-future .shell.standalone::after, :root.sa-future #page-calculator::before, :root.sa-future #page-calculator::after { background-image: none !important; }
+/* Glass: every card, with a glowing edge. */
+:root.sa-future :is(.panel, .calc-heart, .calc-strip, .calc-fh, .sa-connect, .sa-setup-bar, .calc-readfx, .calc-readfx-pill, .calc-fnew-log, .calc-pending, .calc-steps .calc-step, .calc-sev-box, .rp-kpis > *, .calc-git-tokens, .calc-cust-menu) {
+  background-color: var(--surface) !important; background-image: linear-gradient(180deg, rgb(255 255 255 / 0.04), transparent 40%) !important;
+  border: 1px solid var(--border) !important; box-shadow: var(--shadow), 0 0 0 1px rgb(255 255 255 / 0.02) inset !important;
+}
+:root.sa-future :is(.panel, .calc-strip, .calc-fh, .sa-connect):hover { border-color: var(--border-strong) !important; box-shadow: var(--shadow), 0 0 28px -14px var(--fx-glow) !important; }
+/* The title in light, and the big figures in a cyan-violet gradient. */
+:root.sa-future .sa-top h1 { font-family: var(--font) !important; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(90deg, var(--fx-cyan), var(--fx-violet)); -webkit-background-clip: text; background-clip: text; color: transparent !important; }
+:root.sa-future :is(#calc-sum-total, .calc-fh-credits b, .calc-readfx-pct b, .calc-step-gold .calc-step-value, .calc-gold) { background: linear-gradient(90deg, var(--fx-cyan), var(--fx-violet)); -webkit-background-clip: text; background-clip: text; color: transparent !important; }
+/* Kicks and labels in small caps of light. */
+:root.sa-future :is(.sa-kick, .calc-fh-kick, .calc-readfx-kick, .calc-heart-title) { color: var(--fx-cyan) !important; letter-spacing: 0.12em; }
+:root.sa-future .sa-kick-git, :root.sa-future .calc-fh-kick.calc-fh-git { color: var(--fx-violet) !important; }
+/* Primary buttons: a beam of light (golden buttons keep their own look). */
+:root.sa-future :is(button.primary, .calc-pending-go, #sa-connect-go, #calc-generate):not(.is-golden):not(:disabled) { background-color: transparent !important; background-image: linear-gradient(90deg, var(--fx-cyan), var(--fx-violet)) !important; color: #fff !important; border: 0 !important; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08) inset, 0 8px 24px -10px var(--fx-glow), 0 0 18px -6px var(--fx-glow) !important; }
+:root.sa-future[data-theme="dark"] :is(button.primary, .calc-pending-go, #sa-connect-go, #calc-generate):not(.is-golden):not(:disabled) { color: #031018 !important; }
+:root.sa-future :is(button.primary, .calc-pending-go, #sa-connect-go, #calc-generate):not(.is-golden):not(:disabled):hover { filter: brightness(1.08); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12) inset, 0 10px 30px -8px var(--fx-glow), 0 0 26px -4px var(--fx-glow) !important; }
+:root.sa-future :is(button.secondary, button.ghost:not(.link)):not(.is-golden):not(:disabled) { background-image: none !important; background-color: var(--surface-2) !important; border: 1px solid var(--border-strong) !important; color: var(--text) !important; box-shadow: none !important; }
+:root.sa-future :is(button.secondary, button.ghost:not(.link)):not(.is-golden):not(:disabled):hover { border-color: var(--fx-cyan) !important; box-shadow: 0 0 16px -6px var(--fx-glow) !important; }
+/* Fields: dark glass, a cyan edge when in use. */
+:root.sa-future :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) { background-color: rgb(0 0 0 / 0.04) !important; border-color: var(--border-strong) !important; color: var(--text) !important; }
+:root.sa-future[data-theme="dark"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) { background-color: rgb(2 6 18 / 0.55) !important; }
+:root.sa-future :is(input, select, textarea):focus-visible { outline: none !important; border-color: var(--fx-cyan) !important; box-shadow: 0 0 0 3px var(--accent-soft), 0 0 18px -6px var(--fx-glow) !important; }
+:root.sa-future :is(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--fx-cyan); }
+/* Tabs: the one open lit from below. */
+:root.sa-future [data-ptabs] .ptab { color: var(--muted) !important; }
+:root.sa-future [data-ptabs] .ptab.active, :root.sa-future [data-ptabs] .ptab[aria-selected="true"] { color: var(--text) !important; box-shadow: inset 0 -2px 0 var(--fx-cyan), 0 10px 20px -16px var(--fx-glow) !important; }
+/* Pills and badges glow softly. */
+:root.sa-future :is(.calc-fh-used, #sa-connect-status.ok) { background: linear-gradient(90deg, rgb(52 245 164 / 0.16), rgb(94 231 255 / 0.12)) !important; color: var(--ok) !important; border: 1px solid rgb(52 245 164 / 0.35) !important; box-shadow: 0 0 18px -8px rgb(52 245 164 / 0.6); }
+:root.sa-future .calc-mix-bar, :root.sa-future .calc-readfx-fill { filter: drop-shadow(0 0 6px var(--fx-glow)); }
+:root.sa-future a, :root.sa-future button.link { color: var(--fx-cyan); }
+:root.sa-future ::selection { background: rgb(94 231 255 / 0.28); }
+:root.sa-future .toast { background: var(--surface-2) !important; color: var(--text) !important; border: 1px solid var(--border-strong) !important; }
+/* The data file remark: one small line under the head. */
+.sa-file-note { display: flex; align-items: center; gap: 8px; margin: 4px 0 0; padding: 3px 10px; font-size: 11.5px; line-height: 1.4; color: var(--muted); border-radius: var(--radius-sm, 8px); background: var(--accent-soft, transparent); }
+.sa-file-note[hidden] { display: none; }
+.sa-file-note .sa-file-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sa-file-note code { font-size: 11px; color: var(--text); }
+.sa-file-note .sa-file-state { flex: none; color: var(--ok); font-weight: 600; white-space: nowrap; }
+@media (max-width: 760px) { .sa-file-note .sa-file-text { white-space: normal; } .sa-file-note { flex-wrap: wrap; } }
+.sa-file-note.bad .sa-file-state { color: var(--danger); }
+.sa-file-icon { width: 11px; height: 11px; flex: none; border: 1.5px solid currentColor; border-radius: 2px; box-shadow: inset 0 -4px 0 -2px currentColor; }
 `;
 
 // The script a projection report made with its levers carries (public/calculator/report-live.js and what it imports).
@@ -458,7 +537,8 @@ const { startLauncher, DEFAULT_PORT } = await import(pathToFileURL(path.join(dir
 try {
   // The same port every run (unless --port says another), so the browser shows the customers saved before.
   const asked = option('--port');
-  await startLauncher({ html: HTML, port: asked ? Number(asked) : DEFAULT_PORT, fallback: !asked, open: !args.includes('--no-open') });
+  // The data file: in the folder this was started from (or where --data says), so the data stays with whoever runs it.
+  await startLauncher({ html: HTML, port: asked ? Number(asked) : DEFAULT_PORT, fallback: !asked, open: !args.includes('--no-open'), dataFile: path.resolve(option('--data') ?? 'cx-credits-calculator-data.json') });
 } catch (error) {
   console.error(\`The calculator could not start: \${error.message}\`);
   process.exit(1);

@@ -22,6 +22,8 @@ export const NEXTGEN_ACCENTS = {
  */
 export const LOOKS = ['cabin', 'circuit', 'residence', 'chronometer', 'signal', 'nextgen', 'studio', 'atelier', 'classic'];
 export const DEFAULT_LOOK = 'nextgen';
+/** Looks for files only, not offered in the app: Future is the standalone Cx Credits Calculator's (deep space, cyan and violet). */
+export const FILE_LOOKS = [...LOOKS, 'future'];
 
 /**
  * A report's look from what it was asked for: anything unknown is the classic look on the reader's device.
@@ -29,12 +31,12 @@ export const DEFAULT_LOOK = 'nextgen';
  */
 export function reportLook(look = {}) {
   const ui = look?.ui === 'nextgen' ? 'nextgen' : 'classic';
-  const name = ui === 'classic' ? 'classic' : LOOKS.includes(look?.look) && look.look !== 'classic' ? look.look : 'nextgen';
+  const name = ui === 'classic' ? 'classic' : FILE_LOOKS.includes(look?.look) && look.look !== 'classic' ? look.look : 'nextgen';
   return {
     look: name,
     ui,
-    // Files made from the app open light, whatever the maker's screen is set to; the reader can switch.
-    theme: 'light',
+    // Files made from the app open light, whatever the maker's screen is set to; the reader can switch. Future opens in its dark.
+    theme: name === 'future' ? 'dark' : 'light',
     accent: Object.hasOwn(NEXTGEN_ACCENTS, look?.accent ?? '') ? look.accent : 'indigo',
   };
 }
@@ -87,6 +89,13 @@ export const LOOK_PALETTES = {
     light: { bg: '#f6f5fc', surface: '#ffffff', surface2: '#f3f1fb', ink: '#16133a', muted: '#646085', line: '#e7e4f3', accent: '#5b47e0', button: '#5b47e0', buttonInk: '#ffffff' },
     dark: { bg: '#0e0c22', surface: '#161334', surface2: '#1c1940', ink: '#ecebff', muted: '#a6a3c8', line: '#29254f', accent: '#a99bff', button: '#a99bff', buttonInk: '#0e0c22' },
     head: '#16133a', headInk: '#ecebff',
+  },
+  // The standalone calculator's next-gen look: deep space, cyan light and violet, figures in a cyan-to-violet gradient.
+  future: {
+    display: SANS, displayWeight: 700, radius: 16, labels: 'caps', future: true,
+    light: { bg: '#eef3fb', surface: '#ffffff', surface2: '#e8eef9', ink: '#0b1324', muted: '#4f5d78', line: '#dbe3f1', accent: '#0e7490', button: '#6d28d9', buttonInk: '#ffffff', glow: '#22d3ee', glow2: '#8b5cf6' },
+    dark: { bg: '#050914', surface: '#0d1528', surface2: '#131d36', ink: '#e9f0ff', muted: '#94a3c6', line: '#1d2a47', accent: '#5ee7ff', button: '#a78bfa', buttonInk: '#031018', glow: '#5ee7ff', glow2: '#a78bfa' },
+    head: '#050914', headInk: '#e9f0ff',
   },
   atelier: {
     display: SERIF, displayWeight: 400, radius: 4, labels: 'caps',

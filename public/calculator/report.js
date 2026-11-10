@@ -408,20 +408,6 @@ function fusionAppendix(f, L, edit = false) {
 </section>`;
 }
 
-/** The Fusion estimates worked out, side by side: the one in the credits marked; the others are not added on top. */
-function fusionCompareSection(data, L) {
-  const cmp = data.fusionCompare;
-  if (!cmp?.rows?.length || cmp.rows.length < 2) return '';
-  const { w, num } = L;
-  return `<section class="compare">
-  <h2>${w('Fusion: the estimates compared')}</h2>
-  <p class="sub">${w('Fusion worked out each way it can be, over {0} months. Only the one marked is in the credits; the others are shown to compare, never added on top.', num(cmp.periodMonths))}</p>
-  ${table(`<thead><tr><th>${w('Estimate')}</th><th>${w('Projects or repositories')}</th><th>${w('Lines of code')}</th><th>${w('10K-LOC blocks')}</th><th>${w('Fusion scans')}</th><th>${w('Credits')}</th><th></th></tr></thead><tbody>
-    ${cmp.rows.map((r) => `<tr${r.used ? ' class="used"' : ''}><td class="name">${w(r.label)}</td><td>${num(r.projects)}</td><td>${num(r.lines)}</td><td>${num(r.units)}</td><td>${num(r.scans)}</td><td><b>${num(Math.round(r.credits))}</b></td><td>${r.used ? `<b>${w('In the credits')}</b>` : w('To compare')}</td></tr>`).join('')}
-  </tbody>`)}
-</section>`;
-}
-
 /** Appendix: the open vulnerabilities of each project by severity, from the last read of Checkmarx One. */
 function severityAppendix(data, L) {
   const sv = data.bySeverity;
@@ -558,9 +544,15 @@ tr.gold td{font-weight:600;color:var(--gold)} table.dense td{padding:5px 8px;fon
 footer{color:var(--muted);font-size:12px;max-width:1000px;margin:0 auto;padding:0 20px 32px}
 .levers{border-color:var(--soft-line);background:var(--soft)}
 .lv-head{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-start}
-.lv-head>div:first-child{flex:1 1 320px;max-width:62ch} .levers h2{margin:0 0 4px}
-.lv-total{display:grid;justify-items:end;gap:2px;text-align:end;font-size:13px;color:var(--muted)}
-.lv-eyebrow{font-size:12px} .lv-total b{font-size:32px;line-height:1.1;color:var(--accent);font-variant-numeric:tabular-nums}
+.lv-head>div:first-child{flex:1 1 320px;max-width:62ch} .levers h2{margin:0}
+.levers{padding-top:14px;padding-bottom:14px}
+.lv-sum{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 18px}
+.lv-sum::-webkit-details-marker{display:none}
+.lv-sum h2{font-size:17px} .lv-sum h2::before{content:"▸ ";color:var(--muted)} .lv-fold[open] .lv-sum h2::before{content:"▾ "}
+.lv-fold[open] .lv-sum{margin-bottom:12px}
+.lv-total{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:flex-end;gap:2px 8px;font-size:13px;color:var(--muted)}
+.lv-side{display:grid;justify-items:end;gap:2px}
+.lv-eyebrow{font-size:12px} .lv-total b{font-size:22px;line-height:1.1;color:var(--accent);font-variant-numeric:tabular-nums}
 .lv-acts{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:8px}
 .lv-acts button{font:inherit;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
 .lv-acts button:disabled{opacity:.5;cursor:default} .lv-acts .lv-primary{background:var(--accent);border-color:transparent;color:#fff}
@@ -584,7 +576,7 @@ footer{color:var(--muted);font-size:12px;max-width:1000px;margin:0 auto;padding:
 .lv-on .scroll .lv-num{width:76px}
 .lv-pill{position:fixed;inset-inline-end:16px;bottom:16px;margin:0;padding:8px 14px;border-radius:999px;background:var(--head1);color:#fff;font-size:13px;box-shadow:0 6px 20px rgb(0 0 0 / .18);z-index:5} .lv-pill span{opacity:.75}
 .lv-panel-seen .lv-pill{display:none} .lv-pdf-opt{margin-top:6px;font-size:12.5px}
-@media (max-width:600px){.lv-total{justify-items:start;text-align:start} .lv-acts{justify-content:flex-start} .lv-sev thead{display:none} .lv-sev tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--row)} .lv-sev tr>*{border:0;padding:0} .lv-sev th[scope=row]{grid-column:1/-1}
+@media (max-width:600px){.lv-total{justify-content:flex-start} .lv-side{justify-items:start} .lv-acts{justify-content:flex-start} .lv-sev thead{display:none} .lv-sev tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--row)} .lv-sev tr>*{border:0;padding:0} .lv-sev th[scope=row]{grid-column:1/-1}
   .lv-sev td::before{content:attr(data-label);display:block;font-size:11px;color:var(--muted)} .lv-sev td:nth-child(2),.lv-sev td:nth-child(3){grid-column:1/-1} .lv-slide{display:flex} .lv-slide input{flex:1;width:auto}}
 @media print{.levers,.lv-pill{display:none} .lv-num,.lv-pick{border:0;padding:0;background:none;appearance:none;-webkit-appearance:none;width:auto}}
 @media (max-width:600px){header{padding:20px 16px} header h1{font-size:20px} main{padding:16px 10px 32px} section{padding:16px 14px}}
@@ -592,8 +584,6 @@ footer{color:var(--muted);font-size:12px;max-width:1000px;margin:0 auto;padding:
   .theme{display:none} header,.bar,.live-dot{-webkit-print-color-adjust:exact;print-color-adjust:exact} section{break-inside:avoid-page;border:0;padding:0 0 12px}
   .appendix-title{break-before:page} .scroll{overflow:visible;border:0} table.dense{font-size:10px} td:not(.name):not(:first-child){white-space:normal}}
 
-.compare tr.used td{background:color-mix(in srgb,var(--accent,#2f3e7a) 9%,transparent)}
-.compare tr.used td:first-child{box-shadow:inset 3px 0 0 var(--accent,#2f3e7a)}
 .sev-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
 `;
 
@@ -643,7 +633,27 @@ header h1,h2{font-family:var(--ng-display);font-weight:${p.displayWeight}}
 section{border-radius:${p.radius}px} .card,.scroll{border-radius:${Math.min(p.radius, 12)}px}
 section.answer::before{background:var(--accent)}
 ${p.labels === 'caps' ? 'th{text-transform:uppercase;letter-spacing:.08em;font-size:10.5px}' : ''}
+${p.future ? futureStyle(p) : ''}
 @media print{:root{color-scheme:light;${vars(p.light)};--bg:#fff;--card:#fff}}
+`;
+}
+
+/** Future (the standalone calculator's look): deep space with an aurora, glowing cards, figures and lines in cyan to violet. */
+function futureStyle(p) {
+  const glow = (c) => `--fx1:${c.glow};--fx2:${c.glow2}`;
+  const space = 'radial-gradient(900px 480px at 6% -10%,color-mix(in srgb,var(--fx1) 14%,transparent),transparent 60%),radial-gradient(800px 460px at 100% -6%,color-mix(in srgb,var(--fx2) 16%,transparent),transparent 60%)';
+  return `:root{${glow(p.light)}}
+@media (prefers-color-scheme:dark){:root:not(:has(#theme-light:checked)){${glow(p.dark)}}}
+:root:has(#theme-dark:checked){${glow(p.dark)}}
+body{background-color:var(--bg);background-image:${space},linear-gradient(color-mix(in srgb,var(--fx1) 5%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--fx1) 5%,transparent) 1px,transparent 1px);background-size:auto,auto,44px 44px,44px 44px}
+header{background:${p.head} radial-gradient(700px 220px at 10% 0%,rgb(34 211 238 / .22),transparent 70%),radial-gradient(600px 220px at 95% 0%,rgb(139 92 246 / .26),transparent 70%);border-bottom:0;box-shadow:inset 0 -2px 0 0 transparent;position:relative}
+header::after{content:"";position:absolute;inset:auto 0 0;height:2px;background:linear-gradient(90deg,#22d3ee,#8b5cf6)}
+header h1{background:linear-gradient(90deg,#7dd3fc,#c4b5fd);-webkit-background-clip:text;background-clip:text;color:transparent}
+section{box-shadow:0 1px 0 rgb(255 255 255 / .03) inset,0 18px 40px -28px color-mix(in srgb,var(--fx1) 45%,transparent);border-color:color-mix(in srgb,var(--fx1) 16%,var(--line))}
+section.answer::before{background:linear-gradient(90deg,var(--fx1),var(--fx2))}
+.answer .big,.lv-total b{background:linear-gradient(90deg,var(--fx1),var(--fx2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lv-acts .lv-primary{background:linear-gradient(90deg,var(--fx1),var(--fx2))}
+@media print{body{background:#fff} header h1,.answer .big,.lv-total b{background:none;color:var(--ink)} section{box-shadow:none}}
 `;
 }
 
@@ -689,10 +699,13 @@ function leversPanel(data, live, L) {
   const ahead = tr?.ahead ?? {};
   const periods = [...new Set([3, 6, 12, 18, 24, 36, live.inputs.months])].sort((a, b) => a - b);
   const changed = JSON.stringify(live.inputs) !== JSON.stringify(live.sentInputs);
-  return `<section class="levers" id="levers" aria-labelledby="levers-h">
+  // Folded to one line (the total of your version beside it) until opened, so the answer stays first.
+  return `<section class="levers" id="levers" aria-labelledby="levers-h"><details class="lv-fold">
+  <summary class="lv-sum"><h2 id="levers-h">${w('Try other numbers')}</h2>
+    <span class="lv-total" aria-live="polite"><span class="lv-eyebrow">${w('Your version')}</span> <b data-out="total">${num(sum.total)}</b> <span data-out="bundles">${w('credits · {0} bundles of {1}', num(sum.bundles), num(sum.settings.bundleCredits))}</span> <span class="lv-was" data-out="was">${w('As sent: {0} credits', num(sent))}</span></span></summary>
   <div class="lv-head">
-    <div><h2 id="levers-h">${w('Try other numbers')}</h2><p class="sub">${w('Move any lever and every figure in this report follows. Nothing is sent anywhere and no Checkmarx One connection is needed: the changes stay in this file until you download your version.')}</p></div>
-    <div class="lv-total" aria-live="polite"><span class="lv-eyebrow">${w('Your version')}</span><b data-out="total">${num(sum.total)}</b><span data-out="bundles">${w('credits · {0} bundles of {1}', num(sum.bundles), num(sum.settings.bundleCredits))}</span><span class="lv-was" data-out="was">${w('As sent: {0} credits', num(sent))}</span>
+    <div><p class="sub">${w('Move any lever and every figure in this report follows. Nothing is sent anywhere and no Checkmarx One connection is needed: the changes stay in this file until you download your version.')}</p></div>
+    <div class="lv-side">
       <span class="lv-acts"><button type="button" data-act="reset"${changed ? '' : ' disabled'}>${w('Back to the plan as sent')}</button><button type="button" data-act="pdf">${w('Download PDF')}</button><button type="button" class="lv-primary" data-act="download">${w('Download my version')}</button></span>
       <label class="lv-check lv-pdf-opt"><input type="checkbox" data-pdf-calculations> ${w('Include the calculations in the PDF')}</label></div>
   </div>
@@ -717,7 +730,7 @@ function leversPanel(data, live, L) {
       <label class="lv-field">${w('Credits per bundle')} ${box('bundle', sum.settings.bundleCredits, w('Credits per bundle'), ' step="1"')}</label>
     </fieldset>
   </div>
-</section>
+</details></section>
 <p class="lv-pill" aria-hidden="true"><span>${w('Your version')}</span> <b data-out="pill">${num(sum.total)}</b> ${w('credits')}</p>`;
 }
 
@@ -730,7 +743,6 @@ export function reportMain(raw, { t, lang = 'en', live = null } = {}) {
   return `${answer(data, sum, L)}
 ${live ? leversPanel(data, live, L) : ''}
 ${story(data, L)}
-${fusionCompareSection(data, L)}
 ${impactSection(data, L)}
 ${assumptions(data, sum, L)}
 ${data.tr || data.fusion || data.fusionNew ? `<p class="appendix-title">${w('Appendix: every figure')}</p>` : ''}
