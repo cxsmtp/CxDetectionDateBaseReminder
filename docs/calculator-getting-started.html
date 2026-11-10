@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cx Credits Calculator: getting started</title>
+<!-- One A4 page, printed to "Getting started.pdf" by scripts/package-calculator.mjs's caller (see docs/credit-projections.md). -->
+<style>
+  @page { size: A4; margin: 0; }
+  :root { --ink: #0b1324; --muted: #5b6785; --line: #e3e9f4; --soft: #f5f8fd; --cyan: #0891b2; --violet: #7c3aed; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { width: 210mm; height: 297mm; font: 8.9pt/1.36 "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; color: var(--ink); background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow: hidden; }
+  header { position: relative; padding: 10mm 14mm 7mm; color: #e9f0ff; background-color: #060b1a; background-image: radial-gradient(520px 200px at 0% 0%, rgb(34 211 238 / .32), transparent 70%), radial-gradient(520px 220px at 100% 0%, rgb(139 92 246 / .36), transparent 70%); }
+  header::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgb(148 163 198 / .07) 1px, transparent 1px), linear-gradient(90deg, rgb(148 163 198 / .07) 1px, transparent 1px); background-size: 24px 24px; }
+  header::after { content: ""; position: absolute; inset: auto 0 0; height: 3px; background: linear-gradient(90deg, #22d3ee, #8b5cf6); }
+  header * { position: relative; }
+  .kick { font-size: 8pt; letter-spacing: .16em; text-transform: uppercase; color: #94a3c6; }
+  h1 { margin: 1.5mm 0 1mm; font-size: 20pt; line-height: 1.1; font-weight: 700; color: #a5e9ff; }
+  header p { margin: 0; color: #c7d2ea; font-size: 9.6pt; max-width: 165mm; }
+  main { padding: 5.5mm 14mm 0; }
+  h2 { margin: 0 0 2mm; font-size: 10.5pt; display: flex; align-items: center; gap: 2.5mm; }
+  h2 b { display: inline-grid; place-items: center; width: 6mm; height: 6mm; border-radius: 50%; font-size: 9pt; color: #fff; background: linear-gradient(135deg, var(--cyan), var(--violet)); }
+  section { margin-bottom: 4.2mm; }
+  .cards { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 3mm; }
+  .card { border: 1px solid var(--line); border-radius: 3mm; padding: 2.4mm 3mm; background: var(--soft); }
+  .card.best { background: #f1f6ff; border-color: #c7d7f5; box-shadow: inset 1.2mm 0 0 0 var(--violet); }
+  .card h3 { margin: 0 0 1mm; font-size: 10pt; }
+  .card h3 small { font-weight: 600; font-size: 7.5pt; color: var(--violet); letter-spacing: .06em; text-transform: uppercase; margin-left: 1mm; }
+  .card p { margin: 0 0 .8mm; color: var(--muted); font-size: 8pt; }
+  code { font: 8.4pt/1.3 "IBM Plex Mono", ui-monospace, Consolas, Menlo, monospace; color: var(--ink); background: #eef2fa; border-radius: 1mm; padding: .2mm 1mm; }
+  .card code { display: block; margin-top: .4mm; background: none; padding: 0; color: var(--cyan); font-size: 6.9pt; white-space: nowrap; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .os { border: 1px solid var(--line); border-radius: 3mm; padding: 2.4mm 3mm 1.4mm; }
+  .os h3 { margin: 0 0 1.5mm; font-size: 10pt; }
+  ol { margin: 0; padding-left: 4.5mm; } li { margin: 0 0 .8mm; }
+  .note { margin: 1.5mm 0 0; font-size: 8pt; color: var(--muted); }
+  .steps { counter-reset: s; list-style: none; padding: 0; display: grid; gap: 1.4mm; }
+  .steps li { counter-increment: s; position: relative; padding: 1.4mm 3mm 1.4mm 10mm; border-radius: 2.5mm; background: var(--soft); margin: 0; }
+  .steps li::before { content: counter(s); position: absolute; left: 2.6mm; top: 1.3mm; width: 5mm; height: 5mm; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 8.5pt; color: #fff; background: linear-gradient(135deg, var(--cyan), var(--violet)); }
+  .data { border-radius: 3mm; padding: 2.4mm 3.5mm; background: linear-gradient(90deg, rgb(8 145 178 / .08), rgb(124 58 237 / .08)); border: 1px solid #d5def3; }
+  .data p { margin: 0 0 1mm; } .data p:last-child { margin: 0; color: var(--muted); font-size: 8pt; }
+  .tips { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2mm 6mm; margin: 0; padding: 0; list-style: none; font-size: 8pt; }
+  .tips li { margin: 0; padding-left: 3.5mm; position: relative; color: #2a3550; }
+  .tips li::before { content: ""; position: absolute; left: 0; top: 1.6mm; width: 1.6mm; height: 1.6mm; border-radius: 50%; background: var(--cyan); }
+  footer { position: absolute; left: 14mm; right: 14mm; bottom: 8mm; display: flex; justify-content: space-between; font-size: 7.8pt; color: var(--muted); border-top: 1px solid var(--line); padding-top: 2mm; }
+</style>
+</head>
+<body>
+<header>
+  <div class="kick">Getting started</div>
+  <h1>Cx Credits Calculator</h1>
+  <p>Work out the Checkmarx One credits a customer needs (triage &amp; remediation, and Fusion) in minutes, and hand them a report and slides. It runs on your own computer, in your browser.</p>
+</header>
+<main>
+  <section>
+    <h2><b>1</b> Pick your download</h2>
+    <div class="cards">
+      <div class="card best"><h3>Ready to run <small>Recommended</small></h3><p>Node.js comes with it: nothing to install, no admin rights.</p><code>…-windows-x64.zip</code><code>…-macos-arm64.zip (Apple M1–M4)</code><code>…-macos-x64.zip (Intel Mac)</code></div>
+      <div class="card"><h3>One program</h3><p>One file to double-click. Not signed by a publisher, so Windows or macOS asks once.</p><code>…-&lt;system&gt;-app.zip</code></div>
+      <div class="card"><h3>Have Node.js 20+?</h3><p>Run the calculator file on its own:</p><code>node cx-credits-calculator.mjs</code></div>
+    </div>
+  </section>
+  <section>
+    <h2><b>2</b> Start it</h2>
+    <div class="two">
+      <div class="os"><h3>Windows</h3><ol>
+        <li>Right-click the zip, choose <b>Extract All</b>, then open the folder.</li>
+        <li>Double-click <b>Start Cx Credits Calculator.cmd</b> (one program: <b>Cx Credits Calculator.exe</b>; if Windows protected your PC: <b>More info</b>, <b>Run anyway</b>).</li>
+        <li>The calculator opens in your browser. Keep the black window open while you work.</li>
+      </ol></div>
+      <div class="os"><h3>macOS</h3><ol>
+        <li>Double-click the zip to unzip it, then open the folder.</li>
+        <li>First time only: right-click <b>Start Cx Credits Calculator.command</b> (one program: <b>Cx Credits Calculator</b>), <b>Open</b>, then <b>Open</b> again.</li>
+        <li>The calculator opens in your browser. Keep the Terminal window open while you work.</li>
+      </ol></div>
+    </div>
+    <p class="note">The browser did not open? Go to <code>http://127.0.0.1:47317</code>. To stop the calculator, close its window.</p>
+  </section>
+  <section>
+    <h2><b>3</b> Work out the credits</h2>
+    <ol class="steps">
+      <li>Type <b>Your organisation</b>: it goes on every report.</li>
+      <li>Paste a <b>Checkmarx One API key</b> (one that may read projects and scans) and press <b>Connect</b>. The read starts by itself and the figures fill in as projects arrive.</li>
+      <li>Optional: paste a <b>GitHub, GitLab or Bitbucket token</b> beside it and press <b>Add</b>: every repository it can see is counted for Fusion.</li>
+      <li>Check the credits: try the severities, the period and <b>New findings counted (%)</b>. The highest Fusion estimate counts; <b>Use this instead</b> picks another.</li>
+      <li><b>Generate projection report</b> for an HTML report the customer can play with, then <b>Download PDF summary</b> for the slides.</li>
+    </ol>
+  </section>
+  <section>
+    <h2><b>4</b> Your data stays with you</h2>
+    <div class="data">
+      <p>Customers and reports are saved in <code>cx-credits-calculator-data.json</code> in the calculator's folder and loaded from it next time. Copy the folder to keep your work or move it to another computer.</p>
+      <p>The API key and git tokens are never saved. The calculator talks only to your Checkmarx One and your git host; everything else stays on your computer.</p>
+    </div>
+  </section>
+  <section>
+    <h2><b>5</b> Good to know</h2>
+    <ul class="tips">
+      <li><b>Port 47317 is in use:</b> the calculator is already open in another window. Close it and start again.</li>
+      <li><b>Company network that inspects HTTPS:</b> set <code>NODE_EXTRA_CA_CERTS</code> to your company's root certificate file before starting.</li>
+      <li><b>No API key?</b> The Triage &amp; remediation tab also takes the two exports from Checkmarx One → Analytics.</li>
+      <li><b>Counting code from git</b> uses git when it is installed, otherwise the platform's API.</li>
+    </ul>
+  </section>
+</main>
+<footer><span>Cx Credits Calculator · MZ-01.01.08</span><span>Runs on 127.0.0.1 only · Windows 10/11 · macOS 11 or later</span></footer>
+</body>
+</html>
