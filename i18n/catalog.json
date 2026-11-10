@@ -37449,5 +37449,47 @@
   "seen": [
    "calculator report"
   ]
+ },
+ "Gap to close": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "{0} points": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "The debt rate less the fixing rate: the backlog grows by this much a month until fixing catches up": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Change what is counted": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "the highest estimate, picked by itself": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Counting from git: finding each token's organizations…": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Counting from git: listing the repositories…": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
  }
 }

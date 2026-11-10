@@ -345,6 +345,9 @@ function trAppendix(tr, L) {
   const hasWeeklyDebt = tr.weekly?.some((x) => x.addedRate !== undefined);
   // A month's share of today's backlog, as a %.
   const rate = (share) => (Number.isFinite(share) ? `${num(share, 1)}%` : '—');
+  const rateV = (share) => (Number.isFinite(share) ? `<span class="rate-v">${rate(share)}</span>` : '—');
+  // The debt rate less the fixing rate, in percentage points (none when fixing keeps up).
+  const gapV = (x) => (Number.isFinite(x?.addedPct) && Number.isFinite(x?.fixedPct) ? (x.addedPct > x.fixedPct ? `<b>${w('{0} points', num(x.addedPct - x.fixedPct, 1))}</b><i class="gap-bar" aria-hidden="true"></i>` : w('none')) : '—');
   // True positives: what is left once the false positives are taken out, one % for every severity counted or each its own.
   const fpOf = [...new Set(rows.filter((r) => (r.toTriage ?? r.selected) > 0).map((r) => r.fp))];
   const oneFp = fpOf.length === 1 ? fpOf[0] : null;
@@ -356,8 +359,9 @@ function trAppendix(tr, L) {
     <thead><tr><th>${w('By severity')}</th>${SEVERITIES.map((s) => `<th><i class="dot" style="background:${SEVERITY_COLOURS[s]}"></i>${w(s)}</th>`).join('')}<th>${w('Total')}</th></tr></thead>
     <tbody>
       <tr><td>${w('Current backlog')}</td>${cell((r) => num(r.backlog))}<td>${num(f.backlog)}</td></tr>
-      ${tr.recent ? `<tr><td title="${w('New vulnerabilities reported a month, as a share of the backlog, averaged over the last {0} months', num(tr.recent.months))}">${w('Debt rate ({0}-month average)', num(tr.recent.months))}</td>${SEVERITIES.map((s) => `<td>${rate(tr.recent[s]?.addedPct)}</td>`).join('')}<td>${rate(tr.recent.total?.addedPct)}</td></tr>
-      <tr><td title="${w('Vulnerabilities fixed a month, as a share of the backlog, averaged over the last {0} months', num(tr.recent.months))}">${w('Fixing rate ({0}-month average)', num(tr.recent.months))}</td>${SEVERITIES.map((s) => `<td>${rate(tr.recent[s]?.fixedPct)}</td>`).join('')}<td>${rate(tr.recent.total?.fixedPct)}</td></tr>` : ''}
+      ${tr.recent ? `<tr class="rate-debt"><td title="${w('New vulnerabilities reported a month, as a share of the backlog, averaged over the last {0} months', num(tr.recent.months))}">${w('Debt rate ({0}-month average)', num(tr.recent.months))}</td>${SEVERITIES.map((s) => `<td>${rateV(tr.recent[s]?.addedPct)}</td>`).join('')}<td>${rateV(tr.recent.total?.addedPct)}</td></tr>
+      <tr class="rate-fix"><td title="${w('Vulnerabilities fixed a month, as a share of the backlog, averaged over the last {0} months', num(tr.recent.months))}">${w('Fixing rate ({0}-month average)', num(tr.recent.months))}</td>${SEVERITIES.map((s) => `<td>${rateV(tr.recent[s]?.fixedPct)}</td>`).join('')}<td>${rateV(tr.recent.total?.fixedPct)}</td></tr>
+      <tr class="rate-gap"><td title="${w('The debt rate less the fixing rate: the backlog grows by this much a month until fixing catches up')}">${w('Gap to close')}</td>${SEVERITIES.map((s) => `<td>${gapV(tr.recent[s])}</td>`).join('')}<td>${gapV(tr.recent.total)}</td></tr>` : ''}
       ${hasDebtFix || tr.recent ? '' : `<tr class="muted"><td>${w('Debt increase')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).debtRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.debtRate)}</td></tr>
       <tr class="muted"><td>${w('Fix rate')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).fixRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.fixRate)}</td></tr>`}
       ${hasAhead ? `<tr class="strong"><td>${w('To triage')}</td>${cell((r) => num(r.toTriage))}<td>${num(f.toTriage)}</td></tr>` : ''}
@@ -464,11 +468,28 @@ function fusionNewAppendix(f, L) {
 }
 
 const STYLE = `
-:root{color-scheme:light;--bg:#f5f6f8;--card:#fff;--ink:#14171c;--muted:#5c636e;--line:#e2e5e9;--grid:#e2e5e9;--row:#eef0f3;--soft:#f4f6fb;--soft-line:#d5dcef;--gold:#2856c9;--accent:#2856c9;--head1:#14171c}
+:root{color-scheme:light;--bg:#f5f6f8;--card:#fff;--ink:#14171c;--muted:#5c636e;--line:#e2e5e9;--grid:#e2e5e9;--row:#eef0f3;--soft:#f4f6fb;--soft-line:#d5dcef;--gold:#2856c9;--accent:#2856c9;--head1:#14171c;--debt:#8b1a1a;--debt-soft:rgba(185,28,28,.13);--fix:#14632f;--fix-soft:rgba(21,128,61,.13)}
 ${'' /* Dark: chosen, or Auto on a system set to dark. */}
-@media (prefers-color-scheme:dark){:root:not(:has(#theme-light:checked)){color-scheme:dark;--bg:#0d0f12;--card:#14171b;--ink:#e6e8eb;--muted:#9097a1;--line:#252a31;--grid:#252a31;--row:#1d2127;--soft:#1a1f2b;--soft-line:#2c3854;--gold:#82a4f4;--accent:#82a4f4;--head1:#0a0c0f}}
-:root:has(#theme-dark:checked){color-scheme:dark;--bg:#0d0f12;--card:#14171b;--ink:#e6e8eb;--muted:#9097a1;--line:#252a31;--grid:#252a31;--row:#1d2127;--soft:#1a1f2b;--soft-line:#2c3854;--gold:#82a4f4;--accent:#82a4f4;--head1:#0a0c0f}
+@media (prefers-color-scheme:dark){:root:not(:has(#theme-light:checked)){color-scheme:dark;--bg:#0d0f12;--card:#14171b;--ink:#e6e8eb;--muted:#9097a1;--line:#252a31;--grid:#252a31;--row:#1d2127;--soft:#1a1f2b;--soft-line:#2c3854;--gold:#82a4f4;--accent:#82a4f4;--head1:#0a0c0f;--debt:#f87171;--debt-soft:rgba(248,113,113,.16);--fix:#4ade80;--fix-soft:rgba(74,222,128,.14)}}
+:root:has(#theme-dark:checked){color-scheme:dark;--bg:#0d0f12;--card:#14171b;--ink:#e6e8eb;--muted:#9097a1;--line:#252a31;--grid:#252a31;--row:#1d2127;--soft:#1a1f2b;--soft-line:#2c3854;--gold:#82a4f4;--accent:#82a4f4;--head1:#0a0c0f;--debt:#f87171;--debt-soft:rgba(248,113,113,.16);--fix:#4ade80;--fix-soft:rgba(74,222,128,.14)}
 *{box-sizing:border-box}
+${'' /* The debt rate in dark red and the fixing rate in dark green, each on a soft glow that breathes, out of step: the gap between them is what to close. */}
+.rate-v{position:relative;display:inline-block;padding:1px 8px;border-radius:999px;font-weight:700;isolation:isolate}
+.rate-v::before{content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;animation:rate-breathe 2.8s ease-in-out infinite}
+tr.rate-debt td:first-child,tr.rate-debt .rate-v{color:var(--debt)}
+tr.rate-debt .rate-v::before{background:var(--debt-soft)}
+tr.rate-fix td:first-child,tr.rate-fix .rate-v{color:var(--fix)}
+tr.rate-fix .rate-v::before{background:var(--fix-soft);animation-delay:1.4s}
+tr.rate-debt td:first-child,tr.rate-fix td:first-child{font-weight:600}
+${'' /* The gap is the highlight: dark red, on a tinted row with a mark at its start, its bar running. */}
+tr.rate-gap td{color:var(--debt);font-weight:700;font-size:15px;background:var(--debt-soft)}
+tr.rate-gap td:first-child{box-shadow:inset 4px 0 0 var(--debt);text-transform:uppercase;letter-spacing:.04em;font-size:13.5px}
+tr.rate-gap b{color:var(--debt);font-size:16px}
+tr.rate-gap .gap-bar{display:block;height:4px;margin-top:4px;border-radius:999px;background:linear-gradient(90deg,transparent,var(--debt),transparent);background-size:200% 100%;animation:rate-gap 2.2s linear infinite}
+@keyframes rate-breathe{0%,100%{opacity:.35;transform:scale(.94)}50%{opacity:1;transform:scale(1.06)}}
+@keyframes rate-gap{from{background-position:0 0}to{background-position:200% 0}}
+@media (prefers-reduced-motion:reduce){.rate-v::before,tr.rate-gap .gap-bar{animation:none}}
+@media print{.rate-v::before,tr.rate-gap .gap-bar{animation:none}}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 "IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow-wrap:anywhere;-webkit-font-smoothing:antialiased}
 header{background:var(--head1);color:#fff;padding:26px 32px}
 header .top{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px 20px;max-width:1000px;margin:0 auto}

@@ -5607,6 +5607,13 @@
   "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>ผลการตรวจพบใหม่ที่นับรวม</b>: {0}% นับรวมผลการตรวจพบใหม่ต่อเดือนเท่ากับ {1} เดือนที่ผ่านมา ({2} ต่อเดือน) {3}% นับรวมครึ่งหนึ่ง และ {4}% ไม่นับรวมเลย ลดค่านี้เมื่อลูกค้าคาดว่าจะมีผลการตรวจพบใหม่น้อยลง และเพิ่มค่านี้เมื่อจะมีโค้ดหรือโปรเจกต์เพิ่มขึ้น",
   "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "นับรวมที่ {0}% ของอัตรานั้น (ผลการตรวจพบใหม่ที่นับรวม): {1} × {0}% = เทียบเท่า {2} เดือน",
   "New findings counted": "ผลการตรวจพบใหม่ที่นับรวม",
-  "{0}% of the last months' pace": "{0}% ของอัตราในช่วงเดือนที่ผ่านมา"
+  "{0}% of the last months' pace": "{0}% ของอัตราในช่วงเดือนที่ผ่านมา",
+  "Gap to close": "ช่องว่างที่ต้องปิด",
+  "{0} points": "{0} จุดเปอร์เซ็นต์",
+  "The debt rate less the fixing rate: the backlog grows by this much a month until fixing catches up": "อัตราการเพิ่มของหนี้ลบด้วยอัตราการแก้ไข: รายการที่ค้างอยู่จะเพิ่มขึ้นเท่านี้ทุกเดือนจนกว่าการแก้ไขจะตามทัน",
+  "Change what is counted": "เปลี่ยนสิ่งที่นับ",
+  "the highest estimate, picked by itself": "ค่าประมาณสูงสุด ซึ่งเลือกโดยอัตโนมัติ",
+  "Counting from git: finding each token's organizations…": "กำลังนับจาก git: กำลังค้นหาองค์กรของแต่ละโทเค็น…",
+  "Counting from git: listing the repositories…": "กำลังนับจาก git: กำลังแสดงรายการรีโพซิทอรี…"
  }
 }

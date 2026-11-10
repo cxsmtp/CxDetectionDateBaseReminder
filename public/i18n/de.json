@@ -5607,6 +5607,13 @@
   "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>Berücksichtigte neue Funde</b>: Bei {0} % werden pro Monat so viele neue Funde berücksichtigt wie in den letzten {1} Monaten ({2} pro Monat), bei {3} % halb so viele, bei {4} % keine. Senken Sie den Wert, wenn der Kunde weniger neue Funde erwartet, und erhöhen Sie ihn, wenn mehr Code oder Projekte hinzukommen.",
   "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "Mit {0} % dieses Tempos berücksichtigt (Berücksichtigte neue Funde): {1} × {0} % = entspricht {2} Monaten.",
   "New findings counted": "Berücksichtigte neue Funde",
-  "{0}% of the last months' pace": "{0} % des Tempos der letzten Monate"
+  "{0}% of the last months' pace": "{0} % des Tempos der letzten Monate",
+  "Gap to close": "Zu schließende Lücke",
+  "{0} points": "{0} Prozentpunkte",
+  "The debt rate less the fixing rate: the backlog grows by this much a month until fixing catches up": "Schuldenzuwachsrate minus Behebungsquote: Um so viel wächst der Backlog pro Monat, bis die Behebung aufholt",
+  "Change what is counted": "Ändern, was gezählt wird",
+  "the highest estimate, picked by itself": "die höchste Schätzung, automatisch gewählt",
+  "Counting from git: finding each token's organizations…": "Zählung aus git: Die Organisationen jedes Tokens werden gesucht…",
+  "Counting from git: listing the repositories…": "Zählung aus git: Die Repositorys werden aufgelistet…"
  }
 }

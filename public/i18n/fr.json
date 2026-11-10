@@ -5607,6 +5607,13 @@
   "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>Nouvelles détections prises en compte</b> : à {0} %, autant de nouvelles détections par mois que sur les {1} derniers mois ({2} par mois) sont prises en compte ; à {3} %, deux fois moins ; à {4} %, aucune. Baissez cette valeur quand le client prévoit moins de nouvelles détections, augmentez-la quand davantage de code ou de projets sont attendus.",
   "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "Prises en compte à {0} % de ce rythme (Nouvelles détections prises en compte) : {1} × {0} % = l'équivalent de {2} mois.",
   "New findings counted": "Nouvelles détections prises en compte",
-  "{0}% of the last months' pace": "{0} % du rythme des derniers mois"
+  "{0}% of the last months' pace": "{0} % du rythme des derniers mois",
+  "Gap to close": "Écart à combler",
+  "{0} points": "{0} points de pourcentage",
+  "The debt rate less the fixing rate: the backlog grows by this much a month until fixing catches up": "Le taux d'augmentation de la dette moins le taux de correction : le backlog augmente d'autant chaque mois jusqu'à ce que la correction le rattrape",
+  "Change what is counted": "Modifier ce qui est compté",
+  "the highest estimate, picked by itself": "l'estimation la plus élevée, choisie automatiquement",
+  "Counting from git: finding each token's organizations…": "Comptage depuis git : recherche des organisations de chaque jeton…",
+  "Counting from git: listing the repositories…": "Comptage depuis git : récupération de la liste des dépôts…"
  }
 }

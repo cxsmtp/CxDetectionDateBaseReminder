@@ -498,6 +498,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-present').setAttribute('aria-pressed', String(c.present));
     $('calc-present').textContent = c.present ? 'Exit customer view' : 'Customer view';
     $('page-calculator').classList.toggle('calc-presenting', c.present);
+    document.body.classList.toggle('calc-presenting-on', c.present);
   });
 
   function renderSlots() {
@@ -1241,7 +1242,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     $('calc-cloc').hidden = shown !== 'cloc';
     // The HTML file on its own: Count from git says it cannot, and points to cloc-fusion.
     $('calc-git-offline').hidden = on;
-    $('calc-git-steps').hidden = !on;
+    $('calc-git-steps').hidden = !on || git.stepsFolded === true;
     // How the server measures: not said where nothing is measured.
     $('calc-git-how').hidden = !on;
     for (const id of ['calc-git-progress', 'calc-git-summary']) if (!on) $(id).hidden = true;
@@ -1285,8 +1286,9 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     return { cxone: cx, git: one('git'), cloc: one('cloc') };
   }
   /** Use one estimate (or none) in the credits: at once, as picking it is the whole change. */
-  function useBasis(b) {
+  function useBasis(b, { byHand = true } = {}) {
     if (!c.open) return;
+    fnew().basisByHand = byHand;
     if (b === 'git' || b === 'cloc') fnew().basis = b;
     fusion().optOut = b !== 'cxone';
     fnew().optOut = !(b === 'git' || b === 'cloc');
@@ -1301,9 +1303,29 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     placeFusion();
   }
   const credits = (t) => (t && t.projects ? num(Math.round(t.credits)) : '—');
+  /**
+   * Until one is picked by hand, the estimate predicting the most credits is the one in them (the most 10K-LOC blocks
+   * while no model has a price). True when it changed the one in use (and drew everything again).
+   */
+  let autoPicking = false;
+  function autoBasis(all = estimates()) {
+    if (!c.open || autoPicking || fnew().basisByHand) return false;
+    const order = Object.keys(BASES).filter((k) => all[k].projects);
+    if (!order.length) return false;
+    const best = order.reduce((a, k) => (all[k].credits > all[a].credits || (all[k].credits === all[a].credits && all[k].units > all[a].units) ? k : a));
+    if (best === basis()) return false;
+    autoPicking = true;
+    try {
+      useBasis(best, { byHand: false });
+    } finally {
+      autoPicking = false;
+    }
+    return true;
+  }
   function renderBasis() {
     if (!c.open) return;
     const all = estimates();
+    if (autoBasis(all)) return;
     const view = document.querySelector('#page-calculator [data-ptpanel^="calculator:fusion-"]:not([hidden])')?.dataset.ptpanel.split(':')[1];
     const shownRows = fnewEstimate().rows.filter((r) => (view === 'fusion-cloc' ? r.source === 'cloc' : r.source === 'git'));
     $('calc-fnew-log-count').textContent = shownRows.length ? `(${num(shownRows.length)})` : '(none yet)';
@@ -1337,7 +1359,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         </div>
         <div class="calc-fh-side">
           <div class="calc-fh-credits"><b>${credits(t)}</b><span>credits over ${num(months)} months</span></div>
-          ${on ? '<span class="calc-fh-used">✓ Used in the credits</span>' : `<button type="button" class="primary" data-use-basis="${esc(b)}"${t.projects ? '' : ' disabled'}>${used === 'none' ? 'Use this' : 'Use this instead'}</button>`}
+          ${on ? `<span class="calc-fh-used">✓ Used in the credits</span>${fnew().basisByHand ? '' : '<span class="calc-fh-auto">the highest estimate, picked by itself</span>'}` : `<button type="button" class="primary" data-use-basis="${esc(b)}"${t.projects ? '' : ' disabled'}>${used === 'none' ? 'Use this' : 'Use this instead'}</button>`}
           ${others}
           ${used === 'none' ? '<div class="calc-fh-alt"><b>Fusion is left out</b></div>' : '<button type="button" class="link calc-fh-out" data-use-basis="none">Leave Fusion out</button>'}
         </div>
@@ -1527,12 +1549,15 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     return { ...(orgs.length ? { orgs } : {}), everything: Boolean(found?.everything) };
   }
 
-  $('calc-git-orgs-find').addEventListener('click', async () => {
+  $('calc-git-orgs-find').addEventListener('click', () => findOrgs());
+  /** Find each source's organizations (a token: Everything this token can see, ticked to start with). True when found. */
+  async function findOrgs() {
     let how;
     try {
       how = access();
     } catch (error) {
-      return setStatus('calc-git-status', error.message, 'error');
+      setStatus('calc-git-status', error.message, 'error');
+      return false;
     }
     setStatus('calc-git-status', 'Finding the organizations…', 'muted');
     $('calc-git-orgs-find').disabled = true;
@@ -1546,17 +1571,19 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
           const label = s.source === 'token' && part.key && how.tokens.length > 1 ? `${s.label} · token ${part.index + 1}` : s.label;
           const own = git.connections?.find((x) => x.id === s.source)?.owner ?? '';
           const ticked = new Set((s.organizations ?? []).filter((o) => own && o.id.toLowerCase() === own.toLowerCase()).map((o) => o.id));
-          git.orgs[key] = { ...s, source: key, label, ticked, everything: false };
+          git.orgs[key] = { ...s, source: key, label, ticked, everything: s.source === 'token' };
         }
       }
       renderOrgs();
       setStatus('calc-git-status', '');
+      return true;
     } catch (error) {
       if (!handleAuthLoss(error)) showError('calc-git-status', error);
+      return false;
     } finally {
       $('calc-git-orgs-find').disabled = false;
     }
-  });
+  }
 
   function renderOrgs() {
     const sets = Object.values(git.orgs);
@@ -1582,12 +1609,15 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     }
   });
 
-  $('calc-git-list').addEventListener('click', async () => {
+  $('calc-git-list').addEventListener('click', () => listRepos());
+  /** List the repositories of what is ticked; those not archived and not forks ticked to start with. True when any. */
+  async function listRepos() {
     let how;
     try {
       how = access();
     } catch (error) {
-      return setStatus('calc-git-status', error.message, 'error');
+      setStatus('calc-git-status', error.message, 'error');
+      return false;
     }
     setStatus('calc-git-status', 'Listing the repositories…', 'muted');
     $('calc-git-list').disabled = true;
@@ -1614,12 +1644,51 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       else if (found.more) setStatus('calc-git-status', `The first ${num(git.repos.length)} repositories are listed: paste the addresses of any others.`, 'warn');
       else if (problems.length) setStatus('calc-git-status', problems.join(' · '), 'warn');
       else setStatus('calc-git-status', '');
+      return git.repos.some((r) => r.ticked);
     } catch (error) {
       if (!handleAuthLoss(error)) showError('calc-git-status', error);
+      return false;
     } finally {
       $('calc-git-list').disabled = false;
     }
-  });
+  }
+
+  /** The steps (where the code is, which repositories, the engine), folded behind one link once counted on their own. */
+  function foldGitSteps(folded) {
+    const steps = $('calc-git-steps');
+    let open = $('calc-git-steps-open');
+    if (!open) {
+      open = Object.assign(document.createElement('button'), { type: 'button', className: 'link calc-git-steps-open', id: 'calc-git-steps-open', textContent: 'Change what is counted' });
+      open.addEventListener('click', () => foldGitSteps(false));
+      steps.before(open);
+    }
+    git.stepsFolded = folded;
+    steps.hidden = folded;
+    open.hidden = !folded;
+  }
+  // On its own the calculator counts by itself once a token is given beside the API key: the steps start folded.
+  if (standalone) foldGitSteps(true);
+
+  /**
+   * Count everything the tokens can see, in one go (a token given beside the API key): find the organizations, list the
+   * repositories, count them. A count already running: this one follows when it ends.
+   */
+  async function autoCount() {
+    if (!c.open || !git.tokens.length) return;
+    if (git.run || git.autoBusy) return void (git.autoAgain = true);
+    git.autoBusy = true;
+    try {
+      git.chosen = new Set([...(git.chosen ?? []), 'token']);
+      setStatus('calc-git-status', 'Counting from git: finding each token\'s organizations…', 'muted');
+      if (!(await findOrgs())) return;
+      setStatus('calc-git-status', 'Counting from git: listing the repositories…', 'muted');
+      if (!(await listRepos())) return;
+      git.autoFold = true;
+      $('calc-git-count').click();
+    } finally {
+      git.autoBusy = false;
+    }
+  }
 
   function renderRepos() {
     const box = $('calc-git-repos');
@@ -1820,6 +1889,16 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       const next = git.queue.shift();
       setStatus('calc-git-status', `${num(git.queueDone.done)} counted so far; the next token's repositories now…`, 'muted');
       return startCount(next.items, { how: next.how });
+    }
+    // Counted on its own: the steps fold away, the tiles and the projects stay; Change what is counted opens them.
+    if (git.autoFold && !git.queue?.length) {
+      git.autoFold = false;
+      foldGitSteps(true);
+    }
+    // A token added while this count ran: its repositories are counted now.
+    if (git.autoAgain) {
+      git.autoAgain = false;
+      setTimeout(autoCount, 0);
     }
     if (git.queueDone && git.queueDone.runs > 1) {
       const all = git.queueDone;
@@ -3558,9 +3637,14 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   return {
     load,
     renderOrg,
+    // Read Checkmarx One now (Connect): after a read this page is starting by itself, never a second one.
+    read: async () => {
+      for (let i = 0; i < 50 && reading.starting; i += 1) await new Promise((r) => setTimeout(r, 100));
+      if (!reading.timer && c.open) applyAll({ read: true });
+    },
     refresh: () => c.open && show(c.open),
     autoRead,
-    git: { add: addGitToken, list: gitTokens, remove: removeGitToken, detect: detectProvider, onChange: (fn) => (git.onTokens = fn), open: () => document.querySelector('[data-ptabs] [data-pt="fusion-git"]')?.click() },
+    git: { add: addGitToken, count: () => autoCount(), counting: () => Boolean(git.run || git.autoBusy), list: gitTokens, remove: removeGitToken, detect: detectProvider, onChange: (fn) => (git.onTokens = fn), open: () => document.querySelector('[data-ptabs] [data-pt="fusion-git"]')?.click() },
   };
 }
 

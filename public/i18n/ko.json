@@ -5607,6 +5607,13 @@
   "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>반영할 신규 탐지 결과</b>: {0}%는 최근 {1}개월과 같은 수의 신규 탐지 결과를 매월 반영하고(월 {2}건), {3}%는 그 절반, {4}%는 반영하지 않습니다. 고객이 신규 탐지 결과 감소를 예상하면 낮추고, 코드나 프로젝트가 늘어날 예정이면 높이세요.",
   "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "해당 속도의 {0}%로 반영(반영할 신규 탐지 결과): {1} × {0}% = {2}개월분.",
   "New findings counted": "반영할 신규 탐지 결과",
-  "{0}% of the last months' pace": "최근 몇 개월 속도의 {0}%"
+  "{0}% of the last months' pace": "최근 몇 개월 속도의 {0}%",
+  "Gap to close": "좁혀야 할 격차",
+  "{0} points": "{0}퍼센트포인트",
+  "The debt rate less the fixing rate: the backlog grows by this much a month until fixing catches up": "부채 증가율에서 수정률을 뺀 값입니다. 수정이 따라잡을 때까지 백로그가 매달 이만큼 늘어납니다.",
+  "Change what is counted": "측정 대상 변경",
+  "the highest estimate, picked by itself": "자동으로 선택된 가장 높은 추정치",
+  "Counting from git: finding each token's organizations…": "git에서 측정 중: 각 토큰의 조직을 찾는 중…",
+  "Counting from git: listing the repositories…": "git에서 측정 중: 저장소 목록을 가져오는 중…"
  }
 }

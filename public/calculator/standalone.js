@@ -196,6 +196,25 @@ export function startStandalone({ samples = {} } = {}) {
   const head = document.querySelector('.sa-top .topbar-title');
   const customer = document.querySelector('#page-calculator .calc-customer');
   if (head && customer) head.after(customer);
+  // With the launcher, the projection settings sit right under the keys, squeezed to two lines: the read and its
+  // settings, then the reading line; the project filters stay folded.
+  const keys = document.getElementById('sa-connect');
+  const heart = document.getElementById('calc-heart');
+  if (keys && heart) {
+    keys.after(heart);
+    heart.classList.add('calc-heart-compact');
+  }
+  // The keys and the settings fold into one line once a read starts (the settings are set), so the credits come first;
+  // the line keeps the read's progress and says what is set. Settings opens them again.
+  let setup = null;
+  if (keys && heart) {
+    setup = document.createElement('section');
+    setup.className = 'sa-setup';
+    setup.id = 'sa-setup';
+    setup.innerHTML = '<div class="sa-setup-bar"><span class="sa-setup-dot" aria-hidden="true"></span><span class="sa-setup-text" id="sa-setup-text" aria-live="polite"></span><progress id="sa-setup-progress" max="100" value="0" hidden></progress><button type="button" class="link sa-setup-toggle" id="sa-setup-toggle" aria-expanded="true" aria-controls="sa-setup-body">Hide settings</button></div><div class="sa-setup-body" id="sa-setup-body"></div>';
+    keys.before(setup);
+    setup.querySelector('.sa-setup-body').append(keys, heart);
+  }
 
   // The theme: light to start with, or light or dark as chosen here.
   const applyTheme = (theme) => {
@@ -338,7 +357,7 @@ export function startStandalone({ samples = {} } = {}) {
         $('sa-key').value = '';
         showState(state);
         toast(`Connected to ${state.tenant}: Read from Checkmarx One fills the customer open.`, 'ok');
-        calculator.autoRead();
+        calculator.read();
       } catch (error) {
         setStatus('sa-connect-status', error.message, 'error');
       } finally {
@@ -355,6 +374,64 @@ export function startStandalone({ samples = {} } = {}) {
     // A reload while the launcher is still connected stays connected.
     toLauncher(launcher, '/launcher/status').then(showState, (error) => setStatus('sa-connect-status', error.message, 'error'));
     startGitTokens();
+    startSetupFold();
+  }
+
+  /**
+   * The keys and settings, folded to one line while a read runs and after it (connected, every setting applied), and
+   * open while there is no connection or a change waits for Apply. Opened or closed by hand, it stays so until the next read.
+   */
+  function startSetupFold() {
+    if (!setup) return;
+    const progress = $('calc-read-progress');
+    const mini = $('sa-setup-progress');
+    let byHand = null;
+    let wasReading = false;
+    const reading = () => !progress.hidden;
+    const pending = () => !$('calc-pending').hidden && !$('calc-pending').classList.contains('idle');
+    const show = (folded) => {
+      setup.classList.toggle('folded', folded);
+      $('sa-setup-toggle').textContent = folded ? 'Settings' : 'Hide settings';
+      $('sa-setup-toggle').setAttribute('aria-expanded', String(!folded));
+    };
+    const update = () => {
+      const now = reading();
+      if (now && !wasReading) byHand = null;
+      wasReading = now;
+      const tokens = calculator.git.list().length;
+      const note = $('calc-read-note').textContent.trim();
+      const parts = [
+        connected ? $('sa-connect-status').textContent.trim() : 'Not connected',
+        now ? `Reading Checkmarx One · ${progress.value}%` : note.replace(/\s+/g, ' '),
+        pending() ? $('calc-pending-count').textContent.trim() : '',
+        tokens ? (tokens === 1 ? '1 git token' : `${tokens} git tokens`) : '',
+      ].filter(Boolean);
+      $('sa-setup-text').textContent = parts.join(' · ');
+      setup.classList.toggle('reading', now);
+      setup.classList.toggle('offline', !connected);
+      mini.hidden = !now;
+      mini.value = progress.value;
+      const auto = connected && !pending() && (now || /\d/.test(note));
+      show(byHand ?? auto);
+    };
+    $('sa-setup-toggle').addEventListener('click', () => {
+      byHand = !setup.classList.contains('folded');
+      show(byHand);
+    });
+    let queued = false;
+    const soon = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        update();
+      });
+    };
+    const watch = new MutationObserver(soon);
+    for (const el of [progress, $('calc-read-note'), $('calc-pending'), $('sa-connect-status'), $('sa-git-list')]) watch.observe(el, { attributes: true, childList: true, subtree: true, characterData: true });
+    // The progress bar's value is a property: followed while a read runs.
+    setInterval(() => reading() && soon(), 700);
+    update();
   }
 
   /**
@@ -372,6 +449,14 @@ export function startStandalone({ samples = {} } = {}) {
       setStatus('sa-git-status', list.length ? `${list.length === 1 ? '1 token' : `${list.length} tokens`} · this run only` : '', list.length ? 'ok' : 'muted');
     };
     git.onChange(render);
+    // How the count goes, from Fusion · from Git's own line, beside the tokens.
+    new MutationObserver(() => {
+      const line = $('calc-git-status');
+      const text = line.textContent.trim();
+      if (!text || !git.list().length) return;
+      const kind = ['ok', 'warn', 'error'].find((k) => line.classList.contains(k)) ?? 'muted';
+      setStatus('sa-git-status', text.split(':')[0], kind);
+    }).observe($('calc-git-status'), { childList: true, characterData: true, subtree: true, attributes: true });
     $('sa-git-token').addEventListener('input', () => {
       const found = git.detect($('sa-git-token').value.trim());
       if (found) $('sa-git-provider').value = found;
@@ -383,6 +468,9 @@ export function startStandalone({ samples = {} } = {}) {
       if (!kind) return setStatus('sa-git-status', 'Pick the git host for this token.', 'error');
       $('sa-git-token').value = '';
       render();
+      // Counted at once: everything the token can see, on Fusion · from Git.
+      git.count();
+      setStatus('sa-git-status', 'Counting its repositories on Fusion · from Git…', 'muted');
     };
     $('sa-git-add').addEventListener('click', add);
     $('sa-git-token').addEventListener('keydown', (event) => {

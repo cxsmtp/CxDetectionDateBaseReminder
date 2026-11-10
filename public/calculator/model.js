@@ -629,6 +629,8 @@ export function newCustomerSettings(value = {}) {
     // Which counted code is in the credits: 'git' (counted from git, and projects added by hand) or 'cloc'
     // (a cloc-fusion report or cloc results). None (saved before the Fusion tabs): all of it, as before.
     basis: v.basis === 'git' || v.basis === 'cloc' ? v.basis : null,
+    // Picked by hand (Use this instead, Leave Fusion out): kept. Otherwise the estimate with the most credits is used.
+    basisByHand: v.basisByHand === true,
   };
 }
 

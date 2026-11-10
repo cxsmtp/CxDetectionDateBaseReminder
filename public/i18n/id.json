@@ -5607,6 +5607,13 @@
   "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>Temuan baru yang dihitung</b>: {0}% menghitung temuan baru per bulan sebanyak {1} bulan terakhir ({2} per bulan), {3}% setengahnya, dan {4}% tidak sama sekali. Turunkan nilai ini jika pelanggan memperkirakan temuan baru akan berkurang, dan naikkan jika akan ada lebih banyak kode atau proyek.",
   "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "Dihitung pada {0}% dari kecepatan tersebut (Temuan baru yang dihitung): {1} × {0}% = setara dengan {2} bulan.",
   "New findings counted": "Temuan baru yang dihitung",
-  "{0}% of the last months' pace": "{0}% dari kecepatan beberapa bulan terakhir"
+  "{0}% of the last months' pace": "{0}% dari kecepatan beberapa bulan terakhir",
+  "Gap to close": "Selisih yang harus ditutup",
+  "{0} points": "{0} poin persentase",
+  "The debt rate less the fixing rate: the backlog grows by this much a month until fixing catches up": "Laju pertambahan utang dikurangi laju perbaikan: backlog bertambah sebanyak ini setiap bulan hingga perbaikan dapat mengejarnya",
+  "Change what is counted": "Ubah yang dihitung",
+  "the highest estimate, picked by itself": "perkiraan tertinggi, dipilih secara otomatis",
+  "Counting from git: finding each token's organizations…": "Menghitung dari git: mencari organisasi setiap token…",
+  "Counting from git: listing the repositories…": "Menghitung dari git: menampilkan daftar repositori…"
  }
 }

@@ -266,6 +266,53 @@ const STANDALONE_CSS = `
 .shell.standalone .sa-git-chip button { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 6px; border-radius: 999px; }
 .shell.standalone .sa-git-chip button:hover { color: var(--danger, #c4372f); }
 .shell.standalone .sa-git-list .link { font-size: 12px; }
+/* The keys and the settings as one section: one slim line (the connection, the read and its bar, what is set, Settings)
+   that folds the rest away once a read starts, so the credits come first. The title line slim too. */
+.shell.standalone .sa-top { padding: 8px 0 8px; gap: 8px 16px; }
+.shell.standalone .sa-top h1 { font-size: clamp(18px, 1.7vw, 22px); }
+.shell.standalone .sa-top .sa-names .field > span { font-size: 10.5px; }
+.shell.standalone .sa-top .sa-names input { padding-top: 4px; padding-bottom: 4px; font-size: 13px; }
+.shell.standalone .sa-setup { flex: 1 1 100%; order: 5; display: grid; gap: 8px; }
+.shell.standalone .sa-setup-body { display: grid; gap: 8px; }
+.shell.standalone .sa-setup.folded .sa-setup-body { display: none; }
+.shell.standalone .sa-setup-bar { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 5px 8px 5px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: 12.5px; }
+.shell.standalone .sa-setup-text { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.shell.standalone .sa-setup-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok, #157347); }
+.shell.standalone .sa-setup.offline .sa-setup-dot { background: var(--muted); }
+.shell.standalone .sa-setup.reading .sa-setup-dot { background: var(--accent); animation: readfx-live 1.4s ease-out infinite; }
+.shell.standalone .sa-setup-toggle { flex: none; font-weight: 600; padding: 2px 8px; }
+.shell.standalone #sa-setup-progress:not([hidden]) { flex: 0 1 220px; appearance: none; -webkit-appearance: none; height: 4px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--muted) 16%, transparent); overflow: hidden; }
+.shell.standalone #sa-setup-progress::-webkit-progress-bar { background: transparent; }
+.shell.standalone #sa-setup-progress::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488, var(--accent)); background-size: 200% 100%; animation: sa-progress 1.6s linear infinite; transition: width .8s ease-out; }
+.shell.standalone #sa-setup-progress::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488, var(--accent)); background-size: 200% 100%; animation: sa-progress 1.6s linear infinite; }
+@media (max-width: 640px) { .shell.standalone #sa-setup-progress:not([hidden]) { flex-basis: 80px; } }
+/* The projection settings under the keys, squeezed: the read and its settings on one line with Apply at the end,
+   the reading line under them (its bar runs while Checkmarx One is read), the project filters folded. */
+.shell.standalone .calc-heart-compact { gap: 6px 14px; padding: 8px 14px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-width: 1px; }
+.calc-heart-compact .calc-heart-head { display: none; }
+.calc-heart-compact .calc-apply-hint { display: none; }
+.calc-heart-compact > .calc-source { grid-column: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; padding: 0; border: 0; font-size: 12.5px; }
+.calc-heart-compact #calc-read { padding: 4px 12px; min-height: 0; font-size: 12.5px; }
+.calc-heart-compact .pill-check { padding: 3px 10px; font-size: 12px; }
+.calc-heart-compact .calc-read-limit input { width: 8ch; padding: 3px 6px; }
+.calc-heart-compact .calc-origin-pick > summary { padding: 3px 10px; font-size: 12px; }
+.calc-heart-compact .calc-source-state { flex: 1 1 100%; display: grid; gap: 4px; }
+.calc-heart-compact #calc-read-note { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0; background: none; }
+.calc-heart-compact #calc-read-note:empty { display: none; }
+.calc-heart-compact #calc-read-progress:not([hidden]) { appearance: none; -webkit-appearance: none; width: 100%; max-width: none; height: 4px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--muted) 16%, transparent); overflow: hidden; }
+.calc-heart-compact #calc-read-progress::-webkit-progress-bar { background: transparent; }
+.calc-heart-compact #calc-read-progress::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488, var(--accent)); background-size: 200% 100%; animation: sa-progress 1.6s linear infinite; transition: width .8s ease-out; }
+.calc-heart-compact #calc-read-progress::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488, var(--accent)); background-size: 200% 100%; animation: sa-progress 1.6s linear infinite; }
+@keyframes sa-progress { from { background-position: 200% 0; } to { background-position: 0 0; } }
+.calc-heart-compact > .calc-pending { grid-column: 2; grid-row: 1; margin: 0; padding: 4px 6px 4px 12px; gap: 10px; }
+.calc-heart-compact > .calc-pending #calc-pending-count { font-size: 12.5px; }
+.calc-heart-compact > .calc-pending ul { display: none; }
+.calc-heart-compact > .calc-pending button { padding: 4px 12px; min-height: 0; font-size: 12.5px; }
+.calc-heart-compact > .calc-scope { grid-column: 1 / -1; margin: 0; padding: 4px 0 0; border-top: 1px solid var(--border); font-size: 12.5px; }
+.calc-heart-compact .calc-scope-line { gap: 4px 10px; }
+body.calc-presenting-on .calc-heart-compact { display: none; }
+@media (max-width: 760px) { .shell.standalone .calc-heart-compact { grid-template-columns: minmax(0, 1fr); } .calc-heart-compact > .calc-pending { grid-column: 1; grid-row: auto; } }
+@media (prefers-reduced-motion: reduce) { .calc-heart-compact #calc-read-progress::-webkit-progress-value, .calc-heart-compact #calc-read-progress::-moz-progress-bar { animation: none; } }
 @media (max-width: 900px) { .shell.standalone .sa-connect { grid-template-columns: minmax(0, 1fr); } .shell.standalone .sa-keybox-git { padding-inline-start: 0; border-inline-start: 0; padding-top: 10px; border-top: 1px solid var(--border); } }
 .shell.standalone .sa-key-head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .shell.standalone .sa-kick { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); }

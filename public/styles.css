@@ -3268,7 +3268,7 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 #calc-read-note.reading { display: block; flex: 1 1 100%; padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text); font-weight: 600; font-size: 13px; }
 #calc-read-progress:not([hidden]) { display: block; width: 100%; height: 8px; accent-color: var(--accent); }
 /* The three Fusion tabs: a header card each, with what it found, its credits and whether they are in use. */
-.calc-add-fusion, #calc-fusion-off-note, #calc-fnew-off-note, #calc-fusion-viz-panel.calc-viz-elsewhere { display: none !important; }
+.calc-add-fusion, #calc-fusion-off-note, #calc-fnew-off-note, #calc-fusion-viz-panel { display: none !important; }
 .calc-fh { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 24px; padding: 16px 18px; border: 1.5px solid var(--border-strong); border-radius: 14px; background: var(--surface); }
 .calc-fh:empty { display: none; }
 .calc-fh h2 { margin: 2px 0 8px; font-size: 20px; }
@@ -3283,6 +3283,7 @@ button.calc-remove { min-height: 0; padding: 4px 8px; color: var(--danger); }
 .calc-fh-credits b { display: block; font-size: 30px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.1; }
 .calc-fh-credits span { font-size: 12px; color: var(--muted); }
 .calc-fh-used { display: inline-flex; align-items: center; padding: 7px 14px; border-radius: 999px; background: var(--accent); color: var(--accent-ink, #fff); font-weight: 700; font-size: 13.5px; }
+.calc-fh-auto { display: block; margin-top: 4px; font-size: 11.5px; color: var(--muted); }
 .calc-fh-alt { font-size: 12.5px; color: var(--muted); }
 .calc-fh-out { font-size: 12.5px; }
 .calc-fh-foot { grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 10px; font-size: 13px; color: var(--muted); }

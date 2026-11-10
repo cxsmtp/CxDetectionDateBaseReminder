@@ -5607,6 +5607,13 @@
   "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>计入的新增检测结果</b>：{0}% 表示每月计入的新增检测结果与最近 {1} 个月相同（每月 {2}），{3}% 为一半，{4}% 则不计入。如果客户预计新增检测结果会减少，请调低；如果将有更多代码或项目加入，请调高。",
   "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "按该速度的 {0}% 计入（计入的新增检测结果）：{1} × {0}% = 相当于 {2} 个月的量。",
   "New findings counted": "计入的新增检测结果",
-  "{0}% of the last months' pace": "最近几个月速度的 {0}%"
+  "{0}% of the last months' pace": "最近几个月速度的 {0}%",
+  "Gap to close": "待缩小的差距",
+  "{0} points": "{0} 个百分点",
+  "The debt rate less the fixing rate: the backlog grows by this much a month until fixing catches up": "债务增加率减去修复率：在修复速度赶上之前，积压每月会增加这么多",
+  "Change what is counted": "更改统计范围",
+  "the highest estimate, picked by itself": "自动选取的最高估计",
+  "Counting from git: finding each token's organizations…": "从 git 统计中：正在查找每个令牌的组织…",
+  "Counting from git: listing the repositories…": "从 git 统计中：正在列出代码仓库…"
  }
 }

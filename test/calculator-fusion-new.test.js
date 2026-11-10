@@ -62,7 +62,7 @@ test('the total counts Fusion for the existing customer and for the new customer
 
 test('a customer keeps the new customer tab: cleaned like everything else saved, and in its reports\' total', () => {
   const fresh = newProfile({ name: 'Acme' });
-  assert.deepEqual(fresh.fusionNew, { defaultScans: 12, defaultModel: null, leftOut: [...CLOC_LEFT_OUT], optOut: false, basis: null, projects: [] });
+  assert.deepEqual(fresh.fusionNew, { defaultScans: 12, defaultModel: null, leftOut: [...CLOC_LEFT_OUT], optOut: false, basis: null, basisByHand: false, projects: [] });
   const next = patchProfile(fresh, { fusionNew: { optOut: true, defaultScans: '6', leftOut: ['JSON', 'JSON', ''], projects: [{ name: 'x'.repeat(300), langs: { Java: '1,000', ['__proto__']: 5, constructor: 1 }, scansOverride: '3', modelOverride: 'm1' }] } });
   const p = next.fusionNew.projects[0];
   assert.equal(next.fusionNew.optOut, true);

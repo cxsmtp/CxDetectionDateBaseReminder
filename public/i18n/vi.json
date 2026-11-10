@@ -5607,6 +5607,13 @@
   "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>Phát hiện mới được tính</b>: {0}% tính số phát hiện mới mỗi tháng bằng {1} tháng gần nhất ({2} mỗi tháng), {3}% tính một nửa, {4}% không tính. Hãy giảm khi khách hàng dự kiến có ít phát hiện mới hơn, và tăng khi sắp có thêm mã hoặc dự án.",
   "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "Tính theo {0}% tốc độ đó (Phát hiện mới được tính): {1} × {0}% = tương đương {2} tháng.",
   "New findings counted": "Phát hiện mới được tính",
-  "{0}% of the last months' pace": "{0}% tốc độ của những tháng gần nhất"
+  "{0}% of the last months' pace": "{0}% tốc độ của những tháng gần nhất",
+  "Gap to close": "Khoảng chênh lệch cần thu hẹp",
+  "{0} points": "{0} điểm phần trăm",
+  "The debt rate less the fixing rate: the backlog grows by this much a month until fixing catches up": "Tốc độ tăng nợ trừ đi tỷ lệ khắc phục: lượng tồn đọng tăng thêm chừng này mỗi tháng cho đến khi việc khắc phục bắt kịp",
+  "Change what is counted": "Thay đổi phạm vi đếm",
+  "the highest estimate, picked by itself": "ước tính cao nhất, được chọn tự động",
+  "Counting from git: finding each token's organizations…": "Đang đếm từ git: đang tìm các tổ chức của từng token…",
+  "Counting from git: listing the repositories…": "Đang đếm từ git: đang liệt kê các kho mã…"
  }
 }

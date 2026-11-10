@@ -5607,6 +5607,13 @@
   "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": "<b>計上する新規検出結果</b>：{0}%では過去{1}か月間と同じ件数の新規検出結果を毎月計上し（月{2}件）、{3}%ではその半分、{4}%では計上しません。顧客が新規検出結果の減少を見込む場合は下げ、コードやプロジェクトの増加が見込まれる場合は上げてください。",
   "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": "そのペースの{0}%で計上（計上する新規検出結果）：{1} × {0}% = {2}か月分。",
   "New findings counted": "計上する新規検出結果",
-  "{0}% of the last months' pace": "過去数か月のペースの{0}%"
+  "{0}% of the last months' pace": "過去数か月のペースの{0}%",
+  "Gap to close": "解消すべき差",
+  "{0} points": "{0}ポイント",
+  "The debt rate less the fixing rate: the backlog grows by this much a month until fixing catches up": "負債の増加率から修正率を引いた値：修正が追いつくまで、バックログは毎月この分だけ増加します",
+  "Change what is counted": "計測対象を変更",
+  "the highest estimate, picked by itself": "自動的に選ばれた最も高い推定値",
+  "Counting from git: finding each token's organizations…": "gitから計測中：各トークンの組織を検索しています…",
+  "Counting from git: listing the repositories…": "gitから計測中：リポジトリを一覧表示しています…"
  }
 }
