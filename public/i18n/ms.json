@@ -5614,6 +5614,8 @@
   "Change what is counted": "Ubah perkara yang dikira",
   "the highest estimate, picked by itself": "anggaran tertinggi, dipilih secara automatik",
   "Counting from git: finding each token's organizations…": "Mengira daripada git: mencari organisasi bagi setiap token…",
-  "Counting from git: listing the repositories…": "Mengira daripada git: menyenaraikan repositori…"
+  "Counting from git: listing the repositories…": "Mengira daripada git: menyenaraikan repositori…",
+  "Getting started": "Bermula",
+  "Without Node.js": "Tanpa Node.js"
  }
 }

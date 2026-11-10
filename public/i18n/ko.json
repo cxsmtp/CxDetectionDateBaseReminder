@@ -5614,6 +5614,8 @@
   "Change what is counted": "측정 대상 변경",
   "the highest estimate, picked by itself": "자동으로 선택된 가장 높은 추정치",
   "Counting from git: finding each token's organizations…": "git에서 측정 중: 각 토큰의 조직을 찾는 중…",
-  "Counting from git: listing the repositories…": "git에서 측정 중: 저장소 목록을 가져오는 중…"
+  "Counting from git: listing the repositories…": "git에서 측정 중: 저장소 목록을 가져오는 중…",
+  "Getting started": "시작하기",
+  "Without Node.js": "Node.js 없이"
  }
 }

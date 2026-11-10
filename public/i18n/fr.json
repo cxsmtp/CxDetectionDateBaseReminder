@@ -5614,6 +5614,8 @@
   "Change what is counted": "Modifier ce qui est compté",
   "the highest estimate, picked by itself": "l'estimation la plus élevée, choisie automatiquement",
   "Counting from git: finding each token's organizations…": "Comptage depuis git : recherche des organisations de chaque jeton…",
-  "Counting from git: listing the repositories…": "Comptage depuis git : récupération de la liste des dépôts…"
+  "Counting from git: listing the repositories…": "Comptage depuis git : récupération de la liste des dépôts…",
+  "Getting started": "Premiers pas",
+  "Without Node.js": "Sans Node.js"
  }
 }

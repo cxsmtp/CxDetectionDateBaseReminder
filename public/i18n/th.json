@@ -5614,6 +5614,8 @@
   "Change what is counted": "เปลี่ยนสิ่งที่นับ",
   "the highest estimate, picked by itself": "ค่าประมาณสูงสุด ซึ่งเลือกโดยอัตโนมัติ",
   "Counting from git: finding each token's organizations…": "กำลังนับจาก git: กำลังค้นหาองค์กรของแต่ละโทเค็น…",
-  "Counting from git: listing the repositories…": "กำลังนับจาก git: กำลังแสดงรายการรีโพซิทอรี…"
+  "Counting from git: listing the repositories…": "กำลังนับจาก git: กำลังแสดงรายการรีโพซิทอรี…",
+  "Getting started": "เริ่มต้นใช้งาน",
+  "Without Node.js": "ไม่ต้องใช้ Node.js"
  }
 }

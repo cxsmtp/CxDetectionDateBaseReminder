@@ -70,7 +70,7 @@ export function calculatorMarkup(indexHtml) {
   let depth = 0;
   for (let m = tag.exec(indexHtml); m; m = tag.exec(indexHtml)) {
     depth += m[0].startsWith('</') ? -1 : 1;
-    if (depth === 0) return indexHtml.slice(start, tag.lastIndex).replace(/^<div id="page-calculator" class="page calc-page" hidden>/, '<div id="page-calculator" class="page calc-page">');
+    if (depth === 0) return indexHtml.slice(start, tag.lastIndex).replace(/^<div id="page-calculator" class="([^"]*)" hidden>/, '<div id="page-calculator" class="$1">');
   }
   throw new Error('The calculator page in index.html does not close');
 }
@@ -84,7 +84,8 @@ export function standaloneMarkup(markup, { launcher = false } = {}) {
     // Count from git: in the launcher, this computer's git fetches and counts (the file on its own says it cannot, and points to cloc-fusion).
     ['is fetched from git into a temporary folder on this server,', launcher ? 'is fetched from git into a temporary folder on this computer,' : 'is fetched from git into a temporary folder on this server,'],
   ];
-  let out = markup;
+  // CxMissionZero's own download links (this file, the guide, the zips) do not belong in the file they download.
+  let out = markup.replace(/<div class="calc-toolbar">[\s\S]*?<\/div>\n/, '');
   for (const [from, to] of swaps) {
     if (!out.includes(from)) throw new Error(`The calculator page no longer says: ${from.slice(0, 60)}`);
     out = out.replace(from, to);
@@ -149,7 +150,7 @@ export function buildStandaloneCalculator({ version = '', root = PUBLIC, launche
   const csp = standaloneCsp([gate, ...(launcher ? [launcherConfig] : []), ...vendorScripts, main], { launcher, styles: [css] });
   const label = version ? `MZ-${version.split('.').map((n) => n.padStart(2, '0')).join('.')}` : '';
   const html = `<!doctype html>
-<html lang="en" data-ui="nextgen" data-look="future" class="sa-future" data-theme="light">
+<html lang="en" data-ui="nextgen" data-look="future" class="sa-future calc-future" data-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -274,46 +275,6 @@ const STANDALONE_CSS = `
 .shell.standalone .sa-top .sa-names .field > span { font-size: 10.5px; }
 .shell.standalone .sa-top .sa-names input { padding-top: 4px; padding-bottom: 4px; font-size: 13px; }
 .shell.standalone .sa-setup { flex: 1 1 100%; order: 5; display: grid; gap: 8px; }
-.shell.standalone .sa-setup-body { display: grid; gap: 8px; }
-.shell.standalone .sa-setup.folded .sa-setup-body { display: none; }
-.shell.standalone .sa-setup-bar { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 5px 8px 5px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: 12.5px; }
-.shell.standalone .sa-setup-text { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
-.shell.standalone .sa-setup-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok, #157347); }
-.shell.standalone .sa-setup.offline .sa-setup-dot { background: var(--muted); }
-.shell.standalone .sa-setup.reading .sa-setup-dot { background: var(--accent); animation: readfx-live 1.4s ease-out infinite; }
-.shell.standalone .sa-setup-toggle { flex: none; font-weight: 600; padding: 2px 8px; }
-.shell.standalone #sa-setup-progress:not([hidden]) { flex: 0 1 220px; appearance: none; -webkit-appearance: none; height: 4px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--muted) 16%, transparent); overflow: hidden; }
-.shell.standalone #sa-setup-progress::-webkit-progress-bar { background: transparent; }
-.shell.standalone #sa-setup-progress::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488, var(--accent)); background-size: 200% 100%; animation: sa-progress 1.6s linear infinite; transition: width .8s ease-out; }
-.shell.standalone #sa-setup-progress::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488, var(--accent)); background-size: 200% 100%; animation: sa-progress 1.6s linear infinite; }
-@media (max-width: 640px) { .shell.standalone #sa-setup-progress:not([hidden]) { flex-basis: 80px; } }
-/* The projection settings under the keys, squeezed: the read and its settings on one line with Apply at the end,
-   the reading line under them (its bar runs while Checkmarx One is read), the project filters folded. */
-.shell.standalone .calc-heart-compact { gap: 6px 14px; padding: 8px 14px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-width: 1px; }
-.calc-heart-compact .calc-heart-head { display: none; }
-.calc-heart-compact .calc-apply-hint { display: none; }
-.calc-heart-compact > .calc-source { grid-column: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; padding: 0; border: 0; font-size: 12.5px; }
-.calc-heart-compact #calc-read { padding: 4px 12px; min-height: 0; font-size: 12.5px; }
-.calc-heart-compact .pill-check { padding: 3px 10px; font-size: 12px; }
-.calc-heart-compact .calc-read-limit input { width: 8ch; padding: 3px 6px; }
-.calc-heart-compact .calc-origin-pick > summary { padding: 3px 10px; font-size: 12px; }
-.calc-heart-compact .calc-source-state { flex: 1 1 100%; display: grid; gap: 4px; }
-.calc-heart-compact #calc-read-note { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0; background: none; }
-.calc-heart-compact #calc-read-note:empty { display: none; }
-.calc-heart-compact #calc-read-progress:not([hidden]) { appearance: none; -webkit-appearance: none; width: 100%; max-width: none; height: 4px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--muted) 16%, transparent); overflow: hidden; }
-.calc-heart-compact #calc-read-progress::-webkit-progress-bar { background: transparent; }
-.calc-heart-compact #calc-read-progress::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488, var(--accent)); background-size: 200% 100%; animation: sa-progress 1.6s linear infinite; transition: width .8s ease-out; }
-.calc-heart-compact #calc-read-progress::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488, var(--accent)); background-size: 200% 100%; animation: sa-progress 1.6s linear infinite; }
-@keyframes sa-progress { from { background-position: 200% 0; } to { background-position: 0 0; } }
-.calc-heart-compact > .calc-pending { grid-column: 2; grid-row: 1; margin: 0; padding: 4px 6px 4px 12px; gap: 10px; }
-.calc-heart-compact > .calc-pending #calc-pending-count { font-size: 12.5px; }
-.calc-heart-compact > .calc-pending ul { display: none; }
-.calc-heart-compact > .calc-pending button { padding: 4px 12px; min-height: 0; font-size: 12.5px; }
-.calc-heart-compact > .calc-scope { grid-column: 1 / -1; margin: 0; padding: 4px 0 0; border-top: 1px solid var(--border); font-size: 12.5px; }
-.calc-heart-compact .calc-scope-line { gap: 4px 10px; }
-body.calc-presenting-on .calc-heart-compact { display: none; }
-@media (max-width: 760px) { .shell.standalone .calc-heart-compact { grid-template-columns: minmax(0, 1fr); } .calc-heart-compact > .calc-pending { grid-column: 1; grid-row: auto; } }
-@media (prefers-reduced-motion: reduce) { .calc-heart-compact #calc-read-progress::-webkit-progress-value, .calc-heart-compact #calc-read-progress::-moz-progress-bar { animation: none; } }
 @media (max-width: 900px) { .shell.standalone .sa-connect { grid-template-columns: minmax(0, 1fr); } .shell.standalone .sa-keybox-git { padding-inline-start: 0; border-inline-start: 0; padding-top: 10px; border-top: 1px solid var(--border); } }
 .shell.standalone .sa-key-head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .shell.standalone .sa-kick { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); }
@@ -335,74 +296,13 @@ body.calc-presenting-on .calc-heart-compact { display: none; }
 .shell.standalone .sa-advanced .field { margin: 0; }
 .shell.standalone .sa-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 24px; color: var(--muted); font-size: 12px; }
 @media (max-width: 640px) { .shell.standalone .sa-names .field { min-width: 0; flex: 1 1 140px; } }
-/* ===== The futuristic theme (the standalone calculator, a next-gen tool): deep space with an aurora and a faint grid,
-   glass cards with a soft glow, cyan and violet light, figures in a gradient. A light version too. Golden buttons untouched. */
-:root[data-ui="nextgen"].sa-future {
-  --fx-cyan: #0891b2; --fx-violet: #7c3aed; --fx-glow: rgb(8 145 178 / 0.18);
-  color-scheme: light;
-  --bg: #eef3fb; --surface: rgb(255 255 255 / 0.88); --surface-2: rgb(244 248 255 / 0.92); --surface-3: #e3ebf8;
-  --border: rgb(37 99 235 / 0.14); --border-strong: rgb(37 99 235 / 0.28);
-  --text: #0b1324; --muted: #4f5d78;
-  --accent: #0e7490; --accent-2: #6d28d9; --accent-ink: #ffffff; --accent-soft: rgb(8 145 178 / 0.10);
-  --primary: #0e7490; --primary-hover: #0b5f76; --primary-ink: #ffffff;
-  --ok: #047857; --ok-soft: rgb(4 120 87 / 0.10); --danger: #be123c; --danger-soft: rgb(190 18 60 / 0.08); --warn: #b45309;
-  --shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 18px 40px -26px rgb(37 99 235 / 0.35);
-  --shadow-pop: 0 0 0 1px rgb(37 99 235 / 0.12), 0 22px 48px -20px rgb(37 99 235 / 0.4);
-  --radius: 14px; --radius-sm: 9px;
-  --ng-head: #4f5d78;
-  --fx-bg: radial-gradient(1100px 600px at 8% -10%, rgb(34 211 238 / 0.20), transparent 60%), radial-gradient(900px 560px at 100% 0%, rgb(139 92 246 / 0.16), transparent 60%), radial-gradient(800px 500px at 50% 110%, rgb(59 130 246 / 0.12), transparent 60%);
-  --fx-grid: rgb(37 99 235 / 0.06);
-}
-:root[data-ui="nextgen"].sa-future[data-theme="dark"] {
-  --fx-cyan: #5ee7ff; --fx-violet: #a78bfa; --fx-glow: rgb(94 231 255 / 0.22);
-  color-scheme: dark;
-  --bg: #050914; --surface: rgb(14 22 42 / 0.86); --surface-2: rgb(20 30 56 / 0.9); --surface-3: #18243f;
-  --border: rgb(120 170 255 / 0.14); --border-strong: rgb(120 190 255 / 0.30);
-  --text: #e9f0ff; --muted: #94a3c6;
-  --accent: #5ee7ff; --accent-2: #a78bfa; --accent-ink: #031018; --accent-soft: rgb(94 231 255 / 0.10);
-  --primary: #22d3ee; --primary-hover: #5ee7ff; --primary-ink: #031018;
-  --ok: #34f5a4; --ok-soft: rgb(52 245 164 / 0.10); --danger: #ff5c7a; --danger-soft: rgb(255 92 122 / 0.10); --warn: #ffc857; --warn-soft: rgb(255 200 87 / 0.10);
-  --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 20px 48px -28px rgb(0 0 0 / 0.9);
-  --shadow-pop: 0 0 0 1px rgb(94 231 255 / 0.16), 0 24px 56px -22px rgb(0 0 0 / 0.95);
-  --ng-head: #94a3c6;
-  --fx-bg: radial-gradient(1100px 620px at 6% -12%, rgb(34 211 238 / 0.16), transparent 60%), radial-gradient(900px 560px at 100% -4%, rgb(139 92 246 / 0.20), transparent 60%), radial-gradient(900px 600px at 50% 115%, rgb(37 99 235 / 0.16), transparent 62%);
-  --fx-grid: rgb(120 170 255 / 0.05);
-}
-/* Deep space behind everything: the aurora, and a faint grid fading out. */
+/* On its own: the whole page is the calculator's space. */
 :root.sa-future body { background-color: var(--bg) !important; background-image: var(--fx-bg), linear-gradient(var(--fx-grid) 1px, transparent 1px), linear-gradient(90deg, var(--fx-grid) 1px, transparent 1px) !important; background-size: auto, auto, auto, 44px 44px, 44px 44px !important; color: var(--text); }
 :root.sa-future .shell.standalone, :root.sa-future .shell.standalone .content, :root.sa-future .shell.standalone main, :root.sa-future #page-calculator { background: transparent !important; }
 :root.sa-future .shell.standalone::before, :root.sa-future .shell.standalone::after, :root.sa-future #page-calculator::before, :root.sa-future #page-calculator::after { background-image: none !important; }
-/* Glass: every card, with a glowing edge. */
-:root.sa-future :is(.panel, .calc-heart, .calc-strip, .calc-fh, .sa-connect, .sa-setup-bar, .calc-readfx, .calc-readfx-pill, .calc-fnew-log, .calc-pending, .calc-steps .calc-step, .calc-sev-box, .rp-kpis > *, .calc-git-tokens, .calc-cust-menu) {
-  background-color: var(--surface) !important; background-image: linear-gradient(180deg, rgb(255 255 255 / 0.04), transparent 40%) !important;
-  border: 1px solid var(--border) !important; box-shadow: var(--shadow), 0 0 0 1px rgb(255 255 255 / 0.02) inset !important;
-}
-:root.sa-future :is(.panel, .calc-strip, .calc-fh, .sa-connect):hover { border-color: var(--border-strong) !important; box-shadow: var(--shadow), 0 0 28px -14px var(--fx-glow) !important; }
-/* The title in light, and the big figures in a cyan-violet gradient. */
 :root.sa-future .sa-top h1 { font-family: var(--font) !important; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(90deg, var(--fx-cyan), var(--fx-violet)); -webkit-background-clip: text; background-clip: text; color: transparent !important; }
-:root.sa-future :is(#calc-sum-total, .calc-fh-credits b, .calc-readfx-pct b, .calc-step-gold .calc-step-value, .calc-gold) { background: linear-gradient(90deg, var(--fx-cyan), var(--fx-violet)); -webkit-background-clip: text; background-clip: text; color: transparent !important; }
-/* Kicks and labels in small caps of light. */
-:root.sa-future :is(.sa-kick, .calc-fh-kick, .calc-readfx-kick, .calc-heart-title) { color: var(--fx-cyan) !important; letter-spacing: 0.12em; }
-:root.sa-future .sa-kick-git, :root.sa-future .calc-fh-kick.calc-fh-git { color: var(--fx-violet) !important; }
-/* Primary buttons: a beam of light (golden buttons keep their own look). */
-:root.sa-future :is(button.primary, .calc-pending-go, #sa-connect-go, #calc-generate):not(.is-golden):not(:disabled) { background-color: transparent !important; background-image: linear-gradient(90deg, var(--fx-cyan), var(--fx-violet)) !important; color: #fff !important; border: 0 !important; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08) inset, 0 8px 24px -10px var(--fx-glow), 0 0 18px -6px var(--fx-glow) !important; }
-:root.sa-future[data-theme="dark"] :is(button.primary, .calc-pending-go, #sa-connect-go, #calc-generate):not(.is-golden):not(:disabled) { color: #031018 !important; }
-:root.sa-future :is(button.primary, .calc-pending-go, #sa-connect-go, #calc-generate):not(.is-golden):not(:disabled):hover { filter: brightness(1.08); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12) inset, 0 10px 30px -8px var(--fx-glow), 0 0 26px -4px var(--fx-glow) !important; }
-:root.sa-future :is(button.secondary, button.ghost:not(.link)):not(.is-golden):not(:disabled) { background-image: none !important; background-color: var(--surface-2) !important; border: 1px solid var(--border-strong) !important; color: var(--text) !important; box-shadow: none !important; }
-:root.sa-future :is(button.secondary, button.ghost:not(.link)):not(.is-golden):not(:disabled):hover { border-color: var(--fx-cyan) !important; box-shadow: 0 0 16px -6px var(--fx-glow) !important; }
-/* Fields: dark glass, a cyan edge when in use. */
-:root.sa-future :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) { background-color: rgb(0 0 0 / 0.04) !important; border-color: var(--border-strong) !important; color: var(--text) !important; }
-:root.sa-future[data-theme="dark"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) { background-color: rgb(2 6 18 / 0.55) !important; }
-:root.sa-future :is(input, select, textarea):focus-visible { outline: none !important; border-color: var(--fx-cyan) !important; box-shadow: 0 0 0 3px var(--accent-soft), 0 0 18px -6px var(--fx-glow) !important; }
-:root.sa-future :is(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--fx-cyan); }
-/* Tabs: the one open lit from below. */
-:root.sa-future [data-ptabs] .ptab { color: var(--muted) !important; }
-:root.sa-future [data-ptabs] .ptab.active, :root.sa-future [data-ptabs] .ptab[aria-selected="true"] { color: var(--text) !important; box-shadow: inset 0 -2px 0 var(--fx-cyan), 0 10px 20px -16px var(--fx-glow) !important; }
-/* Pills and badges glow softly. */
-:root.sa-future :is(.calc-fh-used, #sa-connect-status.ok) { background: linear-gradient(90deg, rgb(52 245 164 / 0.16), rgb(94 231 255 / 0.12)) !important; color: var(--ok) !important; border: 1px solid rgb(52 245 164 / 0.35) !important; box-shadow: 0 0 18px -8px rgb(52 245 164 / 0.6); }
-:root.sa-future .calc-mix-bar, :root.sa-future .calc-readfx-fill { filter: drop-shadow(0 0 6px var(--fx-glow)); }
-:root.sa-future a, :root.sa-future button.link { color: var(--fx-cyan); }
 :root.sa-future ::selection { background: rgb(94 231 255 / 0.28); }
+:root.sa-future #page-calculator.calc-future { padding: 0; border-radius: 0; background: transparent !important; }
 :root.sa-future .toast { background: var(--surface-2) !important; color: var(--text) !important; border: 1px solid var(--border-strong) !important; }
 /* The data file remark: one small line under the head. */
 .sa-file-note { display: flex; align-items: center; gap: 8px; margin: 4px 0 0; padding: 3px 10px; font-size: 11.5px; line-height: 1.4; color: var(--muted); border-radius: var(--radius-sm, 8px); background: var(--accent-soft, transparent); }

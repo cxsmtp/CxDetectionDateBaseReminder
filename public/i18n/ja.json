@@ -5614,6 +5614,8 @@
   "Change what is counted": "計測対象を変更",
   "the highest estimate, picked by itself": "自動的に選ばれた最も高い推定値",
   "Counting from git: finding each token's organizations…": "gitから計測中：各トークンの組織を検索しています…",
-  "Counting from git: listing the repositories…": "gitから計測中：リポジトリを一覧表示しています…"
+  "Counting from git: listing the repositories…": "gitから計測中：リポジトリを一覧表示しています…",
+  "Getting started": "はじめに",
+  "Without Node.js": "Node.js なしで"
  }
 }

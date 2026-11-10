@@ -5614,6 +5614,8 @@
   "Change what is counted": "Thay đổi phạm vi đếm",
   "the highest estimate, picked by itself": "ước tính cao nhất, được chọn tự động",
   "Counting from git: finding each token's organizations…": "Đang đếm từ git: đang tìm các tổ chức của từng token…",
-  "Counting from git: listing the repositories…": "Đang đếm từ git: đang liệt kê các kho mã…"
+  "Counting from git: listing the repositories…": "Đang đếm từ git: đang liệt kê các kho mã…",
+  "Getting started": "Bắt đầu",
+  "Without Node.js": "Không cần Node.js"
  }
 }

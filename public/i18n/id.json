@@ -5614,6 +5614,8 @@
   "Change what is counted": "Ubah yang dihitung",
   "the highest estimate, picked by itself": "perkiraan tertinggi, dipilih secara otomatis",
   "Counting from git: finding each token's organizations…": "Menghitung dari git: mencari organisasi setiap token…",
-  "Counting from git: listing the repositories…": "Menghitung dari git: menampilkan daftar repositori…"
+  "Counting from git: listing the repositories…": "Menghitung dari git: menampilkan daftar repositori…",
+  "Getting started": "Memulai",
+  "Without Node.js": "Tanpa Node.js"
  }
 }

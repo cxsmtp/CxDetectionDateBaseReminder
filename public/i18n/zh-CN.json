@@ -5614,6 +5614,8 @@
   "Change what is counted": "更改统计范围",
   "the highest estimate, picked by itself": "自动选取的最高估计",
   "Counting from git: finding each token's organizations…": "从 git 统计中：正在查找每个令牌的组织…",
-  "Counting from git: listing the repositories…": "从 git 统计中：正在列出代码仓库…"
+  "Counting from git: listing the repositories…": "从 git 统计中：正在列出代码仓库…",
+  "Getting started": "快速入门",
+  "Without Node.js": "无需 Node.js"
  }
 }

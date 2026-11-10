@@ -3412,8 +3412,15 @@ details.calc-fold > summary .hint { margin: 0; }
 .calc-scope-checks > div { display: flex; flex-wrap: wrap; gap: 6px; }
 .calc-report-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 auto; }
 /* The report options wrap among themselves; Generate stays on their line, at the right, instead of dropping below. */
-.calc-report-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; }
+.calc-report-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 320px; min-width: 0; }
 .calc-report-go { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: none; margin-left: auto; }
+/* With Email the report (in CxMissionZero), Start again and Email go to a second line: the options and Generate keep the first. */
+.shell:not(.standalone) .calc-report-actions:has(#calc-email-open:not([hidden])) { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; }
+.shell:not(.standalone) .calc-report-actions:has(#calc-email-open:not([hidden])) .calc-report-opts { grid-column: 1 / 4; grid-row: 1; }
+.shell:not(.standalone) .calc-report-actions:has(#calc-email-open:not([hidden])) .calc-report-go { grid-column: 4; grid-row: 1; align-self: start; }
+.shell:not(.standalone) .calc-report-actions:has(#calc-email-open:not([hidden])) #calc-restart { grid-column: 1; grid-row: 2; }
+.shell:not(.standalone) .calc-report-actions:has(#calc-email-open:not([hidden])) #calc-email-open { grid-column: 2; grid-row: 2; }
+@media (max-width: 760px) { .shell:not(.standalone) .calc-report-actions:has(#calc-email-open:not([hidden])) { grid-template-columns: minmax(0, 1fr); } .shell:not(.standalone) .calc-report-actions:has(#calc-email-open:not([hidden])) > * { grid-column: 1 !important; grid-row: auto !important; } }
 .calc-email { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; }
 .calc-email .field { margin: 0; flex: 1 1 320px; }
 .calc-steps { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; margin: 6px 0 12px; }
@@ -4519,3 +4526,130 @@ button.gv-sugg:hover:not(:disabled) { border-color: var(--accent); }
 :root:not([data-phone]) :is(.m-more, .m-select, .m-sev, .m-scope-row, .m-sheet, .m-backdrop, .m-detail-head) { display: none !important; }
 [dir="rtl"] details.calc-fold > summary h2::before { content: "◂"; }
 [dir="rtl"] details.calc-fold[open] > summary h2::before { transform: rotate(-90deg); }
+
+/* ===== The Cx Credits Calculator's settings: the read, its settings and what is set as one slim line that folds the
+   rest away once a read starts (so the credits come first), and the settings squeezed under it. */
+.sa-setup { display: grid; gap: 8px; }
+#sa-setup-pending:not(:empty)::before { content: " · "; }
+.sa-setup-body { display: grid; gap: 8px; }
+.sa-setup.folded .sa-setup-body { display: none; }
+.sa-setup-bar { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 5px 8px 5px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: 12.5px; }
+.sa-setup-text { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.sa-setup-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok, #157347); }
+.sa-setup.offline .sa-setup-dot { background: var(--muted); }
+.sa-setup.reading .sa-setup-dot { background: var(--accent); animation: readfx-live 1.4s ease-out infinite; }
+.sa-setup-toggle { flex: none; font-weight: 600; padding: 2px 8px; }
+#sa-setup-progress:not([hidden]) { flex: 0 1 220px; appearance: none; -webkit-appearance: none; height: 4px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--muted) 16%, transparent); overflow: hidden; }
+#sa-setup-progress::-webkit-progress-bar { background: transparent; }
+#sa-setup-progress::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488, var(--accent)); background-size: 200% 100%; animation: sa-progress 1.6s linear infinite; transition: width .8s ease-out; }
+#sa-setup-progress::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488, var(--accent)); background-size: 200% 100%; animation: sa-progress 1.6s linear infinite; }
+@media (max-width: 640px) { #sa-setup-progress:not([hidden]) { flex-basis: 80px; } }
+/* The projection settings under the keys, squeezed: the read and its settings on one line with Apply at the end,
+   the reading line under them (its bar runs while Checkmarx One is read), the project filters folded. */
+.calc-heart-compact { gap: 6px 14px; padding: 8px 14px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-width: 1px; }
+.calc-heart-compact .calc-heart-head { display: none; }
+.calc-heart-compact .calc-apply-hint { display: none; }
+.calc-heart-compact > .calc-source { grid-column: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; padding: 0; border: 0; font-size: 12.5px; }
+.calc-heart-compact #calc-read { padding: 4px 12px; min-height: 0; font-size: 12.5px; }
+.calc-heart-compact .pill-check { padding: 3px 10px; font-size: 12px; }
+.calc-heart-compact .calc-read-limit input { width: 8ch; padding: 3px 6px; }
+.calc-heart-compact .calc-origin-pick > summary { padding: 3px 10px; font-size: 12px; }
+.calc-heart-compact .calc-source-state { flex: 1 1 100%; display: grid; gap: 4px; }
+.calc-heart-compact #calc-read-note { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0; background: none; }
+.calc-heart-compact #calc-read-note:empty { display: none; }
+.calc-heart-compact #calc-read-progress:not([hidden]) { appearance: none; -webkit-appearance: none; width: 100%; max-width: none; height: 4px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--muted) 16%, transparent); overflow: hidden; }
+.calc-heart-compact #calc-read-progress::-webkit-progress-bar { background: transparent; }
+.calc-heart-compact #calc-read-progress::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488, var(--accent)); background-size: 200% 100%; animation: sa-progress 1.6s linear infinite; transition: width .8s ease-out; }
+.calc-heart-compact #calc-read-progress::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, var(--accent), #0d9488, var(--accent)); background-size: 200% 100%; animation: sa-progress 1.6s linear infinite; }
+@keyframes sa-progress { from { background-position: 200% 0; } to { background-position: 0 0; } }
+.calc-heart-compact > .calc-pending { grid-column: 2; grid-row: 1; margin: 0; padding: 4px 6px 4px 12px; gap: 10px; }
+.calc-heart-compact > .calc-pending #calc-pending-count { font-size: 12.5px; }
+.calc-heart-compact > .calc-pending ul { display: none; }
+.calc-heart-compact > .calc-pending button { padding: 4px 12px; min-height: 0; font-size: 12.5px; }
+.calc-heart-compact > .calc-scope { grid-column: 1 / -1; margin: 0; padding: 4px 0 0; border-top: 1px solid var(--border); font-size: 12.5px; }
+.calc-heart-compact .calc-scope-line { gap: 4px 10px; }
+body.calc-presenting-on .calc-heart-compact, body.calc-presenting-on .calc-setup { display: none; }
+@media (max-width: 760px) { .calc-heart-compact { grid-template-columns: minmax(0, 1fr); } .calc-heart-compact > .calc-pending { grid-column: 1; grid-row: auto; } }
+@media (prefers-reduced-motion: reduce) { .calc-heart-compact #calc-read-progress::-webkit-progress-value, .calc-heart-compact #calc-read-progress::-moz-progress-bar { animation: none; } }
+
+/* ===== Future: the Cx Credits Calculator's look, in CxMissionZero (#page-calculator.calc-future) and on its own
+   (html.calc-future): deep space with an aurora and a faint grid, glass cards with a soft glow, cyan and violet light,
+   figures in a gradient. Light by default, dark with the theme. Golden buttons keep their own look. */
+:root.calc-future:not(#cx-calc), #page-calculator.calc-future {
+  --fx-cyan: #0891b2; --fx-violet: #7c3aed; --fx-glow: rgb(8 145 178 / 0.18);
+  color-scheme: light;
+  --bg: #eef3fb; --surface: rgb(255 255 255 / 0.88); --surface-2: rgb(244 248 255 / 0.92); --surface-3: #e3ebf8;
+  --border: rgb(37 99 235 / 0.14); --border-strong: rgb(37 99 235 / 0.28);
+  --text: #0b1324; --muted: #4f5d78;
+  --accent: #0e7490; --accent-2: #6d28d9; --accent-ink: #ffffff; --accent-soft: rgb(8 145 178 / 0.10);
+  --primary: #0e7490; --primary-hover: #0b5f76; --primary-ink: #ffffff;
+  --ok: #047857; --ok-soft: rgb(4 120 87 / 0.10); --danger: #be123c; --danger-soft: rgb(190 18 60 / 0.08); --warn: #b45309;
+  --shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 18px 40px -26px rgb(37 99 235 / 0.35);
+  --shadow-pop: 0 0 0 1px rgb(37 99 235 / 0.12), 0 22px 48px -20px rgb(37 99 235 / 0.4);
+  --radius: 14px; --radius-sm: 9px;
+  --ng-head: #4f5d78;
+  --fx-bg: radial-gradient(1100px 600px at 8% -10%, rgb(34 211 238 / 0.20), transparent 60%), radial-gradient(900px 560px at 100% 0%, rgb(139 92 246 / 0.16), transparent 60%), radial-gradient(800px 500px at 50% 110%, rgb(59 130 246 / 0.12), transparent 60%);
+  --fx-grid: rgb(37 99 235 / 0.06);
+}
+:root.calc-future[data-theme="dark"]:not(#cx-calc), :root[data-theme="dark"] #page-calculator.calc-future {
+  --fx-cyan: #5ee7ff; --fx-violet: #a78bfa; --fx-glow: rgb(94 231 255 / 0.22);
+  color-scheme: dark;
+  --bg: #050914; --surface: rgb(14 22 42 / 0.86); --surface-2: rgb(20 30 56 / 0.9); --surface-3: #18243f;
+  --border: rgb(120 170 255 / 0.14); --border-strong: rgb(120 190 255 / 0.30);
+  --text: #e9f0ff; --muted: #94a3c6;
+  --accent: #5ee7ff; --accent-2: #a78bfa; --accent-ink: #031018; --accent-soft: rgb(94 231 255 / 0.10);
+  --primary: #22d3ee; --primary-hover: #5ee7ff; --primary-ink: #031018;
+  --ok: #34f5a4; --ok-soft: rgb(52 245 164 / 0.10); --danger: #ff5c7a; --danger-soft: rgb(255 92 122 / 0.10); --warn: #ffc857; --warn-soft: rgb(255 200 87 / 0.10);
+  --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 20px 48px -28px rgb(0 0 0 / 0.9);
+  --shadow-pop: 0 0 0 1px rgb(94 231 255 / 0.16), 0 24px 56px -22px rgb(0 0 0 / 0.95);
+  --ng-head: #94a3c6;
+  --fx-bg: radial-gradient(1100px 620px at 6% -12%, rgb(34 211 238 / 0.16), transparent 60%), radial-gradient(900px 560px at 100% -4%, rgb(139 92 246 / 0.20), transparent 60%), radial-gradient(900px 600px at 50% 115%, rgb(37 99 235 / 0.16), transparent 62%);
+  --fx-grid: rgb(120 170 255 / 0.05);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) #page-calculator.calc-future {
+  --fx-cyan: #5ee7ff; --fx-violet: #a78bfa; --fx-glow: rgb(94 231 255 / 0.22);
+  color-scheme: dark;
+  --bg: #050914; --surface: rgb(14 22 42 / 0.86); --surface-2: rgb(20 30 56 / 0.9); --surface-3: #18243f;
+  --border: rgb(120 170 255 / 0.14); --border-strong: rgb(120 190 255 / 0.30);
+  --text: #e9f0ff; --muted: #94a3c6;
+  --accent: #5ee7ff; --accent-2: #a78bfa; --accent-ink: #031018; --accent-soft: rgb(94 231 255 / 0.10);
+  --primary: #22d3ee; --primary-hover: #5ee7ff; --primary-ink: #031018;
+  --ok: #34f5a4; --ok-soft: rgb(52 245 164 / 0.10); --danger: #ff5c7a; --danger-soft: rgb(255 92 122 / 0.10); --warn: #ffc857; --warn-soft: rgb(255 200 87 / 0.10);
+  --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 20px 48px -28px rgb(0 0 0 / 0.9);
+  --shadow-pop: 0 0 0 1px rgb(94 231 255 / 0.16), 0 24px 56px -22px rgb(0 0 0 / 0.95);
+  --ng-head: #94a3c6;
+  --fx-bg: radial-gradient(1100px 620px at 6% -12%, rgb(34 211 238 / 0.16), transparent 60%), radial-gradient(900px 560px at 100% -4%, rgb(139 92 246 / 0.20), transparent 60%), radial-gradient(900px 600px at 50% 115%, rgb(37 99 235 / 0.16), transparent 62%);
+  --fx-grid: rgb(120 170 255 / 0.05);
+} }
+/* In CxMissionZero: the calculator's own space within the page. */
+#page-calculator.calc-future { color: var(--text); background-color: var(--bg); background-image: var(--fx-bg), linear-gradient(var(--fx-grid) 1px, transparent 1px), linear-gradient(90deg, var(--fx-grid) 1px, transparent 1px); background-size: auto, 44px 44px, 44px 44px; border-radius: 20px; padding: 14px 16px 24px; }
+#page-calculator.calc-future::before, #page-calculator.calc-future::after { background-image: none !important; }
+/* Glass: every card, with a glowing edge. */
+.calc-future :is(.panel, .calc-heart, .calc-strip, .calc-fh, .sa-connect, .sa-setup-bar, .calc-readfx, .calc-readfx-pill, .calc-fnew-log, .calc-pending, .calc-steps .calc-step, .calc-sev-box, .rp-kpis > *, .calc-git-tokens, .calc-cust-menu) {
+  background-color: var(--surface) !important; background-image: linear-gradient(180deg, rgb(255 255 255 / 0.04), transparent 40%) !important;
+  border: 1px solid var(--border) !important; box-shadow: var(--shadow), 0 0 0 1px rgb(255 255 255 / 0.02) inset !important;
+}
+.calc-future :is(.panel, .calc-strip, .calc-fh, .sa-connect):hover { border-color: var(--border-strong) !important; box-shadow: var(--shadow), 0 0 28px -14px var(--fx-glow) !important; }
+/* The title in light, and the big figures in a cyan-violet gradient. */
+.calc-future :is(#calc-sum-total, .calc-fh-credits b, .calc-readfx-pct b, .calc-step-gold .calc-step-value, .calc-gold) { background: linear-gradient(90deg, var(--fx-cyan), var(--fx-violet)); -webkit-background-clip: text; background-clip: text; color: transparent !important; }
+/* Kicks and labels in small caps of light. */
+.calc-future :is(.sa-kick, .calc-fh-kick, .calc-readfx-kick, .calc-heart-title) { color: var(--fx-cyan) !important; letter-spacing: 0.12em; }
+.calc-future .sa-kick-git, .calc-future .calc-fh-kick.calc-fh-git { color: var(--fx-violet) !important; }
+/* Primary buttons: a beam of light (golden buttons keep their own look). */
+.calc-future :is(button.primary, .calc-pending-go, #sa-connect-go, #calc-generate):not(.is-golden):not(:disabled) { background-color: transparent !important; background-image: linear-gradient(90deg, var(--fx-cyan), var(--fx-violet)) !important; color: #fff !important; border: 0 !important; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08) inset, 0 8px 24px -10px var(--fx-glow), 0 0 18px -6px var(--fx-glow) !important; }
+:is(:root.calc-future[data-theme="dark"], :root[data-theme="dark"] .calc-future) :is(button.primary, .calc-pending-go, #sa-connect-go, #calc-generate):not(.is-golden):not(:disabled) { color: #031018 !important; }
+.calc-future :is(button.primary, .calc-pending-go, #sa-connect-go, #calc-generate):not(.is-golden):not(:disabled):hover { filter: brightness(1.08); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12) inset, 0 10px 30px -8px var(--fx-glow), 0 0 26px -4px var(--fx-glow) !important; }
+.calc-future :is(button.secondary, button.ghost:not(.link)):not(.is-golden):not(:disabled) { background-image: none !important; background-color: var(--surface-2) !important; border: 1px solid var(--border-strong) !important; color: var(--text) !important; box-shadow: none !important; }
+.calc-future :is(button.secondary, button.ghost:not(.link)):not(.is-golden):not(:disabled):hover { border-color: var(--fx-cyan) !important; box-shadow: 0 0 16px -6px var(--fx-glow) !important; }
+/* Fields: dark glass, a cyan edge when in use. */
+.calc-future :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) { background-color: rgb(0 0 0 / 0.04) !important; border-color: var(--border-strong) !important; color: var(--text) !important; }
+:is(:root.calc-future[data-theme="dark"], :root[data-theme="dark"] .calc-future) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) { background-color: rgb(2 6 18 / 0.55) !important; }
+.calc-future :is(input, select, textarea):focus-visible { outline: none !important; border-color: var(--fx-cyan) !important; box-shadow: 0 0 0 3px var(--accent-soft), 0 0 18px -6px var(--fx-glow) !important; }
+.calc-future :is(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--fx-cyan); }
+/* Tabs: the one open lit from below. */
+.calc-future [data-ptabs] .ptab { color: var(--muted) !important; }
+.calc-future [data-ptabs] .ptab.active, .calc-future [data-ptabs] .ptab[aria-selected="true"] { color: var(--text) !important; box-shadow: inset 0 -2px 0 var(--fx-cyan), 0 10px 20px -16px var(--fx-glow) !important; }
+/* Pills and badges glow softly. */
+.calc-future :is(.calc-fh-used, #sa-connect-status.ok) { background: linear-gradient(90deg, rgb(52 245 164 / 0.16), rgb(94 231 255 / 0.12)) !important; color: var(--ok) !important; border: 1px solid rgb(52 245 164 / 0.35) !important; box-shadow: 0 0 18px -8px rgb(52 245 164 / 0.6); }
+.calc-future .calc-mix-bar, .calc-future .calc-readfx-fill { filter: drop-shadow(0 0 6px var(--fx-glow)); }
+.calc-future a, .calc-future button.link { color: var(--fx-cyan); }

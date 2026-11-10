@@ -5614,6 +5614,8 @@
   "Change what is counted": "שינוי מה שנספר",
   "the highest estimate, picked by itself": "ההערכה הגבוהה ביותר, שנבחרה באופן אוטומטי",
   "Counting from git: finding each token's organizations…": "ספירה מ-git: מתבצע חיפוש הארגונים של כל אסימון…",
-  "Counting from git: listing the repositories…": "ספירה מ-git: מתבצעת הצגת המאגרים…"
+  "Counting from git: listing the repositories…": "ספירה מ-git: מתבצעת הצגת המאגרים…",
+  "Getting started": "תחילת העבודה",
+  "Without Node.js": "ללא Node.js"
  }
 }

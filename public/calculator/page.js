@@ -66,11 +66,10 @@ const SOURCE_LABEL = {
   manual: 'Added by hand',
 };
 
-/** The look the app is in, for the report: next-gen or classic, the theme chosen and the accent. */
+/** The calculator's own look for its report and PDF, in CxMissionZero and on its own alike: Future (public/look.js), opened light. */
 function appLook() {
-  const { ui, look, theme, accent } = document.documentElement.dataset;
-  // html[data-look] is "studio", or "signal cabin" for the looks drawn on Signal's pages: the look is its last word.
-  return { look: ui === 'nextgen' ? String(look ?? '').split(' ').pop() || 'nextgen' : 'classic', ui: ui === 'nextgen' ? 'nextgen' : 'classic', theme: theme ?? 'auto', accent: accent ?? 'indigo' };
+  const { accent } = document.documentElement.dataset;
+  return { look: 'future', ui: 'nextgen', theme: 'light', accent: accent ?? 'indigo' };
 }
 
 /**
@@ -1668,6 +1667,65 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
   }
   // On its own the calculator counts by itself once a token is given beside the API key: the steps start folded.
   if (standalone) foldGitSteps(true);
+
+  /**
+   * In CxMissionZero, the projection settings squeezed under one slim line (what is set, the read and its bar), folded
+   * away once a read starts or has run with every setting applied, so the credits come first; Settings opens them, and
+   * opened or closed by hand they stay so until the next read. On its own, standalone.js does this around the keys too.
+   */
+  function startSettingsFold() {
+    const heart = $('calc-heart');
+    if (standalone || !heart) return;
+    heart.classList.add('calc-heart-compact');
+    const setup = document.createElement('section');
+    setup.className = 'sa-setup calc-setup';
+    setup.innerHTML = '<div class="sa-setup-bar"><span class="sa-setup-dot" aria-hidden="true"></span><span class="sa-setup-text" aria-live="polite"><b>Projection settings</b> · <span id="sa-setup-read"></span><span id="sa-setup-pending"></span></span><progress id="sa-setup-progress" max="100" value="0" hidden></progress><button type="button" class="link sa-setup-toggle" id="sa-setup-toggle" aria-expanded="true" aria-controls="sa-setup-body">Hide</button></div><div class="sa-setup-body" id="sa-setup-body"></div>';
+    heart.before(setup);
+    setup.querySelector('.sa-setup-body').append(heart);
+    const progress = $('calc-read-progress');
+    const mini = $('sa-setup-progress');
+    let byHand = null;
+    let wasReading = false;
+    const reading = () => !progress.hidden;
+    const pending = () => !$('calc-pending').hidden && !$('calc-pending').classList.contains('idle');
+    const show = (folded) => {
+      setup.classList.toggle('folded', folded);
+      $('sa-setup-toggle').textContent = folded ? 'Settings' : 'Hide';
+      $('sa-setup-toggle').setAttribute('aria-expanded', String(!folded));
+    };
+    const update = () => {
+      const now = reading();
+      if (now && !wasReading) byHand = null;
+      wasReading = now;
+      const note = $('calc-read-note').textContent.trim().replace(/\s+/g, ' ');
+      // Each part on its own, so the page's translation finds it.
+      $('sa-setup-read').textContent = now ? `Reading Checkmarx One · ${progress.value}%` : note;
+      $('sa-setup-pending').textContent = pending() ? $('calc-pending-count').textContent.trim() : '';
+      setup.classList.toggle('reading', now);
+      mini.hidden = !now;
+      mini.value = progress.value;
+      show(byHand ?? (!pending() && (now || /\d/.test(note))));
+    };
+    $('sa-setup-toggle').addEventListener('click', () => {
+      byHand = !setup.classList.contains('folded');
+      show(byHand);
+    });
+    let queued = false;
+    const soon = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        update();
+      });
+    };
+    const watch = new MutationObserver(soon);
+    for (const el of [progress, $('calc-read-note'), $('calc-pending')]) watch.observe(el, { attributes: true, childList: true, subtree: true, characterData: true });
+    // The progress bar's value is a property: followed while a read runs.
+    setInterval(() => reading() && soon(), 700);
+    update();
+  }
+  startSettingsFold();
 
   /**
    * Count everything the tokens can see, in one go (a token given beside the API key): find the organizations, list the

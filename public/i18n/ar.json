@@ -5614,6 +5614,8 @@
   "Change what is counted": "تغيير ما يُحسب",
   "the highest estimate, picked by itself": "أعلى تقدير، اختير تلقائيًا",
   "Counting from git: finding each token's organizations…": "الحساب من git: جارٍ البحث عن مؤسسات كل رمز مميز…",
-  "Counting from git: listing the repositories…": "الحساب من git: جارٍ عرض المستودعات…"
+  "Counting from git: listing the repositories…": "الحساب من git: جارٍ عرض المستودعات…",
+  "Getting started": "البدء",
+  "Without Node.js": "بدون Node.js"
  }
 }
