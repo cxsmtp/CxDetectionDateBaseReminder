@@ -212,7 +212,8 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     syncDraft();
     setStatus('calc-upload-status', '');
     // On its own, the calculator works from the two exports: they are always in view.
-    $('calc-alt').open = offline() || customer.tr?.totals?.meta?.source === 'upload';
+    // Folded to one line once the customer has figures (from Checkmarx One or the exports); open only for a customer with none and no tenant to read.
+    $('calc-alt').open = offline() && !customer.tr?.totals;
     if (!reading.timer) setStatus('calc-read-note', '');
     $('calc-read').disabled = Boolean(reading.timer);
     fillImpact();
@@ -2940,6 +2941,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     if (FREQUENCIES.every((q) => f.byFrequency[q.id].scans === null)) for (const q of FREQUENCIES) f.byFrequency[q.id].scans = suggestedScans(q.id, f.periodMonths);
     c.remainingCredits = body.remainingCredits ?? null;
     if (body.tr?.totals && body.tr?.fixed) {
+      $('calc-alt').open = false;
       c.open.tr = { ...tr(), totals: body.tr.totals, fixed: body.tr.fixed };
       patch.tr = c.open.tr;
       syncDraft();
