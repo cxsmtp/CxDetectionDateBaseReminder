@@ -25,7 +25,8 @@ export function trSections(tr, L) {
   const an = (s) => tr.analysis?.[s] ?? {};
   const name = (s) => w(s);
   const months = tr.months ?? 12;
-  const paced = tr.paced ?? aheadMonths(months, A.aiDeclinePercent ?? 0);
+  const pace = A.newPacePercent ?? 100;
+  const paced = tr.paced ?? (aheadMonths(months, A.aiDeclinePercent ?? 0) * pace) / 100;
   const span = tr.analysis?.spanMonths ?? tr.lookbackMonths;
   const list = counted(tr);
   const total = (n, digits = 0) => ({ text: w('Total: {0}.', num(n, digits)), total: true });
@@ -58,7 +59,9 @@ export function trSections(tr, L) {
       future.push(line(w('{0}: {1} × {2}% = {3} a month', name(s), num(an(s).arrivals), num(pctOf(share)), num(arrivals)), true));
     }
     const monthly = T.arrivals ?? SEVERITIES.reduce((sum, s) => sum + (rows[s]?.arrivals ?? an(s).arrivals ?? 0), 0);
-    future.push(line(A.aiDeclinePercent ? w('Over {0} months, falling by {1}% over a year as teams adopt AI: {2} months\' worth.', num(months), num(A.aiDeclinePercent), num(paced, 2)) : w('Over {0} months at today\'s pace: {1} months\' worth.', num(months), num(paced, 2))));
+    const worth = pace === 100 ? paced : aheadMonths(months, A.aiDeclinePercent ?? 0);
+    future.push(line(A.aiDeclinePercent ? w('Over {0} months, falling by {1}% over a year as teams adopt AI: {2} months\' worth.', num(months), num(A.aiDeclinePercent), num(worth, 2)) : w('Over {0} months at today\'s pace: {1} months\' worth.', num(months), num(worth, 2))));
+    if (pace !== 100) future.push(line(w('Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months\' worth.', num(pace), num(worth, 2), num(paced, 2))));
     future.push(line(w('{0} a month × {1} = {2}.', num(monthly), num(paced, 2), num(T.future))));
   }
   sections.push({ key: 'future', title: w('Still to come'), lines: future });

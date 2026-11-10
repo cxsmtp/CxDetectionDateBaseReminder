@@ -123,6 +123,7 @@ export function leverInputs({ analysis = null, sast = null, plan = {}, months = 
             remediationCost: { ...plan.remediationCost },
             includeFuture: plan.includeFuture,
             aiDeclinePercent: plan.aiDeclinePercent,
+            newPacePercent: plan.newPacePercent,
             fusionUpliftPercent: plan.fusionUpliftPercent,
           },
         }

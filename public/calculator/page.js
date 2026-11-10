@@ -12,6 +12,7 @@ import {
   LOOKBACKS,
   MAX_PROJECTS,
   SEVERITIES,
+  aheadMonths,
   aheadSettings,
   amount,
   analyse,
@@ -575,7 +576,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         <div class="calc-steps">
           ${step('Backlog today', num(P.selected), P.selected === P.backlog ? 'every open finding' : `of ${num(P.backlog)} open`, '', 'backlog')}
           <span class="calc-op" aria-hidden="true">+</span>
-          ${step('Still to come', num(P.future), !A.includeFuture ? 'not counted' : `over ${num(months)} months`, '', 'future')}
+          ${step('Still to come', num(P.future), !A.includeFuture ? 'not counted' : A.newPacePercent === 100 ? `${num(P.arrivals)} a month × ${num(projection.paced, 1)} months` : `${num(P.arrivals)} a month × ${num(aheadMonths(projection.months, A.aiDeclinePercent), 1)} months × ${num(A.newPacePercent)}%`, '', 'future')}
           <span class="calc-op" aria-hidden="true">+</span>
           ${step('More found by Fusion', num(P.fusionExtra), projection.fusion ? (projection.sastOnly ? `${num(A.fusionUpliftPercent)}% more SAST findings` : tr().totals?.meta?.source === 'cxone' ? `${num(A.fusionUpliftPercent)}% more findings · read again for SAST only` : `${num(A.fusionUpliftPercent)}% more findings · the exports count every engine`) : fusionOff() ? '0% · Fusion left out' : 'Fusion not in the projection', '', 'fusion')}
           <span class="calc-op" aria-hidden="true">=</span>
@@ -585,10 +586,12 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
         </div>
         <div class="calc-assume calc-edit">
           <label class="check"><input type="checkbox" data-ahead="includeFuture"${A.includeFuture ? ' checked' : ''} /> Count findings still to come</label>
+          <label class="calc-assume-num"><span>New findings counted (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="newPacePercent" value="${esc(A.newPacePercent)}"${A.includeFuture ? '' : ' disabled'} /></label>
           <label class="calc-assume-num"><span>AI adoption: fewer new findings over a year (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="aiDeclinePercent" value="${esc(A.aiDeclinePercent)}" /></label>
           <label class="calc-assume-num"${fusionOff() ? ' title="Fusion for the existing customer is left out of this projection: tick Add Fusion: Existing customer at the top to count it."' : ''}><span>More found by Fusion (%)</span><input type="text" inputmode="decimal" class="calc-num" data-ahead="fusionUpliftPercent" value="${esc(fusionOff() ? 0 : A.fusionUpliftPercent)}"${fusionOff() ? ' disabled' : ''} /></label>
           <button type="button" class="link" data-ahead-reset>Defaults</button>
         </div>
+        ${A.includeFuture ? `<p class="hint calc-pace-note"><b>New findings counted</b>: 100% counts as many new findings a month as the last ${num(tr().lookbackMonths)} months had (${num(P.arrivals)} a month), 50% half as many, 0% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.</p>` : ''}
       </section>
       <details class="panel calc-edit calc-custom" open>
         <summary><h2>Customize per severity</h2><span class="hint">How many of the backlog to triage, the false positives expected, and the credits each step takes. Everything starts from the defaults.</span></summary>
@@ -779,7 +782,7 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
       renderTr();
     }
     if (event.target.closest('[data-ahead-reset]')) {
-      c.open.tr = { ...tr(), includeFuture: DEFAULT_TR.includeFuture, fusionUpliftPercent: DEFAULT_TR.fusionUpliftPercent, aiDeclinePercent: DEFAULT_TR.aiDeclinePercent };
+      c.open.tr = { ...tr(), includeFuture: DEFAULT_TR.includeFuture, fusionUpliftPercent: DEFAULT_TR.fusionUpliftPercent, aiDeclinePercent: DEFAULT_TR.aiDeclinePercent, newPacePercent: DEFAULT_TR.newPacePercent };
       save({ tr: c.open.tr });
       renderTr();
     }

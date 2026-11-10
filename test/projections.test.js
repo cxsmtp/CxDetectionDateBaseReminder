@@ -514,6 +514,15 @@ test('what is ahead: findings still to come at the trend, and more from Fusion',
   assert.ok(Math.abs(high.future - future) < 1e-9);
   assert.ok(Math.abs(p.paced - aheadMonths(12, 2)) < 1e-9);
   assert.ok(Math.abs(trProjection(quarter, { aiDeclinePercent: 0 }, { months: 12 }).rows.High.future - (37 / months) * 12) < 1e-9, 'at 0%: today\'s pace every month');
+  // New findings counted: a share of the trend's pace (100% unless set; 0% counts none; up to 300%).
+  assert.equal(aheadSettings({}).newPacePercent, 100);
+  assert.equal(aheadSettings({ newPacePercent: 999 }).newPacePercent, 300);
+  const halfPace = trProjection(quarter, { aiDeclinePercent: 0, newPacePercent: 50 }, { months: 12 });
+  assert.ok(Math.abs(halfPace.rows.High.future - (37 / months) * 6) < 1e-9, "50%: half the new findings");
+  assert.ok(Math.abs(halfPace.paced - 6) < 1e-9);
+  const none = trProjection(quarter, { newPacePercent: 0 }, { months: 12 });
+  assert.equal(none.totals.future, 0);
+  assert.equal(none.totals.aheadCredits, 0, '0%: the backlog alone');
   assert.ok(Math.abs(high.fusionExtra - (130 + future) * 0.05) < 1e-9);
   assert.equal(high.faeAvoided, undefined, 'no FAE in the projection');
   assert.ok(Math.abs(high.toTriage - (130 + future + high.fusionExtra)) < 1e-9);

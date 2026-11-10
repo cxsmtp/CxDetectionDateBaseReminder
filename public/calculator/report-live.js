@@ -25,6 +25,7 @@ export function applyLever(inputs, key, value, checked) {
     case 'rc': if (plan) plan.remediationCost[id] = amount(value); break;
     case 'future': if (plan) plan.includeFuture = Boolean(checked); break;
     case 'ai': if (plan) plan.aiDeclinePercent = amount(value) ?? 0; break;
+    case 'pace': if (plan) plan.newPacePercent = amount(value) ?? 100; break;
     case 'up': if (plan) plan.fusionUpliftPercent = amount(value) ?? 0; break;
     case 'months': return changePeriod(next, value);
     case 'extra': next.totals.extraPercent = amount(value) ?? 0; break;

@@ -229,7 +229,7 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
   if (tr) {
     const T = tr.totals ?? {};
     const A = tr.ahead ?? {};
-    const paced = tr.paced ?? aheadMonths(tr.months ?? months, A.aiDeclinePercent ?? 0);
+    const paced = tr.paced ?? (aheadMonths(tr.months ?? months, A.aiDeclinePercent ?? 0) * (A.newPacePercent ?? 100)) / 100;
     const monthly = T.arrivals ?? (paced ? (T.future ?? 0) / paced : 0);
     const chosen = SEVERITIES.filter((x) => (tr.rows?.[x]?.selected ?? 0) > 0);
     calc.push({ label: w('Backlog today'), formula: `${chosen.map((x) => num(tr.rows[x].selected)).join(' + ') || '0'} = ${num(T.selected)} (${w('of {0} open', num(T.backlog))})` });

@@ -25,6 +25,8 @@ export const DEFAULT_TR = Object.freeze({
   fusionUpliftPercent: 5,
   // New findings fall as teams adopt AI (assist, triage, remediation): this much fewer over a year.
   aiDeclinePercent: 2,
+  // How many new findings to count, against the pace of the trend (100%: as many a month as over the trend's months).
+  newPacePercent: 100,
 });
 // The trend is always read over months (a single week says too little to project from).
 export const LOOKBACKS = [3, 6, 9, 12];
@@ -177,6 +179,7 @@ export function aheadSettings(value = {}) {
     includeFuture: v.includeFuture !== false,
     fusionUpliftPercent: pct(v.fusionUpliftPercent, DEFAULT_TR.fusionUpliftPercent, 300),
     aiDeclinePercent: pct(v.aiDeclinePercent, DEFAULT_TR.aiDeclinePercent, 90),
+    newPacePercent: pct(v.newPacePercent, DEFAULT_TR.newPacePercent, 300),
   };
 }
 
@@ -203,7 +206,8 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false,
   const ahead = aheadSettings(plan);
   const selected = resolveSelected(analysis, plan.selected);
   const period = clamp(Number(months) || 12, 1, 60);
-  const paced = aheadMonths(period, ahead.aiDeclinePercent);
+  // Months' worth of new findings: the period, falling with AI, at the share of the trend's pace chosen.
+  const paced = (aheadMonths(period, ahead.aiDeclinePercent) * ahead.newPacePercent) / 100;
   const rows = {};
   const keys = ['backlog', 'selected', 'arrivals', 'future', 'fusionBase', 'fusionExtra', 'toTriage', 'truePositives', 'triageCredits', 'remediationCredits', 'credits', 'backlogCredits', 'aheadCredits', 'backlogAfter'];
   const totals = Object.fromEntries(keys.map((k) => [k, 0]));

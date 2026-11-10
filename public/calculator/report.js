@@ -680,6 +680,7 @@ function leversPanel(data, live, L) {
       <div class="lv-scroll"><table class="lv-sev"><thead><tr><th></th><th>${w('Backlog to include')}</th><th>${w('False positives')}</th><th>${w('Credits to triage one')}</th><th>${w('Credits to remediate one')}</th></tr></thead><tbody>${sevRows}</tbody></table></div>
       <div class="lv-row">
         <label class="lv-check"><input type="checkbox" data-lever="future"${ahead.includeFuture !== false ? ' checked' : ''}> ${w('Count the findings still to come')}</label>
+        <label>${w('New findings counted')} ${slider('pace', ahead.newPacePercent ?? 100, 200, w('New findings counted'), w('{0}% of the last months\' pace', num(ahead.newPacePercent ?? 100)))}</label>
         <label>${w('New findings fall with AI')} ${slider('ai', ahead.aiDeclinePercent ?? 0, 90, w('New findings fall with AI'), w('{0}% over a year', num(ahead.aiDeclinePercent ?? 0)))}</label>
         ${tr.fusion ? `<label>${w('More found by Fusion')} ${slider('up', ahead.fusionUpliftPercent ?? 0, 100, w('More found by Fusion'), `${num(ahead.fusionUpliftPercent ?? 0)}%`)}</label>` : ''}
       </div>
