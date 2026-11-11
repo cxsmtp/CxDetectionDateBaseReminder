@@ -185,3 +185,50 @@ export function severityChart(points, palette = PAGE_PALETTE) {
   const bySeverity = Object.fromEntries(SEVERITIES.map((s) => [s, points.map((p) => ({ month: p.month, actual: p[s], withPlan: p[`${s}F`] }))]));
   return severityCharts(bySeverity, palette);
 }
+
+/** A ring split by value, with a legend and the total in the middle. `segments`: [{ label, value, colour }]. */
+export function donutChart(segments, { palette = PAGE_PALETTE, size = 184, title = '', centre = '', suffix = '' } = {}) {
+  const items = (segments || []).filter((s) => Number.isFinite(s.value) && s.value > 0);
+  const total = items.reduce((a, s) => a + s.value, 0);
+  if (!total) return '';
+  const r = size / 2;
+  const ri = r * 0.6;
+  const c = r;
+  let a0 = -Math.PI / 2;
+  const at = (ang, rad) => [(c + rad * Math.cos(ang)).toFixed(2), (c + rad * Math.sin(ang)).toFixed(2)];
+  const arcs = items
+    .map((s) => {
+      const frac = s.value / total;
+      const a1 = a0 + frac * 2 * Math.PI;
+      const big = frac > 0.5 ? 1 : 0;
+      const [x0o, y0o] = at(a0, r);
+      const [x1o, y1o] = at(a1, r);
+      const [x1i, y1i] = at(a1, ri);
+      const [x0i, y0i] = at(a0, ri);
+      a0 = a1;
+      const tip = `<title>${esc(`${s.label}: ${num(s.value, 1)}${suffix} (${Math.round(frac * 100)}%)`)}</title>`;
+      // One part of the whole: a plain ring (an arc whose ends meet is drawn off the chart by browsers).
+      if (frac >= 0.9999) return `<circle cx="${c}" cy="${c}" r="${((r + ri) / 2).toFixed(2)}" style="fill:none;stroke:${s.colour};stroke-width:${(r - ri).toFixed(2)}">${tip}</circle>`;
+      const d = `M${x0o},${y0o} A${r},${r} 0 ${big} 1 ${x1o},${y1o} L${x1i},${y1i} A${ri},${ri} 0 ${big} 0 ${x0i},${y0i} Z`;
+      return `<path d="${d}" style="fill:${s.colour};stroke:var(--surface,#fff);stroke-width:1.5">${tip}</path>`;
+    })
+    .join('');
+  const centreTxt = centre ? `<text x="${c}" y="${c}" text-anchor="middle" dominant-baseline="central" style="fill:${palette.ink};font-size:${Math.round(size * 0.14)}px;font-weight:600">${esc(centre)}</text>` : '';
+  const legend = `<figcaption class="cc-legend">${items.map((s) => `<span class="cc-key"><i class="cc-swatch" translate="no" style="--c:${s.colour}"></i>${esc(s.label)} · ${esc(num(s.value, 1))}${esc(suffix)}</span>`).join('')}</figcaption>`;
+  return `<figure class="cc-chart cc-donut"><svg viewBox="0 0 ${size} ${size}" role="img" aria-label="${esc(title)}" style="width:${size}px;max-width:100%;height:auto;display:block;overflow:hidden">${arcs}${centreTxt}</svg>${legend}</figure>`;
+}
+
+/** Horizontal bars (repositories, languages …). `bars`: [{ label, value, colour? }]; `sub` optional second line per bar. */
+export function barChart(bars, { palette = PAGE_PALETTE, suffix = '', colour = null, title = '', max: fixedMax = null } = {}) {
+  const items = (bars || []).filter((b) => Number.isFinite(b.value) && b.value > 0);
+  if (!items.length) return '';
+  const max = fixedMax ?? Math.max(1, ...items.map((b) => b.value));
+  const rows = items
+    .map((b) => {
+      const pct = Math.max(2, (b.value / max) * 100);
+      const col = b.colour || colour || palette.plan;
+      return `<div class="cc-bar"><span class="cc-bar-label" title="${esc(b.label)}">${esc(b.label)}</span><span class="cc-bar-track"><i style="width:${pct.toFixed(1)}%;background:${col}"></i></span><span class="cc-bar-val">${esc(num(b.value))}${esc(suffix)}${b.sub ? `<small>${esc(b.sub)}</small>` : ''}</span></div>`;
+    })
+    .join('');
+  return `<figure class="cc-chart cc-bars" role="img" aria-label="${esc(title)}">${rows}</figure>`;
+}

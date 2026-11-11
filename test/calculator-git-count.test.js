@@ -285,18 +285,21 @@ test('the page: Count from git across connections and organizations, Import a cl
   assert.match(html, /id="calc-cf-download">Download cloc-fusion<\/button>/);
   assert.match(html, /id="calc-git-orgs-find">Find organizations<\/button>/);
   assert.match(html, /<option value="api">The platform's API: archives, no git<\/option>/);
-  // Developers and 10K units sit inside Change frequency and Lines of code, so the table fits a 1440 screen.
+  // Developers and 10K-LOC blocks sit inside Change frequency and Lines of code, so the table fits a 1440 screen.
   assert.match(html, /<th>Lines of code<\/th><th>Change frequency<\/th><th>Fusion scans<\/th>/);
-  assert.match(html, /<input type="password" id="calc-git-secret" spellcheck="false" autocomplete="off" \/>/);
+  assert.match(html, /<input type="password" id="calc-git-secret" spellcheck="false" autocomplete="off" placeholder="Paste a token: GitHub, GitLab, Azure DevOps, Bitbucket…" \/>/);
+  // Several tokens, one after another: Add this token, and the list of those added (kept in memory only).
+  assert.match(html, /id="calc-git-token-add">Add this token<\/button>/);
+  assert.match(html, /id="calc-git-tokens" hidden/);
   assert.match(html, /id="calc-git-offline" hidden>This file on its own cannot reach git/);
   const page = fs.readFileSync(new URL('../public/calculator/page.js', import.meta.url), 'utf8');
   assert.match(page, /developers in the last 90 days/);
-  assert.match(page, /10K LOC units <b data-cell="units">/);
+  assert.match(page, /10K-LOC blocks <b data-cell="units">/);
   assert.match(page, /data-fnew-recount>Count again</);
   assert.match(page, /gitOn = \(\) => !standalone \|\| canGit\(\)/);
   // The file on its own: the steps and how the server measures are hidden, only the note that it cannot is shown.
   assert.match(html, /<p class="calc-notice calc-warn-note calc-git-how" id="calc-git-how">How it is measured/);
-  assert.match(page, /\$\('calc-git-offline'\)\.hidden = on;\s+\$\('calc-git-steps'\)\.hidden = !on;[\s\S]{0,120}\$\('calc-git-how'\)\.hidden = !on;/);
+  assert.match(page, /\$\('calc-git-offline'\)\.hidden = on;\s+\$\('calc-git-steps'\)\.hidden = !on(?: \|\| git\.stepsFolded === true)?;[\s\S]{0,120}\$\('calc-git-how'\)\.hidden = !on;/);
   assert.match(html, /<input type="checkbox" id="calc-fusion-new-on" checked \/> New customer <small>· code counted from git, cloc-fusion or cloc<\/small>/);
   // The summary's Fusion "?" explains both customers' parts.
   assert.match(page, /'fusion-credits': \['fusion-credits', 'fusion-new-credits'\]/);

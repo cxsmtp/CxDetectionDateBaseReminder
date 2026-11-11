@@ -22,7 +22,7 @@ test('a module becomes a function scope: its named imports read from those befor
 test('the file: the calculator page shown, its own words for the exports, nothing fetched from anywhere', () => {
   const html = buildStandaloneCalculator({ version: '1.0.89' });
   assert.match(html, /^<!doctype html>/);
-  assert.match(html, /<div id="page-calculator" class="page calc-page">/, 'shown, not hidden');
+  assert.match(html, /<div id="page-calculator" class="page calc-page calc-future">/, 'shown, not hidden');
   assert.match(html, /Content-Security-Policy" content="default-src 'none'; script-src 'sha256-[^"]*; script-src-attr 'none'; style-src 'unsafe-inline'; style-src-elem 'sha256-[^']+'; style-src-attr 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'/);
   assert.ok(!/(src|href)="(https?:)?\/\//i.test(html), 'no script, style or link from elsewhere');
   assert.deepEqual(html.match(/url\((?!data:)[^)]*\)/g) ?? [], [], 'every font and drawing inside');

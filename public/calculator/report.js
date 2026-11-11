@@ -196,7 +196,7 @@ function story(data, L) {
       <table class="calc">
         <tr><td>${w('Projects')}</td><td>${num(t.projects)}</td></tr>
         <tr><td>${w('Lines of code')}</td><td>${num(t.lines)}</td></tr>
-        <tr><td>${w('10K LOC units')}</td><td>${num(t.units)}</td></tr>
+        <tr><td>${w('10K-LOC blocks')}</td><td>${num(t.units)}</td></tr>
         <tr><td>${w('Fusion scans over {0} months', num(data.fusion.periodMonths))}</td><td>${num(t.scans)}</td></tr>
         <tr class="sum gold"><td>${w('Fusion credits')}</td><td>${num(t.credits, 1)}</td></tr>
       </table>
@@ -211,7 +211,7 @@ function story(data, L) {
       <table class="calc">
         <tr><td>${w('Projects')}</td><td>${num(t.projects)}</td></tr>
         <tr><td>${w('Code lines (no blank or comment lines)')}</td><td>${num(t.lines)}</td></tr>
-        <tr><td>${w('10K LOC units')}</td><td>${num(t.units)}</td></tr>
+        <tr><td>${w('10K-LOC blocks')}</td><td>${num(t.units)}</td></tr>
         <tr><td>${w('Fusion scans over {0} months', num(data.fusionNew.periodMonths))}</td><td>${num(t.scans)}</td></tr>
         ${t.withActivity ? `<tr><td>${w('Developers in the last 90 days (added up per project)')}</td><td>${num(t.developers)}</td></tr>` : ''}
         <tr class="sum gold"><td>${w('Fusion credits')}</td><td>${num(t.credits, 1)}</td></tr>
@@ -312,7 +312,7 @@ export function assumptionItems(data, sum, L) {
     const named = esc(origins.join(', '));
     items.push(!origins.length ? w('Scans from: no scan origin.') : data.source.originsFusionOnly ? w('Scans from: {0} (for Fusion: the two exports count every scan).', named) : w('Scans from: {0}.', named));
   }
-  if (data.fusion || data.fusionNew) items.push(w("Each project's lines of code are rounded up to whole 10K units on their own; one scan costs its model's credits per 10K LOC."));
+  if (data.fusion || data.fusionNew) items.push(w("Each project's lines of code are rounded up to whole 10K-LOC blocks on their own; one scan costs its model's credits per 10K LOC."));
   if (data.fusionNew?.leftOut?.length) items.push(w('New customer: code lines without blank and comment lines (counted from git with cloc-fusion\'s engine, read from a cloc-fusion report, or counted with cloc); not counted: {0}.', data.fusionNew.leftOut.map(esc).join(', ')));
   if (data.fusionNew?.totals?.byRule) items.push(w('New customer: a project whose change frequency is known (commits on its default branch in the last year) gets the Fusion scans of that frequency, as a Checkmarx One project scanned that often does on the Fusion tab.'));
   if (sum.settings.extraPercent) items.push(w('{0}% extra credits on top.', num(sum.settings.extraPercent, 2)));
@@ -345,6 +345,9 @@ function trAppendix(tr, L) {
   const hasWeeklyDebt = tr.weekly?.some((x) => x.addedRate !== undefined);
   // A month's share of today's backlog, as a %.
   const rate = (share) => (Number.isFinite(share) ? `${num(share, 1)}%` : '—');
+  const rateV = (share) => (Number.isFinite(share) ? `<span class="rate-v">${rate(share)}</span>` : '—');
+  // The debt rate less the fixing rate, in percentage points (none when fixing keeps up).
+  const gapV = (x) => (Number.isFinite(x?.addedPct) && Number.isFinite(x?.fixedPct) ? (x.addedPct > x.fixedPct ? `<b>${w('{0} points', num(x.addedPct - x.fixedPct, 1))}</b><i class="gap-bar" aria-hidden="true"></i>` : w('none')) : '—');
   // True positives: what is left once the false positives are taken out, one % for every severity counted or each its own.
   const fpOf = [...new Set(rows.filter((r) => (r.toTriage ?? r.selected) > 0).map((r) => r.fp))];
   const oneFp = fpOf.length === 1 ? fpOf[0] : null;
@@ -356,8 +359,9 @@ function trAppendix(tr, L) {
     <thead><tr><th>${w('By severity')}</th>${SEVERITIES.map((s) => `<th><i class="dot" style="background:${SEVERITY_COLOURS[s]}"></i>${w(s)}</th>`).join('')}<th>${w('Total')}</th></tr></thead>
     <tbody>
       <tr><td>${w('Current backlog')}</td>${cell((r) => num(r.backlog))}<td>${num(f.backlog)}</td></tr>
-      ${tr.recent ? `<tr><td title="${w('New vulnerabilities reported a month, as a share of the backlog, averaged over the last {0} months', num(tr.recent.months))}">${w('Debt rate ({0}-month average)', num(tr.recent.months))}</td>${SEVERITIES.map((s) => `<td>${rate(tr.recent[s]?.addedPct)}</td>`).join('')}<td>${rate(tr.recent.total?.addedPct)}</td></tr>
-      <tr><td title="${w('Vulnerabilities fixed a month, as a share of the backlog, averaged over the last {0} months', num(tr.recent.months))}">${w('Fixing rate ({0}-month average)', num(tr.recent.months))}</td>${SEVERITIES.map((s) => `<td>${rate(tr.recent[s]?.fixedPct)}</td>`).join('')}<td>${rate(tr.recent.total?.fixedPct)}</td></tr>` : ''}
+      ${tr.recent ? `<tr class="rate-debt"><td title="${w('New vulnerabilities reported a month, as a share of the backlog, averaged over the last {0} months', num(tr.recent.months))}">${w('Debt rate ({0}-month average)', num(tr.recent.months))}</td>${SEVERITIES.map((s) => `<td>${rateV(tr.recent[s]?.addedPct)}</td>`).join('')}<td>${rateV(tr.recent.total?.addedPct)}</td></tr>
+      <tr class="rate-fix"><td title="${w('Vulnerabilities fixed a month, as a share of the backlog, averaged over the last {0} months', num(tr.recent.months))}">${w('Fixing rate ({0}-month average)', num(tr.recent.months))}</td>${SEVERITIES.map((s) => `<td>${rateV(tr.recent[s]?.fixedPct)}</td>`).join('')}<td>${rateV(tr.recent.total?.fixedPct)}</td></tr>
+      <tr class="rate-gap"><td title="${w('The debt rate less the fixing rate: the backlog grows by this much a month until fixing catches up')}">${w('Gap to close')}</td>${SEVERITIES.map((s) => `<td>${gapV(tr.recent[s])}</td>`).join('')}<td>${gapV(tr.recent.total)}</td></tr>` : ''}
       ${hasDebtFix || tr.recent ? '' : `<tr class="muted"><td>${w('Debt increase')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).debtRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.debtRate)}</td></tr>
       <tr class="muted"><td>${w('Fix rate')}</td>${SEVERITIES.map((s) => `<td>${pct(an(s).fixRate)}</td>`).join('')}<td>${pct(tr.analysis?.total?.fixRate)}</td></tr>`}
       ${hasAhead ? `<tr class="strong"><td>${w('To triage')}</td>${cell((r) => num(r.toTriage))}<td>${num(f.toTriage)}</td></tr>` : ''}
@@ -390,17 +394,34 @@ function fusionAppendix(f, L, edit = false) {
   <p class="sub">${w('Fusion scans over {0} months.', num(f.periodMonths))} ${w('Projects scanned most often come first.')}${edit ? ` <b>${w('Every box can be changed: the whole report follows.')}</b>` : ''}</p>
   ${left}
   <h3>${w('Models')}</h3>
-  ${table(`<thead><tr><th>${w('Model')}</th><th>${w('Credits per 10K LOC')}</th><th>${w('Projects')}</th><th>${w('10K units × scans')}</th><th>${w('Credits')}</th></tr></thead><tbody>
+  ${table(`<thead><tr><th>${w('Model')}</th><th>${w('Credits per 10K LOC')}</th><th>${w('Projects')}</th><th>${w('10K-LOC blocks × scans')}</th><th>${w('Credits')}</th></tr></thead><tbody>
     ${f.byModel.map((m) => `<tr><td class="name">${esc(m.name || '—')}</td><td>${edit ? box(`rate.${m.id}`, m.rate, w('Credits per 10K LOC for {0}', esc(m.name || '—')), L.t('Not set')) : m.rate === null ? '—' : num(m.rate, 2)}</td><td>${num(m.projects)}</td><td>${num(m.unitScans)}</td><td>${num(m.credits, 1)}</td></tr>`).join('') || `<tr><td colspan="5">${w('No model set.')}</td></tr>`}
   </tbody>`)}
   <h3>${w('By scan frequency')}</h3>
-  ${table(`<thead><tr><th>${w('Scanned today')}</th><th>${w('Projects')}</th><th>${w('Fusion scans per project')}</th><th>${w('Model')}</th><th>${w('10K units')}</th><th>${w('Credits')}</th></tr></thead><tbody>
+  ${table(`<thead><tr><th>${w('Scanned today')}</th><th>${w('Projects')}</th><th>${w('Fusion scans per project')}</th><th>${w('Model')}</th><th>${w('10K-LOC blocks')}</th><th>${w('Credits')}</th></tr></thead><tbody>
     ${f.byFrequency.filter((b) => b.projects).map((b) => `<tr><td>${frequency(b.id)}</td><td>${num(b.projects)}</td><td>${scansCell(b)}</td><td class="name">${edit && f.models.length ? pick(`fmodel.${b.id}`, f.rules[b.id]?.model ?? f.defaultModel, w('Model')) : modelName(f.rules[b.id]?.model ?? f.defaultModel)}</td><td>${num(b.units)}</td><td>${num(b.credits, 1)}</td></tr>`).join('')}
   </tbody>`)}
   ${rows.length ? `<h3>${w('Projects')}</h3>
-  ${table(`<thead><tr><th>${w('Project')}</th><th>${w('Criticality')}</th><th>${w('Scanned today')}</th><th>${w('Lines of code')}</th><th>${w('10K units')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
+  ${table(`<thead><tr><th>${w('Project')}</th><th>${w('Criticality')}</th><th>${w('Scanned today')}</th><th>${w('Lines of code')}</th><th>${w('10K-LOC blocks')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
     ${rows.map((r) => `<tr><td class="name">${esc(r.name)}</td><td>${r.criticality ?? '—'}</td><td class="wrap">${frequency(r.frequency)}${r.scansPerWeek ? ` <small>${w('({0}/week)', num(r.scansPerWeek, 1))}</small>` : ''}</td><td>${num(r.lines)}</td><td>${num(r.units)}</td><td>${edit && Number.isInteger(r.key) ? box(`pscans.${r.key}`, r.scans, w('Fusion scans for {0}', esc(r.name))) : num(r.scans)}</td><td>${FROM[r.scansFrom] ? w(FROM[r.scansFrom]) : ''}</td><td class="name">${edit && Number.isInteger(r.key) && f.models.length ? pick(`pmodel.${r.key}`, r.model, w('Model for {0}', esc(r.name))) : modelName(r.model)}</td><td>${r.credits === null || !r.units ? '—' : num(r.credits, 1)}</td></tr>`).join('')}
   </tbody>`, 'dense')}` : ''}
+</section>`;
+}
+
+/** Appendix: the open vulnerabilities of each project by severity, from the last read of Checkmarx One. */
+function severityAppendix(data, L) {
+  const sv = data.bySeverity;
+  if (!sv?.rows?.length) return '';
+  const { w, num } = L;
+  const tot = Object.fromEntries(sv.severities.map((s) => [s, sv.rows.reduce((n, r) => n + (r.sev[s] ?? 0), 0)]));
+  const grand = sv.rows.reduce((n, r) => n + r.total, 0);
+  const head = (s) => `<th><span class="sev-dot" style="background:${SEVERITY_COLOURS[s] ?? '#888'}"></span>${w(s)}</th>`;
+  return `<section class="appendix" id="by-severity">
+  <h2>${w('Open vulnerabilities by project')}</h2>
+  <p class="sub">${w('{0} projects, {1} open findings, by severity: each project at its latest scan read from Checkmarx One.', num(sv.rows.length), num(grand))}</p>
+  ${table(`<thead><tr><th>${w('Project')}</th>${sv.severities.map(head).join('')}<th>${w('Total')}</th></tr></thead><tbody>
+    ${sv.rows.map((r) => `<tr><td class="name">${esc(r.name)}</td>${sv.severities.map((s) => `<td>${num(r.sev[s] ?? 0)}</td>`).join('')}<td><b>${num(r.total)}</b></td></tr>`).join('')}
+  </tbody><tfoot><tr><td>${w('All projects')}</td>${sv.severities.map((s) => `<td>${num(tot[s])}</td>`).join('')}<td><b>${num(grand)}</b></td></tr></tfoot>`, 'dense')}
 </section>`;
 }
 
@@ -426,18 +447,35 @@ function fusionNewAppendix(f, L) {
   <h2>${w('Fusion — new customer')}</h2>
   <p class="sub">${w('Fusion scans over {0} months.', num(f.periodMonths))} ${w('Code lines without blank and comment lines: counted from git with cloc-fusion\'s engine, read from a cloc-fusion report, or counted with cloc.')}</p>
   ${fusionNewScansNote(f, L)}
-  ${f.details === false ? `<p class="lv-note">${w('Project names and details were left out of this report.')} ${w('{0} projects in all, {1} lines of code, {2} Fusion scans.', num(f.totals.projects), num(f.totals.lines), num(f.totals.scans))}</p>` : table(`<thead><tr><th>${w('Project')}</th><th>${w('Languages')}</th><th>${w('Lines of code')}</th>${activity ? `<th>${w('Change frequency')}</th><th>${w('Developers (90 days)')}</th>` : ''}<th>${w('10K units')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
+  ${f.details === false ? `<p class="lv-note">${w('Project names and details were left out of this report.')} ${w('{0} projects in all, {1} lines of code, {2} Fusion scans.', num(f.totals.projects), num(f.totals.lines), num(f.totals.scans))}</p>` : table(`<thead><tr><th>${w('Project')}</th><th>${w('Languages')}</th><th>${w('Lines of code')}</th>${activity ? `<th>${w('Change frequency')}</th><th>${w('Developers (90 days)')}</th>` : ''}<th>${w('10K-LOC blocks')}</th><th>${w('Fusion scans')}</th><th>${w('Set by')}</th><th>${w('Model')}</th><th>${w('Credits')}</th></tr></thead><tbody>
     ${f.rows.filter((r) => r.included).map((r) => `<tr><td class="name">${esc(r.name)}</td><td class="wrap">${(r.languages ?? []).map((l) => `${esc(l.name)} ${num(l.lines)}`).join(', ') || '—'}</td><td>${num(r.lines)}</td>${activity ? `<td class="wrap">${freqCell(r)}</td><td>${r.devs90 === null || r.devs90 === undefined ? '—' : num(r.devs90)}</td>` : ''}<td>${num(r.units)}</td><td>${num(r.scans)}</td><td>${FROM_NEW[r.scansFrom] ? w(FROM_NEW[r.scansFrom]) : ''}</td><td class="name">${modelName(r.model)}</td><td>${r.credits === null || !r.units ? '—' : num(r.credits, 1)}</td></tr>`).join('')}
   </tbody>`, 'dense')}
 </section>`;
 }
 
 const STYLE = `
-:root{color-scheme:light;--bg:#f5f6f8;--card:#fff;--ink:#14171c;--muted:#5c636e;--line:#e2e5e9;--grid:#e2e5e9;--row:#eef0f3;--soft:#f4f6fb;--soft-line:#d5dcef;--gold:#2856c9;--accent:#2856c9;--head1:#14171c}
+:root{color-scheme:light;--bg:#f5f6f8;--card:#fff;--ink:#14171c;--muted:#5c636e;--line:#e2e5e9;--grid:#e2e5e9;--row:#eef0f3;--soft:#f4f6fb;--soft-line:#d5dcef;--gold:#2856c9;--accent:#2856c9;--head1:#14171c;--debt:#8b1a1a;--debt-soft:rgba(185,28,28,.13);--fix:#14632f;--fix-soft:rgba(21,128,61,.13)}
 ${'' /* Dark: chosen, or Auto on a system set to dark. */}
-@media (prefers-color-scheme:dark){:root:not(:has(#theme-light:checked)){color-scheme:dark;--bg:#0d0f12;--card:#14171b;--ink:#e6e8eb;--muted:#9097a1;--line:#252a31;--grid:#252a31;--row:#1d2127;--soft:#1a1f2b;--soft-line:#2c3854;--gold:#82a4f4;--accent:#82a4f4;--head1:#0a0c0f}}
-:root:has(#theme-dark:checked){color-scheme:dark;--bg:#0d0f12;--card:#14171b;--ink:#e6e8eb;--muted:#9097a1;--line:#252a31;--grid:#252a31;--row:#1d2127;--soft:#1a1f2b;--soft-line:#2c3854;--gold:#82a4f4;--accent:#82a4f4;--head1:#0a0c0f}
+@media (prefers-color-scheme:dark){:root:not(:has(#theme-light:checked)){color-scheme:dark;--bg:#0d0f12;--card:#14171b;--ink:#e6e8eb;--muted:#9097a1;--line:#252a31;--grid:#252a31;--row:#1d2127;--soft:#1a1f2b;--soft-line:#2c3854;--gold:#82a4f4;--accent:#82a4f4;--head1:#0a0c0f;--debt:#f87171;--debt-soft:rgba(248,113,113,.16);--fix:#4ade80;--fix-soft:rgba(74,222,128,.14)}}
+:root:has(#theme-dark:checked){color-scheme:dark;--bg:#0d0f12;--card:#14171b;--ink:#e6e8eb;--muted:#9097a1;--line:#252a31;--grid:#252a31;--row:#1d2127;--soft:#1a1f2b;--soft-line:#2c3854;--gold:#82a4f4;--accent:#82a4f4;--head1:#0a0c0f;--debt:#f87171;--debt-soft:rgba(248,113,113,.16);--fix:#4ade80;--fix-soft:rgba(74,222,128,.14)}
 *{box-sizing:border-box}
+${'' /* The debt rate in dark red and the fixing rate in dark green, each on a soft glow that breathes, out of step: the gap between them is what to close. */}
+.rate-v{position:relative;display:inline-block;padding:1px 8px;border-radius:999px;font-weight:700;isolation:isolate}
+.rate-v::before{content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;animation:rate-breathe 2.8s ease-in-out infinite}
+tr.rate-debt td:first-child,tr.rate-debt .rate-v{color:var(--debt)}
+tr.rate-debt .rate-v::before{background:var(--debt-soft)}
+tr.rate-fix td:first-child,tr.rate-fix .rate-v{color:var(--fix)}
+tr.rate-fix .rate-v::before{background:var(--fix-soft);animation-delay:1.4s}
+tr.rate-debt td:first-child,tr.rate-fix td:first-child{font-weight:600}
+${'' /* The gap is the highlight: dark red, on a tinted row with a mark at its start, its bar running. */}
+tr.rate-gap td{color:var(--debt);font-weight:700;font-size:15px;background:var(--debt-soft)}
+tr.rate-gap td:first-child{box-shadow:inset 4px 0 0 var(--debt);text-transform:uppercase;letter-spacing:.04em;font-size:13.5px}
+tr.rate-gap b{color:var(--debt);font-size:16px}
+tr.rate-gap .gap-bar{display:block;height:4px;margin-top:4px;border-radius:999px;background:linear-gradient(90deg,transparent,var(--debt),transparent);background-size:200% 100%;animation:rate-gap 2.2s linear infinite}
+@keyframes rate-breathe{0%,100%{opacity:.35;transform:scale(.94)}50%{opacity:1;transform:scale(1.06)}}
+@keyframes rate-gap{from{background-position:0 0}to{background-position:200% 0}}
+@media (prefers-reduced-motion:reduce){.rate-v::before,tr.rate-gap .gap-bar{animation:none}}
+@media print{.rate-v::before,tr.rate-gap .gap-bar{animation:none}}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 "IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow-wrap:anywhere;-webkit-font-smoothing:antialiased}
 header{background:var(--head1);color:#fff;padding:26px 32px}
 header .top{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px 20px;max-width:1000px;margin:0 auto}
@@ -506,9 +544,15 @@ tr.gold td{font-weight:600;color:var(--gold)} table.dense td{padding:5px 8px;fon
 footer{color:var(--muted);font-size:12px;max-width:1000px;margin:0 auto;padding:0 20px 32px}
 .levers{border-color:var(--soft-line);background:var(--soft)}
 .lv-head{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-start}
-.lv-head>div:first-child{flex:1 1 320px;max-width:62ch} .levers h2{margin:0 0 4px}
-.lv-total{display:grid;justify-items:end;gap:2px;text-align:end;font-size:13px;color:var(--muted)}
-.lv-eyebrow{font-size:12px} .lv-total b{font-size:32px;line-height:1.1;color:var(--accent);font-variant-numeric:tabular-nums}
+.lv-head>div:first-child{flex:1 1 320px;max-width:62ch} .levers h2{margin:0}
+.levers{padding-top:14px;padding-bottom:14px}
+.lv-sum{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 18px}
+.lv-sum::-webkit-details-marker{display:none}
+.lv-sum h2{font-size:17px} .lv-sum h2::before{content:"▸ ";color:var(--muted)} .lv-fold[open] .lv-sum h2::before{content:"▾ "}
+.lv-fold[open] .lv-sum{margin-bottom:12px}
+.lv-total{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:flex-end;gap:2px 8px;font-size:13px;color:var(--muted)}
+.lv-side{display:grid;justify-items:end;gap:2px}
+.lv-eyebrow{font-size:12px} .lv-total b{font-size:22px;line-height:1.1;color:var(--accent);font-variant-numeric:tabular-nums}
 .lv-acts{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:8px}
 .lv-acts button{font:inherit;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
 .lv-acts button:disabled{opacity:.5;cursor:default} .lv-acts .lv-primary{background:var(--accent);border-color:transparent;color:#fff}
@@ -532,13 +576,15 @@ footer{color:var(--muted);font-size:12px;max-width:1000px;margin:0 auto;padding:
 .lv-on .scroll .lv-num{width:76px}
 .lv-pill{position:fixed;inset-inline-end:16px;bottom:16px;margin:0;padding:8px 14px;border-radius:999px;background:var(--head1);color:#fff;font-size:13px;box-shadow:0 6px 20px rgb(0 0 0 / .18);z-index:5} .lv-pill span{opacity:.75}
 .lv-panel-seen .lv-pill{display:none} .lv-pdf-opt{margin-top:6px;font-size:12.5px}
-@media (max-width:600px){.lv-total{justify-items:start;text-align:start} .lv-acts{justify-content:flex-start} .lv-sev thead{display:none} .lv-sev tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--row)} .lv-sev tr>*{border:0;padding:0} .lv-sev th[scope=row]{grid-column:1/-1}
+@media (max-width:600px){.lv-total{justify-content:flex-start} .lv-side{justify-items:start} .lv-acts{justify-content:flex-start} .lv-sev thead{display:none} .lv-sev tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--row)} .lv-sev tr>*{border:0;padding:0} .lv-sev th[scope=row]{grid-column:1/-1}
   .lv-sev td::before{content:attr(data-label);display:block;font-size:11px;color:var(--muted)} .lv-sev td:nth-child(2),.lv-sev td:nth-child(3){grid-column:1/-1} .lv-slide{display:flex} .lv-slide input{flex:1;width:auto}}
 @media print{.levers,.lv-pill{display:none} .lv-num,.lv-pick{border:0;padding:0;background:none;appearance:none;-webkit-appearance:none;width:auto}}
 @media (max-width:600px){header{padding:20px 16px} header h1{font-size:20px} main{padding:16px 10px 32px} section{padding:16px 14px}}
 @media print{:root{color-scheme:light;--bg:#fff;--card:#fff;--ink:#14171c;--muted:#5c636e;--line:#e2e5e9;--grid:#e2e5e9;--row:#eef0f3;--soft:#f4f6fb;--soft-line:#d5dcef;--gold:#2856c9;--accent:#2856c9}
   .theme{display:none} header,.bar,.live-dot{-webkit-print-color-adjust:exact;print-color-adjust:exact} section{break-inside:avoid-page;border:0;padding:0 0 12px}
   .appendix-title{break-before:page} .scroll{overflow:visible;border:0} table.dense{font-size:10px} td:not(.name):not(:first-child){white-space:normal}}
+
+.sev-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
 `;
 
 /**
@@ -587,7 +633,27 @@ header h1,h2{font-family:var(--ng-display);font-weight:${p.displayWeight}}
 section{border-radius:${p.radius}px} .card,.scroll{border-radius:${Math.min(p.radius, 12)}px}
 section.answer::before{background:var(--accent)}
 ${p.labels === 'caps' ? 'th{text-transform:uppercase;letter-spacing:.08em;font-size:10.5px}' : ''}
+${p.future ? futureStyle(p) : ''}
 @media print{:root{color-scheme:light;${vars(p.light)};--bg:#fff;--card:#fff}}
+`;
+}
+
+/** Future (the standalone calculator's look): deep space with an aurora, glowing cards, figures and lines in cyan to violet. */
+function futureStyle(p) {
+  const glow = (c) => `--fx1:${c.glow};--fx2:${c.glow2}`;
+  const space = 'radial-gradient(900px 480px at 6% -10%,color-mix(in srgb,var(--fx1) 14%,transparent),transparent 60%),radial-gradient(800px 460px at 100% -6%,color-mix(in srgb,var(--fx2) 16%,transparent),transparent 60%)';
+  return `:root{${glow(p.light)}}
+@media (prefers-color-scheme:dark){:root:not(:has(#theme-light:checked)){${glow(p.dark)}}}
+:root:has(#theme-dark:checked){${glow(p.dark)}}
+body{background-color:var(--bg);background-image:${space},linear-gradient(color-mix(in srgb,var(--fx1) 5%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--fx1) 5%,transparent) 1px,transparent 1px);background-size:auto,auto,44px 44px,44px 44px}
+header{background:${p.head} radial-gradient(700px 220px at 10% 0%,rgb(34 211 238 / .22),transparent 70%),radial-gradient(600px 220px at 95% 0%,rgb(139 92 246 / .26),transparent 70%);border-bottom:0;box-shadow:inset 0 -2px 0 0 transparent;position:relative}
+header::after{content:"";position:absolute;inset:auto 0 0;height:2px;background:linear-gradient(90deg,#22d3ee,#8b5cf6)}
+header h1{background:linear-gradient(90deg,#7dd3fc,#c4b5fd);-webkit-background-clip:text;background-clip:text;color:transparent}
+section{box-shadow:0 1px 0 rgb(255 255 255 / .03) inset,0 18px 40px -28px color-mix(in srgb,var(--fx1) 45%,transparent);border-color:color-mix(in srgb,var(--fx1) 16%,var(--line))}
+section.answer::before{background:linear-gradient(90deg,var(--fx1),var(--fx2))}
+.answer .big,.lv-total b{background:linear-gradient(90deg,var(--fx1),var(--fx2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lv-acts .lv-primary{background:linear-gradient(90deg,var(--fx1),var(--fx2))}
+@media print{body{background:#fff} header h1,.answer .big,.lv-total b{background:none;color:var(--ink)} section{box-shadow:none}}
 `;
 }
 
@@ -633,10 +699,13 @@ function leversPanel(data, live, L) {
   const ahead = tr?.ahead ?? {};
   const periods = [...new Set([3, 6, 12, 18, 24, 36, live.inputs.months])].sort((a, b) => a - b);
   const changed = JSON.stringify(live.inputs) !== JSON.stringify(live.sentInputs);
-  return `<section class="levers" id="levers" aria-labelledby="levers-h">
+  // Folded to one line (the total of your version beside it) until opened, so the answer stays first.
+  return `<section class="levers" id="levers" aria-labelledby="levers-h"><details class="lv-fold">
+  <summary class="lv-sum"><h2 id="levers-h">${w('Try other numbers')}</h2>
+    <span class="lv-total" aria-live="polite"><span class="lv-eyebrow">${w('Your version')}</span> <b data-out="total">${num(sum.total)}</b> <span data-out="bundles">${w('credits · {0} bundles of {1}', num(sum.bundles), num(sum.settings.bundleCredits))}</span> <span class="lv-was" data-out="was">${w('As sent: {0} credits', num(sent))}</span></span></summary>
   <div class="lv-head">
-    <div><h2 id="levers-h">${w('Try other numbers')}</h2><p class="sub">${w('Move any lever and every figure in this report follows. Nothing is sent anywhere and no Checkmarx One connection is needed: the changes stay in this file until you download your version.')}</p></div>
-    <div class="lv-total" aria-live="polite"><span class="lv-eyebrow">${w('Your version')}</span><b data-out="total">${num(sum.total)}</b><span data-out="bundles">${w('credits · {0} bundles of {1}', num(sum.bundles), num(sum.settings.bundleCredits))}</span><span class="lv-was" data-out="was">${w('As sent: {0} credits', num(sent))}</span>
+    <div><p class="sub">${w('Move any lever and every figure in this report follows. Nothing is sent anywhere and no Checkmarx One connection is needed: the changes stay in this file until you download your version.')}</p></div>
+    <div class="lv-side">
       <span class="lv-acts"><button type="button" data-act="reset"${changed ? '' : ' disabled'}>${w('Back to the plan as sent')}</button><button type="button" data-act="pdf">${w('Download PDF')}</button><button type="button" class="lv-primary" data-act="download">${w('Download my version')}</button></span>
       <label class="lv-check lv-pdf-opt"><input type="checkbox" data-pdf-calculations> ${w('Include the calculations in the PDF')}</label></div>
   </div>
@@ -645,6 +714,7 @@ function leversPanel(data, live, L) {
       <div class="lv-scroll"><table class="lv-sev"><thead><tr><th></th><th>${w('Backlog to include')}</th><th>${w('False positives')}</th><th>${w('Credits to triage one')}</th><th>${w('Credits to remediate one')}</th></tr></thead><tbody>${sevRows}</tbody></table></div>
       <div class="lv-row">
         <label class="lv-check"><input type="checkbox" data-lever="future"${ahead.includeFuture !== false ? ' checked' : ''}> ${w('Count the findings still to come')}</label>
+        <label>${w('New findings counted')} ${slider('pace', ahead.newPacePercent ?? 100, 200, w('New findings counted'), w('{0}% of the last months\' pace', num(ahead.newPacePercent ?? 100)))}</label>
         <label>${w('New findings fall with AI')} ${slider('ai', ahead.aiDeclinePercent ?? 0, 90, w('New findings fall with AI'), w('{0}% over a year', num(ahead.aiDeclinePercent ?? 0)))}</label>
         ${tr.fusion ? `<label>${w('More found by Fusion')} ${slider('up', ahead.fusionUpliftPercent ?? 0, 100, w('More found by Fusion'), `${num(ahead.fusionUpliftPercent ?? 0)}%`)}</label>` : ''}
       </div>
@@ -660,7 +730,7 @@ function leversPanel(data, live, L) {
       <label class="lv-field">${w('Credits per bundle')} ${box('bundle', sum.settings.bundleCredits, w('Credits per bundle'), ' step="1"')}</label>
     </fieldset>
   </div>
-</section>
+</details></section>
 <p class="lv-pill" aria-hidden="true"><span>${w('Your version')}</span> <b data-out="pill">${num(sum.total)}</b> ${w('credits')}</p>`;
 }
 
@@ -677,6 +747,7 @@ ${impactSection(data, L)}
 ${assumptions(data, sum, L)}
 ${data.tr || data.fusion || data.fusionNew ? `<p class="appendix-title">${w('Appendix: every figure')}</p>` : ''}
 ${data.tr ? trAppendix(data.tr, L) : ''}
+${severityAppendix(data, L)}
 ${data.fusion ? fusionAppendix(data.fusion, L, Boolean(live)) : ''}
 ${data.fusionNew ? fusionNewAppendix(data.fusionNew, L) : ''}
 ${calculations(data, L)}

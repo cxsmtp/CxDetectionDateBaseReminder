@@ -62,7 +62,7 @@ test('the total counts Fusion for the existing customer and for the new customer
 
 test('a customer keeps the new customer tab: cleaned like everything else saved, and in its reports\' total', () => {
   const fresh = newProfile({ name: 'Acme' });
-  assert.deepEqual(fresh.fusionNew, { defaultScans: 12, defaultModel: null, leftOut: [...CLOC_LEFT_OUT], optOut: false, projects: [] });
+  assert.deepEqual(fresh.fusionNew, { defaultScans: 12, defaultModel: null, leftOut: [...CLOC_LEFT_OUT], optOut: false, basis: null, basisByHand: false, projects: [] });
   const next = patchProfile(fresh, { fusionNew: { optOut: true, defaultScans: '6', leftOut: ['JSON', 'JSON', ''], projects: [{ name: 'x'.repeat(300), langs: { Java: '1,000', ['__proto__']: 5, constructor: 1 }, scansOverride: '3', modelOverride: 'm1' }] } });
   const p = next.fusionNew.projects[0];
   assert.equal(next.fusionNew.optOut, true);
@@ -92,12 +92,24 @@ test('the projection report and its PDF show the new customer as its own part of
   assert.ok(pages.find((p) => p.kind === 'fusion').lines.some((l) => l.includes('New customer (code counted from git, a cloc-fusion report or cloc)')));
 });
 
-test('the page: two Fusion tabs, the two ticks under Add Fusion, and the new customer\'s part in the summary', () => {
+test('the page: three Fusion tabs (Checkmarx One, from Git, cloc-fusion), each with its header, and one Fusion part in the summary', () => {
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.match(html, /data-pt="fusion">Fusion — existing customer<\/button>\s*<button type="button" role="tab" class="ptab" data-pt="fusion-new">Fusion — new customer<\/button>/);
+  // Three Fusion tabs and their panels; the old sub-switch is gone.
+  assert.match(html, /data-pt="fusion">Fusion · Checkmarx One<\/button>/);
+  assert.match(html, /data-pt="fusion-git">Fusion · from Git<\/button>/);
+  assert.match(html, /data-pt="fusion-cloc">Fusion · cloc-fusion<\/button>/);
+  for (const tab of ['fusion', 'fusion-git', 'fusion-cloc']) {
+    assert.match(html, new RegExp(`data-ptpanel="calculator:${tab}"`));
+    assert.match(html, new RegExp(`id="calc-fh-${tab}"`), `${tab} has its header card`);
+    assert.match(html, new RegExp(`data-fslot="${tab}"`), `${tab} has a place for the shared Fusion parts`);
+  }
+  assert.doesNotMatch(html, /name="calc-fsub"/);
+  // Both parts are drawn; the tabs show one at a time. The two ticks stay as the state behind "Use this".
+  assert.match(html, /class="calc-fsub" data-fsub="existing"/);
+  assert.match(html, /class="calc-fsub" data-fsub="new" hidden/);
   assert.match(html, /id="calc-fusion-on" checked \/> Existing customer/);
   assert.match(html, /id="calc-fusion-new-on" checked \/> New customer/);
-  // One Fusion tile, for the part that applies (both added up when both do).
+  // One Fusion tile, for the estimate in the credits.
   assert.match(html, /<span id="calc-sum-fusion-label">Fusion<\/span>/);
   assert.doesNotMatch(html, /id="calc-sum-fusion-new"/);
   assert.match(html, /docker\.io\/aldanial\/cloc --json --quiet \/src &gt; payments-api\.json/);
@@ -105,4 +117,42 @@ test('the page: two Fusion tabs, the two ticks under Add Fusion, and the new cus
   for (const file of ['../src/server.js', '../public/calculator/standalone.js']) {
     assert.match(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), /\['name', 'tr', 'fusion', 'fusionNew', 'totals', 'scope', 'impact'\]/);
   }
+});
+
+test('one Fusion estimate in the credits: counted code is split into git and cloc-fusion by where it was counted', async () => {
+  const { newCustomerEstimate, fusionSourceOf } = await import('../public/calculator/model.js');
+  const fusion = { models: [{ id: 'm', name: 'opus-5.5', creditsPer10k: 10 }], defaultModel: 'm', periodMonths: 12 };
+  const projects = [
+    { id: 'a', name: 'payments-api', langs: { JavaScript: 25000 }, git: { host: 'github.com', path: 'acme/payments-api' } },
+    { id: 'b', name: 'ledger', langs: { Java: 15000 }, activity: { engine: 'report', commits: 0, windowDays: 365 } },
+    { id: 'c', name: 'typed', locOverride: 5000 },
+  ];
+  assert.deepEqual(projects.map(fusionSourceOf), ['git', 'cloc', 'git']);
+  const all = newCustomerEstimate({ projects, defaultScans: 2 }, fusion).totals;
+  const git = newCustomerEstimate({ projects, defaultScans: 2, basis: 'git' }, fusion).totals;
+  const cloc = newCustomerEstimate({ projects, defaultScans: 2, basis: 'cloc' }, fusion).totals;
+  assert.equal(git.projects, 2);
+  assert.equal(cloc.projects, 1);
+  // The two together are what was counted before the tabs: nothing lost, nothing counted twice.
+  assert.equal(git.credits + cloc.credits, all.credits);
+  assert.equal(git.units + cloc.units, all.units);
+});
+
+test('the report: no Fusion estimates compared (removed), and the open vulnerabilities by project only when sent', async () => {
+  const { buildReport } = await import('../public/calculator/report.js');
+  const base = { version: 2, customer: 'Acme', organisation: 'CX', generatedAt: '2026-11-09T12:00:00.000Z', source: { kind: 'cxone' }, tr: null, fusion: null, fusionNew: null };
+  const shown = (html) => html.replace(/<script[\s\S]*?<\/script>/g, '');
+  const plain = shown(buildReport(base, {}));
+  assert.doesNotMatch(plain, /id="by-severity"/);
+  // Even a report saved with the estimates compared no longer shows them.
+  const html = shown(buildReport({
+    ...base,
+    fusionCompare: { periodMonths: 12, rows: [
+      { key: 'cxone', label: 'From Checkmarx One projects', projects: 186, lines: 14200000, units: 1512, scans: 1049, credits: 102348, used: true },
+      { key: 'git', label: 'From code counted in git', projects: 267, lines: 19600000, units: 2071, scans: 921, credits: 86964, used: false },
+    ] },
+    bySeverity: { severities: ['critical', 'high', 'medium', 'low'], rows: [{ name: 'pay<b>ments', sev: { critical: 3, high: 12, medium: 40, low: 9 }, total: 64 }] },
+  }, {}));
+  assert.doesNotMatch(html, /<section class="compare">|the estimates compared|To compare/);
+  assert.match(html, /id="by-severity"[\s\S]*?pay&lt;b&gt;ments[\s\S]*?<b>64<\/b>/, 'a project name is escaped');
 });

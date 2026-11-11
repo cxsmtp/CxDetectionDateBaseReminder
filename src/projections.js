@@ -496,16 +496,20 @@ export class TenantReadStore {
  * for Fusion, each project's lines of code (its last scan), criticality and how often it was
  * scanned in the last year (counted project by project); for triage & remediation, the backlog
  * and fixes week by week over the last `weeks` weeks, from the same scans' summaries.
- * `onProgress(step, done, total)` follows it: "projects" (each project's scans and lines of code), then "summaries".
+ * `onProgress(step, done, total)` follows it: "projects" (each project's scans and lines of code read) and
+ * "summaries" (the projects with their findings in), side by side: the projects are read a batch at a time, each
+ * batch's findings fetched while the next is read.
  * `maxProjects`: how many of the tenant's projects it takes (DEFAULT_READ_PROJECTS unless set; `limited` says when there were more).
+ * `live`: an object filled while it reads, for the page to show what is in so far (readJobView).
  */
-export async function readTenant(client, { concurrency = 8, now = Date.now(), weeks = 52, onProgress = () => {}, branches = 'primary', maxProjects = DEFAULT_READ_PROJECTS } = {}) {
+export async function readTenant(client, { concurrency = 8, now = Date.now(), weeks = 52, onProgress = () => {}, branches = 'primary', maxProjects = DEFAULT_READ_PROJECTS, live = null } = {}) {
   const limit = readLimit(maxProjects);
   const listed = {};
   const [projects, applications] = await Promise.all([listProjects(client, { maxItems: limit, stats: listed }), listApplications(client).catch(() => [])]);
   // Stopped at the limit: how many there are, so the page can say what was left out.
   const total = listed.stopped ? await countProjects(client).catch(() => null) : null;
   const limited = listed.stopped && (total === null || total > projects.length) ? { read: projects.length, limit, total } : null;
+  const appNames = [...new Set(applications.map((a) => a.name))].sort((a, b) => a.localeCompare(b));
   // Each project's applications, by name (a project may be in several).
   const appsOf = new Map();
   for (const app of applications) for (const id of app.projectIds) appsOf.set(id, [...(appsOf.get(id) ?? []), app.name]);
@@ -517,8 +521,11 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
   const lastScans = choice?.scans ?? anyBranch;
   const yearAgo = now - 365 * DAY;
   const from = new Date(Math.min(yearAgo, now - weeks * 7 * DAY)).toISOString();
-  let done = 0;
-  const perProject = await mapWithConcurrency(projects, concurrency, async (project) => {
+  const readAt = new Date(now).toISOString();
+  const metaOf = (count, scans, engines, partial = false) => ({ source: 'cxone', readAt, projects: count, ...(limited ? { projectsLimit: limit, projectsTotal: total } : {}), scans, engines, engineSplit: true, origins: [], originSplit: true, branches: branches === 'all' ? 'all' : 'primary', ...(partial ? { partial: true } : {}) });
+
+  /** One project's scans in the year and lines of code. */
+  const readProject = async (project) => {
     const lastScan = lastScans[project.id] ?? null;
     const want = choice?.branches[project.id] ?? { branch: '', how: BRANCH_HOW.any };
     const branch = [BRANCH_HOW.primary, BRANCH_HOW.guessed, BRANCH_HOW.latest].includes(want.how) ? want.branch : '';
@@ -533,12 +540,11 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
     }
     const latest = history.scans[0] ?? lastScan ?? history.before;
     const lines = latest?.id ? await linesOfScan(client, latest.id) : { loc: null, source: 'none' };
-    onProgress('projects', (done += 1), projects.length);
     return { project, lastScan, latest, lines, branch: want.branch, branchHow: want.how, ...history };
-  });
+  };
 
-  // Fusion: how often each project was scanned in the last year (a younger project: since it was created).
-  const rows = perProject.map(({ project, latest, lastScan, lines, scans, before, count, failed, branch, branchHow }) => {
+  /** Fusion: how often a project was scanned in the last year (a younger project: since it was created). */
+  const rowOf = ({ project, latest, lines, scans, before, count, failed, branch, branchHow, lastScan }) => {
     const born = Date.parse(project.createdAt ?? '');
     const windowDays = Math.max(7, Math.min(365, (now - Math.max(yearAgo, Number.isFinite(born) ? born : 0)) / DAY));
     const yearScans = scans.filter((x) => Date.parse(x.createdAt ?? '') >= yearAgo);
@@ -578,35 +584,120 @@ export async function readTenant(client, { concurrency = 8, now = Date.now(), we
       branchHow,
       included: true,
     };
-  });
+  };
 
-  // Triage & remediation: the scans' summaries, then the weeks.
-  const ids = [...new Set(perProject.flatMap(({ scans, before }) => [...(before ? [before.id] : []), ...scans.map((x) => x.id)]))];
-  let summarised = 0;
-  onProgress('summaries', 0, ids.length);
-  const summaries = await scanSummaries(client, ids, { onChunk: (n) => onProgress('summaries', (summarised += n), ids.length) });
-  // The tenant's own totals count SAST and SCA, the engines AI Triage and Remediation act on; a scope
-  // with other engines is added up from each project's engines (seriesFor).
-  const weekly = weeklyBacklog(perProject, summaries, { now, weeks, engines: DEFAULT_ENGINES });
-  // Each project's open findings now, engine by engine (its latest scan with a summary): "no open findings" in the scope.
-  perProject.forEach(({ latest, scans, before }, i) => {
-    const counted = [latest, ...scans, before].find((x) => x?.id && summaries.has(x.id));
+  /** Each project's open findings now (its latest scan with a summary): engine by engine, and by severity across every engine. */
+  const openOf = (entry, row) => {
+    const counted = [entry.latest, ...entry.scans, entry.before].find((x) => x?.id && summaries.has(x.id));
     const summary = counted ? summaries.get(counted.id) : null;
     if (!summary) return;
-    rows[i].openByEngine = Object.fromEntries(Object.entries(perEngine(summary)).map(([engine, { total }]) => [engine, SEVERITIES.reduce((n, s) => n + (total[s] ?? 0), 0)]));
-  });
-  const readAt = new Date(now).toISOString();
-  const meta = { source: 'cxone', readAt, projects: projects.length, ...(limited ? { projectsLimit: limit, projectsTotal: total } : {}), scans: weekly.scans, engines: weekly.engines, engineSplit: true, origins: [], originSplit: true, branches: branches === 'all' ? 'all' : 'primary' };
+    row.openByEngine = Object.fromEntries(Object.entries(perEngine(summary)).map(([engine, { total }]) => [engine, SEVERITIES.reduce((n, s) => n + (total[s] ?? 0), 0)]));
+    const bySeverity = Object.fromEntries(SEVERITIES.map((s) => [s, 0]));
+    for (const { total } of Object.values(perEngine(summary))) for (const s of SEVERITIES) bySeverity[s] += total[s] ?? 0;
+    row.openBySeverity = bySeverity;
+  };
+
+  // The projects are read a batch at a time (a small one first, so the first figures come quickly); each batch's
+  // findings are fetched while the next batch is read. What is complete so far goes to `live`, for the page to show
+  // while the read goes on: the projects read (names), and the projects with their findings in (rows and the weeks).
+  const perProject = new Array(projects.length);
+  const rows = new Array(projects.length);
+  const summaries = new Map();
+  const complete = [];
+  let read = 0;
+  let found = 0;
+  const pending = [];
+  const step = (i) => (i === 0 ? 20 : 50);
+  if (live) {
+    Object.assign(live, { total: projects.length, applications: appNames, limited, rows: [], recent: [], snapshot: null, loc: 0, scans: 0, open: zeros() });
+    // The weeks so far, worked out when the page asks: at most every 2 seconds, and only when a batch has come in since.
+    live.tr = () => {
+      const t = Date.now();
+      if (!live.snapshot || (live.snapshot.stale && t - live.snapshot.at > 2000)) live.snapshot = { at: t, stale: false, tr: partialTr() };
+      return live.snapshot.tr;
+    };
+  }
+  for (let at = 0, b = 0; at < projects.length; b += 1) {
+    const range = projects.slice(at, at + step(b)).map((project, k) => ({ project, i: at + k }));
+    at += range.length;
+    await mapWithConcurrency(range, concurrency, async ({ project, i }) => {
+      const entry = await readProject(project);
+      perProject[i] = entry;
+      rows[i] = rowOf(entry);
+      read += 1;
+      if (live) {
+        live.recent.push({ n: read, name: String(project.name ?? project.id), loc: rows[i].loc ?? null, scans: rows[i].scanCount, criticality: rows[i].criticality });
+        live.loc += Number(rows[i].loc) || 0;
+        live.scans += rows[i].scanCount || 0;
+        if (live.recent.length > 60) live.recent.splice(0, live.recent.length - 60);
+      }
+      onProgress('projects', read, projects.length);
+    });
+    // This batch's findings, fetched while the next batch is read.
+    const batch = range.map(({ i }) => i);
+    const ids = [...new Set(batch.flatMap((i) => [...(perProject[i].before ? [perProject[i].before.id] : []), ...perProject[i].scans.map((x) => x.id)]))];
+    pending.push(
+      scanSummaries(client, ids).then((got) => {
+        for (const [id, summary] of got) summaries.set(id, summary);
+        for (const i of batch) {
+          openOf(perProject[i], rows[i]);
+          complete.push(i);
+          if (!live) continue;
+          live.rows.push(rows[i]);
+          for (const sev of SEVERITIES) live.open[sev] += rows[i].openBySeverity?.[sev] ?? 0;
+        }
+        found += batch.length;
+        if (live?.snapshot) live.snapshot.stale = true;
+        onProgress('summaries', found, projects.length);
+      }),
+    );
+  }
+  await Promise.all(pending);
+  if (!projects.length) onProgress('summaries', 0, 0);
+
+  // Triage & remediation: the weeks, from the scans' summaries. The tenant's own totals count SAST and SCA,
+  // the engines AI Triage and Remediation act on; a scope with other engines is added up from each project's engines (seriesFor).
+  const weekly = weeklyBacklog(perProject, summaries, { now, weeks, engines: DEFAULT_ENGINES });
+  const meta = metaOf(projects.length, weekly.scans, weekly.engines);
   return {
     projects: rows,
     limited,
-    applications: [...new Set(applications.map((a) => a.name))].sort((a, b) => a.localeCompare(b)),
+    applications: appNames,
     tr: summaries.size ? { totals: { ...weekly.totals, meta }, fixed: { ...weekly.fixed, meta } } : null,
     readAt,
     // Each project's weeks: kept on the server (TenantReadStore), never sent to the page.
     perProject: { readAt, weeks: weekly.totals.weeks, byProject: weekly.byProject },
   };
+
+  // (hoisted) What the page is shown while the read goes on.
+  function partialTr() {
+    const done = complete.map((i) => perProject[i]);
+    if (!done.length || !summaries.size) return null;
+    const w = weeklyBacklog(done, summaries, { now, weeks, engines: DEFAULT_ENGINES });
+    const m = metaOf(done.length, w.scans, w.engines, true);
+    return { totals: { ...w.totals, meta: m }, fixed: { ...w.fixed, meta: m } };
+  }
 }
+
+/**
+ * A calculator read as the page follows it (both CxMissionZero's server and the standalone launcher): how far it is
+ * (projects read, and with their findings in), and while it runs, what is in so far when asked (`since`: the rows the
+ * page has already): the project names just read, the projects complete since, and the backlog's weeks so far.
+ */
+export function readJobView(job, { since = null } = {}) {
+  if (!job) return { state: 'none' };
+  const view = { id: job.id, state: job.state, step: job.step, done: job.done, total: job.total, read: job.read ?? 0, found: job.found ?? 0, startedAt: job.startedAt, finishedAt: job.finishedAt ?? null, error: job.error ?? null };
+  if (job.state === 'done') view.result = job.result;
+  const live = job.live;
+  const from = Number.parseInt(since, 10);
+  if (job.state === 'running' && live?.rows && Number.isInteger(from) && from >= 0) {
+    view.live = { total: live.total, applications: live.applications, limited: live.limited, loc: live.loc, scans: live.scans, open: live.open, offer: live.offer ?? null, recent: live.recent.slice(-30), rowsFrom: Math.min(from, live.rows.length), rows: live.rows.slice(from, from + 2000), rowsIn: live.rows.length, tr: live.tr() };
+  }
+  return view;
+}
+
+/** Follow a read's progress on its job (`read` and `found` side by side; `step`, `done`, `total` as before). */
+export const readProgressOf = (job) => (step, done, total) => Object.assign(job, { step, done, total }, step === 'projects' ? { read: done } : { found: done });
 
 /** Lines of code a scan counted: its SAST scan metadata, else the scan's own SAST details. */
 async function linesOfScan(client, scanId) {

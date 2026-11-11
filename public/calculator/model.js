@@ -25,6 +25,8 @@ export const DEFAULT_TR = Object.freeze({
   fusionUpliftPercent: 5,
   // New findings fall as teams adopt AI (assist, triage, remediation): this much fewer over a year.
   aiDeclinePercent: 2,
+  // How many new findings to count, against the pace of the trend (100%: as many a month as over the trend's months).
+  newPacePercent: 100,
 });
 // The trend is always read over months (a single week says too little to project from).
 export const LOOKBACKS = [3, 6, 9, 12];
@@ -177,6 +179,7 @@ export function aheadSettings(value = {}) {
     includeFuture: v.includeFuture !== false,
     fusionUpliftPercent: pct(v.fusionUpliftPercent, DEFAULT_TR.fusionUpliftPercent, 300),
     aiDeclinePercent: pct(v.aiDeclinePercent, DEFAULT_TR.aiDeclinePercent, 90),
+    newPacePercent: pct(v.newPacePercent, DEFAULT_TR.newPacePercent, 300),
   };
 }
 
@@ -203,7 +206,8 @@ export function trProjection(analysis, plan = {}, { months = 12, fusion = false,
   const ahead = aheadSettings(plan);
   const selected = resolveSelected(analysis, plan.selected);
   const period = clamp(Number(months) || 12, 1, 60);
-  const paced = aheadMonths(period, ahead.aiDeclinePercent);
+  // Months' worth of new findings: the period, falling with AI, at the share of the trend's pace chosen.
+  const paced = (aheadMonths(period, ahead.aiDeclinePercent) * ahead.newPacePercent) / 100;
   const rows = {};
   const keys = ['backlog', 'selected', 'arrivals', 'future', 'fusionBase', 'fusionExtra', 'toTriage', 'truePositives', 'triageCredits', 'remediationCredits', 'credits', 'backlogCredits', 'aheadCredits', 'backlogAfter'];
   const totals = Object.fromEntries(keys.map((k) => [k, 0]));
@@ -435,7 +439,8 @@ export function fusionSettings(value = {}) {
   return {
     periodMonths,
     defaultScans: scans(v.defaultScans) ?? 1,
-    defaultModel: model(v.defaultModel) ?? models[0]?.id ?? null,
+    // When no model was chosen, prefer opus-5.5 (the newest), else the first model listed (tenant or catalogue).
+    defaultModel: model(v.defaultModel) ?? (models.find((m) => /opus[-\s]?5\.?5/i.test(m.name)) ?? models[0])?.id ?? null,
     combine: COMBINE.includes(v.combine) ? v.combine : 'higher',
     models,
     byFrequency: Object.fromEntries(FREQUENCIES.map((f) => [f.id, rule(byFrequency[f.id])])),
@@ -621,8 +626,16 @@ export function newCustomerSettings(value = {}) {
     defaultModel: typeof v.defaultModel === 'string' && v.defaultModel ? v.defaultModel.slice(0, 60) : null,
     leftOut: Array.isArray(v.leftOut) ? [...new Set(v.leftOut.map((l) => String(l ?? '').trim().slice(0, 60)).filter(Boolean))].slice(0, MAX_CLOC_LANGUAGES) : [...CLOC_LEFT_OUT],
     optOut: v.optOut === true,
+    // Which counted code is in the credits: 'git' (counted from git, and projects added by hand) or 'cloc'
+    // (a cloc-fusion report or cloc results). None (saved before the Fusion tabs): all of it, as before.
+    basis: v.basis === 'git' || v.basis === 'cloc' ? v.basis : null,
+    // Picked by hand (Use this instead, Leave Fusion out): kept. Otherwise the estimate with the most credits is used.
+    basisByHand: v.basisByHand === true,
   };
 }
+
+/** Where a new customer's project was counted: 'cloc' for a cloc-fusion report or cloc results, else 'git' (git, or typed by hand). */
+export const fusionSourceOf = (p) => (p?.activity?.engine === 'report' || (!p?.git && p?.file) ? 'cloc' : 'git');
 
 const FREQUENCY_IDS = new Set(FREQUENCIES.map((f) => f.id));
 
@@ -664,9 +677,11 @@ export function newCustomerEstimate(value = {}, fusionValue = {}) {
       .sort((a, b) => b.lines - a.lines);
     const devs90 = wholeNumber(p.activity?.devs90);
     const commits = wholeNumber(p.activity?.commits);
-    return { ...p, lines, included, units, frequency, criticality, commits, devs90, scans, scansFrom: from, model, rate, credits, languages, unknownLines: lines === null, unknownRate: included && units > 0 && scans > 0 && rate === null };
+    const source = fusionSourceOf(p);
+    return { ...p, source, inBasis: !own.basis || own.basis === source, lines, included, units, frequency, criticality, commits, devs90, scans, scansFrom: from, model, rate, credits, languages, unknownLines: lines === null, unknownRate: included && units > 0 && scans > 0 && rate === null };
   });
-  const counted = rows.filter((r) => r.included && r.units);
+  // Only the counted code the basis names is in the credits (the Git tab's or the cloc-fusion tab's).
+  const counted = rows.filter((r) => r.inBasis && r.included && r.units);
   const totals = {
     projects: counted.length,
     lines: counted.reduce((a, r) => a + r.lines, 0),
@@ -674,8 +689,8 @@ export function newCustomerEstimate(value = {}, fusionValue = {}) {
     scans: counted.reduce((a, r) => a + r.scans, 0),
     unitScans: counted.reduce((a, r) => a + r.units * r.scans, 0),
     credits: counted.reduce((a, r) => a + (r.credits ?? 0), 0),
-    unknownLines: rows.filter((r) => r.included && r.unknownLines).length,
-    unknownRate: rows.filter((r) => r.unknownRate).length,
+    unknownLines: rows.filter((r) => r.inBasis && r.included && r.unknownLines).length,
+    unknownRate: rows.filter((r) => r.inBasis && r.unknownRate).length,
     // Where the scans came from: the change frequency (or criticality), this tab's default, or the project's own.
     byRule: counted.filter((r) => r.scansFrom === 'frequency' || r.scansFrom === 'criticality').length,
     byDefault: counted.filter((r) => r.scansFrom === 'default').length,
@@ -797,7 +812,18 @@ export function creditSummary(trCredits, fusionCredits, value = {}) {
   const extra = (base * settings.extraPercent) / 100;
   const total = base + extra;
   const exactBundles = total / settings.bundleCredits;
-  return { settings, tr, fusion, base, extra, total, exactBundles, bundles: total > 0 ? Math.ceil(exactBundles - 1e-9) : 0 };
+  // Round totals only: the strip, the total and the bundles are whole credits, and the rounded parts
+  // add up to the rounded total (no row-vs-total mismatch). Per-project figures stay exact, shown as they are.
+  const trShown = tr === null ? null : Math.round(tr);
+  const fusionShown = fusion === null ? null : Math.round(fusion);
+  const extraShown = Math.round(extra);
+  const totalShown = (trShown ?? 0) + (fusionShown ?? 0) + extraShown;
+  const bundlesShown = totalShown > 0 ? Math.ceil(totalShown / settings.bundleCredits - 1e-9) : 0;
+  return {
+    settings, tr, fusion, base, extra, total, exactBundles,
+    bundles: totalShown > 0 ? bundlesShown : 0,
+    trShown, fusionShown, extraShown, totalShown, bundlesShown,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -10,7 +10,7 @@ import { generateKeyPairSync, sign } from 'node:crypto';
 
 import { aheadMonths, aheadSettings, allocate, analyse, backlogForecast, cleanScope, readLimit, creditSummary, frequencyOf, fusionEstimate, fusionSettings, globMatch, inScope, planForecast, resolveSelected, scopeActive, seriesRows, severityForecast, severityPlan, suggestedScans, totalsSettings, trCost, trProjection, unitsOf, weeklyTrend, SEVERITIES } from '../public/calculator/model.js';
 import { buildReport, reportFileName } from '../public/calculator/report.js';
-import { MAX_PROFILE_BYTES, ProjectionStore, ReportStore, TenantReadStore, cleanFusion, cleanReportData, cleanTr, countersOf, readFusionOffer, readFusionProjects, readTenant, seriesFor, weeklyBacklog } from '../src/projections.js';
+import { MAX_PROFILE_BYTES, ProjectionStore, ReportStore, TenantReadStore, cleanFusion, cleanReportData, cleanTr, countersOf, readFusionOffer, readFusionProjects, readJobView, readProgressOf, readTenant, seriesFor, weeklyBacklog } from '../src/projections.js';
 import { ActivationStore, checkCode } from '../src/activation.js';
 import { Terms, cleanName } from '../src/terms.js';
 import { STATE_DIRS } from '../src/data-dir.js';
@@ -133,7 +133,11 @@ test('credits required: both parts, an extra % on top, and whole bundles of cred
   assert.equal(sum.bundles, 3, '27,170.55 credits ÷ 10,000 = 2.72, rounded up to 3 bundles');
   assert.equal(creditSummary(20000, null, {}).bundles, 2, 'exactly 2 bundles is not rounded up to 3');
   assert.equal(creditSummary(null, 100, { bundleCredits: 50 }).bundles, 2);
-  assert.deepEqual(creditSummary(null, null, {}), { settings: { extraPercent: 0, bundleCredits: 10000 }, tr: null, fusion: null, base: 0, extra: 0, total: 0, exactBundles: 0, bundles: 0 });
+  assert.deepEqual(creditSummary(null, null, {}), { settings: { extraPercent: 0, bundleCredits: 10000 }, tr: null, fusion: null, base: 0, extra: 0, total: 0, exactBundles: 0, bundles: 0, trShown: null, fusionShown: null, extraShown: 0, totalShown: 0, bundlesShown: 0 });
+  // Round totals only: the shown figures are whole and add up (700.5 → 701), the exact parts are kept for the maths.
+  const shown = creditSummary(24000, 700.5, { extraPercent: 10 });
+  assert.deepEqual([shown.trShown, shown.fusionShown, shown.extraShown, shown.totalShown], [24000, 701, 2470, 27171]);
+  assert.equal(shown.trShown + shown.fusionShown + shown.extraShown, shown.totalShown);
   assert.deepEqual(totalsSettings({ extraPercent: '12.345', bundleCredits: '5,000' }), { extraPercent: 12.35, bundleCredits: 5000 });
   assert.deepEqual(totalsSettings({ extraPercent: -5, bundleCredits: 0 }), { extraPercent: 0, bundleCredits: 10000 });
   assert.equal(totalsSettings({ extraPercent: 9000 }).extraPercent, 500);
@@ -331,7 +335,7 @@ test('the models Checkmarx One offers: a new customer starts with them, a read n
   assert.deepEqual(CHECKMARX_MODELS, ['opus-4.7', 'haiku-4.5', 'opus-5.0', 'opus-5.5', 'mythos-5.1']);
   const fresh = newProfile({ name: 'Acme' });
   assert.deepEqual(fresh.fusion.models.map((m) => [m.id, m.name, m.creditsPer10k, m.source]), CHECKMARX_MODELS.map((n) => [`cx-${n.replace('.', '-')}`, n, null, 'catalog']), 'named; their credits left to type');
-  assert.equal(fresh.fusion.defaultModel, 'cx-opus-4-7');
+  assert.equal(fresh.fusion.defaultModel, 'cx-opus-5-5');
   assert.deepEqual(modelsNamed([' a ', 'a', '']).map((m) => m.name), ['a']);
   assert.equal(fusionSettings({ models: [{ id: 'x', name: 'x', source: 'evil' }] }).models[0].source, 'manual');
   const offer = await readFusionOffer({
@@ -402,7 +406,7 @@ test('one read of the tenant gives both tabs: the Fusion projects and the weekly
   assert.deepEqual(out.tr.fixed.bySeverity.Medium, [0, 0, 0, 3]);
   assert.equal(out.tr.totals.meta.source, 'cxone');
   assert.deepEqual([out.tr.totals.meta.projects, out.tr.totals.meta.scans], [1, 2]);
-  assert.deepEqual(steps, ['projects 0/1', 'projects 1/1', 'summaries 0/2', 'summaries 2/2']);
+  assert.deepEqual(steps, ['projects 0/1', 'projects 1/1', 'summaries 1/1']);
   // What is saved keeps where it came from.
   const saved = cleanTr({ totals: out.tr.totals, fixed: out.tr.fixed });
   assert.equal(saved.totals.meta.source, 'cxone');
@@ -510,6 +514,15 @@ test('what is ahead: findings still to come at the trend, and more from Fusion',
   assert.ok(Math.abs(high.future - future) < 1e-9);
   assert.ok(Math.abs(p.paced - aheadMonths(12, 2)) < 1e-9);
   assert.ok(Math.abs(trProjection(quarter, { aiDeclinePercent: 0 }, { months: 12 }).rows.High.future - (37 / months) * 12) < 1e-9, 'at 0%: today\'s pace every month');
+  // New findings counted: a share of the trend's pace (100% unless set; 0% counts none; up to 300%).
+  assert.equal(aheadSettings({}).newPacePercent, 100);
+  assert.equal(aheadSettings({ newPacePercent: 999 }).newPacePercent, 300);
+  const halfPace = trProjection(quarter, { aiDeclinePercent: 0, newPacePercent: 50 }, { months: 12 });
+  assert.ok(Math.abs(halfPace.rows.High.future - (37 / months) * 6) < 1e-9, "50%: half the new findings");
+  assert.ok(Math.abs(halfPace.paced - 6) < 1e-9);
+  const none = trProjection(quarter, { newPacePercent: 0 }, { months: 12 });
+  assert.equal(none.totals.future, 0);
+  assert.equal(none.totals.aheadCredits, 0, '0%: the backlog alone');
   assert.ok(Math.abs(high.fusionExtra - (130 + future) * 0.05) < 1e-9);
   assert.equal(high.faeAvoided, undefined, 'no FAE in the projection');
   assert.ok(Math.abs(high.toTriage - (130 + future + high.fusionExtra)) < 1e-9);
@@ -703,4 +716,52 @@ test('Fusion opted out: kept with the customer, on by default, and only a real t
   assert.equal(kept.optOut, true);
   assert.equal(kept.projects.length, 1, 'the projects and settings stay, to count again later');
   assert.equal(cleanFusion(JSON.parse(JSON.stringify(kept))).optOut, true);
+});
+
+test('a read shows what is in so far while it goes on: names as read, projects with their findings, the weeks', async () => {
+  const now = Date.parse('2026-10-09T00:00:00Z');
+  const ids = Array.from({ length: 45 }, (_, i) => `p${i + 1}`);
+  const at = (days) => new Date(now - days * 86400000).toISOString();
+  const job = { id: 'j', state: 'running', step: 'projects', done: 0, total: 0, read: 0, found: 0, live: {} };
+  const seen = [];
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  let summaryCalls = 0;
+  const client = {
+    async *paginate(url) {
+      if (url === '/api/projects') for (const id of ids) yield { id, name: `Repo ${id}`, createdAt: '2020-01-01T00:00:00Z' };
+    },
+    async request(url, { query } = {}) {
+      if (url === '/api/scans') return query['to-date'] ? { scans: [] } : { filteredTotalCount: 1, scans: [{ id: `s-${query['project-id']}`, createdAt: at(3) }] };
+      if (url === '/api/scan-summary') {
+        // The second batch's findings wait: the first batch is to be shown meanwhile.
+        if ((summaryCalls += 1) > 1) await gate;
+        return { scansSummaries: query['scan-ids'].map((scanId) => ({ scanId, sastCounters: { severityCounters: [{ severity: 'HIGH', counter: 2 }] } })) };
+      }
+      if (url === '/api/projects/last-scan') return {};
+      if (url.startsWith('/api/sast-metadata/')) return { loc: 12000 };
+      throw new Error(`unexpected ${url}`);
+    },
+  };
+  const done = readTenant(client, { now, weeks: 4, live: job.live, onProgress: readProgressOf(job) });
+  for (let i = 0; i < 200 && job.found < 20; i += 1) await new Promise((r) => setTimeout(r, 5));
+  const view = readJobView(job, { since: '0' });
+  assert.equal(view.found, 20, 'the first batch of 20 is complete');
+  assert.ok(view.read >= 20, 'and more are read meanwhile');
+  assert.equal(view.live.rows.length, 20);
+  assert.equal(view.live.rowsIn, 20);
+  assert.ok(view.live.recent.every((x) => /^Repo p\d+$/.test(x.name)), 'the projects are named');
+  assert.equal(view.live.open.High, 40);
+  assert.ok(view.live.loc >= 20 * 12000);
+  assert.deepEqual(view.live.tr.totals.bySeverity.High.at(-1), 40, 'the weeks of the 20 complete');
+  assert.equal(view.live.tr.totals.meta.partial, true);
+  assert.equal(readJobView(job, { since: '20' }).live.rows.length, 0, 'only the rows the page has not had');
+  assert.equal(readJobView(job).live, undefined, 'nothing more unless asked');
+  seen.push(view.read);
+  release();
+  const out = await done;
+  assert.equal(out.projects.length, 45);
+  assert.deepEqual(out.tr.totals.bySeverity.High.at(-1), 90);
+  assert.equal(out.tr.totals.meta.partial, undefined);
+  assert.equal(job.found, 45);
 });

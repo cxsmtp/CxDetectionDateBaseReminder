@@ -38,6 +38,12 @@ function useLook(look) {
   FONT = `"MZ Jakarta", "Plus Jakarta Sans", ${CLASSIC_FONT}`;
   // The reader's own look (Cabin, Residence…): its band at the top, ink, lines and colour, on a white page.
   const p = lookPalette(reportLook(look).look, accent);
+  if (p?.future) {
+    // Future: the deep space band with its aurora on top, the content on white; cyan to violet for what matters,
+    // violet for the backlog, cyan for what is ahead and the plan, rose for doing nothing, emerald for Fusion.
+    C = { ...CLASSIC, future: true, head: '#060b1a', ink: '#0b1324', muted: '#5b6785', line: '#e3e9f4', soft: '#f5f8fd', key: '#f1f6ff', accent: '#0891b2', fusion: '#10b981', from: '#22d3ee', to: '#8b5cf6', grad: ['#0891b2', '#7c3aed'], backlog: '#6d28d9', ahead: '#06b6d4', forecast: '#f43f5e', plan: '#06b6d4', eyebrow: '#94a3c6' };
+    return;
+  }
   if (p) {
     const c = p.light;
     C = { ...CLASSIC, head: p.head, ink: c.ink, muted: c.muted, line: c.line, soft: tint(c.accent, 0.05), key: tint(c.accent, 0.1), accent: c.accent, from: c.accent, to: c.button };
@@ -91,7 +97,7 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
         { label: w('To triage'), value: num(f.toTriage), notes: [w('{0} to remediate', num(f.truePositives)), ...scopeLines(tr, L).map(plain)] },
         { label: w('Triage & remediation credits'), value: num(f.credits), key: true, notes: [plain(falsePositiveLine(tr, L))].filter(Boolean) },
       ],
-      chart: tr.forecast?.length ? { kind: 'forecast', points: tr.forecast, title: w('Backlog trend and forecast'), legend: [[w('Backlog'), C.ink, false], [w('If nothing changes'), '#dc2626', true], [w('With this plan'), C.accent, true]] } : null,
+      chart: tr.forecast?.length ? { kind: 'forecast', points: tr.forecast, title: w('Backlog trend and forecast'), legend: [[w('Backlog'), C.backlog ?? C.ink, false], [w('If nothing changes'), C.forecast ?? '#dc2626', true], [w('With this plan'), C.plan ?? C.accent, true]] } : null,
       lines,
     });
   } else pages.push({ kind: 'tr', title: w('Triage & remediation'), subtitle: '', figures: [], chart: null, lines: [w('Triage & remediation is not in this projection.')] });
@@ -146,8 +152,8 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
   // 3. Overall: the credits needed, what they are for, and the assumptions.
   const f = tr ? trFigures(tr) : null;
   const parts = [
-    f && { label: w('Backlog today'), value: f.backlogCredits, colour: C.ink },
-    f && f.aheadCredits > 0 && { label: w('Findings ahead'), value: f.aheadCredits, colour: C.accent },
+    f && { label: w('Backlog today'), value: f.backlogCredits, colour: C.backlog ?? C.ink },
+    f && f.aheadCredits > 0 && { label: w('Findings ahead'), value: f.aheadCredits, colour: C.ahead ?? C.accent },
     fu && { label: fn ? w('Fusion — existing customer') : w('Fusion scans'), value: fu.totals?.credits ?? 0, colour: C.fusion },
     fn && { label: w('Fusion — new customer'), value: fn.totals?.credits ?? 0, colour: '#b7791f' },
     sum.extra > 0 && { label: w('Extra credits'), value: sum.extra, colour: '#9aa1ab' },
@@ -224,7 +230,7 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
   if (tr) {
     const T = tr.totals ?? {};
     const A = tr.ahead ?? {};
-    const paced = tr.paced ?? aheadMonths(tr.months ?? months, A.aiDeclinePercent ?? 0);
+    const paced = tr.paced ?? (aheadMonths(tr.months ?? months, A.aiDeclinePercent ?? 0) * (A.newPacePercent ?? 100)) / 100;
     const monthly = T.arrivals ?? (paced ? (T.future ?? 0) / paced : 0);
     const chosen = SEVERITIES.filter((x) => (tr.rows?.[x]?.selected ?? 0) > 0);
     calc.push({ label: w('Backlog today'), formula: `${chosen.map((x) => num(tr.rows[x].selected)).join(' + ') || '0'} = ${num(T.selected)} (${w('of {0} open', num(T.backlog))})` });
@@ -236,8 +242,8 @@ export function slideContent(raw, { t, lang = 'en', calculations = false } = {})
     calc.push({ label: w('To remediate (true positives)'), formula: fps.length === 1 ? `${num(reported)} × ${num(100 - fps[0])}% = ${num(T.truePositives)}` : `${SEVERITIES.filter((x) => tr.rows?.[x]?.truePositives > 0).map((x) => num(tr.rows[x].truePositives)).join(' + ')} = ${num(T.truePositives)}` });
     calc.push({ label: w('Triage & remediation credits'), formula: `${num(T.triageCredits)} + ${num(T.remediationCredits)} = ${num(T.credits)}` });
   }
-  if (fu) calc.push({ label: fn ? w('Fusion — existing customer') : w('Fusion credits'), formula: `Σ ${w('10K units × scans')} × ${w('Credits per 10K LOC')} = ${num(fu.totals?.credits)}` });
-  if (fn) calc.push({ label: w('Fusion — new customer'), formula: `Σ ${w('10K units × scans')} × ${w('Credits per 10K LOC')} = ${num(fn.totals?.credits)}` });
+  if (fu) calc.push({ label: fn ? w('Fusion — existing customer') : w('Fusion credits'), formula: `Σ ${w('10K-LOC blocks × scans')} × ${w('Credits per 10K LOC')} = ${num(fu.totals?.credits)}` });
+  if (fn) calc.push({ label: w('Fusion — new customer'), formula: `Σ ${w('10K-LOC blocks × scans')} × ${w('Credits per 10K LOC')} = ${num(fn.totals?.credits)}` });
   calc.push({ label: w('Total credits required'), formula: `${sum.tr !== null && sum.fusion !== null ? `${num(sum.tr)} + ${num(sum.fusion)} = ` : ''}${num(sum.base)}${sum.extra ? ` + ${num(sum.settings.extraPercent, 2)}% = ${num(sum.total)}` : ''}; ${num(sum.total)} ÷ ${num(sum.settings.bundleCredits)} = ${num(sum.exactBundles, 2)} → ${num(sum.bundles)}` });
   const an = (x) => tr?.analysis?.[x] ?? {};
   pages.push({
@@ -300,9 +306,26 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
   const font = (size, weight = 400) => `${weight} ${size}px ${FONT}`;
   const text = (s, x, y, { size = 28, weight = 400, colour = C.ink, align = 'start' } = {}) => {
     ctx.font = font(size, weight);
-    ctx.fillStyle = colour;
     ctx.textAlign = align;
+    // Future: the figures that matter in its cyan-to-violet light.
+    if (colour === C.accent && C.grad) {
+      const w = ctx.measureText(s).width;
+      const start = align === 'end' ? X(x) - (rtl ? 0 : w) : X(x) - (rtl ? w : 0);
+      const g = ctx.createLinearGradient(start, 0, start + w, 0);
+      g.addColorStop(rtl ? 1 : 0, C.grad[0]);
+      g.addColorStop(rtl ? 0 : 1, C.grad[1]);
+      ctx.fillStyle = g;
+    } else ctx.fillStyle = colour;
     ctx.fillText(s, X(x), y);
+  };
+  /** A box: rounded in Future, square in the other looks. */
+  const box = (x, y, w, h, fill, r = 14) => {
+    ctx.fillStyle = fill;
+    if (C.future && ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(X(x, w), y, w, h, r);
+      ctx.fill();
+    } else ctx.fillRect(X(x, w), y, w, h);
   };
   const lines = (s, x, y, max, opts = {}) => {
     ctx.font = font(opts.size ?? 28, opts.weight ?? 400);
@@ -316,18 +339,36 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
   // The band at the top: who it is for, and what this page is.
   ctx.fillStyle = C.head;
   ctx.fillRect(0, 0, W, 170);
+  if (C.future) {
+    // Future: an aurora in the band, cyan at one end and violet at the other, and a faint grid.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, 170);
+    ctx.clip();
+    for (const [x, colour] of [[rtl ? W : 0, C.from], [rtl ? 0 : W, C.to]]) {
+      const glow = ctx.createRadialGradient(x, 0, 0, x, 0, 760);
+      glow.addColorStop(0, `${colour}5c`);
+      glow.addColorStop(1, `${colour}00`);
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, 170);
+    }
+    ctx.fillStyle = 'rgba(148,163,198,0.07)';
+    for (let gx = 0; gx < W; gx += 48) ctx.fillRect(gx, 0, 1, 170);
+    for (let gy = 0; gy < 170; gy += 48) ctx.fillRect(0, gy, W, 1);
+    ctx.restore();
+  }
   if (C.from) {
     // Next-gen: the accent's gradient under the band.
     const line = ctx.createLinearGradient(0, 0, W, 0);
     line.addColorStop(rtl ? 1 : 0, C.from);
     line.addColorStop(rtl ? 0 : 1, C.to);
     ctx.fillStyle = line;
-    ctx.fillRect(0, 170, W, 6);
+    ctx.fillRect(0, 170, W, C.future ? 8 : 6);
   }
-  text(content.eyebrow, 80, 66, { size: 26, colour: '#c3c8cf' });
+  text(content.eyebrow, 80, 66, { size: 26, colour: C.eyebrow ?? '#c3c8cf' });
   ctx.font = font(48, 600);
   text(wrap(ctx, content.heading(page), W - 360)[0] ?? '', 80, 128, { size: 48, weight: 600, colour: C.white });
-  text(content.of(index, total), W - 80, 66, { size: 26, colour: '#c3c8cf', align: 'end' });
+  text(content.of(index, total), W - 80, 66, { size: 26, colour: C.eyebrow ?? '#c3c8cf', align: 'end' });
   if (page.subtitle) lines(page.subtitle, 80, 232, W - 160, { size: 30, colour: C.muted });
   text(content.footer, 80, H - 40, { size: 22, colour: C.muted });
 
@@ -384,16 +425,14 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
     const barW = W - 160;
     for (const p of page.parts) {
       const width = Math.max(6, (p.value / sum) * barW - 4);
-      ctx.fillStyle = p.colour;
-      ctx.fillRect(X(x, width), 450, width, 36);
+      box(x, 450, width, 36, p.colour, 10);
       x += width + 4;
     }
     let ky = 540;
     page.parts.forEach((p, i) => {
       const kx = 80 + (i % 2) * 880;
       if (i && i % 2 === 0) ky += 52;
-      ctx.fillStyle = p.colour;
-      ctx.fillRect(X(kx, 22), ky - 20, 22, 22);
+      box(kx, ky - 20, 22, 22, p.colour, 6);
       text(p.label, kx + 36, ky, { size: 28, colour: C.muted });
       text(p.text, kx + 800, ky, { size: 30, weight: 600, align: 'end' });
     });
@@ -418,8 +457,21 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
   page.figures.forEach((fig, i) => {
     const small = notesOf[i];
     const base = fig.small ? 108 : compact ? 134 : 150;
-    ctx.fillStyle = fig.key ? C.key : C.soft;
-    ctx.fillRect(X(80, 560), fy, 560, heights[i]);
+    box(80, fy, 560, heights[i], fig.key ? C.key : C.soft);
+    if (C.future) {
+      // Future: a thin edge, and the key figure's card lit down its side.
+      ctx.strokeStyle = fig.key ? '#c7d7f5' : C.line;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect?.(X(80, 560) + 1, fy + 1, 558, heights[i] - 2, 14);
+      ctx.stroke();
+      if (fig.key) {
+        const side = ctx.createLinearGradient(0, fy, 0, fy + heights[i]);
+        side.addColorStop(0, C.grad[0]);
+        side.addColorStop(1, C.grad[1]);
+        box(80, fy + 14, 6, heights[i] - 28, side, 3);
+      }
+    }
     const after = lines(fig.label, 108, fy + 44, 504, { size: 24, colour: C.muted, lead: 30 });
     const valueY = fig.small ? Math.max(after + 26, fy + 86) : Math.max(after + (compact ? 30 : 36), fy + (compact ? 100 : 112));
     text(fig.value, 108, valueY, { size: fig.small ? 36 : compact ? 48 : 54, weight: 600, colour: fig.key ? C.accent : C.ink });
@@ -459,8 +511,7 @@ function drawPage(ctx, content, page, index, { rtl, images, total }) {
     for (const b of page.bars.items.slice(0, 7)) {
       lines(b.label, left, y + 30, labelW - 20, { size: 24, colour: C.ink, lead: 28 });
       const bw = Math.max(6, (b.value / max) * barMax);
-      ctx.fillStyle = b.colour ?? C.fusion;
-      ctx.fillRect(X(left + labelW, bw), y + 6, bw, 34);
+      box(left + labelW, y + 6, bw, 34, b.colour ?? C.fusion, 8);
       text(b.text, left + labelW + bw + 14, y + 33, { size: 26, weight: 600 });
       text(b.note, left + labelW, y + 70, { size: 20, colour: C.muted });
       y += 92;
@@ -538,7 +589,7 @@ export async function drawSlides(data, { t, lang = 'en', dir = 'ltr', look, calc
   for (const [i, page] of all.entries()) {
     const images = {};
     if (page.chart?.kind === 'forecast') {
-      const palette = { ink: C.ink, muted: C.muted, grid: C.line, forecast: '#dc2626', plan: C.accent, t };
+      const palette = { ink: C.backlog ?? C.ink, muted: C.muted, grid: C.line, forecast: C.forecast ?? '#dc2626', plan: C.plan ?? C.accent, t };
       images.chart = await svgImage(forecastChart(page.chart.points, palette), 760, 300).catch(() => null);
     }
     drawPage(ctx, content, page, i, { rtl: dir === 'rtl', images, total: all.length });

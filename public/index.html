@@ -3422,24 +3422,36 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
           </div>
 
           <!-- ================= Cx Credits Calculator ================= -->
-          <div id="page-calculator" class="page calc-page" hidden>
+          <div id="page-calculator" class="page calc-page calc-future" hidden>
             <div class="calc-toolbar">
               <a class="button-like ghost sm" id="calc-download-standalone" href="/api/projections/standalone?kind=launcher" download="cx-credits-calculator.mjs" title="The calculator on its own, reading Checkmarx One with an API key: run it with Node.js (node cx-credits-calculator.mjs) and it opens in the browser. Customers and reports stay on that computer.">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11" /><path d="M7 10l5 5 5-5" /><path d="M5 20h14" /></svg>
                 <span>Download standalone calculator</span>
               </a>
               <a class="link calc-download-html" id="calc-download-html" href="/api/projections/standalone" download="cx-credits-calculator.html" title="The calculator on its own, as one HTML file: it runs in any browser with no server, works from the two Checkmarx One exports and makes the same reports">HTML only</a>
+              <a class="link calc-download-html" id="calc-download-guide" href="/calculator/getting-started.html" target="_blank" rel="noopener" title="One page: which download to pick, how to start it on Windows or a Mac, and how to work out the credits">Getting started</a>
+              <a class="link calc-download-html" id="calc-download-nonode" href="https://github.com/cxsmtp/ftr-creditcalculator/tree/main/downloads" target="_blank" rel="noopener noreferrer" title="For a computer without Node.js: zips for Windows and macOS with Node.js inside (unzip, double-click Start), and a one-program Windows build">Without Node.js</a>
             </div>
             <section class="panel calc-head">
               <div class="calc-customer">
-                <label class="field"><span>Customer</span><select id="calc-customer" translate="no"></select></label>
-                <label class="field calc-rename"><span>Name</span><input type="text" id="calc-name" maxlength="120" autocomplete="off" translate="no" /></label>
-                <div class="calc-head-actions">
-                  <button type="button" class="secondary" id="calc-new">New customer</button>
-                  <button type="button" class="link danger" id="calc-delete">Delete customer</button>
-                  <span class="status" id="calc-saved" aria-live="polite"></span>
+                <div class="calc-cust-pick">
+                  <button type="button" class="calc-cust-btn" id="calc-cust-btn" aria-haspopup="true" aria-expanded="false" aria-controls="calc-cust-menu"><small>Customer</small> <b id="calc-cust-current" translate="no">None yet</b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg></button>
+                  <div class="calc-cust-menu" id="calc-cust-menu" role="menu" aria-label="Customers" hidden>
+                    <div class="calc-cust-list" id="calc-cust-list" role="group" aria-label="Saved customers"></div>
+                    <button type="button" class="calc-cust-act" id="calc-new" role="menuitem">+ New customer</button>
+                    <button type="button" class="calc-cust-act" id="calc-rename" role="menuitem">Rename…</button>
+                    <button type="button" class="calc-cust-act danger" id="calc-delete" role="menuitem">Delete…</button>
+                  </div>
                 </div>
+                <label class="calc-rename-field" id="calc-rename-field" hidden><span>Name</span><input type="text" id="calc-name" maxlength="120" autocomplete="off" translate="no" /></label>
+                <select id="calc-customer" translate="no" hidden aria-hidden="true" tabindex="-1"></select>
+                <span class="status" id="calc-saved" aria-live="polite"></span>
               </div>
+              <div class="calc-heart" id="calc-heart">
+                <div class="calc-heart-head">
+                  <span class="calc-heart-title">Projection settings</span>
+                  <span class="calc-heart-sub">The heart of the projection. Change anything here, then <b>Apply</b> to work out every number below.</span>
+                </div>
               <div class="calc-source">
                 <button type="button" class="secondary" id="calc-read">Read from Checkmarx One</button>
                 <label class="pill-check calc-branches" title="Unticked: each project's primary branch only (as set in Checkmarx One, else main, else master), so no finding is counted twice. Ticked: the scans of every branch, which is also what Fusion is charged for when feature branches are scanned with it."><input type="checkbox" id="calc-all-branches" /> Every branch</label>
@@ -3471,6 +3483,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <button type="button" class="link" id="calc-scope-clear">Every project</button>
                   <span class="status" id="calc-scope-status" aria-live="polite"></span>
                 </div>
+                <details class="calc-scope-fold">
+                  <summary>Search options</summary>
                 <div class="calc-scope-pick">
                   <div class="field">
                     <label for="calc-app-input">Applications</label>
@@ -3500,7 +3514,17 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <fieldset class="calc-scope-checks"><legend>How often they are scanned</legend><div id="calc-scope-frequencies"></div></fieldset>
                   <fieldset class="calc-scope-checks"><legend>Criticality</legend><div id="calc-scope-criticalities"></div></fieldset>
                 </form>
+                </details>
               </div>
+              <div class="calc-pending" id="calc-pending" role="region" aria-labelledby="calc-pending-count" hidden>
+                <div class="calc-pending-text"><b id="calc-pending-count" aria-live="polite"></b><ul id="calc-pending-list"></ul></div>
+                <div class="calc-pending-actions">
+                  <button type="button" class="calc-pending-undo" id="calc-undo">Undo</button>
+                  <button type="button" class="calc-pending-go" id="calc-apply">Apply</button>
+                </div>
+              </div>
+              <p class="hint calc-apply-hint"><span>Nothing changes until <b>Apply</b>: change anything in this block and an <b>Apply</b> appears; it applies every setting at once, the project filters too, and works every figure below out again.</span> <span class="calc-apply-read">A change that needs Checkmarx One read again (<b>Every branch</b>, more <b>Projects to read</b>) asks first.</span></p>
+              </div><!-- /calc-heart -->
               <div class="calc-strip" role="group" aria-label="Credits required">
                 <div class="calc-strip-set">
                   <label class="calc-strip-field"><span class="calc-strip-label">Projection period</span><select id="calc-horizon"><option value="6">6 months</option><option value="12">12 months</option><option value="18">18 months</option><option value="24">24 months</option><option value="36">36 months</option></select></label>
@@ -3529,23 +3553,20 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   </div>
                 </div>
               </div>
-              <div class="calc-pending" id="calc-pending" role="region" aria-labelledby="calc-pending-count" hidden>
-                <div class="calc-pending-text"><b id="calc-pending-count" aria-live="polite"></b><ul id="calc-pending-list"></ul></div>
-                <div class="calc-pending-actions">
-                  <button type="button" class="calc-pending-undo" id="calc-undo">Undo</button>
-                  <button type="button" class="calc-pending-go" id="calc-apply">Apply</button>
-                </div>
-              </div>
-              <p class="hint calc-apply-hint"><span>Nothing changes until <b>Apply</b>: it applies every setting above at once, the project filters too, and works the figures out again.</span> <span class="calc-apply-read">A change that needs Checkmarx One read again (<b>Every branch</b>, more <b>Projects to read</b>) asks first.</span></p>
               <div class="calc-report-bar">
                 <p class="hint" id="calc-org-line"></p>
                 <div class="calc-report-actions">
                   <button type="button" class="ghost" id="calc-restart" title="Clear every choice made for this customer and read Checkmarx One again">Start again</button>
                   <button type="button" class="secondary" id="calc-email-open" aria-expanded="false" aria-controls="calc-email-form">Email the report</button>
+                  <span class="calc-report-opts">
                   <label class="pill-check" title="Ticked: the report and its PDF name each project, and the customer can change each project's Fusion scans and model. Unticked: no project is named anywhere in them; the Fusion plan by scan frequency stays, and the customer can still change it."><input type="checkbox" id="calc-details" checked /> Include project names and details</label>
+                  <label class="pill-check" title="Ticked: the report's appendix lists the open vulnerabilities of each project by severity (critical, high, medium, low), from the last read of Checkmarx One. Needs the project names and details."><input type="checkbox" id="calc-sev-report" /> Open vulnerabilities by project</label>
                   <label class="pill-check" title="Unticked: the PDF summary has the pages to present only. Ticked: the appendix too, with the trend and every number worked out step by step."><input type="checkbox" id="calc-pdf-calculations" /> Include the calculations in the PDF</label>
+                  </span>
+                  <span class="calc-report-go">
                   <button type="button" class="primary" id="calc-generate">Generate projection report</button>
                   <button type="button" class="secondary" id="calc-pdf" hidden title="The pages to present: triage &amp; remediation, Fusion, the credits needed overall and the impact">Download PDF summary</button>
+                  </span>
                 </div>
               </div>
               <form class="calc-email" id="calc-email-form" hidden autocomplete="off">
@@ -3553,14 +3574,15 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <button type="submit" class="primary">Send</button>
                 <span class="status" id="calc-email-status" aria-live="polite"></span>
               </form>
-              <p class="hint" id="calc-empty" hidden>No customers yet. Start with <strong>New customer</strong>: each customer keeps its own Checkmarx One data, plan and Fusion projects, saved as you go.</p>
+              <p class="hint" id="calc-empty" hidden>No customers yet. Open <strong>Customer</strong> and choose <strong>New customer</strong>: each customer keeps its own Checkmarx One data, plan and Fusion projects, saved as you go.</p>
             </section>
             <div class="ptabs" role="tablist" aria-label="Cx Credits Calculator" data-ptabs="calculator">
               <button type="button" role="tab" class="ptab" data-pt="tr">Triage &amp; remediation</button>
-              <button type="button" role="tab" class="ptab" data-pt="fusion">Fusion — existing customer</button>
-              <button type="button" role="tab" class="ptab" data-pt="fusion-new">Fusion — new customer</button>
+              <button type="button" role="tab" class="ptab" data-pt="fusion">Fusion · Checkmarx One</button>
+              <button type="button" role="tab" class="ptab" data-pt="fusion-git">Fusion · from Git</button>
+              <button type="button" role="tab" class="ptab" data-pt="fusion-cloc">Fusion · cloc-fusion</button>
               <button type="button" role="tab" class="ptab" data-pt="impact">Impact</button>
-              <button type="button" role="tab" class="ptab" data-pt="reports">Projection reports</button>
+              <button type="button" role="tab" class="ptab" data-pt="reports">Generated reports <em class="calc-saved-count" id="calc-saved-count"></em></button>
             </div>
 
             <div data-ptpanel="calculator:tr" class="calc-panel">
@@ -3588,22 +3610,30 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             </div>
 
             <div data-ptpanel="calculator:fusion" class="calc-panel" hidden>
+              <section class="calc-fh" id="calc-fh-fusion" aria-live="polite"></section>
+              <div class="calc-fslot" data-fslot="fusion"></div>
+              <section class="panel calc-fusion-viz-panel" id="calc-fusion-viz-panel" hidden>
+                <div class="calc-section-head"><h2>Fusion visuals</h2><span class="hint">Hide any you don't need — the choice is remembered.</span></div>
+                <div class="calc-viz-grid" id="calc-fusion-viz"></div>
+              </section>
+              <section class="panel calc-fusion-pricing" id="calc-fusion-pricing">
+                <div class="calc-section-head"><h2>Fusion pricing</h2><button type="button" class="secondary" id="calc-add-model">Add a model</button></div>
+                <p class="hint">Credits per 10K LOC for each model — this is what turns lines of code into Fusion credits, for new code counted from git and for projects already in Checkmarx One alike. Read with the projects when Checkmarx One gives it; otherwise type it as Checkmarx One shows when a scan is started. <b>Without a rate here, Fusion credits stay 0.</b></p>
+                <div class="table-wrap"><table class="data-table calc-models"><thead><tr><th>Model</th><th>Credits per 10K LOC</th><th></th></tr></thead><tbody id="calc-models"></tbody></table></div>
+                <p class="calc-notice calc-warn-note" id="calc-models-warn" hidden></p>
+                <p class="hint" id="calc-models-empty">No model yet: projects are counted in scans and 10K-LOC blocks, without credits, until a model has its credits per 10K LOC.</p>
+              </section>
+              <div class="calc-fsub" data-fsub="existing">
               <section class="panel">
                 <h2>Fusion — existing customer: what each project needs</h2>
                 <p class="calc-notice calc-off-note" id="calc-fusion-off-note" hidden>Fusion is left out of this projection: the customer opted out, so none of it is counted in the credits, the findings (Triage &amp; remediation counts 0% more found by Fusion) or the report. The settings below are kept. <button type="button" class="link" id="calc-fusion-include">Include it</button></p>
-                <p class="calc-notice" data-help-fold>Each project's lines of code are rounded up to whole 10K units on their own, and one Fusion scan costs its model's credits per 10K LOC. The projects come from Checkmarx One with how often each is scanned: the rules below start from that, and you can give more scans to the projects scanned most often or most critical.</p>
+                <p class="calc-notice" data-help-fold>Each project's lines of code are rounded up to whole 10K-LOC blocks on their own, and one Fusion scan costs its model's credits per 10K LOC. The projects come from Checkmarx One with how often each is scanned: the rules below start from that, and you can give more scans to the projects scanned most often or most critical.</p>
                 <div class="calc-terms">
                   <label class="field"><span>Default Fusion scans per project</span><input type="number" id="calc-default-scans" min="0" step="1" /></label>
                   <label class="field"><span>Default model</span><select id="calc-default-model"></select></label>
                   <label class="field"><span>When frequency and criticality both set a number</span>
                     <select id="calc-combine"><option value="higher">Use the higher</option><option value="frequency">Scan frequency wins</option><option value="criticality">Criticality wins</option></select></label>
                 </div>
-              </section>
-              <section class="panel">
-                <div class="calc-section-head"><h2>Fusion models</h2><button type="button" class="secondary" id="calc-add-model">Add a model</button></div>
-                <p class="hint">The models the tenant offers and their credits per 10K LOC, read with the projects when Checkmarx One says them; otherwise type them as Checkmarx One shows them when a scan is started.</p>
-                <div class="table-wrap"><table class="data-table calc-models"><thead><tr><th>Model</th><th>Credits per 10K LOC</th><th></th></tr></thead><tbody id="calc-models"></tbody></table></div>
-                <p class="hint" id="calc-models-empty">No model yet: projects are counted in scans and 10K units, without credits, until a model has its credits per 10K LOC.</p>
               </section>
               <section class="panel">
                 <h2>Fusion scans by how often projects are scanned</h2>
@@ -3628,20 +3658,20 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 </div>
                 <div class="table-wrap">
                   <table class="data-table calc-projects">
-                    <thead id="calc-projects-head"><tr><th>Include</th><th data-sort="name" aria-sort="none"><button type="button" class="th-sort">Project</button></th><th data-sort="criticality" aria-sort="none"><button type="button" class="th-sort">Criticality</button></th><th data-sort="frequency" aria-sort="none"><button type="button" class="th-sort">Scanned today</button></th><th data-sort="lines" aria-sort="none"><button type="button" class="th-sort">Lines of code</button></th><th data-sort="units" aria-sort="none"><button type="button" class="th-sort">10K units</button></th><th data-sort="scans" aria-sort="none"><button type="button" class="th-sort">Fusion scans</button></th><th data-sort="model" aria-sort="none"><button type="button" class="th-sort">Model</button></th><th data-sort="credits" aria-sort="none"><button type="button" class="th-sort">Credits</button></th></tr></thead>
+                    <thead id="calc-projects-head"><tr><th>Include</th><th data-sort="name" aria-sort="none"><button type="button" class="th-sort">Project</button></th><th data-sort="criticality" aria-sort="none"><button type="button" class="th-sort">Criticality</button></th><th data-sort="frequency" aria-sort="none"><button type="button" class="th-sort">Scanned today</button></th><th data-sort="lines" aria-sort="none"><button type="button" class="th-sort">Lines of code</button></th><th data-sort="units" aria-sort="none"><button type="button" class="th-sort">10K-LOC blocks</button></th><th data-sort="scans" aria-sort="none"><button type="button" class="th-sort">Fusion scans</button></th><th data-sort="model" aria-sort="none"><button type="button" class="th-sort">Model</button></th><th data-sort="credits" aria-sort="none"><button type="button" class="th-sort">Credits</button></th></tr></thead>
                     <tbody id="calc-rows"></tbody>
                   </table>
                 </div>
                 <div class="calc-more" id="calc-rows-more" hidden><button type="button" class="secondary" id="calc-rows-more-btn">Show more</button></div>
                 <p class="hint" id="calc-rows-empty">No projects yet. <strong>Read from Checkmarx One</strong> lists every project in this tenant with its lines of code, criticality and how often it is scanned; or add projects by hand for a prospect.</p>
               </section>
-            </div>
+            </div><!-- /calc-fsub existing -->
 
-            <div data-ptpanel="calculator:fusion-new" class="calc-panel" hidden>
+            <div class="calc-fsub" data-fsub="new" hidden>
               <section class="panel">
                 <h2>Fusion — new customer: code not in Checkmarx One yet</h2>
                 <p class="calc-notice calc-off-note" id="calc-fnew-off-note" hidden>This part is left out of the projection (Add Fusion: New customer is unticked): none of it is counted in the credits or the report. The projects below are kept. <button type="button" class="link" id="calc-fnew-include">Include it</button></p>
-                <p class="calc-notice" data-help-fold>Count the customer's code lines one of three ways. Each way, each repository becomes a project below, counted the same way: code lines only, no blank or comment lines. Counted from git or read from a cloc-fusion report, a project also says how often it changes, which sets its Fusion scans, and how many people work on it. Each project's code lines are rounded up to whole 10K units, and one Fusion scan costs its model's credits per 10K LOC, as on the existing customer tab; the models are that tab's.</p>
+                <p class="calc-notice" data-help-fold>Count the customer's code lines one of three ways. Each way, each repository becomes a project below, counted the same way: code lines only, no blank or comment lines. Counted from git or read from a cloc-fusion report, a project also says how often it changes, which sets its Fusion scans, and how many people work on it. Each project's code lines are rounded up to whole 10K-LOC blocks, and one Fusion scan costs its model's credits per 10K LOC, as on the existing customer tab; the models are that tab's.</p>
                 <div class="segmented calc-fnew-ways" id="calc-fnew-ways" role="radiogroup" aria-label="How the code lines are counted">
                   <label class="mode"><input type="radio" name="calc-fnew-way" value="git" checked /> <span>Count from git</span></label>
                   <label class="mode"><input type="radio" name="calc-fnew-way" value="report" /> <span>Import a cloc-fusion report</span></label>
@@ -3661,7 +3691,9 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                       <div class="calc-git-token" id="calc-git-token" hidden>
                         <label class="field"><span>Git host</span><select id="calc-git-provider"><option value="github">GitHub</option><option value="gitlab">GitLab</option><option value="azure">Azure DevOps</option><option value="bitbucket">Bitbucket</option></select></label>
                         <label class="field"><span>Address</span><input type="url" id="calc-git-address" spellcheck="false" autocomplete="off" translate="no" /></label>
-                        <label class="field calc-git-wide"><span>Token (read access to the repositories)</span><input type="password" id="calc-git-secret" spellcheck="false" autocomplete="off" /></label>
+                        <label class="field calc-git-wide"><span>Token (read access to the repositories)</span><input type="password" id="calc-git-secret" spellcheck="false" autocomplete="off" placeholder="Paste a token: GitHub, GitLab, Azure DevOps, Bitbucket…" /></label>
+                        <div class="calc-git-token-add calc-git-wide"><button type="button" class="secondary" id="calc-git-token-add">Add this token</button><span class="hint" id="calc-git-detected" aria-live="polite"></span></div>
+                        <div class="calc-git-tokens calc-git-wide" id="calc-git-tokens" hidden></div>
                         <p class="hint calc-git-lock calc-git-wide">Used for this run only, then forgotten: never saved with the customer, never written to a log or shown again, and sent only to this host, as a header. Give a read-only token (GitHub: <i>Contents: read</i>, and <i>read:org</i> to list organizations; GitLab: <i>read_api</i> and <i>read_repository</i>; Azure DevOps: <i>Code (Read)</i>, and <i>User Profile (Read)</i> to list organizations; Bitbucket: <i>Repositories: Read</i>).</p>
                       </div>
                     </div>
@@ -3720,7 +3752,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <p class="status" id="calc-cloc-status" aria-live="polite"></p>
                 </div>
                 </div>
-                <div class="actions compact"><button type="button" class="secondary" id="calc-fnew-add">Add a project by hand</button></div>
+                <div class="calc-fnew-hand"><button type="button" class="link" id="calc-fnew-add">+ Add a project by hand</button><span class="hint">for a repository that cannot be counted from here: type its lines of code</span></div>
               </section>
               <section class="panel">
                 <h2>How it is counted</h2>
@@ -3729,17 +3761,32 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                   <label class="field"><span>Model</span><select id="calc-fnew-model"></select></label>
                 </div>
                 <p class="hint">A project counted from git or read from a cloc-fusion report knows how often it changes (commits on its default branch): it gets the Fusion scans of that change frequency from the Fusion — existing customer tab, as a Checkmarx One project scanned that often does. Scans typed for a project win.</p>
+                <h3 class="calc-sub">What counts as code</h3>
                 <p class="hint">Languages found. A crossed-out one is not counted (not code Fusion scans): click a language to count it, or to leave it out.</p>
                 <div class="calc-langs" id="calc-fnew-langs"></div>
                 <p class="calc-notice calc-warn-note" id="calc-fnew-dup" hidden></p>
                 <div class="rp-kpis" id="calc-fnew-kpis"></div>
+                <details class="calc-fnew-log" id="calc-fnew-log">
+                <summary><b>Repositories counted</b> <span class="hint" id="calc-fnew-log-count"></span> <span class="hint">· the log of each one: open it to see or change a repository</span></summary>
                 <div class="table-wrap"><table class="data-table calc-projects calc-fnew-table">
                   <thead><tr><th>Include</th><th>Project</th><th>From</th><th>Languages</th><th>Lines of code</th><th>Change frequency</th><th>Fusion scans</th><th>Model</th><th>Credits</th></tr></thead>
                   <tbody id="calc-fnew-rows"></tbody>
                 </table></div>
                 <p class="hint" id="calc-fnew-empty">No projects yet. Count the customer's repositories from git, import a cloc-fusion report or drop their cloc results above, or add a project by hand.</p>
                 <p class="hint" id="calc-fnew-again" hidden>Counting again replaces a project of the same repository (or, for one without, the same name); <b>Count again</b> on a git project measures it again at its latest commit.</p>
+                </details>
               </section>
+            </div><!-- /calc-fsub new -->
+            </div><!-- /calculator:fusion panel -->
+
+            <div data-ptpanel="calculator:fusion-git" class="calc-panel" hidden>
+              <section class="calc-fh" id="calc-fh-fusion-git" aria-live="polite"></section>
+              <div class="calc-fslot" data-fslot="fusion-git"></div>
+            </div>
+
+            <div data-ptpanel="calculator:fusion-cloc" class="calc-panel" hidden>
+              <section class="calc-fh" id="calc-fh-fusion-cloc" aria-live="polite"></section>
+              <div class="calc-fslot" data-fslot="fusion-cloc"></div>
             </div>
 
             <div data-ptpanel="calculator:impact" class="calc-panel" hidden>
@@ -3782,13 +3829,33 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
 
             <div data-ptpanel="calculator:reports" class="calc-panel" hidden>
               <section class="panel">
-                <div class="calc-section-head"><h2>Projection reports</h2>
-                  <label class="check"><input type="checkbox" id="calc-reports-mine" checked /> This customer only</label></div>
+                <div class="calc-section-head"><h2>Generated reports</h2><label class="check calc-saved-mine"><input type="checkbox" id="calc-reports-mine" checked /> This customer only</label></div>
                 <p class="hint">Every report generated is kept here. Download it again at any time: the file is named after the customer and when the report was made.</p>
                 <div class="table-wrap"><table class="data-table"><thead><tr><th>Customer</th><th>Made</th><th>By</th><th>Triage &amp; remediation</th><th>Fusion</th><th>Extra</th><th>Total credits</th><th>Bundles</th><th></th></tr></thead><tbody id="calc-reports"></tbody></table></div>
                 <p class="hint" id="calc-reports-empty">No reports yet. <strong>Generate projection report</strong> makes one from the customer's triage &amp; remediation and Fusion figures.</p>
               </section>
             </div>
+
+            <!-- While Checkmarx One is read: each project as it comes in, on the right; the figures on the left fill in meanwhile. -->
+            <aside class="calc-readfx" id="calc-readfx" hidden aria-labelledby="calc-readfx-title">
+              <div class="calc-readfx-head">
+                <div><span class="calc-readfx-kick">Live from Checkmarx One</span><h3 id="calc-readfx-title">Reading the projects</h3></div>
+                <button type="button" class="link" id="calc-readfx-hide">Hide</button>
+              </div>
+              <div class="calc-readfx-track" aria-hidden="true"><div class="calc-readfx-fill" id="calc-readfx-fill"></div><span class="calc-readfx-runner flare-icon" id="calc-readfx-runner"></span></div>
+              <div class="calc-readfx-pct"><b id="calc-readfx-pct">0%</b><span id="calc-readfx-eta" aria-live="polite"></span></div>
+              <dl class="calc-readfx-stats">
+                <div><dt>Projects read</dt><dd id="calc-readfx-read">0</dd></div>
+                <div><dt>Lines of code</dt><dd id="calc-readfx-loc">0</dd></div>
+                <div><dt>Scans in the year</dt><dd id="calc-readfx-scans">0</dd></div>
+                <div><dt>Open findings</dt><dd id="calc-readfx-open">0</dd></div>
+              </dl>
+              <div class="calc-readfx-sev" id="calc-readfx-sev"></div>
+              <ol class="calc-readfx-feed" id="calc-readfx-feed"></ol>
+              <p class="calc-readfx-note" id="calc-readfx-note">The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.</p>
+            </aside>
+            <button type="button" class="calc-readfx-pill" id="calc-readfx-pill" hidden><span class="calc-readfx-dot" aria-hidden="true"></span><span id="calc-readfx-pill-text">Reading Checkmarx One</span></button>
+
           </div>
 
           <!-- ================= Get help ================= -->

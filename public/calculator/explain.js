@@ -25,7 +25,8 @@ export function trSections(tr, L) {
   const an = (s) => tr.analysis?.[s] ?? {};
   const name = (s) => w(s);
   const months = tr.months ?? 12;
-  const paced = tr.paced ?? aheadMonths(months, A.aiDeclinePercent ?? 0);
+  const pace = A.newPacePercent ?? 100;
+  const paced = tr.paced ?? (aheadMonths(months, A.aiDeclinePercent ?? 0) * pace) / 100;
   const span = tr.analysis?.spanMonths ?? tr.lookbackMonths;
   const list = counted(tr);
   const total = (n, digits = 0) => ({ text: w('Total: {0}.', num(n, digits)), total: true });
@@ -58,7 +59,9 @@ export function trSections(tr, L) {
       future.push(line(w('{0}: {1} × {2}% = {3} a month', name(s), num(an(s).arrivals), num(pctOf(share)), num(arrivals)), true));
     }
     const monthly = T.arrivals ?? SEVERITIES.reduce((sum, s) => sum + (rows[s]?.arrivals ?? an(s).arrivals ?? 0), 0);
-    future.push(line(A.aiDeclinePercent ? w('Over {0} months, falling by {1}% over a year as teams adopt AI: {2} months\' worth.', num(months), num(A.aiDeclinePercent), num(paced, 2)) : w('Over {0} months at today\'s pace: {1} months\' worth.', num(months), num(paced, 2))));
+    const worth = pace === 100 ? paced : aheadMonths(months, A.aiDeclinePercent ?? 0);
+    future.push(line(A.aiDeclinePercent ? w('Over {0} months, falling by {1}% over a year as teams adopt AI: {2} months\' worth.', num(months), num(A.aiDeclinePercent), num(worth, 2)) : w('Over {0} months at today\'s pace: {1} months\' worth.', num(months), num(worth, 2))));
+    if (pace !== 100) future.push(line(w('Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months\' worth.', num(pace), num(worth, 2), num(paced, 2))));
     future.push(line(w('{0} a month × {1} = {2}.', num(monthly), num(paced, 2), num(T.future))));
   }
   sections.push({ key: 'future', title: w('Still to come'), lines: future });
@@ -118,7 +121,7 @@ export function fusionSection(f, L) {
     key: 'fusion-credits',
     title: w('Fusion credits'),
     lines: [
-      { text: w('Each project\'s lines of code are rounded up to whole 10K units; units × Fusion scans × the model\'s credits per 10K LOC:') },
+      { text: w('Each project\'s lines of code are rounded up to whole 10K-LOC blocks; units × Fusion scans × the model\'s credits per 10K LOC:') },
       ...(f.byModel ?? []).filter((m) => m.credits > 0).map((m) => ({ text: `${String(m.name || '—').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])}: ${num(m.unitScans)} × ${num(m.rate, 2)} = ${num(m.credits, 1)}`, sub: true })),
       { text: w('Total: {0}.', num(f.totals?.credits, 1)), total: true },
     ],
@@ -141,7 +144,7 @@ export function fusionNewSection(f, L) {
   }
   if (T.byDefault) lines.push({ text: w('{0} projects without a known change frequency: {1} Fusion scans each (the default).', num(T.byDefault), num(f.defaultScans)) });
   if (T.byProject) lines.push({ text: w('{0} projects with Fusion scans set for them.', num(T.byProject)) });
-  lines.push({ text: w('Each project\'s lines of code are rounded up to whole 10K units; units × Fusion scans × the model\'s credits per 10K LOC:') });
+  lines.push({ text: w('Each project\'s lines of code are rounded up to whole 10K-LOC blocks; units × Fusion scans × the model\'s credits per 10K LOC:') });
   for (const m of (f.byModel ?? []).filter((x) => x.credits > 0)) lines.push({ text: `${String(m.name || '—').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])}: ${num(m.unitScans)} × ${num(m.rate, 2)} = ${num(m.credits, 1)}`, sub: true });
   lines.push({ text: w('Total: {0}.', num(T.credits, 1)), total: true });
   return { key: 'fusion-new-credits', title: w('Fusion — new customer credits'), lines };

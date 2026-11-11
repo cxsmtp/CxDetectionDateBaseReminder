@@ -36811,5 +36811,697 @@
   "seen": [
    "calculator"
   ]
+ },
+ "· the log of each one: open it to see or change a repository": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Repositories counted · the log of each one: open it to see or change a repositor",
+   "sign in › span › Repositories counted · the log of each one: open it to see or change a repositor",
+   "Dashboard › span › Repositories counted · the log of each one: open it to see or change a repositor"
+  ]
+ },
+ "(none yet)": {
+  "kind": "text",
+  "seen": [
+   "calculator › span › Repositories counted (none yet) · the log of each one: open it to see or change ",
+   "calculator › tr › span › Repositories counted (none yet) · the log of each one: open it to see or change ",
+   "calculator › fusion › span › Repositories counted (none yet) · the log of each one: open it to see or change "
+  ]
+ },
+ "+ Add a project by hand": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › button › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › button › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "+ New customer": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Every scan origin",
+   "sign in › button › Every scan origin",
+   "Dashboard › button › Every scan origin"
+  ]
+ },
+ "<b>{0}</b> projects": {
+  "kind": "html",
+  "seen": [
+   "calculator › tr › span › From Checkmarx One projects",
+   "calculator › fusion › span › From Checkmarx One projects",
+   "calculator › fusion-git › span › From Checkmarx One projects"
+  ]
+ },
+ "<b>{0}</b> Fusion scans": {
+  "kind": "html",
+  "seen": [
+   "calculator › tr › span › From Checkmarx One projects",
+   "calculator › fusion › span › From Checkmarx One projects",
+   "calculator › fusion-git › span › From Checkmarx One projects"
+  ]
+ },
+ "<b>{0}</b> {1}K-LOC blocks": {
+  "kind": "html",
+  "seen": [
+   "calculator › tr › span › From Checkmarx One projects",
+   "calculator › fusion › span › From Checkmarx One projects",
+   "calculator › fusion-git › span › From Checkmarx One projects"
+  ]
+ },
+ "✓ Used in the credits": {
+  "kind": "text",
+  "seen": [
+   "calculator › span › From code counted in git",
+   "calculator › tr › span › From code counted in git",
+   "calculator › fusion › span › From code counted in git"
+  ]
+ },
+ "{0} projects, {1} open findings, by severity: each project at its latest scan read from Checkmarx One.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "{0}K-LOC blocks": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Projects",
+   "sign in › button › Projects",
+   "Dashboard › button › Projects"
+  ]
+ },
+ "{0}K-LOC blocks × scans": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Add this token": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › button › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › button › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "Consolidated backlog": {
+  "kind": "text",
+  "seen": [
+   "calculator › tr › span › Open vulnerabilities by project ?Consolidated backlog",
+   "calculator › fusion › span › Open vulnerabilities by project ?Consolidated backlog",
+   "calculator › fusion-git › span › Open vulnerabilities by project ?Consolidated backlog"
+  ]
+ },
+ "Count the customer's code lines one of three ways. Each way, each repository becomes a project below, counted the same way: code lines only, no blank or comment lines. Counted from git or read from a cloc-fusion report, a project also says how often it changes, which sets its Fusion scans, and how many people work on it. Each project's code lines are rounded up to whole {0}K-LOC blocks, and one Fusion scan costs its model's credits per {1}K LOC, as on the existing customer tab; the models are that tab's.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › p › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › p › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "credits over {0} months": {
+  "kind": "text",
+  "seen": [
+   "calculator › span › From Checkmarx One projects",
+   "calculator › span › From code counted in git",
+   "calculator › span › From a cloc-fusion report or cloc results"
+  ]
+ },
+ "Credits per {0}K LOC for {1}": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Customers": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "first start › div › Every scan origin",
+   "sign in › div › Every scan origin",
+   "Dashboard › div › Every scan origin"
+  ]
+ },
+ "Default · used by the projects": {
+  "kind": "text",
+  "seen": [
+   "calculator › span › Fusion pricing ?",
+   "calculator › tr › span › Fusion pricing ?",
+   "calculator › fusion › span › Fusion pricing ?"
+  ]
+ },
+ "Delete…": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Every scan origin",
+   "sign in › button › Every scan origin",
+   "Dashboard › button › Every scan origin"
+  ]
+ },
+ "Developers ({0} days)": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Each project's lines of code are rounded up to whole {0}K-LOC blocks on their own, and one Fusion scan costs its model's credits per {1}K LOC. The projects come from Checkmarx One with how often each is scanned: the rules below start from that, and you can give more scans to the projects scanned most often or most critical.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion — existing customer: what each project needs",
+   "sign in › p › Fusion — existing customer: what each project needs",
+   "Dashboard › p › Fusion — existing customer: what each project needs"
+  ]
+ },
+ "Each project's lines of code are rounded up to whole {0}K-LOC blocks on their own; one scan costs its model's credits per {1}K LOC.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Estimate": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Every setting is applied": {
+  "kind": "text",
+  "seen": [
+   "calculator › b › Every scan origin",
+   "calculator › tr › b › Every scan origin (5)",
+   "calculator › fusion › b › Every scan origin (5)"
+  ]
+ },
+ "for a repository that cannot be counted from here: type its lines of code": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › span › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › span › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "From a cloc-fusion report or cloc results": {
+  "kind": "text",
+  "seen": [
+   "calculator › h2 › From a cloc-fusion report or cloc results",
+   "calculator › tr › h2 › From a cloc-fusion report or cloc results",
+   "calculator › fusion › h2 › From a cloc-fusion report or cloc results"
+  ]
+ },
+ "From Checkmarx One projects": {
+  "kind": "text",
+  "seen": [
+   "calculator › h2 › From Checkmarx One projects",
+   "calculator › tr › h2 › From Checkmarx One projects",
+   "calculator › fusion › h2 › From Checkmarx One projects"
+  ]
+ },
+ "From code counted in git": {
+  "kind": "text",
+  "seen": [
+   "calculator › h2 › From code counted in git",
+   "calculator › tr › h2 › From code counted in git",
+   "calculator › fusion › h2 › From code counted in git"
+  ]
+ },
+ "Fusion · Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
+ "Fusion · cloc-fusion": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
+ "Fusion · existing customer": {
+  "kind": "text",
+  "seen": [
+   "calculator › div › From Checkmarx One projects",
+   "calculator › tr › div › From Checkmarx One projects",
+   "calculator › fusion › div › From Checkmarx One projects"
+  ]
+ },
+ "Fusion · from Git": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "sign in › button",
+   "Dashboard › button"
+  ]
+ },
+ "Fusion estimates side by side": {
+  "kind": "text",
+  "seen": [
+   "first start › label › Every scan origin",
+   "sign in › label › Every scan origin",
+   "Dashboard › label › Every scan origin"
+  ]
+ },
+ "Fusion pricing": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Fusion pricing ?",
+   "sign in › h2 › Fusion pricing ?",
+   "Dashboard › h2 › Fusion pricing ?"
+  ]
+ },
+ "Fusion visuals": {
+  "kind": "text",
+  "seen": [
+   "first start › h2 › Fusion visuals ?",
+   "sign in › h2 › Fusion visuals ?",
+   "Dashboard › h2 › Fusion visuals ?"
+  ]
+ },
+ "Fusion worked out each way it can be, over {0} months. Only the one marked is in the credits; the others are shown to compare, never added on top.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Fusion: the estimates compared": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Generated reports": {
+  "kind": "text",
+  "seen": [
+   "first start › button",
+   "first start › h2 › Generated reports ?",
+   "sign in › button"
+  ]
+ },
+ "Git tokens for this run only (one or more)": {
+  "kind": "text",
+  "seen": [
+   "calculator › b › Fusion — new customer: code not in Checkmarx One yet",
+   "calculator › tr › b › Fusion — new customer: code not in Checkmarx One yet",
+   "calculator › fusion › b › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "Hide any you don't need — the choice is remembered.": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Fusion visuals ?",
+   "sign in › span › Fusion visuals ?",
+   "Dashboard › span › Fusion visuals ?"
+  ]
+ },
+ "In the credits": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "is the default model, used by the projects, and has no price yet: type its credits per {0}K LOC, or Fusion credits stay {1}.": {
+  "kind": "text",
+  "seen": [
+   "calculator › p › Fusion pricing ?",
+   "calculator › tr › p › Fusion pricing ?",
+   "calculator › fusion › p › Fusion pricing ?"
+  ]
+ },
+ "Leave Fusion out": {
+  "kind": "text",
+  "seen": [
+   "calculator › button › From Checkmarx One projects",
+   "calculator › button › From code counted in git",
+   "calculator › button › From a cloc-fusion report or cloc results"
+  ]
+ },
+ "No model yet: projects are counted in scans and {0}K-LOC blocks, without credits, until a model has its credits per {1}K LOC.": {
+  "kind": "text",
+  "seen": [
+   "first start › p › Fusion pricing ?",
+   "sign in › p › Fusion pricing ?",
+   "Dashboard › p › Fusion pricing ?"
+  ]
+ },
+ "Not read yet: connect the key at the top and Read from Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "calculator › span › From Checkmarx One projects"
+  ]
+ },
+ "Nothing counted yet: give a token below and count the repositories": {
+  "kind": "text",
+  "seen": [
+   "calculator › span › From code counted in git",
+   "calculator › tr › span › From code counted in git",
+   "calculator › fusion › span › From code counted in git"
+  ]
+ },
+ "Nothing imported yet: download cloc-fusion, send it to the customer, import the report they send back": {
+  "kind": "text",
+  "seen": [
+   "calculator › span › From a cloc-fusion report or cloc results",
+   "calculator › tr › span › From a cloc-fusion report or cloc results",
+   "calculator › fusion › span › From a cloc-fusion report or cloc results"
+  ]
+ },
+ "Open vulnerabilities by project": {
+  "kind": "text",
+  "seen": [
+   "first start › label › Every scan origin",
+   "sign in › label › Every scan origin",
+   "Dashboard › label › Every scan origin"
+  ]
+ },
+ "Paste a token: GitHub, GitLab, Azure DevOps, Bitbucket…": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "first start › input › Fusion — new customer: code not in Checkmarx One yet",
+   "sign in › input › Fusion — new customer: code not in Checkmarx One yet",
+   "Dashboard › input › Fusion — new customer: code not in Checkmarx One yet"
+  ]
+ },
+ "Price needed": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "calculator › input › Fusion pricing ?",
+   "calculator › tr › input › Fusion pricing ?",
+   "calculator › fusion › input › Fusion pricing ?"
+  ]
+ },
+ "Projection settings": {
+  "kind": "text",
+  "seen": [
+   "first start › span › Every scan origin",
+   "sign in › span › Every scan origin",
+   "Dashboard › span › Every scan origin"
+  ]
+ },
+ "Projects or repositories": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Read from Checkmarx One · {0} projects": {
+  "kind": "text",
+  "seen": [
+   "calculator › scoped › span › From Checkmarx One projects",
+   "calculator › scoped triage › span › From Checkmarx One projects",
+   "calculator › scoped fusion › span › From Checkmarx One projects"
+  ]
+ },
+ "Rename…": {
+  "kind": "text",
+  "seen": [
+   "first start › button › Every scan origin",
+   "sign in › button › Every scan origin",
+   "Dashboard › button › Every scan origin"
+  ]
+ },
+ "Repositories counted": {
+  "kind": "text",
+  "seen": [
+   "first start › b › Repositories counted · the log of each one: open it to see or change a repositor",
+   "sign in › b › Repositories counted · the log of each one: open it to see or change a repositor",
+   "Dashboard › b › Repositories counted · the log of each one: open it to see or change a repositor"
+  ]
+ },
+ "Saved customers": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "first start › div › Every scan origin",
+   "sign in › div › Every scan origin",
+   "Dashboard › div › Every scan origin"
+  ]
+ },
+ "scans from how often each project was scanned in the last {0} months": {
+  "kind": "text",
+  "seen": [
+   "calculator › tr › span › From Checkmarx One projects",
+   "calculator › fusion › span › From Checkmarx One projects",
+   "calculator › fusion-git › span › From Checkmarx One projects"
+  ]
+ },
+ "Search options": {
+  "kind": "text",
+  "seen": [
+   "first start › summary › Search options",
+   "sign in › summary › Search options",
+   "Dashboard › summary › Search options"
+  ]
+ },
+ "Ticked: the report shows each Fusion estimate worked out (Checkmarx One, from Git, cloc-fusion) side by side, the one in the credits marked. Unticked: only the one in the credits.": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › label › Every scan origin",
+   "sign in › label › Every scan origin",
+   "Dashboard › label › Every scan origin"
+  ]
+ },
+ "Ticked: the report's appendix lists the open vulnerabilities of each project by severity (critical, high, medium, low), from the last read of Checkmarx One. Needs the project names and details.": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › label › Every scan origin",
+   "sign in › label › Every scan origin",
+   "Dashboard › label › Every scan origin"
+  ]
+ },
+ "To compare": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "use instead": {
+  "kind": "text",
+  "seen": [
+   "calculator › tr › button › From code counted in git",
+   "calculator › tr › button › From a cloc-fusion report or cloc results",
+   "calculator › fusion › button › From code counted in git"
+  ]
+ },
+ "Use this instead": {
+  "kind": "text",
+  "seen": [
+   "calculator › button › From Checkmarx One projects",
+   "calculator › button › From a cloc-fusion report or cloc results",
+   "calculator › tr › button › From Checkmarx One projects"
+  ]
+ },
+ "What counts as code": {
+  "kind": "text",
+  "seen": [
+   "first start › h3 › How it is counted",
+   "sign in › h3 › How it is counted",
+   "Dashboard › h3 › How it is counted"
+  ]
+ },
+ "Live from Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Reading the projects": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Scans in the year": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "The figures fill in as the projects come in: try the severities, the period or the scope meanwhile.": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "The figures change when the read is done; until then they are the last read’s.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Reading Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Reading Checkmarx One · {0}%": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Read from Checkmarx One · done": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Reading Checkmarx One stopped": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Listing the projects…": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0} projects read": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "1 project read": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "The read stopped": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Checkmarx One could not be read": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Read for another customer": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Every figure is from the whole read now.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Fusion follows the scope now; triage & remediation does when the read is done.": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Saved when the read is done": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "New findings counted (%)": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0} a month × {1} months": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "{0} a month × {1} months × {2}%": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "<b>New findings counted</b>: {0}% counts as many new findings a month as the last {1} months had ({2} a month), {3}% half as many, {4}% none. Lower it when the customer expects fewer new findings, raise it when more code or projects are coming.": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Counted at {0}% of that pace (New findings counted): {1} × {0}% = {2} months' worth.": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "New findings counted": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "{0}% of the last months' pace": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Gap to close": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "{0} points": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "The debt rate less the fixing rate: the backlog grows by this much a month until fixing catches up": {
+  "kind": "report",
+  "seen": [
+   "calculator report"
+  ]
+ },
+ "Change what is counted": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "the highest estimate, picked by itself": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Counting from git: finding each token's organizations…": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Counting from git: listing the repositories…": {
+  "kind": "message",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Getting started": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
+ },
+ "Without Node.js": {
+  "kind": "text",
+  "seen": [
+   "calculator"
+  ]
  }
 }
