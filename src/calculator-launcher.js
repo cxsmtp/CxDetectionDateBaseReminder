@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 
 import { CxClient } from './cxone/client.js';
 import { deriveConnection } from './cxone/endpoints.js';
@@ -23,6 +23,9 @@ import { MAX_PROJECTS, cleanOrigins, readLimit } from '../public/calculator/mode
  * engine, as CxMissionZero does (src/fusion-git.js): this computer's git (or the platforms' APIs) and a
  * token typed for that run; and hands out cloc-fusion's one-file page.
  */
+
+/** The page's secret, compared in constant time (equal-length digests), so its answer times say nothing of it. */
+const sameSecret = (given, secret) => timingSafeEqual(createHash('sha256').update(String(given ?? '')).digest(), createHash('sha256').update(secret).digest());
 
 const json = (res, status, body) => {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -214,7 +217,7 @@ export async function startLauncher({ html, port = 0, fallback = false, host = '
     }
     const route = routes[`${req.method} ${url.pathname}`];
     if (!route) return json(res, 404, { error: 'Not found.' });
-    if (req.headers['x-calculator-token'] !== secret) return json(res, 403, { error: 'Open the calculator at the address the launcher printed.' });
+    if (!sameSecret(req.headers['x-calculator-token'], secret)) return json(res, 403, { error: 'Open the calculator at the address the launcher printed.' });
     try {
       json(res, 200, await route(req.method === 'POST' ? await body(req, url.pathname === '/launcher/data' ? DATA_LIMIT : undefined) : null, url));
     } catch (error) {
