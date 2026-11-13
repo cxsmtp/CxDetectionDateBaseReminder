@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.09 | 510/s, 0 (main 502, 0) | 4.0 s (6.3 s) | 285 ms (288 ms) | 1,054 | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, e4657d28 of MZ-01.01.08's final code: 75 open (7 / 23 / 27 / 17, 1 info), 15 to verify |
 | MZ-01.01.08 | 509/s, 0 (main 521, 0) | 412 ms (563 ms) | 97 ms (70 ms) | 1,037 | 0 vulnerabilities | Scan e4657d28 of the final code: 75 open (7 / 23 / 27 / 17, 1 info), none new; nodemailer CVE-2026-125755 and the launcher's timing fixed in the release, 15 to verify (by design, not shipped, or unchanged code under newer rules) |
 | MZ-01.01.07 | 446/s, 192 (connection failures on the host; main 435, 303) | 17.5 s | 3.2 s | 1028 | 0 vulnerabilities (qs 6.16.2) | Rescan 9477a871 of the final code (cad438d): 70 open (1 / 32 / 21 / 15, 1 info), none new; the qs SCA result fixed (6.16.2, CVE-2026-110910), the other 69 SAST + 1 KICS judged not exploitable before ([review](docs/security/mz-01.01.07-review.md)) |
 | MZ-01.01.06 | — (browser code only) | — | — | 1022 | 0 vulnerabilities | Scan 3ce920fc of MZ-01.01.05's final code: 72 open (1 / 33 / 22 / 15, 1 info); 10 new checked: 1 fixed, 9 not exploitable ([review](docs/security/mz-01.01.05-review.md#the-scan-of-the-final-code-reviewed-in-mz-010106)) |
@@ -94,6 +95,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.09 — 2026-11-13 17:57 UTC · [#131](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/131)
+
+- **Labs is a permission, and so is every item in it.** People & roles has a Labs group: See Labs, then Labs: Code authors, Match usernames, Fusion results, FAE Flush, Status board, Consolidated view and Govern; a role sees a Labs item only with See Labs and that item's own permission, and its activation code where it needs one.
+- **Labs shows only when something in it is on for you.** The Labs section of the menu appears only while at least one of its items is turned on for your role; with none, there is no Labs.
+- **Nobody loses access on update.** Each role keeps the Labs items it could already use (Beta features gave every item, Fetch findings the Status board, a Govern permission Govern); new installations give Admin and Security Analyst every item and User and Security Champion the Status board and Govern. Untick what a role should not see.
+- **Clearer refusals.** Opening a Labs item without its permission names what the role is missing, and the Consolidated view's tick says the person's role needs Labs: Consolidated view too.
+- **Beta features means less.** It no longer opens Labs: it covers SLAs while they are in Beta and the source-code host tokens.
+- **Status.** 1,054 tests pass and `npm audit --omit=dev` finds nothing. Benchmark against main, both with 0 failed requests and no finding sent twice: 510 requests a second (main 502), report opens 4.0 s at p95 (main 6.3 s; both runs met host stalls), triage polls 285 ms (main 288 ms). No new Checkmarx One scan (the connector needs signing in again); the last, e4657d28, has 75 open, 15 to verify.
 
 ## MZ-01.01.08 — 2026-11-11 04:47 UTC · [#132](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/132)
 
