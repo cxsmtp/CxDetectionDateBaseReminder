@@ -371,7 +371,7 @@ test('permission check, diagnose a figure, and the audit chain records every cha
 });
 
 test('govern.budgets without govern.enforce: an Enforce budget is never widened, by edit, bulk edit or CSV; narrowed, it is', async () => {
-  const role = await admin('POST', '/api/iam/roles', { name: 'Budget keeper', permissions: ['govern.view', 'govern.budgets'] });
+  const role = await admin('POST', '/api/iam/roles', { name: 'Budget keeper', permissions: ['govern.view', 'govern.budgets', 'labs.view', 'labs.govern'] });
   assert.equal(role.status, 201, JSON.stringify(role.body));
   const id = role.body.roles.find((r) => r.name === 'Budget keeper').id;
   const keeper = browser();

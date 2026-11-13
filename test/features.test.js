@@ -18,11 +18,15 @@ test('a feature is Beta until made final; only known features and stages are kep
   assert.deepEqual(featureList({ features: stored }).map((f) => f.stage), ['final', ...FEATURES.slice(1).map(() => 'beta')]);
 });
 
-test('Beta access always works; a final feature is open to its own permission too', () => {
+test('a Labs item needs Labs and its own permission; a final feature is open to its own permission too', () => {
   const beta = {};
   const final = { features: { codeAuthors: { stage: 'final' } } };
   const user = new Set(['reminders.send']);
-  assert.equal(mayUse(beta, 'codeAuthors', new Set(['beta.use'])), true);
+  assert.equal(mayUse(beta, 'codeAuthors', new Set(['labs.view', 'labs.codeAuthors'])), true);
+  assert.equal(mayUse(beta, 'codeAuthors', new Set(['labs.codeAuthors'])), false, 'not without Labs');
+  assert.equal(mayUse(beta, 'codeAuthors', new Set(['labs.view', 'labs.fusionResults'])), false, 'not with another item');
+  assert.equal(mayUse(beta, 'codeAuthors', new Set(['beta.use'])), false, 'Beta features no longer opens Labs');
+  assert.equal(mayUse(beta, 'sla', new Set(['beta.use'])), true, 'SLAs (not in Labs) stay with Beta features');
   assert.equal(mayUse(beta, 'codeAuthors', user), false, 'still Beta');
   assert.equal(mayUse(final, 'codeAuthors', user), true, 'final: whoever may send reminders');
   assert.equal(mayUse(final, 'identityMatching', user), false, 'the other one is still Beta');

@@ -156,9 +156,11 @@ Everyone signs in and has one role. Tabs and buttons you are not allowed to use 
 | Role | Can |
 | --- | --- |
 | **Admin** | Everything, including the Checkmarx One integration, the email server, the credit pool and backups. |
-| **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, beta; in Govern, see everything and ask for credits. |
-| **Security Champion** | Govern (once its activation code is applied): budgets, Enforce, credit requests, restores and attribution, but not Govern's settings; also fetch findings and see tracked reports and credits. No people and roles. |
+| **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, every Labs item; in Govern, see everything and ask for credits. |
+| **Security Champion** | Govern (once its activation code is applied): budgets, Enforce, credit requests, restores and attribution, but not Govern's settings; also fetch findings and see tracked reports and credits; in Labs, the Status board and Govern. No people and roles. |
 | **User** | Fetch findings, send reminders, follow tracked reports, see credits. Settings are read-only. No Access or Audit. In Labs, once their codes are applied, the Status board and Govern (their own AI credits, and asking for more). |
+
+**Labs** is a permission of its own, and so is every item in it (from MZ-01.01.09): **See Labs**, then **Labs: Code authors**, **Labs: Match usernames**, **Labs: Fusion results**, **Labs: FAE Flush**, **Labs: Status board**, **Labs: Consolidated view** and **Labs: Govern**, in the **Labs** group on People & roles. A role sees a Labs item while it is in Beta only with See Labs and that item's own permission, and only once the item's activation code is in force where it needs one. **Labs** appears in the menu only while at least one of its items is turned on for you; with none, there is no Labs. Updating kept every role's access as it was; untick what a role should not see.
 
 **Cx Credits Calculator** is for Admins; give it to any other role by ticking **Cx Credits Calculator** on People & roles.
 
@@ -488,7 +490,7 @@ Install a new version, go back to any version, turn on auto-update, restart the 
 
 ### Beta features (Admin)
 
-A feature starts in Beta: only roles holding **Beta features** see it. When you trust it, **Make final**:
+A feature starts in Beta: in Labs, only the roles holding **See Labs** and its own **Labs:** permission see it; SLAs (in Settings), only the roles holding **Beta features**. When you trust it, **Make final**:
 - it loses its Beta label, and anyone holding the feature's own permission can use it;
 - what it adds elsewhere turns on.
 
@@ -500,7 +502,7 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
 | **Fusion results** | Everyone who loads findings sees **Labs → Fusion results**, with its own line to load Fusion's results, and the Workbench's **Fusion** column. |
 | **FAE Flush** | It moves out of Labs to the top of **Act** (FAE Flush, Workbench, Automation); the Workbench stays the home page. Anyone who manages the Checkmarx One integration can run it. |
-| **Govern** | It moves out of Labs to its own menu group, **Govern**, between Prove and Plan. Everyone holding a Govern permission keeps using it as before. |
+| **Govern** | It moves out of Labs to its own menu group, **Govern**, between Prove and Plan. Everyone holding a Govern permission uses it, without a Labs permission. |
 
 ### Hands-off (set it up once)
 
@@ -1146,7 +1148,7 @@ Identity and access management, in three tabs.
 
 ## Labs: Code authors
 
-Early features, in their own **Labs** section at the bottom of the menu (it was the **Beta** item under Act): check what they find before relying on them. A feature an Admin made final ([Settings → Beta features](#beta-features-admin)) loses its Beta label. Details are in [beta-features.md](beta-features.md). Three tabs: **Code authors**, **Match usernames**, **Source-code hosts** (the connections: GitHub, GitLab, Azure DevOps, Bitbucket).
+Early features, in their own **Labs** section at the bottom of the menu (it was the **Beta** item under Act): check what they find before relying on them. Each is for the roles holding **See Labs** and its own **Labs:** permission ([roles](#people--roles)), and **Labs** shows only while one of them is turned on for you. A feature an Admin made final ([Settings → Beta features](#beta-features-admin)) loses its Beta label. Details are in [beta-features.md](beta-features.md). Three tabs: **Code authors**, **Match usernames**, **Source-code hosts** (the connections: GitHub, GitLab, Azure DevOps, Bitbucket).
 - **Email the authors of vulnerable code.** Finds who last changed the vulnerable line, and emails them.
   - **Where the code is:** GitHub, GitLab, Azure DevOps or Bitbucket.
   - **Through the host's API** where it has one: GitHub, GitLab and Bitbucket Data Center, one request per file.
@@ -1239,7 +1241,7 @@ It has two tabs, **Run** and **Value**.
 
 ## Labs: Status board
 
-Every project the Workbench loaded, at a glance: its last scan and its results. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)); then for everyone who may load findings. It shows what the Workbench loaded: load findings there first (it says so when nothing is loaded).
+Every project the Workbench loaded, at a glance: its last scan and its results. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)); then for the roles holding **See Labs** and **Labs: Status board** (and Fetch findings). It shows what the Workbench loaded: load findings there first (it says so when nothing is loaded).
 
 - **The figures line**: projects, scanned in the last 30 days, failed scans in the last 7 days, not scanned for 30+ days, open critical + high.
 - **Bar shows**: **Results** (open results by severity from the left, numbers inside, the total and critical + high at the end; gold outline for a Fusion scan, pink for LAST) or **Scan health** (days since the latest scan, up to 60: green under 7, amber under 30, red after, striped when a newer scan failed; the engines it ran, a failed one in red).
@@ -1250,7 +1252,7 @@ Every project the Workbench loaded, at a glance: its last scan and its results. 
 
 ## Labs: Consolidated view
 
-Every connected tenant on one page, read only, for the people an Admin ticks (**People & roles → May see the consolidated view (all connected tenants)**; no role holds it, not even Admin). Held back until its own activation code turns it on. It is **Consolidated** in the menu and the first entry of the tenant switcher.
+Every connected tenant on one page, read only, for the people an Admin ticks (**People & roles → May see the consolidated view (all connected tenants)**; no role holds the tick, not even Admin) whose role also holds **See Labs** and **Labs: Consolidated view**. Held back until its own activation code turns it on. It is **Consolidated** in the menu and the first entry of the tenant switcher.
 
 - **Overview**: a card per tenant (its colour at the top): projects, overdue, open results, AI credits used and available, Fusion and LAST, Govern's budgets, when it last loaded findings, and its health (**Healthy**, **Last fetch failed**, **Not fetched for a day**, or **Not loaded — open it once** for a tenant nobody has loaded findings in since the server started). Then the tenants side by side.
 - **Projects**, **Fusion**, **Credits**, **Status board**: the same across tenants, each row naming its tenant; a tenant filter above every table; search, sort, filter, Columns, CSV and HTML report.
@@ -1258,7 +1260,7 @@ Every connected tenant on one page, read only, for the people an Admin ticks (**
 
 ## Labs: Govern
 
-Budgets of AI credits, and what happens at the limit: the credits command center for security champions. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)); then for the roles holding its own permissions, in Beta too. Once an Admin makes it final ([Settings → Beta features](#beta-features-admin)) it has its own menu group, **Govern**, between Prove and Plan. Everything about it is in [Govern](govern.md).
+Budgets of AI credits, and what happens at the limit: the credits command center for security champions. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)); then, while it is in Labs, for the roles holding **See Labs** and **Labs: Govern**, each doing what its Govern permissions allow. Once an Admin makes it final ([Settings → Beta features](#beta-features-admin)) it has its own menu group, **Govern**, between Prove and Plan. Everything about it is in [Govern](govern.md).
 
 - **Who**: **Admin** everything; **Security Champion** (a built-in role) budgets, Enforce, requests, restores and attribution, not Govern's settings; **Security Analyst** sees it all and asks for credits; **User** sees their own AI credits and asks for more. Each is a permission on People & roles (group *Govern*).
 - **The top**: the last cycle and the next, **Run now**, and the figures line: tenant credits, in the pool, assigned to budgets, used this period, near limit, restricted.

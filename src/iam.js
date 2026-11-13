@@ -61,7 +61,16 @@ export const PERMISSIONS = [
   { id: 'backup.view', group: 'Audit & data', label: 'View backup status', description: 'See the state folder and backups.' },
   { id: 'backup.run', group: 'Audit & data', label: 'Back up to the folder', description: 'Write a backup into the server’s backup folder.' },
   { id: 'backup.manage', group: 'Audit & data', label: 'Download & restore backups', description: 'Backups hold the SMTP password, API keys and users — so this is an Admin permission.', special: true },
-  { id: 'beta.use', group: 'Beta', label: 'Beta features', description: 'Code authors and GitHub identity matching, and their GitHub token.' },
+  { id: 'beta.use', group: 'Beta', label: 'Beta features', description: 'SLAs while they are in Beta, and the source-code host tokens (GitHub, GitLab, Azure DevOps, Bitbucket) that Code authors and Match usernames read. Labs and each item in it have their own permissions.' },
+  // Labs: shown only to roles holding labs.view, and only while one of its items is active for them; each item has its own.
+  { id: 'labs.view', group: 'Labs', label: 'See Labs', description: 'Labs in the menu: the early features still being tried out. It appears only while one of its items is turned on for them: in Beta, unlocked by its activation code where it needs one, and ticked below.' },
+  { id: 'labs.codeAuthors', group: 'Labs', label: 'Labs: Code authors', description: 'Find the developer who last changed each vulnerable line, and email them the findings in their code.' },
+  { id: 'labs.identityMatching', group: 'Labs', label: 'Labs: Match usernames', description: 'Turn the usernames of scan initiators on GitHub, GitLab, Azure DevOps or Bitbucket into email addresses.' },
+  { id: 'labs.fusionResults', group: 'Labs', label: 'Labs: Fusion results', description: 'What Checkmarx One Fusion re-scored in the projects loaded, with triage and remediation of its results.' },
+  { id: 'labs.faeFlush', group: 'Labs', label: 'Labs: FAE Flush', description: 'Findings Analysis on the backlog for the whole tenant (once its activation code is in force). Running it also needs the Checkmarx One integration.' },
+  { id: 'labs.statusBoard', group: 'Labs', label: 'Labs: Status board', description: 'Every project\u2019s last scan and its results at a glance (once its activation code is in force). Also needs Fetch findings.' },
+  { id: 'labs.consolidated', group: 'Labs', label: 'Labs: Consolidated view', description: 'Every connected tenant in one place, read only (once its activation code is in force), and only for the people an Admin also ticks under People & roles.' },
+  { id: 'labs.govern', group: 'Labs', label: 'Labs: Govern', description: 'Credit governance (once its activation code is in force). What they may do there still follows the Govern permissions.' },
   { id: 'activation.view', group: 'Settings', label: 'See the Activation codes page', description: 'Open Settings → Activation codes read-only: which add-ons are unlocked, and until when.' },
   { id: 'activation.manage', group: 'Settings', label: 'Activation codes', description: 'Enter the activation codes that unlock add-ons on this installation (Hebrew; several Checkmarx One tenants), or turn them off.', special: true },
   { id: 'tenants.manage', group: 'Settings', label: 'Super Admin: tenants', description: 'With a tenants activation code: turn on several Checkmarx One tenants, add, rename and remove them, switch between them, and choose who works in which.', special: true },
@@ -116,7 +125,8 @@ export const DEFAULT_ROLES = {
   user: {
     name: 'User',
     description: 'Fetch findings, send reminders and follow tracked reports. Settings are read-only; users and roles are hidden.',
-    permissions: ['findings.fetch', 'reminders.send', 'initiators.tag', 'reports.view', 'reports.remind', 'reports.manage', 'credits.view', 'settings.view', 'govern.request'],
+    // Of Labs, what a User could use before it had permissions of its own: the Status board and Govern (asking for credits).
+    permissions: ['findings.fetch', 'reminders.send', 'initiators.tag', 'reports.view', 'reports.remind', 'reports.manage', 'credits.view', 'settings.view', 'govern.request', 'labs.view', 'labs.statusBoard', 'labs.govern'],
     builtin: true,
   },
   // Govern (beta): complete control of the credits in the pool — budgets, enforcement, requests, restores and
@@ -124,7 +134,7 @@ export const DEFAULT_ROLES = {
   champion: {
     name: 'Security Champion',
     description: 'Complete control of the credits in the pool with Govern: budgets (Enforce too), credit requests, restores and attribution; fetches findings and sees reports and credits. Not Govern settings, not users and roles.',
-    permissions: ['govern.view', 'govern.request', 'govern.approve', 'govern.budgets', 'govern.enforce', 'govern.restore', 'govern.attribution', 'findings.fetch', 'reports.view', 'credits.view'],
+    permissions: ['govern.view', 'govern.request', 'govern.approve', 'govern.budgets', 'govern.enforce', 'govern.restore', 'govern.attribution', 'findings.fetch', 'reports.view', 'credits.view', 'labs.view', 'labs.statusBoard', 'labs.govern'],
     builtin: true,
   },
 };
@@ -235,6 +245,11 @@ export class IamStore {
       this.#migrated = true;
     }
     if (!state.migrations.includes(ROLES_GOVERN)) state.migrations.push(ROLES_GOVERN);
+    if (Object.keys(raw).length && !migrations.includes(ROLES_LABS)) {
+      migrateRolesLabs(state);
+      this.#migrated = true;
+    }
+    if (!state.migrations.includes(ROLES_LABS)) state.migrations.push(ROLES_LABS);
     return state;
   }
 
@@ -660,6 +675,27 @@ function migrateRolesGovern(state) {
   const add = (role, perms) => role && !role.locked && (role.permissions = [...new Set([...role.permissions, ...perms])]);
   add(state.roles.analyst, ['govern.view', 'govern.request']);
   add(state.roles.user, ['govern.request']);
+}
+
+/**
+ * MZ-01.01.09, once, on roles an older version saved: Labs and each item in it got permissions of their own. Every
+ * role keeps what it could use before: Beta features gave every Labs item; Fetch findings the Status board; a Govern
+ * permission Govern; and the role of anyone an Admin ticked for the consolidated view keeps it for them.
+ */
+const ROLES_LABS = 'roles-labs';
+export const LABS_ITEM_PERMISSIONS = ['labs.codeAuthors', 'labs.identityMatching', 'labs.fusionResults', 'labs.faeFlush', 'labs.statusBoard', 'labs.consolidated', 'labs.govern'];
+function migrateRolesLabs(state) {
+  const ticked = new Set(state.users.filter((u) => u.consolidated === true).map((u) => u.role));
+  for (const [id, role] of Object.entries(state.roles)) {
+    if (role.locked) continue;
+    const held = new Set(role.permissions);
+    const add = new Set();
+    if (held.has('beta.use')) LABS_ITEM_PERMISSIONS.forEach((p) => add.add(p));
+    if (held.has('findings.fetch')) add.add('labs.statusBoard');
+    if ([...held].some((p) => p.startsWith('govern.'))) add.add('labs.govern');
+    if (ticked.has(id)) add.add('labs.consolidated');
+    if (add.size) role.permissions = [...new Set([...role.permissions, 'labs.view', ...add])];
+  }
 }
 
 /** Client ids every API key signs in through: an identity that is one of them would let any key holder in. */

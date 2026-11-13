@@ -1,7 +1,7 @@
 /**
  * Govern (beta): the REST API under /api/govern (DESIGN A).
  *
- * Every route needs the Govern feature (its activation code, then Beta access or a govern.* permission) and the
+ * Every route needs the Govern feature (its activation code, then Labs and Labs: Govern on the role, or once final a govern.* permission) and the
  * govern.* permission for what it does; someone holding only govern.request sees their own requests and their own
  * usage, nothing else. Input is validated and bounded; every change is written to MZ's audit chain with who,
  * before and after (the webhook secret never: only whether one is set). Reads come from memory (the service's

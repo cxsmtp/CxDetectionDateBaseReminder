@@ -93,7 +93,7 @@ import { DEFAULT_TENANT, Tenancy, scoped, scopedState } from './tenancy.js';
 import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
 import { SUPPORTING_NOTICE, Terms, cleanName } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
-import { featureById, featureList, isFinal, mayUse } from './features.js';
+import { featureById, featureList, inLabs, isFinal, labsPermission, LABS_VIEW, mayUse } from './features.js';
 import { PROBE_DEFAULTS, probeFusion } from './fusion.js';
 import { aiFindings, cleanEngines as cleanFusionEngines, readRiskFusion } from './fusion-ai.js';
 import { DEFAULT_PERIOD as FUSION_PERIOD, USAGE_PERIODS, fusionUsage, projectFacts, scanLanguages, scanTypeOf, scanTypes, tenantAi, tenantCredits } from './fusion-usage.js';
@@ -1092,15 +1092,15 @@ function requirePermission(...permissions) {
     });
 }
 
-/**
- * A Beta feature: for people with Beta access, and, once an Admin made it final,
- * for everyone holding the feature's own permission too (src/features.js).
- */
 /** A feature held back for those an activation code has unlocked it for (features.js `unlockedBy`), while it has not. */
 function featureLocked(feature) {
   return Boolean(feature?.unlockedBy) && !activations.feature(feature.unlockedBy)?.on;
 }
 
+/**
+ * A Beta feature: in Labs, for roles holding Labs and the item's own permission; SLAs with Beta features; once an
+ * Admin made it final, for everyone holding the feature's own permission too (src/features.js).
+ */
 function requireFeature(id) {
   return (req, res, next) =>
     requireSession(req, res, (error) => {
@@ -1108,6 +1108,11 @@ function requireFeature(id) {
       if (featureLocked(featureById(id))) return res.status(403).json({ error: `“${featureById(id).name}” needs its activation code (Settings → Activation codes).`, locked: true });
       if (mayUse(settingsStore.get(), id, req.permissions)) return next();
       const feature = featureById(id);
+      if (feature?.labs) {
+        const needs = [LABS_VIEW, labsPermission(id)].filter((p) => !req.permissions.has(p));
+        const labels = needs.map((p) => PERMISSIONS.find((x) => x.id === p)?.label ?? p);
+        return res.status(403).json({ error: `“${feature.name}” is in Labs: your role needs “${labels.join('” and “') || 'its permission'}”${isFinal(settingsStore.get(), id) ? '' : ' until an Admin makes it final'}.`, permission: needs[0] ?? labsPermission(id) });
+      }
       res.status(403).json({ error: `“${feature?.name ?? id}” is a Beta feature: your role needs “Beta features”${isFinal(settingsStore.get(), id) ? '' : ' until an Admin makes it final'}.`, permission: 'beta.use' });
     });
 }
@@ -1229,7 +1234,9 @@ function describeMe(session, user) {
   const held = permissionsFor(user);
   const settings = settingsStore.get();
   // "feature.<id>": what the page shows for each Beta feature this person may use (never checked by the server).
-  const permissions = [...held, ...featureList(settings).filter((f) => !featureLocked(f) && mayUse(settings, f.id, held)).map((f) => `feature.${f.id}`)];
+  const usable = featureList(settings).filter((f) => !featureLocked(f) && mayUse(settings, f.id, held));
+  // "labs.active": Labs shows in the menu only while one of its items is turned on for this person.
+  const permissions = [...held, ...usable.map((f) => `feature.${f.id}`), ...(usable.some((f) => inLabs(settings, f.id)) ? ['labs.active'] : [])];
   const integration = integrationSession();
   let tenant = '';
   try {
@@ -4946,13 +4953,13 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
   } else if (result.scope === 'feature:impact') {
     what = `the Cx Credits Calculator's Impact tab ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}` : 'turned off'}`;
   } else if (result.scope === 'feature:faeFlush') {
-    what = `FAE Flush (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with Beta access` : 'turned off: a run under way pauses'}`;
+    what = `FAE Flush (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with Labs: FAE Flush` : 'turned off: a run under way pauses'}`;
   } else if (result.scope === 'feature:statusBoard') {
-    what = `the Status board (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for everyone who may load findings` : 'turned off'}`;
+    what = `the Status board (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with Labs: Status board` : 'turned off'}`;
   } else if (result.scope === 'feature:consolidated') {
-    what = `the Consolidated view (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the people an Admin ticks under People & roles` : 'turned off'}`;
+    what = `the Consolidated view (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the people an Admin ticks under People & roles whose role has Labs: Consolidated view` : 'turned off'}`;
   } else if (result.scope === 'feature:govern') {
-    what = `Govern (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with a Govern permission or Beta access` : 'turned off: its cycles stop, restrictions already made stay until restored'}`;
+    what = `Govern (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with Labs: Govern` : 'turned off: its cycles stop, restrictions already made stay until restored'}`;
   } else if (result.scope === 'product') {
     what = `CxMissionZero activated for ${result.org} until ${result.expires.slice(0, 10)}`;
   } else {
@@ -10399,7 +10406,7 @@ app.post(
 
 // ---- FAE Flush (Labs, then Act): Findings Analysis on the backlog, for the whole tenant at once ----------
 // Runs on the server with its own Checkmarx One connection (the integration key), a few scans at a time; the run
-// is kept on disk and carries on after a restart. Who may: Beta access (later everyone with the feature's
+// is kept on disk and carries on after a restart. Who may: Labs and Labs: FAE Flush on their role (later everyone with the feature's
 // permission), and the Checkmarx One integration permission, since it creates, scans and deletes projects.
 const faeRunners = new WeakMap();
 /** The running tenant's FAE Flush runner. */

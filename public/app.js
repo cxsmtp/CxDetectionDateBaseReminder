@@ -641,11 +641,12 @@ const PAGE_PERMS = {
   audit: 'audit.view backup.view',
   settings: '', // everyone has Your profile; the rest needs settings.view
   access: 'iam.view',
-  beta: 'beta.use feature.codeAuthors feature.identityMatching',
-  fusion: 'beta.use feature.fusionResults',
+  // Labs: each item for the roles holding Labs and its own permission (the server gives feature.<id> to them).
+  beta: 'feature.codeAuthors feature.identityMatching',
+  fusion: 'feature.fusionResults',
   // Only once its activation code has unlocked it: the server then gives feature.faeFlush to whoever may use it.
   flush: 'feature.faeFlush',
-  // Labs, once their activation codes are applied: the board for whoever loads findings; the consolidated view
+  // Labs, once their activation codes are applied, for the roles holding Labs and the item's permission; the consolidated view
   // only for the people an Admin ticked (People & roles).
   status: 'feature.statusBoard',
   consolidated: 'feature.consolidated',
@@ -839,7 +840,7 @@ document.addEventListener('click', async (event) => {
   if (!button) return;
   const to = button.dataset.to;
   const name = button.closest('.feat-card')?.querySelector('h3')?.firstChild?.textContent?.trim() ?? 'this feature';
-  if (!confirm(to === 'final' ? `Make “${name}” final for everyone in your organisation?` : `Put “${name}” back in Beta? People without “Beta features” lose access to it.`)) return;
+  if (!confirm(to === 'final' ? `Make “${name}” final for everyone in your organisation?` : `Put “${name}” back in Beta? Only the roles holding its Beta or Labs permission keep access to it.`)) return;
   button.disabled = true;
   setStatus('feat-status', 'Saving…');
   try {
@@ -10825,7 +10826,7 @@ const IAM_PAGE = 20;
  */
 function consolidatedTick(u, me) {
   if (access.data.consolidatedGrant && (u.canManage || me)) {
-    return `<label class="check cv-grant" title="Labs → Consolidated view: every tenant they work in, read only. Each visit is written to each tenant's audit log."><input type="checkbox" data-iam-consolidated="${escapeHtml(u.id)}" ${u.consolidated ? 'checked' : ''} /> <span>May see the consolidated view (all connected tenants)</span></label>`;
+    return `<label class="check cv-grant" title="Labs → Consolidated view: every tenant they work in, read only. Each visit is written to each tenant's audit log. Their role also needs See Labs and Labs: Consolidated view."><input type="checkbox" data-iam-consolidated="${escapeHtml(u.id)}" ${u.consolidated ? 'checked' : ''} /> <span>May see the consolidated view (all connected tenants)</span></label>`;
   }
   return u.consolidated ? '<span class="badge gv-info" title="May see the consolidated view (all connected tenants)">Consolidated view</span>' : '';
 }

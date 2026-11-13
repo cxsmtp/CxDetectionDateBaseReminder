@@ -133,14 +133,18 @@ test('a tenant keeps its colour', () => {
   assert.deepEqual(tenantColours(ids.slice(0, 3)), Object.fromEntries(ids.slice(0, 3).map((id) => [id, all[id]])));
 });
 
-test('who may use them: the board for whoever loads findings once unlocked; the consolidated view only with its grant', () => {
+test('who may use them: the board with Labs and its own permission; the consolidated view only with its grant too', () => {
   const perms = (...p) => new Set(p);
-  assert.equal(mayUse({}, 'statusBoard', perms('findings.fetch')), true);
-  assert.equal(mayUse({}, 'statusBoard', perms('reports.view')), false);
-  assert.equal(mayUse({}, 'statusBoard', perms('beta.use')), true);
-  assert.equal(mayUse({}, 'consolidated', perms('beta.use', 'findings.fetch')), false, 'Beta access is not enough');
-  assert.equal(mayUse({ features: { consolidated: { stage: 'final' } } }, 'consolidated', perms('beta.use')), false);
-  assert.equal(mayUse({}, 'consolidated', perms('consolidated.view')), true);
+  const labs = (id) => ['labs.view', `labs.${id}`];
+  assert.equal(mayUse({}, 'statusBoard', perms(...labs('statusBoard'))), true);
+  assert.equal(mayUse({}, 'statusBoard', perms('findings.fetch')), false, 'in Labs: Fetch findings alone is not enough');
+  assert.equal(mayUse({ features: { statusBoard: { stage: 'final' } } }, 'statusBoard', perms('findings.fetch')), true, 'final: whoever loads findings');
+  assert.equal(mayUse({}, 'statusBoard', perms('beta.use')), false);
+  assert.equal(mayUse({}, 'consolidated', perms(...labs('consolidated'))), false, 'Labs is not enough without the grant');
+  assert.equal(mayUse({}, 'consolidated', perms('consolidated.view')), false, 'nor the grant without Labs');
+  assert.equal(mayUse({}, 'consolidated', perms('consolidated.view', ...labs('consolidated'))), true);
+  assert.equal(mayUse({ features: { consolidated: { stage: 'final' } } }, 'consolidated', perms(...labs('consolidated'))), false);
+  assert.equal(mayUse({ features: { consolidated: { stage: 'final' } } }, 'consolidated', perms('consolidated.view')), true);
   assert.deepEqual(PERSON_GRANTS.map((p) => p.id), ['consolidated.view']);
   // A person's grant never stops an Admin managing them.
   const iam = Object.create(IamStore.prototype);

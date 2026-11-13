@@ -35,7 +35,7 @@ Govern is held back until its **activation code** is applied (scope `feature:gov
 
 `podman run --rm -v "%USERPROFILE%\mz-keys:/keys:ro" ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest node scripts/activation.mjs feature /keys/issuer-key.pem "Acme Corp" govern on`
 
-With the code in force, Govern is for everyone whose role holds **See Govern** or **Ask for credits** (every built-in role does; below), in Beta too: no **Beta features** permission is needed, and Beta features alone is not enough, since every tab needs its Govern permission. Applying or removing the code is in the audit log.
+With the code in force, Govern in Labs is for the roles holding **See Labs** and **Labs: Govern** (every built-in role does on a new installation, and updating gave them to every role holding a Govern permission; from MZ-01.01.09); every tab still needs its Govern permission, so Labs: Govern alone shows nothing. Once final, **See Govern** or **Ask for credits** alone opens it. Applying or removing the code is in the audit log.
 
 **While the code is off** (removed, or expired): the cycles stop, nothing is read from Checkmarx One, CxMissionZero's own spend is no longer refused, and the page is gone. Restrictions already made in Checkmarx One **stay** until the code is back and someone restores them ([known limits](#known-limits)).
 
