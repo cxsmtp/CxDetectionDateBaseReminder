@@ -46,6 +46,16 @@ test('on a phone nothing scrolls sideways, and setting up waits for a computer',
   assert.match(js, /c\.setAttribute\('form', form\.id\)/);
 });
 
+test('a list of sections that opens from one button keeps its group headings', () => {
+  const js = read('public/mobile.js');
+  const open = js.slice(js.indexOf('function openPicker(strip) {'), js.indexOf('function enhanceStrips() {'));
+  // Settings' headings are put away on a narrow screen, so they are not judged by what shows...
+  assert.match(open, /if \(el\.matches\('\.set-group, \.nav-group'\)\) \{[^}]*if \(el\.hidden \|\| el\.closest\('\[hidden\]'\)\) continue;/);
+  // ...a heading with no section listed under it (none this person may open) is dropped.
+  assert.match(open, /out\.filter\(\(el, i\) => !\(el\.classList\.contains\('m-group-label'\) && !out\[i \+ 1\]\?\.classList\.contains\('m-group'\)\)\)/);
+  assert.match(open, /if \(!el\.matches\('button, a, \[role="tab"\]'\) \|\| !usable\(el\)\) continue;/, 'a section shows only when the person may open it');
+});
+
 test('the phone pieces stay out of sight on a wider screen', () => {
   const css = read('public/styles.css');
   const rule = css.match(/:root:not\(\[data-phone\]\) :is\(([^)]+)\) \{ display: none !important; \}/);

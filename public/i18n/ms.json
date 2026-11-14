@@ -5836,6 +5836,13 @@
   "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": "Sandaran ini disulitkan, dan kunci sandaran atau frasa laluan pelayan ini sendiri tidak dapat membukanya. Berikan kunci sandaran pelayan yang membuatnya (disimpan daripada Audit → Keadaan & sandaran pelayan itu), atau BACKUP_PASSPHRASE yang digunakan oleh pelayan itu.",
   "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": "Sandaran ini tidak dapat dibuka: kunci sandaran atau frasa laluan salah, atau sandaran rosak. Sandaran ini hanya boleh dibuka dengan kunci sandaran pelayan yang membuatnya (disimpan daripada Audit → Keadaan & sandaran), atau dengan BACKUP_PASSPHRASE yang digunakan oleh pelayan itu.",
   "twostep|Code": "Kod",
-  "twostep|Recovery code": "Kod pemulihan"
+  "twostep|Recovery code": "Kod pemulihan",
+  "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>Kredit",
+  "Credits given, used and left, what they achieved, and how many a customer needs": "Kredit yang diberi, digunakan dan berbaki, hasil yang dicapai, dan jumlah yang diperlukan pelanggan",
+  "It moves out of Labs to the Credits group of the menu, after Audit.": "Ia dipindahkan keluar dari Makmal ke kumpulan Kredit dalam menu, selepas Audit.",
+  "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "Ia dipindahkan keluar dari Makmal ke bahagian atas Tindakan (FAE Flush, Meja kerja, Automasi, Papan pemuka); Meja kerja kekal sebagai halaman utama.",
+  "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "Wang: tetapkan kos sejam dan harga satu kredit di bawah Tetapan → AI & kumpulan kredit.",
+  "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "Wang: jam dijimatkan × kos sejam, tolak kredit yang digunakan × harga satu kredit (kedua-duanya di bawah Tetapan → AI & kumpulan kredit).",
+  "Off: add who gets it under Settings → AI & credit pool.": "Mati: tambah penerima di bawah Tetapan → AI & kumpulan kredit."
  }
 }

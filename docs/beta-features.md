@@ -9,8 +9,8 @@ Updating from an earlier version keeps everyone's access, once: a role that held
 - **Matching usernames, once final:** anyone who may change initiator addresses can run and apply it.
 - **SLAs and escalation, once final:** everyone who loads findings sees what is past its SLA and due soon. Escalation stays as set under **Settings → SLAs**: off until an Admin names who to escalate to.
 - **Fusion results, once final:** everyone who loads findings sees **Labs → Fusion results** and the Workbench's **Fusion** column.
-- **FAE Flush, once final:** it moves out of Labs to the top of **Act** (FAE Flush, Workbench, Automation), for anyone who manages the Checkmarx One integration; the Workbench stays the home page.
-- **Govern, once final:** it moves out of Labs to its own menu group, **Govern**, between Prove and Plan; everyone holding a Govern permission keeps using it as before.
+- **FAE Flush, once final:** it moves out of Labs to the top of **Act** (FAE Flush, Workbench, Automation, Dashboard), for anyone who manages the Checkmarx One integration; the Workbench stays the home page.
+- **Govern, once final:** it moves out of Labs to the **Credits** group of the menu, after Audit; everyone holding a Govern permission keeps using it as before.
 
 Every change of stage is in the audit log.
 
@@ -310,5 +310,5 @@ Labs → **Govern** (held back until its activation code is applied, scope `feat
 - **Who**: in Labs, the roles holding See Labs and Labs: Govern; what each may do there follows Govern's own permissions (`govern.view`, `govern.request`, `govern.approve`, `govern.budgets`, `govern.enforce`, `govern.restore`, `govern.attribution`, `govern.settings`), which alone open it once final. Admin holds them all; the built-in **Security Champion** role all but `govern.settings`; Security Analyst `govern.view` and `govern.request`; User `govern.request` ([who can do what](govern.md#who-can-do-what)).
 - **What it reads and changes**: a cycle per tenant, every 15 minutes by default, through its own budget of Checkmarx One calls (at most 4 at once, 5 a second); pages are served from memory. The calls and the permissions the API key needs are in [the cycle](govern.md#the-cycle).
 - **Code off**: its cycles stop and its page is gone; restrictions already made stay until the code is back and someone restores them.
-- **Once final**: it moves out of Labs to its own menu group, **Govern**, between Prove and Plan.
+- **Once final**: it moves out of Labs to the **Credits** group of the menu, after Audit.
 - **Before making it final:** keep every budget in Monitor until the figures match what Checkmarx One shows for your own users and projects and the Attribution queue is settled; then switch one budget to Enforce and check that Restore puts everything back.

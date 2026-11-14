@@ -7,7 +7,7 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 - Administrators setting it up start with [Set up in 10 minutes](#set-up-in-10-minutes), and serve it over HTTPS: [Turn on HTTPS](#turn-on-https).
 
 **Contents**
-1. [Find your way: Act, Follow up, Prove, Set up](#find-your-way)
+1. [Find your way: Act, Credits, Set up, Labs](#find-your-way)
 1. [Who can do what](#who-can-do-what)
 2. [Sign in](#sign-in), and the [terms of use](#terms-of-use)
 3. [Set up in 10 minutes](#set-up-in-10-minutes) (Admin)
@@ -31,7 +31,7 @@ Everything you can do in CxMissionZero, page by page, with every option explaine
 21. [Everyday recipes](#everyday-recipes)
 22. [Troubleshooting](#troubleshooting)
 
-The running version is shown at the bottom of the sidebar, as `MZ-xx.xx.xx`. Click it for Settings → About.
+The running version is shown at the bottom of the sidebar, as `MZ-xx.xx.xx`. Click it for **Settings → About & terms of use**, which everyone can open (for someone who may update the server, the same click opens **Update & recovery**).
 
 ---
 
@@ -41,14 +41,14 @@ The sidebar is grouped by what you came to do:
 
 | Group | Pages | What you do there |
 | --- | --- | --- |
-| **Act** | Workbench, Automation | Load ageing findings, see who owns them, remind them, triage and remediate; set reminders to go out by themselves, preview them and brand their email. |
-| **Follow up** | Dashboard | Follow tracked scopes down to zero and schedule follow-ups. |
-| **Prove** | Credit Control, Impact, Audit | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups. |
-| **Plan** | Cx Credits Calculator | The credits a customer needs for triage and remediation of their backlog and for Fusion scans, and projection reports, from the Checkmarx One tenant. Shown to Admins and the roles an Admin gives its permission to. |
+| **Act** | Workbench, Automation, Dashboard | Load ageing findings, see who owns them, remind them, triage and remediate; set reminders to go out by themselves, preview them and brand their email; follow tracked scopes down to zero and schedule follow-ups. |
+| **Credits** | Credit Control, Impact, Audit, Cx Credits Calculator | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups; the credits a customer needs for triage and remediation of their backlog and for Fusion scans, with projection reports (the calculator is shown to Admins and the roles an Admin gives its permission to). **Govern** joins this group, after Audit, once an Admin makes it final. |
 | **Set up** | People & roles, Settings, Logs | People and roles, configuration, troubleshooting. |
 | **Labs** | Code authors, Fusion results, FAE Flush, Status board, Consolidated, Govern | Early features, set apart at the bottom of the menu, each its own page: who wrote the vulnerable code, and their email; what Checkmarx One's AI engine found in SAST (Fusion and LAST) in the projects you load; Findings Analysis (FAE) on the whole tenant's backlog at once; budgets of AI credits per person, group, project or application (Govern). Shown to roles holding **Beta features**; Govern to the roles holding its own permissions. |
 
-The coloured label next to each page title says which group the page is in.
+**Four groups, or one short list.** You see only the pages your role may open, and a group with none of them is not shown. With seven pages or fewer in your menu (a User or a Security Champion, for example) the menu is one flat list with no group headings.
+
+**The coloured label next to each page title** says what the page is for: **Act**, **Follow up** (the Dashboard), **Prove** (Credit Control, Impact, Audit), **Plan** (the calculator), **Set up** or **Labs**. Up to MZ-01.01.11 these were also the menu's groups. Every page keeps its address, so bookmarks and links still work, and pages you pinned stay pinned.
 
 **Every page keeps what you were doing.** Go to another page and come back: your filters, tabs, selections, open rows, typed text and unsaved role changes are still there, and so is the scroll position.
 - **↻** (top right) reloads the data of the page you are on and keeps your filters and tabs.
@@ -73,7 +73,7 @@ The coloured label next to each page title says which group the page is in.
 ### On a phone
 
 Up to 760 pixels wide CxMissionZero works like a phone app, in every look and in light and dark:
-- **The tab bar** at the bottom holds four pages (your pinned pages first, then the menu's order) and **More**. **More** opens a sheet with you at the top, every page you may open as a grouped list (Act, Follow up, Prove, Plan, Set up, Labs), and then the tenant, the connections, the language, the theme, **Get help** and **Refresh**.
+- **The tab bar** at the bottom holds four pages (your pinned pages first, then the menu's order) and **More**. **More** opens a sheet with you at the top, every page you may open as a grouped list (Act, Credits, Set up, Labs; one list with no headings when you have seven pages or fewer), and then the tenant, the connections, the language, the theme, **Get help** and **Refresh**.
 - **The page's name** is large at the top and settles into a slim bar as you scroll; search and your name stay at the right.
 - **The Workbench** opens with its summary: Mission Zero, then the totals in a small grid, three across. **Get started** is not shown on a phone: setting up is done on a computer. **What to load** is one row: it says the time window, and **Load** loads findings straight away (**Stop** while loading). Tap the row to change the time window; the engines, the branch and the applications, projects, people or vulnerabilities wait behind **Narrow down** in that sheet; **Load findings** there loads and closes it.
 - **Search, then Filter, on every page.** Lists keep only their search field and a **Filter** button (with how many filters are on); everything else is in its sheet: severity, age, scan type, grouping, columns and exports on the Workbench, the Status board, Govern, the Consolidated view and Fusion results; the sort on the Dashboard; role and status on People & roles; dates, type and project on Audit and Logs → User activity (**Apply** and **Reset** are in the sheet). Where there is no search (Credit Control's period and grouping, Get help's type and status) the page has one **Filter** button that says what is chosen.
@@ -92,7 +92,7 @@ Up to 760 pixels wide CxMissionZero works like a phone app, in every look and in
 
 Your look is saved to your profile, so it is the same on every computer, and the reports you download use it (see [The emailed report](#the-emailed-report)). The organisation's look is the Admin's, under [Branding](#branding), with whether people may choose their own and where the menu sits. If an Admin has turned the choice off, everyone has the organisation's look and Your appearance offers the theme, accent and explanations only; your own choice is kept for when it is turned on again.
 
-**Fold the menu.** Click a group's name (**Act**, **Follow up**, **Prove**, **Plan**, **Set up**, **Labs**) to fold its pages away, and again to unfold them; the button at the top of the menu folds or unfolds every group at once. The page you are on always stays in view. Remembered in this browser.
+**Fold the menu.** Click a group's name (**Act**, **Credits**, **Set up**, **Labs**) to fold its pages away, and again to unfold them; the button at the top of the menu folds or unfolds every group at once. The page you are on always stays in view. Remembered in this browser: a browser that had **Prove** folded has **Credits** folded. A flat list has nothing to fold.
 
 **Pin your pages, and Focus.** Point at a page in the menu and click its pin: it stays at the top under **Pinned**. **Focus** (top of the menu) shows only your pinned pages and the page you are on; click it again for every page. Remembered in this browser; on a tablet's icon rail, a phone, or with the menu along the top, every page is shown as before.
 
@@ -478,7 +478,21 @@ All the options, and a checklist for hosting CxMissionZero safely: [HTTPS and ho
 
 ## Settings, option by option
 
-Settings shows one section at a time: pick it from the list on the left (a strip across the top on a tablet or phone). The groups are **You** (your profile, for everyone), **Start**, **Connections**, **Reminders**, **AI & credits**, **Reports & brand**, **Security** and **About**. Sections your role cannot change are shown read-only. Everything saves as you type.
+Settings shows one section at a time: pick it from the list on the left (a strip across the top on a tablet or phone). Sections your role cannot change are shown read-only. Everything saves as you type.
+
+The list has five groups:
+
+| Group | Sections |
+| --- | --- |
+| **You** | Your profile, Your appearance, Your branding. For everyone. |
+| **Connections** | Quick setup (.env), Checkmarx One, Email server, Network & proxy, HTTPS, Server address. |
+| **Reminders** | Hands-off, Developer addresses, Mail template, a link to Act → Automation, SLAs (Beta). |
+| **Organisation** | AI & credit pool, Branding, Beta features, Get help. |
+| **About** | Activation codes, Tenants, Update & recovery, About & terms of use. |
+
+- **Who sees what.** You see the sections your role may open. Everything outside **You** needs the **View settings** permission, except **About & terms of use**, which everyone can open.
+- **Two sections are now advanced parts** of the section they belong to. **Risks endpoint** is at the end of **Checkmarx One**, and **Links into Checkmarx One** at the end of **Server address**. Both show with **Show advanced options** on (under your name, top right), as before.
+- **Old addresses still work.** `#/settings/endpoint` and `#/settings/links` open the section that now holds them, and **Jump to** (Ctrl K) still finds both by name. Up to MZ-01.01.11 the groups were You, Start, Connections, Reminders, AI & credits, Reports & brand, Security and About; no section was removed, and none changed who may see or change it.
 
 ### Update & recovery (Admin)
 
@@ -519,8 +533,8 @@ A feature starts in Beta: in Labs, only the roles holding **See Labs** and its o
 | **Code authors (git blame)** | Anyone who may **send reminders** can find and email the developers who wrote the vulnerable code. The sidebar entry becomes **Code authors**, the Workbench's Remind panel links to it, and Act → Automation can email code authors on every run. |
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
 | **Fusion results** | Everyone who loads findings sees **Labs → Fusion results**, with its own line to load Fusion's results, and the Workbench's **Fusion** column. |
-| **FAE Flush** | It moves out of Labs to the top of **Act** (FAE Flush, Workbench, Automation); the Workbench stays the home page. Anyone who manages the Checkmarx One integration can run it. |
-| **Govern** | It moves out of Labs to its own menu group, **Govern**, between Prove and Plan. Everyone holding a Govern permission uses it, without a Labs permission. |
+| **FAE Flush** | It moves out of Labs to the top of **Act** (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page. Anyone who manages the Checkmarx One integration can run it. |
+| **Govern** | It moves out of Labs to the **Credits** group of the menu, after Audit. Everyone holding a Govern permission uses it, without a Labs permission. |
 
 **Cx Credits Calculator at its own address** (from MZ-01.01.09), at the end of the same page, is a switch for moving the calculator out of CxMissionZero. Type **The calculator's address** (where it runs on its own, such as `http://server:8333/`; it must start with `http://` or `https://`), tick **Open the Cx Credits Calculator at this address** and **Save**. From then on **Cx Credits Calculator** in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page only says where it went. Untick it and save to bring the built-in calculator back, with its saved customers and reports: nothing is deleted either way. CxMissionZero only links to the address: who may open the calculator there is decided there, so put it behind its own sign-in or your network's rules. Only an Admin can change it, and each change is in the audit log.
 
@@ -552,7 +566,7 @@ Paste the code and select **Apply the code**. What it unlocks is switched on at 
 For organisations that run several Checkmarx One tenants. This section appears once a tenants activation code has been applied. Turn on **Several tenants**, then **Add tenant**: each tenant has its own connection, email server, settings, credits, reports, audit log and people. Choose a tenant at the top of the page to work in it. **Rename** and **Remove** are next to each tenant; removing one keeps its files. People added while you work in a tenant work only there; a Super Admin changes that with **Tenants** on each person under People & roles. The whole story: [several tenants](multi-tenant.md).
 
 ### About & terms of use
-The version, the licence, the project's address, which version of the terms you accepted, and **Read the terms of use**. **Organisation** is your organisation's name, given when the terms were accepted for it; it goes on the Cx Credits Calculator's reports. Roles with **Branding** (Admins) can change it here.
+Shown to everyone, with or without the **View settings** permission: the version at the bottom of the menu leads here. The version, the licence, the project's address, which version of the terms you accepted, and **Read the terms of use**. **Organisation** is your organisation's name, given when the terms were accepted for it; it goes on the Cx Credits Calculator's reports. Roles with **Branding** (Admins) can change it here.
 
 ### Quick setup from a .env file
 Sets the connections from one file, the same file you can start the container with.
@@ -694,6 +708,8 @@ Everyone's default branding. Seen by roles with **See the Branding page**, and c
 The preview shows the email header exactly as recipients will see it. The look of the app, and where its menu sits, change for everyone as soon as they are saved; see [the look of the app](branding.md#the-look-of-the-app-nine-looks-to-choose-from).
 
 ### Links into Checkmarx One
+An advanced part of **Settings → Server address**: turn on **Show advanced options** (under your name) and open **Links into Checkmarx One** at the end of that section.
+
 Every finding in an email links straight to it in Checkmarx One (Risk Hub).
 - If links land in the wrong place, edit the **base URL**, **project link** or **finding link** template. The example underneath updates as you type.
 - Placeholders: `{baseUrl}`, `{projectId}`, `{scanId}`, `{engine}`, `{riskId}`.
@@ -706,6 +722,8 @@ The address people's browsers use to reach this server, put into every emailed r
 - With neither set, reports sent with nobody at the dashboard (scheduled ones) use the last address someone who may change this setting opened the dashboard on. Behind a reverse proxy that is often an internal name, so set the address here.
 
 ### Risks endpoint
+An advanced part of **Settings → Checkmarx One**: turn on **Show advanced options** (under your name) and open **Risks endpoint** at the end of that section.
+
 Where findings are read from. The default is `/api/risks/`.
 - **Detect** tries the known paths against your tenant and shows what each returned.
 - `/api/risks/ai-insights` adds AI Triage status to each finding.
@@ -714,7 +732,7 @@ Where findings are read from. The default is `/api/risks/`.
 
 ## Workbench
 
-**Get started.** Until the basics are in place, one row of steps at the top shows what is left: connect Checkmarx One, fetch vulnerabilities, set up email, give reports a reachable address, cap AI credits, invite your team. The first step is labelled **Connect**; each other step carries the name of the sidebar group it belongs to (Act, Prove, Set up). Done steps are ticked green and joined by a green line; each step still to do has its button. **Hide** puts the row away.
+**Get started.** Until the basics are in place, one row of steps at the top shows what is left: connect Checkmarx One, fetch vulnerabilities, set up email, give reports a reachable address, cap AI credits, invite your team. The first step is labelled **Connect**; each other step carries the label of what it is for (Act, Prove, Set up), as beside a page title. Done steps are ticked green and joined by a green line; each step still to do has its button. **Hide** puts the row away.
 
 **The way to Mission Zero.** Under the totals, one line shows where the fetched findings stand:
 - **Mission Zero:** a ring with how many projects have nothing open.
@@ -1087,7 +1105,7 @@ How the credit pool is being used, in three tabs. Everyone with **credits.view**
 
 ## Impact
 
-What AI Triage and AI Remediation did for the backlog. Open it from **Prove → Impact**; anyone who may view tracked reports can. The full explanation of each figure is in [Impact](impact.md).
+What AI Triage and AI Remediation did for the backlog. Open it from **Credits → Impact**; anyone who may view tracked reports can. The full explanation of each figure is in [Impact](impact.md).
 
 | Part | What it shows |
 | --- | --- |
@@ -1308,7 +1326,7 @@ Every connected tenant on one page, read only, for the people an Admin ticks (**
 
 ## Labs: Govern
 
-Budgets of AI credits, and what happens at the limit: the credits command center for security champions. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)); then, while it is in Labs, for the roles holding **See Labs** and **Labs: Govern**, each doing what its Govern permissions allow. Once an Admin makes it final ([Settings → Beta features](#beta-features-admin)) it has its own menu group, **Govern**, between Prove and Plan. Everything about it is in [Govern](govern.md).
+Budgets of AI credits, and what happens at the limit: the credits command center for security champions. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)); then, while it is in Labs, for the roles holding **See Labs** and **Labs: Govern**, each doing what its Govern permissions allow. Once an Admin makes it final ([Settings → Beta features](#beta-features-admin)) it moves to the **Credits** group of the menu, after Audit. Everything about it is in [Govern](govern.md).
 
 - **Who**: **Admin** everything; **Security Champion** (a built-in role) budgets, Enforce, requests, restores and attribution, not Govern's settings; **Security Analyst** sees it all and asks for credits; **User** sees their own AI credits and asks for more. Each is a permission on People & roles (group *Govern*).
 - **The top**: the last cycle and the next, **Run now**, and the figures line: tenant credits, in the pool, assigned to budgets, used this period, near limit, restricted.
@@ -1346,7 +1364,7 @@ Send it to whoever maintains CxMissionZero when something goes wrong. **It captu
 
 ## Cx Credits Calculator
 
-**Cx Credits Calculator** (menu group **Plan**; on a phone, under **More**) works out the credits a customer needs, from their own data, and makes a report of it. It is for Admins, and for any role an Admin gives the **Cx Credits Calculator** permission to. Each **customer** is saved on this server as you go: **Customer ▾** at the top lists them, with **+ New customer**, **Rename…** and **Delete…** (from MZ-01.01.08; with none, one is made straight away, so the page is never left switched off); **New customer** starts one, named after your organisation (the name given with the terms) while no customer has it, **Customer** switches between them, **Delete customer** removes one (its reports stay). The first time, the calculator starts that customer by itself.
+**Cx Credits Calculator** (menu group **Credits**; on a phone, under **More**) works out the credits a customer needs, from their own data, and makes a report of it. It is for Admins, and for any role an Admin gives the **Cx Credits Calculator** permission to. Each **customer** is saved on this server as you go: **Customer ▾** at the top lists them, with **+ New customer**, **Rename…** and **Delete…** (from MZ-01.01.08; with none, one is made straight away, so the page is never left switched off); **New customer** starts one, named after your organisation (the name given with the terms) while no customer has it, **Customer** switches between them, **Delete customer** removes one (its reports stay). The first time, the calculator starts that customer by itself.
 
 **One click.** **Generate projection report** reads Checkmarx One first when nothing is read yet, then makes the report with every default in place. **Email the report** sends it, in the page's language, to up to 10 addresses (through Settings → Email server). Once it is made, **Download PDF summary** gives the pages to present: triage & remediation with the backlog forecast, Checkmarx Fusion, the total credits required and the impact. **Include the calculations in the PDF**, beside **Generate projection report** (unticked by default), adds the trend with how each number is worked out and an appendix with every calculation. The report opens with the vulnerabilities in scope and which severities are included and excluded, and keeps where the data came from in a closed **Data source** section at the end. Downloaded reports open light. **Start again** clears every choice made for the customer and reads Checkmarx One again (the Fusion models stay).
 

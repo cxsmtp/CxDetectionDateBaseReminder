@@ -5836,6 +5836,13 @@
   "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": "이 백업은 암호화되어 있으며 이 서버의 백업 키나 암호 문구로는 열 수 없습니다. 백업을 만든 서버의 백업 키(해당 서버의 감사 → 상태 및 백업에서 저장한 키) 또는 그 서버에서 사용하던 BACKUP_PASSPHRASE를 입력하세요.",
   "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": "이 백업을 열 수 없습니다. 백업 키 또는 암호 문구가 잘못되었거나 백업이 손상되었습니다. 백업을 만든 서버의 백업 키(감사 → 상태 및 백업에서 저장한 키) 또는 그 서버에서 사용하던 BACKUP_PASSPHRASE로만 열 수 있습니다.",
   "twostep|Code": "코드",
-  "twostep|Recovery code": "복구 코드"
+  "twostep|Recovery code": "복구 코드",
+  "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>크레딧",
+  "Credits given, used and left, what they achieved, and how many a customer needs": "할당·사용·잔여 크레딧, 그 성과, 고객에게 필요한 크레딧 수",
+  "It moves out of Labs to the Credits group of the menu, after Audit.": "실험실에서 메뉴의 크레딧 그룹(감사 다음)으로 이동합니다.",
+  "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "실험실에서 대응의 맨 위(FAE Flush, 작업대, 자동화, 대시보드)로 이동합니다. 홈 페이지는 계속 작업대입니다.",
+  "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "금액: 설정 → AI 및 크레딧 풀에서 시간당 비용과 크레딧 1개의 가격을 설정하세요.",
+  "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "금액: 절약된 시간 × 시간당 비용에서 사용된 크레딧 × 크레딧 1개 가격을 뺀 값입니다(둘 다 설정 → AI 및 크레딧 풀에서 설정).",
+  "Off: add who gets it under Settings → AI & credit pool.": "꺼짐: 설정 → AI 및 크레딧 풀에서 수신자를 추가하세요."
  }
 }

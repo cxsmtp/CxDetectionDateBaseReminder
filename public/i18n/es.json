@@ -5836,6 +5836,13 @@
   "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": "Esta copia de seguridad está cifrada, y ni la clave de copia de seguridad ni la frase de contraseña de este servidor la abren. Indique la clave de copia de seguridad del servidor que la creó (guardada desde su Auditoría → Estado y copias de seguridad) o la BACKUP_PASSPHRASE que tenía ese servidor.",
   "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": "Esta copia de seguridad no se abrió: la clave de copia de seguridad o la frase de contraseña es incorrecta, o la copia está dañada. Solo se abre con la clave de copia de seguridad del servidor que la creó (guardada desde Auditoría → Estado y copias de seguridad) o con la BACKUP_PASSPHRASE que tenía ese servidor.",
   "twostep|Code": "Código",
-  "twostep|Recovery code": "Código de recuperación"
+  "twostep|Recovery code": "Código de recuperación",
+  "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>Créditos",
+  "Credits given, used and left, what they achieved, and how many a customer needs": "Créditos asignados, usados y restantes, lo que lograron y cuántos necesita un cliente",
+  "It moves out of Labs to the Credits group of the menu, after Audit.": "Sale de Labs y pasa al grupo Créditos del menú, después de Auditoría.",
+  "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "Sale de Labs y pasa a la parte superior de Actuar (FAE Flush, Banco de trabajo, Automatización, Panel); el Banco de trabajo sigue siendo la página de inicio.",
+  "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "Dinero: configure un coste por hora y el precio de un crédito en Configuración → AI y bolsa de créditos.",
+  "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "Dinero: horas ahorradas × el coste por hora, menos los créditos usados × el precio de un crédito (ambos en Configuración → AI y bolsa de créditos).",
+  "Off: add who gets it under Settings → AI & credit pool.": "Desactivado: añada los destinatarios en Configuración → AI y bolsa de créditos."
  }
 }

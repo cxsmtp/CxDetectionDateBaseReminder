@@ -43,7 +43,7 @@ Everyone else sees only their own requests. Opening anyone else's request answer
 
 ## Email
 
-Emails go through the mail server of the tenant the request was raised in (**Settings → Email**). The link in each email uses the reminder server address (**Settings → Links**).
+Emails go through the mail server of the tenant the request was raised in (**Settings → Email**). The link in each email uses the reminder server address (**Settings → Server address**).
 
 If the mail server is not set up or not tested, the request is still saved and numbered. The page then says that the email could not be sent, and why.
 

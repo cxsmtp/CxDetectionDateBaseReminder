@@ -4,7 +4,7 @@ Some teams don't want one more tool to look after. For them, MissionZero can be 
 
 ## Set it up once
 
-Open **Settings → Hands-off** (under **Start**). You need the **Automation** permission; Admins have it. The page first shows whether Checkmarx One is connected, the email server is tested, and the server address is set. The server address is what makes the email buttons work. Then answer four questions:
+Open **Settings → Hands-off** (under **Reminders**). You need the **Automation** permission; Admins have it. The page first shows whether Checkmarx One is connected, the email server is tested, and the server address is set. The server address is what makes the email buttons work. Then answer four questions:
 
 1. **What should MissionZero do on its own?**
    - **Remind developers about their ageing findings.** These are the same automatic reminders as Act → Automation.

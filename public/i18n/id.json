@@ -5836,6 +5836,13 @@
   "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": "Cadangan ini dienkripsi, dan kunci cadangan atau frasa sandi milik server ini tidak dapat membukanya. Berikan kunci cadangan server yang membuatnya (disimpan dari Audit → Data & cadangan di server itu), atau BACKUP_PASSPHRASE yang dimiliki server itu.",
   "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": "Cadangan ini tidak terbuka: kunci cadangan atau frasa sandi salah, atau cadangan rusak. Cadangan ini hanya dapat dibuka dengan kunci cadangan server yang membuatnya (disimpan dari Audit → Data & cadangan), atau dengan BACKUP_PASSPHRASE yang dimiliki server itu.",
   "twostep|Code": "Kode",
-  "twostep|Recovery code": "Kode pemulihan"
+  "twostep|Recovery code": "Kode pemulihan",
+  "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>Kredit",
+  "Credits given, used and left, what they achieved, and how many a customer needs": "Kredit yang diberikan, digunakan, dan tersisa, hasil yang dicapai, serta jumlah yang dibutuhkan pelanggan",
+  "It moves out of Labs to the Credits group of the menu, after Audit.": "Fitur ini dipindahkan dari Lab ke grup Kredit di menu, setelah Audit.",
+  "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "Fitur ini dipindahkan dari Lab ke bagian atas Tindakan (FAE Flush, Meja kerja, Otomatisasi, Dasbor); Meja kerja tetap menjadi halaman beranda.",
+  "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "Uang: atur biaya per jam dan harga satu kredit di Pengaturan → AI & kumpulan kredit.",
+  "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "Uang: jam yang dihemat × biaya per jam, dikurangi kredit yang digunakan × harga satu kredit (keduanya di Pengaturan → AI & kumpulan kredit).",
+  "Off: add who gets it under Settings → AI & credit pool.": "Nonaktif: tambahkan penerima di Pengaturan → AI & kumpulan kredit."
  }
 }
