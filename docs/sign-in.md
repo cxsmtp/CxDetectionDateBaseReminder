@@ -73,6 +73,8 @@ podman run --replace -d --name mission-zero -p 3000:3000 -v mission-zero-data:/d
 - Then start the server again without the variable. Left in, it does nothing more: it works once for a person, until
   the server has been started without it.
 - Whoever can set the server's environment can do this, as they can run `node scripts/reset-admin.mjs`.
+- **The password is lost as well?** `podman exec mission-zero node scripts/reset-admin.mjs admin@company.com` sets a
+  temporary password and takes two-step sign-in off in one go, without a restart. It is recorded in the audit log.
 
 **New recovery codes** and **Turn off two-step sign-in** are in the same place. Both ask for a current code from the
 app: a recovery code is not enough.

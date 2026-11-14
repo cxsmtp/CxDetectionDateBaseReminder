@@ -30,11 +30,14 @@ if (wanted && !user) {
   process.exit(1);
 }
 let created = false;
+let twoStepReset = false;
 if (!user) {
   user = await iam.createUser({ email: process.env.ADMIN_EMAIL?.trim() || 'admin@mission-zero.local', name: 'Administrator', role: 'admin', password, mustChangePassword: true });
   created = true;
 } else {
   await iam.setPassword(user.id, password, { mustChange: true });
+  // Two-step sign-in goes with the password: whoever needs this script may have lost the phone as well.
+  twoStepReset = iam.resetTwoStep(user.id);
   // A locked or disabled admin could not use it otherwise.
   const full = iam.user(user.id);
   if (full.disabled && full.role === 'admin') iam.updateUser(user.id, { disabled: false }, { actorPerms: new Set(iam.role('admin').permissions), actorId: 'reset-admin' });
@@ -43,7 +46,7 @@ if (!user) {
 new AuditLog({ dir: path.join(dir, 'audit'), keyFile: path.join(dir, 'audit.key') }).record({
   type: 'iam',
   outcome: 'changed',
-  reason: created ? `Administrator ${user.email} created from the command line.` : `Temporary password set for ${user.email} from the command line (reset-admin).`,
+  reason: created ? `Administrator ${user.email} created from the command line.` : `Temporary password set for ${user.email} from the command line (reset-admin)${twoStepReset ? '; their two-step sign-in was taken off' : ''}.`,
   actor: { kind: 'system', user: 'reset-admin command' },
 });
 
@@ -52,4 +55,5 @@ console.log(`  ${created ? 'Administrator created' : 'Password reset'} — sign 
 console.log(`      Email:    ${user.email}`);
 console.log(`      Password: ${password}`);
 console.log('  They choose their own password at sign-in (also anyone already signed in as them, at their next click).');
+if (twoStepReset) console.log('  Their two-step sign-in was taken off: they set it up again after signing in.');
 console.log('');
