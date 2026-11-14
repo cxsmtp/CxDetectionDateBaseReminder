@@ -74,7 +74,9 @@ docker logs mission-zero        # or: podman logs mission-zero / docker compose 
 
 **`manifest unknown`** when pulling means that tag has not been published yet.
 - Images are published by the "Container image" workflow on every push to
-  `main` (as `:latest` and `:sha-<commit>`), and on version tags `v*`.
+  `main` (as `:latest`, `:<version>` and `:sha-<commit>`), and on version tags `v*`.
+- `:stable` is the release the maintainer promoted, and exists only once one has
+  been ([the two channels](updating.md#two-channels-latest-and-stable)).
 - Check the repository's **Actions** tab, or pull a published `:sha-<commit>`
   tag instead.
 

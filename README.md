@@ -124,6 +124,8 @@ Use the same options you started it with. What carries over:
 
 The version shows bottom-left as `MZ-xx.xx.xx`; a click on it opens Settings → Update & recovery (About & terms of use for those who may not update). Details and rollback: [Updating](docs/updating.md).
 
+**Two channels.** `:latest` is every merged release. `:stable` is the release the maintainer promoted: the same image, under one more tag. To run from stable, write `:stable` in place of `:latest` in the lines above ([the two channels](docs/updating.md#two-channels-latest-and-stable)).
+
 **Compose** (from a checkout): `podman compose up -d`. It binds to `127.0.0.1` unless `BIND_ADDRESS=0.0.0.0` is set in `.env`.
 
 **Without a container** (Node 20+): `npm install`, then `npm start`.

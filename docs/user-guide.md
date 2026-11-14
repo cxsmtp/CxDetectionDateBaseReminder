@@ -468,6 +468,8 @@ Settings shows one section at a time: pick it from the list on the left (a strip
 
 Install a new version, go back to any version, turn on auto-update, restart the server, or download a troubleshooting report, all without signing in to the server. A click on the version number at the bottom left (`MZ-xx.xx.xx`) opens it; for someone who may not update the server, the same click opens About & terms of use. How it works and what it needs: [Updating](updating.md).
 
+**Two channels.** The image is published as `latest` (every merged release) and as `stable` (the release the maintainer promoted, the same image under one more tag). This page lists every version; **Update now** and auto-update install the newest, so they follow `latest`. To stay on `stable`, leave auto-update off and update with `podman pull …:stable` ([the two channels](updating.md#two-channels-latest-and-stable)).
+
 - **Software integrity** says whether the code running is exactly what this repository's release workflow built and signed: **Genuine** (with the commit, the workflow run and the Sigstore log entry), **Files changed** (with the files), **Not signed by the release workflow**, **Not confirmed yet** (GitHub not reachable yet) or **Development copy**. It is checked at start, every 6 hours, with **Check now**, and before any update is installed or switched to; only a version whose files match its signed list is installed ([software integrity](integrity.md)).
 
 - **Running** and **Latest published**, with **Update now** when there is a newer one. **Check for updates** reads the registry again and says how many versions are published and whether one is newer.

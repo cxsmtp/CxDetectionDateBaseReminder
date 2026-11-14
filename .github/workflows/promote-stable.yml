@@ -1,0 +1,129 @@
+name: Promote to stable
+
+# Run by hand by the maintainer (Actions → Promote to stable → Run workflow). It marks an image that is
+# already published, and so already tested, as `stable`, without building anything:
+#   1. finds the published image for the version or commit given;
+#   2. checks its signature: the build attestation the "Container image" workflow of this repository
+#      made for it, from main (or master, or a version tag), on a GitHub-hosted runner. Nothing is
+#      published by that workflow unless every test, the browser tests and the smoke test passed;
+#   3. points ghcr.io/<owner>/<repo>:stable at that same digest, and checks that it did.
+# `latest` is every merged release; `stable` is the one promoted here (docs/updating.md).
+#
+# It never runs on a push or a pull request, and checks out no code. To go back, run it again with
+# the earlier version: the summary of each run names the digest `stable` pointed at before.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'The release to mark stable: a version (1.1.10 or MZ-01.01.10) or a commit (sha-1a2b3c4 or the commit SHA)'
+        required: true
+        type: string
+
+# Nothing by default; the one job asks for the one thing it needs.
+permissions: {}
+
+# One promotion at a time: two runs never race for the tag.
+concurrency:
+  group: promote-stable
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    # Only from the default branch, so the workflow that runs is the one that was merged there.
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # Read the image and its signature from the registry, and move the stable tag. Nothing else:
+      # no repository contents, no attestations to write, no id-token.
+      packages: write
+    steps:
+      - name: Which image
+        id: image
+        env:
+          # Read from the environment, never pasted into the script.
+          RELEASE: ${{ inputs.release }}
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE" =~ ^MZ-([0-9]{2})\.([0-9]{2})\.([0-9]{2})$ ]]; then
+            tag="$((10#${BASH_REMATCH[1]})).$((10#${BASH_REMATCH[2]})).$((10#${BASH_REMATCH[3]}))"
+          elif [[ "$RELEASE" =~ ^v?([0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4})$ ]]; then
+            tag="${BASH_REMATCH[1]}"
+          elif [[ "$RELEASE" =~ ^sha-[0-9a-f]{7}$ ]]; then
+            tag="$RELEASE"
+          elif [[ "$RELEASE" =~ ^[0-9a-f]{7,40}$ ]]; then
+            tag="sha-${RELEASE:0:7}"
+          else
+            echo "::error::Give a version (1.1.10 or MZ-01.01.10) or a commit (sha-1a2b3c4 or the commit SHA)."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: The image is published
+        id: published
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          TAG: ${{ steps.image.outputs.tag }}
+        run: |
+          set -euo pipefail
+          digest=$(docker buildx imagetools inspect "$IMAGE:$TAG" --format '{{json .Manifest}}' | jq -r '.digest') || digest=''
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::No published image $IMAGE:$TAG. Every release is published as its version (1.1.10) and as sha-<commit>."
+            exit 1
+          fi
+          # What stable points at now, for the summary (nothing the first time).
+          before=$(docker buildx imagetools inspect "$IMAGE:stable" --format '{{json .Manifest}}' 2> /dev/null | jq -r '.digest' 2> /dev/null) || before=''
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "before=$before" >> "$GITHUB_OUTPUT"
+          echo "$IMAGE:$TAG is $digest"
+      - name: Its signature verifies
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE: ${{ steps.image.outputs.name }}
+          DIGEST: ${{ steps.published.outputs.digest }}
+        run: |
+          set -euo pipefail
+          # The attestation the release workflow pushed to the registry beside the image (Sigstore, public log):
+          # made by this repository's container.yml, on a GitHub-hosted runner, for exactly this digest.
+          gh attestation verify "oci://$IMAGE@$DIGEST" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container.yml" \
+            --deny-self-hosted-runners \
+            --bundle-from-oci \
+            --format json > verified.json
+          # And built from what was merged: main (or master), or a version tag. Never a pull request or another branch.
+          jq -e 'length > 0 and all(.[]; .verificationResult.signature.certificate.sourceRepositoryRef | test("^refs/(heads/(main|master)|tags/v[0-9][^/]*)$"))' verified.json > /dev/null || {
+            echo "::error::The image is signed, but not from main, master or a version tag: $(jq -c '[.[].verificationResult.signature.certificate.sourceRepositoryRef]' verified.json)"
+            exit 1
+          }
+          echo "Signed by $(jq -r '.[0].verificationResult.signature.certificate.buildSignerURI' verified.json)"
+      - name: Point stable at it
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          TAG: ${{ steps.image.outputs.tag }}
+          DIGEST: ${{ steps.published.outputs.digest }}
+          BEFORE: ${{ steps.published.outputs.before }}
+        run: |
+          set -euo pipefail
+          # The same image index under one more tag: nothing is built, pulled apart or pushed again.
+          docker buildx imagetools create --tag "$IMAGE:stable" "$IMAGE@$DIGEST"
+          now=$(docker buildx imagetools inspect "$IMAGE:stable" --format '{{json .Manifest}}' | jq -r '.digest')
+          if [ "$now" != "$DIGEST" ]; then
+            echo "::error::stable is $now, not $DIGEST: the tag did not land on the same image."
+            exit 1
+          fi
+          {
+            echo "### \`stable\` is now \`$TAG\`"
+            echo
+            echo "- Image: \`$IMAGE:stable\`"
+            echo "- Digest: \`$DIGEST\` (the same as \`$IMAGE:$TAG\`)"
+            echo "- Signature: verified, made by this repository's Container image workflow"
+            if [ -n "$BEFORE" ] && [ "$BEFORE" != "$DIGEST" ]; then echo "- Before: \`$BEFORE\`"; fi
+            if [ "$BEFORE" = "$DIGEST" ]; then echo "- It already was: nothing changed."; fi
+          } >> "$GITHUB_STEP_SUMMARY"
