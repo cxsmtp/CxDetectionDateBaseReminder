@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 
 import { getLastScans, listApplications, listProjects } from './cxone/projects.js';
@@ -14,6 +13,7 @@ import { DEFAULT_AUTOMATION, focusProjects, limitsFor, nextRunAfter } from './au
 import { engineScope, inEngines } from './engines.js';
 import { knownAddresses } from './known-addresses.js';
 import { escalationMail, newlyOverdue, pruneEscalated, riskKey as slaKey } from './sla.js';
+import { readState, writeState } from './state-file.js';
 
 export { DEFAULT_AUTOMATION, focusProjects, limitsFor, mergeAutomation, nextRunAfter, parseThresholds } from './automation-config.js';
 
@@ -32,7 +32,6 @@ export { DEFAULT_AUTOMATION, focusProjects, limitsFor, mergeAutomation, nextRunA
  */
 
 const FILE_MODE = 0o600;
-const DIR_MODE = 0o700;
 const MAX_RUNS_KEPT = 50;
 
 export class AutomationError extends Error {
@@ -129,12 +128,10 @@ export class AutomationState {
   }
 
   #load() {
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      return { notified: raw.notified ?? {}, escalated: raw.escalated ?? {}, runs: Array.isArray(raw.runs) ? raw.runs : [], impactSent: typeof raw.impactSent === 'string' ? raw.impactSent : '' };
-    } catch {
-      return { notified: {}, escalated: {}, runs: [], impactSent: '' };
-    }
+    // No file yet: nothing reported so far. A damaged file is never "nothing reported": taken for empty,
+    // the next run would send every finding's reminder again. readState() uses the last good copy, or stops.
+    const raw = readState(this.#file, { fallback: {}, holds: 'which findings the scheduled reminders already reported, and the last runs' });
+    return { notified: raw.notified ?? {}, escalated: raw.escalated ?? {}, runs: Array.isArray(raw.runs) ? raw.runs : [], impactSent: typeof raw.impactSent === 'string' ? raw.impactSent : '' };
   }
 
   get ledger() {
@@ -169,11 +166,7 @@ export class AutomationState {
   }
 
   persist() {
-    const dir = path.dirname(this.#file);
-    fs.mkdirSync(dir, { recursive: true, mode: DIR_MODE });
-    const temp = `${this.#file}.${randomUUID()}.tmp`;
-    fs.writeFileSync(temp, JSON.stringify(this.#state, null, 2), { mode: FILE_MODE });
-    fs.renameSync(temp, this.#file);
+    writeState(this.#file, this.#state, { mode: FILE_MODE, space: 2 });
   }
 }
 

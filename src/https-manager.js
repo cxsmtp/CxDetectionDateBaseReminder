@@ -31,6 +31,7 @@ import net from 'node:net';
 import path from 'node:path';
 import tls, { createSecureContext } from 'node:tls';
 
+import { readState, writeState } from './state-file.js';
 import { certificateRequest, describeCertificate, ensureSelfSigned, environmentCertificate, isIp, selfSignedNames, startMode } from './tls.js';
 
 export const MODES = ['http', 'both', 'https'];
@@ -53,12 +54,9 @@ const cn = (dn) => String(dn ?? '').match(/(?:^|\n)CN=([^\n]+)/)?.[1] ?? String(
 const daysUntil = (date, now = Date.now()) => Math.floor((Date.parse(date) - now) / 86_400_000);
 const sanNames = (cert) => String(cert.subjectAltName ?? '').split(', ').map((s) => s.replace(/^(DNS|IP Address):/, '')).filter(Boolean);
 
+/** A certificate, key or request file: written whole and flushed to the disk. The one before is not kept. */
 function writeAtomic(file, data, mode = FILE_MODE) {
-  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const temp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(temp, data, { mode });
-  fs.renameSync(temp, file);
-  fs.chmodSync(file, mode);
+  writeState(file, data, { mode, keepLast: false });
 }
 
 /** The roots a browser would trust: Node's bundled ones (and the system's / NODE_EXTRA_CA_CERTS where Node offers them). */
@@ -396,21 +394,21 @@ export class HttpsManager {
 
   #read() {
     const defaults = this.#defaults();
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      this.#stamp = this.#fileStamp();
-      return {
-        ...defaults,
-        ...raw,
-        mode: MODES.includes(raw.mode) ? raw.mode : defaults.mode,
-        minVersion: MIN_VERSIONS.includes(raw.minVersion) ? raw.minVersion : 'TLSv1.2',
-        hsts: { ...defaults.hsts, ...(raw.hsts ?? {}) },
-        saved: true,
-      };
-    } catch {
-      this.#stamp = '';
-      return { ...defaults, saved: false };
-    }
+    // Remembered first, so a file that cannot be read is reported once, not at every look (watch()).
+    this.#stamp = this.#fileStamp();
+    // No file yet: nothing chosen on the Settings page. A damaged file is never "nothing chosen": taken
+    // for that, a server set to HTTPS only could come back answering plain HTTP. readState() uses the
+    // last good copy, or stops (src/state-file.js); while running, the choices in use are kept (watch()).
+    const raw = readState(this.#file, { fallback: null, holds: 'the HTTPS choices: the mode, the TLS version and HSTS' });
+    if (!raw) return { ...defaults, saved: false };
+    return {
+      ...defaults,
+      ...raw,
+      mode: MODES.includes(raw.mode) ? raw.mode : defaults.mode,
+      minVersion: MIN_VERSIONS.includes(raw.minVersion) ? raw.minVersion : 'TLSv1.2',
+      hsts: { ...defaults.hsts, ...(raw.hsts ?? {}) },
+      saved: true,
+    };
   }
 
   #fileStamp() {
@@ -421,7 +419,7 @@ export class HttpsManager {
   #save(by) {
     this.#state = { ...this.#state, changedAt: new Date().toISOString(), changedBy: by ?? this.#state.changedBy, saved: true };
     const { saved, ...stored } = this.#state;
-    writeAtomic(this.#file, JSON.stringify(stored, null, 2));
+    writeState(this.#file, stored, { mode: FILE_MODE, space: 2 });
     this.#stamp = this.#fileStamp();
   }
 
@@ -815,7 +813,13 @@ export class HttpsManager {
       try {
         if (this.#fileStamp() !== this.#stamp) {
           const before = this.#state.mode;
-          this.#state = this.#read();
+          try {
+            this.#state = this.#read();
+          } catch (error) {
+            // Changed into something that cannot be read: the choices in use stay as they are.
+            this.#log.warn?.(`! [https] https.json changed outside this page and cannot be used (the choices in use are kept): ${error.message}`);
+            return;
+          }
           this.#active = this.#resolve();
           this.#apply();
           this.#log.log?.(`[https] Settings changed outside this page: ${this.#state.mode}.`);
@@ -850,12 +854,10 @@ export class HttpsManager {
 export function setModeOffline(dataDir, mode) {
   if (!MODES.includes(mode)) throw new Error(`Use one of: ${MODES.join(', ')}.`);
   const file = path.join(dataDir, 'https.json');
-  let state = {};
-  try {
-    state = JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch {}
+  // A damaged https.json is not taken for an empty one here either: the last good copy, or a refusal that says what to do.
+  let state = readState(file, { fallback: {}, holds: 'the HTTPS choices: the mode, the TLS version and HSTS' });
   state = { ...state, mode, changedAt: new Date().toISOString(), changedBy: 'scripts/https.mjs' };
   if (mode !== 'https' && state.hsts) state.hsts = { ...state.hsts, enabled: false };
-  writeAtomic(file, JSON.stringify(state, null, 2));
+  writeState(file, state, { mode: FILE_MODE, space: 2 });
   return state;
 }

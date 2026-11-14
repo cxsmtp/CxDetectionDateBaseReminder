@@ -8,8 +8,7 @@
  * The state is server-wide, kept in languages.json, and re-checked against the clock on
  * every read. (MZ-01.00.58 to 62 kept a list of people here instead; it is no longer read.)
  */
-import fs from 'node:fs';
-import path from 'node:path';
+import { readState, writeState } from './state-file.js';
 
 /** Languages always available, in the order the picker shows them. */
 export const OPEN_LANGUAGES = ['en', 'ja', 'zh-TW', 'zh-CN', 'ko', 'es', 'pt-BR', 'de', 'fr', 'ar', 'vi', 'th', 'ms', 'id'];
@@ -26,20 +25,14 @@ export class LanguageAccess {
   }
 
   #load() {
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      return raw && typeof raw === 'object' && raw.gated && typeof raw.gated === 'object' ? { gated: raw.gated } : { gated: {} };
-    } catch {
-      return { gated: {} };
-    }
+    // No file (yet): no gated language is on. A damaged file is never "none on" (src/state-file.js).
+    const raw = this.#file ? readState(this.#file, { fallback: {}, holds: 'which activated languages are switched on' }) : {};
+    return raw.gated && typeof raw.gated === 'object' ? { gated: raw.gated } : { gated: {} };
   }
 
   #save() {
     if (!this.#file) return;
-    fs.mkdirSync(path.dirname(this.#file), { recursive: true });
-    const tmp = `${this.#file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 2), { mode: 0o600 });
-    fs.renameSync(tmp, this.#file);
+    writeState(this.#file, this.#state, { space: 2 });
   }
 
   /** Is this gated language switched on, and its activation code not past its expiry? */

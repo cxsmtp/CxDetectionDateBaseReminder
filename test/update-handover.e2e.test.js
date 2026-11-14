@@ -69,17 +69,20 @@ test('fetched data is saved at once, then at most every SESSION_SAVE_SECONDS; a 
 
 test('instance lock: a live server keeps others out; a dead one is taken over; a clean stop frees it at once', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lock-'));
-  const first = await new InstanceLock(dir).acquire();
-  await assert.rejects(new InstanceLock(dir).acquire({ waitMs: 300 }), /Another CxMissionZero server .* is using this data folder/);
+  const quick = { staleMs: 600 };
+  const first = await new InstanceLock(dir, quick).acquire();
+  await assert.rejects(new InstanceLock(dir, quick).acquire({ waitMs: 300 }), /Another CxMissionZero server .* is using this data folder/);
   first.release();
-  const second = await new InstanceLock(dir).acquire({ waitMs: 300 });
+  const second = await new InstanceLock(dir, quick).acquire({ waitMs: 300 });
   second.release();
   assert.equal(fs.existsSync(path.join(dir, LOCK_FILE)), false);
 
-  // A server that died without letting go: its heartbeat goes stale.
+  // A server that died without letting go: its lock stops changing, and is taken over once it
+  // has not changed for the stale time (as an older version left it, too).
   fs.writeFileSync(path.join(dir, LOCK_FILE), JSON.stringify({ id: 'dead', host: 'old', beat: Date.now() - 60_000 }));
-  const third = await new InstanceLock(dir).acquire({ waitMs: 300 });
+  const third = await new InstanceLock(dir, quick).acquire({ waitMs: 300 });
   third.release();
+  assert.equal(fs.existsSync(path.join(dir, LOCK_FILE)), false);
 });
 
 test('instance lock: a short stale time still keeps a live server\'s lock fresh', async () => {

@@ -8,9 +8,7 @@
  * the team of that tenant (and a Super Admin) is the one who sees it.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-
+import { readState, writeState } from './state-file.js';
 import { safeUrl } from './template.js';
 
 export const KINDS = {
@@ -41,20 +39,14 @@ export class SupportDesk {
   }
 
   #load() {
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      const tickets = Array.isArray(raw.tickets) ? raw.tickets.filter((t) => t?.id && KINDS[t.kind]) : [];
-      return { counters: { case: Number(raw.counters?.case) || 0, enhancement: Number(raw.counters?.enhancement) || 0 }, tickets };
-    } catch {
-      return { counters: { case: 0, enhancement: 0 }, tickets: [] };
-    }
+    // No file yet: no requests. A damaged file is never "no requests" (src/state-file.js).
+    const raw = readState(this.#file, { fallback: {}, holds: 'the support cases and enhancement requests' });
+    const tickets = Array.isArray(raw.tickets) ? raw.tickets.filter((t) => t?.id && KINDS[t.kind]) : [];
+    return { counters: { case: Number(raw.counters?.case) || 0, enhancement: Number(raw.counters?.enhancement) || 0 }, tickets };
   }
 
   #save() {
-    fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-    const tmp = `${this.#file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 1), { mode: 0o600 });
-    fs.renameSync(tmp, this.#file);
+    writeState(this.#file, this.#state, { space: 1 });
   }
 
   /** Every request, newest first. */

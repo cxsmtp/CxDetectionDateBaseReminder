@@ -31,6 +31,7 @@ import { randomUUID } from 'node:crypto';
 import { mapWithConcurrency } from './cxone/client.js';
 import { FAE_FLUSH_TAG, getLastScans } from './cxone/projects.js';
 import { scrubText } from './cxone/endpoints.js';
+import { readState, writeState } from './state-file.js';
 
 export const FAE_TAG = FAE_FLUSH_TAG;
 export const FAE_SUFFIX = '_FAE';
@@ -110,29 +111,19 @@ export const redact = (value) => JSON.parse(JSON.stringify(value ?? null), (_key
 
 /**
  * Writes JSON in one step: to a fresh, unguessable name created exclusively ('wx', 0600, never an existing file
- * or a link planted there), then renamed over the file.
+ * or a link planted there), flushed to the disk, then renamed over the file; the file it replaces is kept as
+ * its last good copy (src/state-file.js).
  */
 function saveJson(file, value) {
-  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const tmp = `${file}.${randomUUID()}.tmp`;
-  try {
-    fs.writeFileSync(tmp, JSON.stringify(value), { mode: 0o600, flag: 'wx' });
-    fs.renameSync(tmp, file);
-  } catch (error) {
-    if (error.code !== 'EEXIST') fs.rmSync(tmp, { force: true });
-    throw error;
-  }
+  writeState(file, value);
 }
 
 /** The run, kept on disk (DATA_DIR/<tenant>/fae-flush.json): the last one, with every project's progress. */
 export class FaeFlushStore {
   constructor({ file }) {
     this.file = file;
-    try {
-      this.job = JSON.parse(fs.readFileSync(file, 'utf8'));
-    } catch {
-      this.job = null;
-    }
+    // No file yet: no run so far. A damaged file is never "no run": the last good copy, or a stop (src/state-file.js).
+    this.job = readState(file, { fallback: null, holds: 'the last FAE Flush run and each project\'s progress' });
     this.preview = null;
     // Debug mode and its log: for this server's life only (never written to disk).
     this.debug = { on: false, log: [] };
@@ -151,11 +142,8 @@ export class FaeFlushStore {
 export class FaeHistory {
   constructor({ file }) {
     this.file = file;
-    try {
-      this.data = JSON.parse(fs.readFileSync(file, 'utf8'));
-    } catch {
-      this.data = { entries: [] };
-    }
+    // No file yet: nothing marked so far. A damaged history is never "nothing marked": it is what a mark is undone from.
+    this.data = readState(file, { fallback: { entries: [] }, holds: 'every result FAE Flush marked (what its marks are undone from)' });
     if (!Array.isArray(this.data?.entries)) this.data = { entries: [] };
   }
 

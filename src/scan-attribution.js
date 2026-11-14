@@ -10,8 +10,9 @@
  * as Checkmarx One tags, so it reads right there too.
  */
 
-import fs from 'node:fs';
 import path from 'node:path';
+
+import { readState, writeState } from './state-file.js';
 
 const MAX_ENTRIES = 5000;
 const KEEP_MS = 400 * 24 * 60 * 60 * 1000;
@@ -22,12 +23,12 @@ export class ScanAttribution {
 
   constructor({ dataDir }) {
     this.#file = path.join(dataDir, 'scan-attribution.json');
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      for (const [scanId, entry] of Object.entries(raw?.scans ?? {})) {
-        if (typeof scanId === 'string' && entry && typeof entry.initiator === 'string') this.#entries.set(scanId, entry);
-      }
-    } catch {}
+    // No file yet: no rescans started here. A damaged file is never "none": the developers those rescans
+    // are credited to are recorded nowhere else (src/state-file.js).
+    const raw = readState(this.#file, { fallback: {}, holds: 'which developer each verification rescan is credited to' });
+    for (const [scanId, entry] of Object.entries(raw.scans ?? {})) {
+      if (typeof scanId === 'string' && entry && typeof entry.initiator === 'string') this.#entries.set(scanId, entry);
+    }
   }
 
   /** The developer a scan this server started is credited to, or null. */
@@ -46,10 +47,7 @@ export class ScanAttribution {
   }
 
   #save() {
-    fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-    const tmp = `${this.#file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify({ scans: Object.fromEntries(this.#entries) }), { mode: 0o600 });
-    fs.renameSync(tmp, this.#file);
+    writeState(this.#file, { scans: Object.fromEntries(this.#entries) });
   }
 }
 

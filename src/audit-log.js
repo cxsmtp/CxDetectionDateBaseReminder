@@ -8,6 +8,10 @@
  * reordering any entry breaks the chain from that point on, which verify()
  * reports. Nothing is ever trimmed or rewritten.
  *
+ * Every entry is flushed to the disk (fdatasync) before record() returns, so a machine that loses
+ * power just after still has it. The month's file is kept open between entries: one flush per entry,
+ * not an open, a flush and a close.
+ *
  * Entry shape (fields present when they apply):
  *   seq, id, at, type, outcome, reason
  *   actor:    {kind: report|admin|automation|system, user, recipient, reportId, ip, userAgent}
@@ -28,6 +32,8 @@ import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { readState, syncDir, writeState } from './state-file.js';
+
 const GENESIS = 'genesis';
 export const OUTCOMES = ['charged', 'not-charged', 'refused', 'failed', 'changed', 'info'];
 export const TYPES = ['triage', 'remediation', 'allocation', 'settings', 'report', 'verification', 'backup', 'audit', 'access', 'iam', 'system', 'govern'];
@@ -38,14 +44,23 @@ const monthOf = (iso) => {
   return month;
 };
 
+/** A key file's bytes: a key is at least 32 of them (fewer is a file cut short, not a key). */
+const keyBytes = (buffer) => {
+  if (buffer.length < 32) throw new Error(`it holds ${buffer.length} bytes, and a key is at least 32`);
+  return buffer;
+};
+
+/**
+ * The key the chain is signed with, made when there is none. A key file that is there and cut short is
+ * never replaced by a new key without a word (nothing written so far could be verified any more):
+ * readState() stops and says what to do (src/state-file.js).
+ */
 function loadOrCreateKey(file) {
-  try {
-    const key = fs.readFileSync(file);
-    if (key.length >= 32) return key;
-  } catch {}
+  const existing = readState(file, { fallback: null, parse: keyBytes, holds: 'the key the audit log is signed with' });
+  if (existing) return existing;
   const key = randomBytes(32);
-  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(file, key, { mode: 0o600 });
+  // Flushed to the disk: a crash just after must not leave an empty key file behind.
+  writeState(file, key);
   return key;
 }
 
@@ -70,6 +85,9 @@ export class AuditLog {
   #lastMac = GENESIS;
   #unwritten = [];
   #lastError = '';
+  /** The month file being written, kept open between entries: {file, fd, dev, ino}. */
+  #out = null;
+  #flushError = '';
 
   constructor({ dir, keyFile }) {
     this.#dir = dir;
@@ -174,12 +192,53 @@ export class AuditLog {
     }
   }
 
+  /**
+   * Add `text` to the end of a month file and flush it to the disk. The file stays open for the next
+   * entry; it is opened again when the month changes, or when the file on disk is no longer the one
+   * held open (moved aside by a restore, removed, replaced).
+   */
+  #append(file, text) {
+    const onDisk = fs.statSync(file, { throwIfNoEntry: false });
+    if (!this.#out || this.#out.file !== file || !onDisk || onDisk.ino !== this.#out.ino || onDisk.dev !== this.#out.dev) {
+      this.close();
+      const fd = fs.openSync(file, 'a', 0o600);
+      const stat = fs.fstatSync(fd);
+      this.#out = { file, fd, dev: stat.dev, ino: stat.ino };
+    }
+    try {
+      fs.appendFileSync(this.#out.fd, text);
+    } catch (error) {
+      // Opened afresh the next time, in case it is the open file that went wrong.
+      this.close();
+      throw error;
+    }
+    try {
+      fs.fdatasyncSync(this.#out.fd);
+      // A month file made just now: its name has to reach the disk too.
+      if (!onDisk) syncDir(this.#dir);
+      this.#flushError = '';
+    } catch (error) {
+      // The entry is in the file (writing it again would break the chain); only the flush failed. Said once.
+      if (this.#flushError !== error.message) console.error(`[audit] an entry was written but could not be flushed to the disk: ${error.message}`);
+      this.#flushError = error.message;
+    }
+  }
+
+  /** Let go of the month file held open (it is opened again by the next entry). */
+  close() {
+    if (!this.#out) return;
+    try {
+      fs.closeSync(this.#out.fd);
+    } catch {}
+    this.#out = null;
+  }
+
   /** Write held entries, in order. */
   flushSync() {
     while (this.#unwritten.length) {
       const e = this.#unwritten[0];
       try {
-        fs.appendFileSync(path.join(this.#dir, `audit-${monthOf(e.at)}.jsonl`), `${JSON.stringify(e)}\n`, { mode: 0o600 });
+        this.#append(path.join(this.#dir, `audit-${monthOf(e.at)}.jsonl`), `${JSON.stringify(e)}\n`);
       } catch (error) {
         if (this.#lastError !== error.message) console.error(`[audit] could not write the audit log (${this.#unwritten.length} entries held): ${error.message}`);
         this.#lastError = error.message;

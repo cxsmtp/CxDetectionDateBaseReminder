@@ -10,11 +10,9 @@
  * date window, read without error.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-
 import { billingUnit } from './credit-allocations.js';
 import { engineOf } from './engines.js';
+import { readState, writeState } from './state-file.js';
 
 const DAY = 86_400_000;
 /** Closed findings are kept this long, then forgotten (open ones are always kept). */
@@ -40,16 +38,16 @@ export class FindingJournal {
     this.#file = file;
     this.#writeDelay = writeDelayMs;
     if (!file) return;
-    try {
-      const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-      const cutoff = new Date(Date.now() - KEEP_CLOSED_MS).toISOString();
-      for (const e of Array.isArray(raw.findings) ? raw.findings : []) {
-        if (!e?.p || !e?.r) continue;
-        const closed = e.g ?? e.x;
-        if (closed && closed < cutoff) continue;
-        this.#put(e);
-      }
-    } catch {}
+    // No file yet: nothing seen so far. A damaged journal is never "nothing seen": the history the Impact
+    // page is worked out from cannot be read again from Checkmarx One (src/state-file.js).
+    const raw = readState(file, { fallback: {}, holds: 'when each finding was first seen open and when it was fixed (the Impact page)' });
+    const cutoff = new Date(Date.now() - KEEP_CLOSED_MS).toISOString();
+    for (const e of Array.isArray(raw.findings) ? raw.findings : []) {
+      if (!e?.p || !e?.r) continue;
+      const closed = e.g ?? e.x;
+      if (closed && closed < cutoff) continue;
+      this.#put(e);
+    }
   }
 
   get size() {
@@ -151,10 +149,7 @@ export class FindingJournal {
     if (!this.#file || !this.#dirty) return;
     this.#dirty = false;
     try {
-      fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-      const tmp = `${this.#file}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({ findings: this.entries() }), { mode: 0o600 });
-      fs.renameSync(tmp, this.#file);
+      writeState(this.#file, { findings: this.entries() });
     } catch (error) {
       this.#dirty = true;
       console.warn(`[journal] could not save ${this.#file}: ${error.message}`);

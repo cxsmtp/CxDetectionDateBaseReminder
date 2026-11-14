@@ -22,12 +22,12 @@
 
 import { randomBytes, randomUUID, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs';
-import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { validCurrency } from './money.js';
 import { LOOKS as ALL_LOOKS, NEXTGEN_ACCENTS } from '../public/look.js';
 import { RESET_POLICIES } from './password-reset.js';
+import { readState, writeState } from './state-file.js';
 
 const scrypt = promisify(scryptCb);
 
@@ -209,10 +209,12 @@ export class IamStore {
   }
 
   #load() {
-    let raw = {};
+    // No file yet: a new installation, with nobody in it. A file that is there and cannot be read is
+    // never "nobody": readState() uses its last good copy, or stops (src/state-file.js), so a damaged
+    // iam.json can no longer end in a new first administrator saved over everyone.
+    const raw = readState(this.#file, { fallback: {}, holds: 'the users, their roles and the sign-in rules' });
     try {
       this.#mtime = fs.statSync(this.#file).mtimeMs;
-      raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
     } catch {}
     const roles = {};
     for (const [id, role] of Object.entries(DEFAULT_ROLES)) {
@@ -254,11 +256,8 @@ export class IamStore {
   }
 
   #save() {
-    fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-    // An unguessable name, created only if nothing is there (never through a link left in its place).
-    const tmp = `${this.#file}.${randomUUID()}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 2), { mode: 0o600, flag: 'wx' });
-    fs.renameSync(tmp, this.#file);
+    // Flushed to the disk, the file it replaces kept as iam.json.bak (src/state-file.js).
+    writeState(this.#file, this.#state, { space: 2 });
     this.#mtime = fs.statSync(this.#file).mtimeMs;
   }
 

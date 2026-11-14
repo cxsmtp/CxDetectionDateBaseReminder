@@ -20,6 +20,7 @@ import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, ran
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { readState, writeState } from './state-file.js';
 import { certificateRequest, isIp } from './tls.js';
 
 export const DIRECTORIES = {
@@ -261,19 +262,14 @@ export class AcmeService {
   }
 
   #load() {
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      return { enabled: false, names: [], email: '', staging: false, skipPrecheck: false, last: null, issued: null, ...raw };
-    } catch {
-      return { enabled: false, names: [], email: '', staging: false, skipPrecheck: false, last: null, issued: null };
-    }
+    // No file yet: automatic certificates are off. A damaged file is never "off": taken for that, the
+    // certificate would quietly stop being renewed (src/state-file.js).
+    const raw = readState(this.#file, { fallback: {}, holds: 'the automatic (ACME) certificate settings' });
+    return { enabled: false, names: [], email: '', staging: false, skipPrecheck: false, last: null, issued: null, ...raw };
   }
 
   #save() {
-    fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-    const tmp = `${this.#file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 2), { mode: 0o600 });
-    fs.renameSync(tmp, this.#file);
+    writeState(this.#file, this.#state, { space: 2 });
   }
 
   /** Called with { kind: 'issued' | 'failed', ... } after every attempt (for the audit log). */
@@ -307,8 +303,8 @@ export class AcmeService {
     } catch {}
     const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
     const pem = privateKey.export({ type: 'pkcs8', format: 'pem' });
-    fs.mkdirSync(this.#keyDir, { recursive: true, mode: 0o700 });
-    fs.writeFileSync(file, pem, { mode: 0o600 });
+    // Flushed to the disk: a key cut short by a crash would be read back as no key at all.
+    writeState(file, pem);
     return pem;
   }
 

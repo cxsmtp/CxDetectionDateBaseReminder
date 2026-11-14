@@ -23,6 +23,8 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { createHash } from 'node:crypto';
 
+import { readState, writeState } from './state-file.js';
+
 /** From MZ-01.00.10, which handed sessions over only on a clean stop: read once, if present. */
 export const HANDOVER_FILE = 'handover.json.gz';
 const LEGACY_MAX_AGE_MS = 60 * 60 * 1000;
@@ -66,9 +68,13 @@ export class SessionPersistence {
   load() {
     const entries = new Map();
     try {
-      const index = JSON.parse(fs.readFileSync(path.join(this.#dir, 'index.json'), 'utf8'));
+      // A damaged index is put right from its last good copy (src/state-file.js). With no copy to use, nobody
+      // is carried over and people sign in again: sign-ins are not worth keeping the server from starting.
+      const index = readState(path.join(this.#dir, 'index.json'), { fallback: null, holds: 'who is signed in' });
       for (const s of index?.sessions ?? []) if (s && typeof s.key === 'string' && /^[0-9a-f]{64}$/.test(s.key) && s.userId) entries.set(s.key, meta(s));
-    } catch {}
+    } catch (error) {
+      console.warn(`! [sessions] The saved sign-ins cannot be read, so people sign in again. ${String(error.message).split('\n')[0]}`);
+    }
     // A clean stop of MZ-01.00.10 left its sessions in one file.
     if (fs.existsSync(this.#legacy)) {
       try {
@@ -94,8 +100,8 @@ export class SessionPersistence {
   /** Who is signed in, now: [{key, userId, via, createdAt, lastUsedAt}]. Written at once, atomically. Unknown scan files are removed. */
   saveIndex(entries) {
     const file = path.join(this.#dir, 'index.json');
-    fs.writeFileSync(`${file}.tmp`, JSON.stringify({ version: 1, savedAt: Date.now(), sessions: entries.map(meta) }), { mode: 0o600 });
-    fs.renameSync(`${file}.tmp`, file);
+    // Flushed to the disk, the index it replaces kept as its last good copy (src/state-file.js).
+    writeState(file, { version: 1, savedAt: Date.now(), sessions: entries.map(meta) });
     const keep = new Set(entries.map((e) => `${e.key}.scan.json.gz`));
     for (const name of fs.readdirSync(this.#dir)) {
       if (name.endsWith('.scan.json.gz') && !keep.has(name) && !this.#pending.has(name.slice(0, 64)) && !this.#latest.has(name.slice(0, 64))) fs.rmSync(path.join(this.#dir, name), { force: true });

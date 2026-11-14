@@ -20,6 +20,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { readState, writeState } from '../state-file.js';
+
 export const ENTITY_TYPES = ['user', 'group', 'project', 'application'];
 export const PERIODS = ['monthly', 'quarterly', 'custom', 'lifetime'];
 export const MODES = ['monitor', 'enforce'];
@@ -53,18 +55,13 @@ const isoOrNull = (value) => {
   return Number.isFinite(t) ? new Date(t).toISOString() : NaN;
 };
 
-/** Write `text` to `file` atomically: unguessable temporary name, created only if absent, 0600, synced, renamed. */
+/**
+ * Write `text` to `file` atomically: unguessable temporary name, created only if absent, 0600, synced, renamed,
+ * and the folder synced too so the rename itself survives a crash (src/state-file.js). No .bak copy is kept
+ * here: a backup takes every file in this folder.
+ */
 export function writeAtomic(file, text) {
-  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const tmp = `${file}.${randomUUID()}.tmp`;
-  const fd = fs.openSync(tmp, 'wx', 0o600);
-  try {
-    fs.writeSync(fd, text);
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
-  }
-  fs.renameSync(tmp, file);
+  writeState(file, text, { keepLast: false });
 }
 
 /** Append one line and make sure it is on disk before returning (a write-ahead record). */
@@ -79,6 +76,7 @@ export function appendDurable(file, line) {
   }
 }
 
+/** A file made again by the next cycle (the last good org, dimension support, usage series): `fallback` when it cannot be read. */
 export function readJson(file, fallback) {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -374,17 +372,20 @@ export class GovernStore {
   constructor({ dir }) {
     this.#dir = dir;
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-    const budgets = readJson(this.#file('budgets.json'), {});
+    // What people entered (budgets, exemptions, decisions, requests, settings) and what each period came to:
+    // a file that is there and cannot be read is never taken for an empty one and saved over. readState()
+    // stops and says what to do (src/state-file.js).
+    const budgets = readState(this.#file('budgets.json'), { fallback: {}, holds: 'Govern\'s budgets and exemptions' });
     for (const b of Array.isArray(budgets.budgets) ? budgets.budgets : []) if (b?.id && ENTITY_TYPES.includes(b.entityType)) this.budgets.set(String(b.id), b);
     for (const e of Array.isArray(budgets.exemptions) ? budgets.exemptions : []) if (e?.entityType && e?.entityId) this.exemptions.set(entityKey(e.entityType, e.entityId), e);
     this.dataVersion = Number(budgets.dataVersion) || 0;
-    const periods = readJson(this.#file('periods.json'), {});
+    const periods = readState(this.#file('periods.json'), { fallback: {}, holds: 'each Govern budget\'s state per period' });
     for (const p of Array.isArray(periods.periods) ? periods.periods : []) if (p?.budgetId && p?.periodKey) this.periods.set(`${p.budgetId}|${p.periodKey}`, p);
-    const subjects = readJson(this.#file('subjects.json'), {});
+    const subjects = readState(this.#file('subjects.json'), { fallback: {}, holds: 'Govern\'s attribution decisions' });
     for (const d of Array.isArray(subjects.decisions) ? subjects.decisions : []) if (d?.key) this.decisions.set(String(d.key), d);
-    const requests = readJson(this.#file('requests.json'), {});
+    const requests = readState(this.#file('requests.json'), { fallback: {}, holds: 'Govern\'s credit requests' });
     for (const r of Array.isArray(requests.requests) ? requests.requests : []) if (r?.id) this.requests.set(String(r.id), r);
-    const stored = readJson(this.#file('settings.json'), null);
+    const stored = readState(this.#file('settings.json'), { fallback: null, holds: 'Govern\'s settings' });
     if (stored) {
       try {
         this.settings = cleanSettings(stored, DEFAULT_SETTINGS);

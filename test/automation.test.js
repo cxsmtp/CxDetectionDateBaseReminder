@@ -171,10 +171,14 @@ test('the ledger survives a restart and can be reset', () => {
   assert.equal(findCrossings([risk('a', 41)], THRESHOLDS, reloaded.ledger).crossed.length, 1);
 });
 
-test('a corrupt state file falls back to an empty ledger', () => {
+test('a missing state file is an empty ledger; a corrupt one is refused, never taken for an empty ledger', () => {
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'cxdr-')), 'automation.json');
-  fs.writeFileSync(file, '{ not json');
   const state = new AutomationState({ file });
   assert.deepEqual(state.ledger.notified, {});
   assert.deepEqual(state.runs, []);
+
+  // Taken for empty, the next run reported every finding again (src/state-file.js).
+  fs.writeFileSync(file, '{ not json');
+  assert.throws(() => new AutomationState({ file }), { code: 'STATE_FILE_DAMAGED', file });
+  assert.equal(fs.readFileSync(file, 'utf8'), '{ not json');
 });

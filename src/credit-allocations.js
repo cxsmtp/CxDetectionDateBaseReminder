@@ -22,6 +22,7 @@ import path from 'node:path';
 
 import { AI_SCANNERS } from './cxone/ai-assist.js';
 import { CREDIT_COST } from './credits.js';
+import { readState, writeState } from './state-file.js';
 
 export const KINDS = ['triage', 'remediation'];
 export const DEFAULT_TRIAGE_SEVERITIES = ['CRITICAL', 'HIGH'];
@@ -134,12 +135,9 @@ export class CreditAllocations {
   constructor({ file, ledger }) {
     this.#file = file ?? path.join(process.cwd(), 'data', 'credit-allocations.json');
     this.#ledger = ledger;
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      this.#projects = raw && typeof raw.projects === 'object' ? raw.projects : {};
-    } catch {
-      this.#projects = {};
-    }
+    // No file yet: nothing allocated. A damaged file is never "nothing allocated" (src/state-file.js).
+    const raw = readState(this.#file, { fallback: {}, holds: 'the credits allocated to each project' });
+    this.#projects = raw.projects && typeof raw.projects === 'object' ? raw.projects : {};
     this.#migrate();
   }
 
@@ -331,9 +329,6 @@ export class CreditAllocations {
   }
 
   save() {
-    fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-    const tmp = `${this.#file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify({ projects: this.#projects }, null, 2), { mode: 0o600 });
-    fs.renameSync(tmp, this.#file);
+    writeState(this.#file, { projects: this.#projects }, { space: 2 });
   }
 }

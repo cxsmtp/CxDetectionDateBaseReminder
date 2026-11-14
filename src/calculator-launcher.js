@@ -9,6 +9,7 @@ import { deriveConnection } from './cxone/endpoints.js';
 import { branchScopeOf } from './cxone/branches.js';
 import { DEFAULT_ENGINES, cleanEngines } from './engines.js';
 import { TenantReadStore, readFusionOffer, readJobView, readProgressOf, readTenant, seriesFor } from './projections.js';
+import { writeState } from './state-file.js';
 import { CLOC_FUSION, GIT_COUNT_LIMITS, clocFusionPage, createGitCounter, gitSource, listOrganizations, listRepositories, sweepLeftovers } from './fusion-git.js';
 import { MAX_PROJECTS, cleanOrigins, readLimit } from '../public/calculator/model.js';
 
@@ -96,9 +97,8 @@ export function dataFileStore(file) {
   // Written whole to a file beside it, then put in its place: a stop half-way never leaves half a file.
   const write = (data) => {
     if (broken) throw Object.assign(new Error(broken), { status: 409 });
-    const tmp = `${file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, `${JSON.stringify(data, null, 1)}\n`, { mode: 0o600 });
-    fs.renameSync(tmp, file);
+    // Flushed to the disk too, so a computer that loses power just after does not come back with an empty file.
+    writeState(file, `${JSON.stringify(data, null, 1)}\n`, { keepLast: false });
   };
   return {
     file,

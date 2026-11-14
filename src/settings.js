@@ -1,5 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
-import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 /** A Checkmarx One API path to call on the tenant's own address: /api/…, letters, digits, - _ . / and {appId}; no query, no "..". Else null. */
@@ -20,6 +19,7 @@ import { DEFAULT_LOOK, LOOKS } from '../public/look.js';
 import { TOKEN_NAMES, cleanStoredInstances, mergeStoredInstances } from './scm/instances.js';
 import { DEFAULT_SLA, mergeSla } from './sla.js';
 import { azureOrgKey, normalizeAzureOrgUrl } from './scm/azure-url.js';
+import { StateFileError, readState, writeState } from './state-file.js';
 
 /**
  * Administrator settings: SMTP, recipients and the mail template.
@@ -30,7 +30,6 @@ import { azureOrgKey, normalizeAzureOrgUrl } from './scm/azure-url.js';
  */
 
 const FILE_MODE = 0o600;
-const DIR_MODE = 0o700;
 const EMAIL_RE = /^(?=[^]{3,254}$)[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const int = (value, fallback) => {
@@ -757,8 +756,12 @@ export class SettingsStore {
   }
 
   #load() {
+    // No file yet: a new installation, on the defaults. A settings file that is there and cannot be
+    // read is never "the defaults": readState() uses its last good copy, or stops (src/state-file.js),
+    // so the connection, the mail server and the schedule are not saved over with empty ones.
+    const raw = readState(this.#file, { fallback: null, holds: 'the settings: the Checkmarx One connection, the mail server, schedules and branding' });
+    if (!raw) return structuredClone(DEFAULT_SETTINGS);
     try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
       // Merge over the defaults so a settings file written by an older
       // version still loads with every newer field present.
       return {
@@ -789,8 +792,9 @@ export class SettingsStore {
           ? { audience: raw.reminders.audience }
           : { audience: raw.automation?.groupBy === 'none' ? 'list' : 'initiator' },
       };
-    } catch {
-      return structuredClone(DEFAULT_SETTINGS);
+    } catch (error) {
+      // It is JSON, and still not settings this server can load: stop, as for any damaged file.
+      throw new StateFileError(this.#file, `its contents are not settings this version can load: ${error.message}`, { holds: 'the settings', cause: error });
     }
   }
 
@@ -833,14 +837,9 @@ export class SettingsStore {
   }
 
   #persist() {
-    const dir = path.dirname(this.#file);
-    fs.mkdirSync(dir, { recursive: true, mode: DIR_MODE });
-    // Write-then-rename so a crash cannot leave a half-written settings file.
-    const temp = `${this.#file}.${randomUUID()}.tmp`;
-    // Created only if nothing has that name yet, so never written through a link left in its place.
-    fs.writeFileSync(temp, JSON.stringify(this.#settings, null, 2), { mode: FILE_MODE, flag: 'wx' });
-    fs.renameSync(temp, this.#file);
-    fs.chmodSync(this.#file, FILE_MODE);
+    // Written beside the file, flushed to the disk, then put in its place, so a crash cannot leave half a
+    // settings file; the one it replaces is kept as its last good copy (src/state-file.js).
+    writeState(this.#file, this.#settings, { mode: FILE_MODE, space: 2 });
   }
 }
 

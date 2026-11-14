@@ -13,6 +13,8 @@ import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
+import { readState, writeState } from './state-file.js';
+
 export const DEFAULT_TENANT = 'default';
 const ID = /^[a-z0-9][a-z0-9-]{1,39}$/;
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -38,19 +40,16 @@ export class Tenancy {
   }
 
   #load() {
-    let raw = {};
-    try {
-      raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-    } catch {}
+    // No file yet: one tenant, as always. A damaged file is never "one tenant": the others' folders would
+    // be left out and the switch turned off. readState() uses the last good copy, or stops (src/state-file.js).
+    const raw = readState(this.#file, { fallback: {}, holds: 'the list of Checkmarx One tenants on this server' });
     const tenants = Array.isArray(raw.tenants) ? raw.tenants.filter((t) => t && (ID.test(String(t.id ?? '')) || t.id === DEFAULT_TENANT)) : [];
     if (!tenants.some((t) => t.id === DEFAULT_TENANT)) tenants.unshift({ id: DEFAULT_TENANT, name: '', createdAt: '' });
     return { enabled: raw.enabled === true, enabledBy: raw.enabledBy ?? '', enabledAt: raw.enabledAt ?? '', tenants };
   }
 
   #save() {
-    const tmp = `${this.#file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 2), { mode: 0o600 });
-    fs.renameSync(tmp, this.#file);
+    writeState(this.#file, this.#state, { space: 2 });
   }
 
   get file() {
