@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { SETTINGS_PARTS, settingsSectionFor } from '../public/nav-map.js';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 const html = read('public/index.html');
@@ -85,14 +87,8 @@ const SETTINGS_BEFORE = {
 };
 /** Sections shown only with "Show advanced options" on. */
 const ADVANCED_BEFORE = ['endpoint', 'template', 'links'];
-/** Sections that are now a part of another one: old name → the section that holds it. */
-const FOLDED_INTO = {};
-
-/** Old Settings section names that lead to another section (public/app.js), if any. */
-const settingsAliases = (() => {
-  const found = /const SETTINGS_ALIASES = (\{[^}]*\});/.exec(app);
-  return found ? Object.fromEntries([...found[1].matchAll(/(\w+): '(\w+)'/g)].map((m) => [m[1], m[2]])) : {};
-})();
+/** Sections that are now an advanced part of another one: old name → the section that holds it. */
+const FOLDED_INTO = { endpoint: 'connection', links: 'server' };
 
 test('every page that can be opened has its place in the menu, behind the same permissions', () => {
   assert.deepEqual(Object.keys(pagePerms).sort(), [...Object.keys(PAGES_BEFORE), 'help'].sort(), 'the pages are the ones there were, plus Get help');
@@ -152,7 +148,7 @@ test('every Settings link has its section, shown and changed by the same people'
     assert.equal(gate(SETTINGS_BEFORE[host][0]), gate(before[0]), `${name}: seen by whoever sees ${host}`);
     assert.equal(gate(SETTINGS_BEFORE[host][2]), gate(before[2]), `${name}: changed by whoever changes ${host}`);
     assert.ok(ADVANCED_BEFORE.includes(name), `${name} was an advanced option already`);
-    assert.equal(settingsAliases[name], host, `#/settings/${name} opens ${host}`);
+    assert.equal(settingsSectionFor(name), host, `#/settings/${name} opens ${host}`);
   }
   // Automation's link leaves Settings for its own page, for the people who may open that page.
   const out = settingsNav.filter((el) => el.tag === 'a' && !el['data-set']);
@@ -168,7 +164,7 @@ test('Settings has five groups, with every link in its place', () => {
   }
   assert.deepEqual(groups, [
     ['You', ['profile', 'appearance', 'mybrand']],
-    ['Connections', ['import', 'connection', 'smtp', 'network', 'endpoint', 'https', 'server', 'links']],
+    ['Connections', ['import', 'connection', 'smtp', 'network', 'https', 'server']],
     ['Reminders', ['handsoff', 'initiators', 'template', '→ automation', 'sla']],
     ['Organisation', ['ai', 'branding', 'features', 'support']],
     ['About', ['activation', 'tenants', 'update', 'about']],
@@ -185,14 +181,21 @@ test('every old address and saved choice still leads somewhere', () => {
   assert.match(app, /if \(location\.hash === '#\/settings\/automation'\) history\.replaceState\(null, '', '#\/automation'\);/);
   // #/settings/<name>, and the section kept in the browser (mz-settings-section): a link of that name, or one it now leads to.
   const names = settingsLinks.map((a) => a['data-set']);
+  assert.deepEqual(SETTINGS_PARTS, FOLDED_INTO);
   for (const name of Object.keys(SETTINGS_BEFORE)) {
-    const target = settingsAliases[name] ?? name;
+    const target = settingsSectionFor(name);
     assert.ok(names.includes(target), `#/settings/${name} opens a section (${target})`);
+    assert.equal(settingsSectionFor(target), target, 'in one step');
   }
-  for (const [from, to] of Object.entries(settingsAliases)) {
+  for (const [from, to] of Object.entries(SETTINGS_PARTS)) {
     assert.ok(!names.includes(from) && names.includes(to), `${from} → ${to}: an old name to a section there is`);
   }
+  assert.equal(settingsSectionFor(''), '', 'no name: the section kept in the browser, else Checkmarx One');
+  assert.equal(settingsSectionFor('nowhere'), 'nowhere', 'a name there never was falls back the same way');
+  // The page asks the map for the name in the address and for the one it kept (mz-settings-section).
   assert.match(app, /const SETTINGS_KEY = 'mz-settings-section';/);
+  assert.match(app, /const wanted = settingsSectionFor\(id\);/);
+  assert.match(app, /usable\.find\(\(a\) => a\.dataset\.set === settingsSectionFor\(saved\)\)/);
   // Pinned pages (mz-nav-pins) are kept by route: every route there was is still a menu item (checked above).
   assert.match(app, /const NAV_PINS_KEY = 'mz-nav-pins';/);
   assert.match(app, /const NAV_FOLDS_KEY = 'mz-nav-folded';/);

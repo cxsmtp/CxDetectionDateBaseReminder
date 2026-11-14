@@ -1047,10 +1047,8 @@
                   <a href="#/settings/connection" data-set="connection">Checkmarx One</a>
                   <a href="#/settings/smtp" data-set="smtp">Email server</a>
                   <a href="#/settings/network" data-set="network" data-perm="integration.cxone integration.smtp">Network &amp; proxy</a>
-                  <a href="#/settings/endpoint" data-set="endpoint" data-advanced>Risks endpoint</a>
                   <a href="#/settings/https" data-set="https" data-perm="security.https">HTTPS</a>
                   <a href="#/settings/server" data-set="server">Server address</a>
-                  <a href="#/settings/links" data-set="links" data-advanced>Links into Checkmarx One</a>
                 <p class="set-group">Reminders</p>
                   <a href="#/settings/handsoff" data-set="handsoff" data-perm="settings.automation settings.view">Hands-off</a>
                   <a href="#/settings/initiators" data-set="initiators">Developer addresses</a>
@@ -1402,6 +1400,22 @@
                   <span class="status" id="trust-status"></span>
                 </div>
               </details>
+              <!-- Was a section of its own (#/settings/endpoint still opens it: public/nav-map.js). -->
+              <details class="disclosure" id="set-part-endpoint" data-advanced>
+                <summary>Risks endpoint</summary>
+                <p class="hint wide" data-help-keep>
+                  Defaults to <code>/api/risks/</code>. <strong>Detect</strong> probes the known paths against your tenant and
+                  reports what each returned.
+                </p>
+                <label class="field">
+                  <span>Path — <code>{projectId}</code> is substituted for a templated endpoint</span>
+                  <div class="path-row">
+                    <input id="risks-path" spellcheck="false" placeholder="/api/risks/" />
+                    <button id="detect-risks" type="button">Detect</button>
+                  </div>
+                </label>
+                <div id="probe-results" hidden></div>
+              </details>
             </section>
 
             <section class="panel" id="set-network" data-perm="integration.cxone integration.smtp" data-edit-perm="integration.cxone">
@@ -1683,30 +1697,6 @@
               <div id="brand-preview" class="brand-preview"></div>
             </section>
 
-            <section class="panel" id="set-links" data-edit-perm="settings.links">
-              <h2>Links into Checkmarx One</h2>
-              <p class="hint wide">
-                Every finding in a reminder links straight to it in the platform. If a link lands in the wrong place, correct
-                the template here — the example below updates as you type.
-              </p>
-
-              <label class="field">
-                <span>Base URL — blank uses the API host your key resolved to</span>
-                <input id="link-base" spellcheck="false" placeholder="https://us.ast.checkmarx.net" />
-              </label>
-              <label class="field">
-                <span>Project link — <code>{baseUrl} {projectId}</code></span>
-                <input id="link-project" spellcheck="false" />
-              </label>
-              <label class="field">
-                <span>Finding link — <code>{baseUrl} {projectId} {scanId} {engine} {riskId}</code></span>
-                <input id="link-risk" spellcheck="false" />
-              </label>
-
-              <div class="kv" id="link-examples"></div>
-
-            </section>
-
             <section class="panel" id="set-server" data-edit-perm="settings.links">
               <h2>Reminder server address</h2>
               <p class="hint wide">The address people use to reach this app from their emailed report.</p>
@@ -1718,6 +1708,29 @@
                 <button id="test-report-server" type="button">Test</button>
               </div>
               <div class="server-effective" id="server-effective"></div>
+              <!-- Was a section of its own (#/settings/links still opens it: public/nav-map.js). -->
+              <details class="disclosure" id="set-part-links" data-advanced>
+                <summary>Links into Checkmarx One</summary>
+                <p class="hint wide" data-help-keep>
+                  Every finding in a reminder links straight to it in the platform. If a link lands in the wrong place, correct
+                  the template here — the example below updates as you type.
+                </p>
+
+                <label class="field">
+                  <span>Base URL — blank uses the API host your key resolved to</span>
+                  <input id="link-base" spellcheck="false" placeholder="https://us.ast.checkmarx.net" />
+                </label>
+                <label class="field">
+                  <span>Project link — <code>{baseUrl} {projectId}</code></span>
+                  <input id="link-project" spellcheck="false" />
+                </label>
+                <label class="field">
+                  <span>Finding link — <code>{baseUrl} {projectId} {scanId} {engine} {riskId}</code></span>
+                  <input id="link-risk" spellcheck="false" />
+                </label>
+
+                <div class="kv" id="link-examples"></div>
+              </details>
             </section>
 
             <section class="panel" id="set-https" data-perm="security.https">
@@ -1854,22 +1867,6 @@
                 <pre class="https-cmd">podman exec mission-zero node scripts/https.mjs both</pre>
               </details>
               <span class="status" id="https-status"></span>
-            </section>
-
-            <section class="panel" id="set-endpoint" data-edit-perm="integration.cxone">
-              <h2>Risks endpoint</h2>
-              <p class="hint wide">
-                Defaults to <code>/api/risks/</code>. <strong>Detect</strong> probes the known paths against your tenant and
-                reports what each returned.
-              </p>
-              <label class="field">
-                <span>Path — <code>{projectId}</code> is substituted for a templated endpoint</span>
-                <div class="path-row">
-                  <input id="risks-path" spellcheck="false" placeholder="/api/risks/" />
-                  <button id="detect-risks" type="button">Detect</button>
-                </div>
-              </label>
-              <div id="probe-results" hidden></div>
             </section>
 
             <section class="panel" id="set-features" data-perm="features.manage">

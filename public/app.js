@@ -7,6 +7,7 @@ import { initConsolidated } from './consolidated.js';
 import { initGovern } from './govern.js';
 import { initTenantMenu } from './tenant-menu.js';
 import { initMobile } from './mobile.js';
+import { SETTINGS_PARTS, settingsSectionFor } from './nav-map.js';
 import { qrSvgPath } from './qr.js';
 import { SEVERITIES_ALL, creditTiers, tierName } from './credit-tiers.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engines.js';
@@ -1576,7 +1577,10 @@ function showSettingsSection(id) {
   try {
     saved = localStorage.getItem(SETTINGS_KEY) || '';
   } catch {}
-  const link = usable.find((a) => a.dataset.set === id) ?? usable.find((a) => a.dataset.set === saved) ?? usable.find((a) => a.dataset.set === 'connection') ?? usable[0];
+  // A section that became a part of another one (Risks endpoint, Links into Checkmarx One): its old address and
+  // the name a browser kept open the section that holds it now.
+  const wanted = settingsSectionFor(id);
+  const link = usable.find((a) => a.dataset.set === wanted) ?? usable.find((a) => a.dataset.set === settingsSectionFor(saved)) ?? usable.find((a) => a.dataset.set === 'connection') ?? usable[0];
   if (!link) return;
   for (const a of links) {
     const on = a === link;
@@ -1590,6 +1594,13 @@ function showSettingsSection(id) {
   } catch {}
   if (id && id !== link.dataset.set) history.replaceState(null, '', `#/settings/${link.dataset.set}`);
   if (state.page === 'settings' && id) window.scrollTo({ top: 0, behavior: 'instant' });
+  // Asked for by its old address: the part is opened and, once the page has settled, brought into view
+  // (it shows with "Show advanced options" on, as its section did).
+  const part = id in SETTINGS_PARTS && link.dataset.set === wanted ? $(`set-part-${id}`) : null;
+  if (part) {
+    part.open = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => part.offsetParent && part.scrollIntoView({ block: 'start' })));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -8945,6 +8956,10 @@ function paletteEntries() {
     for (const a of document.querySelectorAll('#set-nav [data-set]')) {
       if (a.classList.contains('perm-hidden') || a.classList.contains('no-settings') || a.classList.contains('addon-hidden')) continue;
       entries.push({ label: `Settings → ${a.textContent.trim()}`, group: STAGE_LABELS.setup, stage: 'setup', href: a.getAttribute('href') });
+      // The parts that were sections of their own are still found by name.
+      for (const [part, host] of Object.entries(SETTINGS_PARTS)) {
+        if (host === a.dataset.set) entries.push({ label: `Settings → ${$(`set-part-${part}`).querySelector('summary').textContent.trim()}`, group: STAGE_LABELS.setup, stage: 'setup', href: `#/settings/${part}` });
+      }
     }
   }
   if (can('findings.fetch')) entries.push({ label: 'Load findings', group: 'Action', run: () => $('fetch').click() });
