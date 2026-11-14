@@ -7,6 +7,7 @@ import { initConsolidated } from './consolidated.js';
 import { initGovern } from './govern.js';
 import { initTenantMenu } from './tenant-menu.js';
 import { initMobile } from './mobile.js';
+import { qrSvgPath } from './qr.js';
 import { SEVERITIES_ALL, creditTiers, tierName } from './credit-tiers.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engines.js';
 import { LANGUAGES, availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from './i18n.js';
@@ -230,6 +231,11 @@ const ACTIVITIES = [
   ['POST', /^\/api\/automation\/reset$/, 'Resetting automation history…', 'History reset'],
   ['POST', /^\/api\/backup\/now$/, 'Backing up…', 'Backup written'],
   ['POST', /^\/api\/backup\/restore$/, 'Checking the backup…', 'Backup checked'],
+  // Sign-in settings and one's own two-step sign-in say how they went beside their own buttons.
+  ['PUT', /^\/api\/iam\/sign-in$/, '', '', { quiet: true }],
+  ['POST', /^\/api\/iam\/sign-in\/sso\/check$/, '', '', { quiet: true }],
+  ['POST', /^\/api\/me\/two-step\//, '', '', { quiet: true }],
+  ['DELETE', /^\/api\/iam\/users\/[^/]+\/two-step$/, 'Resetting two-step sign-in…', 'Two-step sign-in reset'],
   ['POST', /^\/api\/iam\//, 'Saving people and roles…', 'Saved'],
   ['PATCH', /^\/api\/iam\//, 'Saving people and roles…', 'Saved'],
   ['PUT', /^\/api\/iam\//, 'Saving people and roles…', 'Saved'],
@@ -2054,7 +2060,7 @@ async function showConnected(me) {
   }
   state.me = me;
   state.connection = me.connection;
-  for (const box of ['setup-box', 'signin-box', 'change-box', 'forgot-box', 'reset-box']) $(box).hidden = true;
+  for (const box of ['setup-box', 'signin-box', 'change-box', 'forgot-box', 'reset-box', 'twostep-box', 'recovery-box']) $(box).hidden = true;
 
   if (me.connection) {
     const { tenant, regionLabel, baseUrl } = me.connection;
@@ -2072,7 +2078,7 @@ async function showConnected(me) {
   applyProfile(me);
   applyProfileLook(me.user.profile);
   renderTenantPicker(me);
-  $('me-detail').textContent = `${user.email} · ${me.role.name} · signed in with ${me.via === 'cxone' ? 'a Checkmarx One key' : 'a password'}`;
+  $('me-detail').textContent = `${user.email} · ${me.role.name} · signed in with ${me.via === 'cxone' ? 'a Checkmarx One key' : me.via === 'sso' ? 'single sign-on' : 'a password'}`;
   $('user-menu').hidden = false;
   $('connect-panel').hidden = true;
   $('nav').hidden = false;
@@ -2275,6 +2281,9 @@ function showSignIn({ setup = false, change = false, message = '' } = {}) {
   $('change-box').hidden = !change;
   $('forgot-box').hidden = true;
   $('reset-box').hidden = true;
+  $('twostep-box').hidden = true;
+  $('recovery-box').hidden = true;
+  setStatus('sso-status', '');
   if (!setup && !change) refreshForgotLink();
   $('change-cancel').hidden = change;
   $('change-current-field').hidden = false;
@@ -2328,14 +2337,51 @@ async function connect(event) {
 
 // ---- Forgotten password: a one-time link to the account's own email --------------------------
 
-/** "Forgot your password?" shows only when the server can send the link (policy, email, address). */
+/**
+ * "Forgot your password?" shows only when the server can send the link (policy, email, address); the single
+ * sign-on button only when an Admin turned it on, with the label they gave it.
+ */
 async function refreshForgotLink() {
   try {
     const session = await api('/api/session');
     $('forgot-open').hidden = !session.passwordReset;
+    // (A reason for coming back from the identity provider without a sign-in stays readable, even with the button gone.)
+    $('sso-signin').hidden = !session.sso && !$('sso-status').textContent;
+    $('sso-button').hidden = !session.sso;
+    $('sso-password-note').hidden = !session.sso?.passwordAdminsOnly;
+    if (session.sso) $('sso-button').textContent = session.sso.label;
   } catch {
     $('forgot-open').hidden = true;
+    $('sso-signin').hidden = !$('sso-status').textContent;
+    $('sso-button').hidden = true;
   }
+}
+
+// ---- Single sign-on: off to the identity provider, and what to say when it sends someone back without signing them in ----
+
+/** The server sends people back with a short code (#sso=…), never with the provider's own words: these are the sentences. */
+const SSO_REFUSALS = {
+  off: 'Single sign-on is not turned on here. Sign in with your email and password.',
+  setup: 'Single sign-on is not set up completely. Ask an administrator.',
+  provider: 'The identity provider could not be reached, or did not answer as expected. Try again in a moment, or ask an administrator.',
+  cancelled: 'The identity provider did not sign you in. Try again.',
+  expired: 'That sign-in took too long, or was started in another browser. Try again.',
+  token: "The identity provider's answer could not be verified, so nobody was signed in. Ask an administrator.",
+  email: 'The identity provider did not give a verified email address for you. Ask an administrator.',
+  domain: 'Your email address is not one that may sign in here this way.',
+  unknown: 'The identity provider signed you in, but you have no access here yet. Ask an administrator to add you.',
+  disabled: 'This account is disabled. Ask an administrator.',
+  busy: 'Too many sign-in attempts from this address. Wait a few minutes.',
+};
+const ssoRefusalCode = () => /^#sso=([a-z]{1,20})$/.exec(location.hash)?.[1] ?? '';
+
+/** Back from the identity provider without a sign-in: say why on the sign-in page, and take the code out of the address. */
+function showSsoRefusal(code) {
+  history.replaceState(null, '', location.pathname + location.search);
+  if (state.me) return;
+  showSignIn();
+  setStatus('sso-status', Object.hasOwn(SSO_REFUSALS, code) ? SSO_REFUSALS[code] : 'Single sign-on did not work. Try again, or ask an administrator.', 'error');
+  $('sso-signin').hidden = false;
 }
 
 function showForgot() {
@@ -2429,9 +2475,130 @@ async function signInWithPassword(event) {
     });
     setStatus('signin-status', '');
     $('signin-password').value = '';
-    await afterSignIn(me);
+    // Two-step sign-in: the password was right, and the code (or setting it up) comes before anyone is signed in.
+    if (me.ticket) showTwoStep(me);
+    else await afterSignIn(me);
   } catch (error) {
     showError('signin-status', error);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+// ---- Two-step sign-in: a code from an authenticator app after the password ----------------------
+
+/**
+ * The key for an authenticator app: as a QR code made here in the page (public/qr.js: nothing is fetched),
+ * and as text with a Copy button for a phone that cannot scan it.
+ */
+function showTwoStepKey(container, setup) {
+  container.textContent = '';
+  try {
+    const { viewBox, d } = qrSvgPath(setup.otpauth);
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', viewBox);
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'QR code for your authenticator app');
+    svg.setAttribute('shape-rendering', 'crispEdges');
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', '#000');
+    svg.append(path);
+    const frame = document.createElement('div');
+    frame.className = 'twostep-qr';
+    frame.append(svg);
+    container.append(frame);
+  } catch {
+    // Too long for a QR code made here (a very long email address): the key below does the same.
+  }
+  const text = document.createElement('div');
+  text.className = 'twostep-key-text';
+  text.innerHTML = '<span class="hint">The key, if you cannot scan the code:</span><code translate="no"></code><span class="actions compact"><button type="button" class="sm">Copy the key</button><span class="status" aria-live="polite"></span></span>';
+  text.querySelector('code').textContent = setup.key;
+  copyButton(text.querySelector('button'), text.querySelector('.status'), setup.secret);
+  container.append(text);
+}
+
+/** A button that copies `value` (a text, or a function that gives it when the button is pressed), and says so beside it. */
+function copyButton(button, status, value) {
+  button.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(typeof value === 'function' ? value() : value);
+      status.textContent = 'Copied.';
+      status.className = 'status ok';
+    } catch {
+      status.textContent = 'Could not copy: select the text and copy it.';
+      status.className = 'status error';
+    }
+  });
+}
+
+/** Recovery codes, shown once: a list, and a Copy button. */
+function showRecoveryCodes(container, codes) {
+  container.innerHTML = `<ul class="recovery-codes" translate="no">${codes.map((code) => `<li>${escapeHtml(code)}</li>`).join('')}</ul><div class="actions compact"><button type="button" class="sm">Copy the codes</button><span class="status" aria-live="polite"></span></div>`;
+  copyButton(container.querySelector('button'), container.querySelector('.status'), codes.join('\n'));
+}
+
+/** Between the password and the code: the ticket the server gave, the key to set up (when it must be), and which kind of code is typed. */
+let twoStep = null;
+
+function showTwoStep(answer) {
+  twoStep = { ticket: answer.ticket, setup: answer.setup ?? null, recovery: false };
+  showSignIn();
+  $('signin-box').hidden = true;
+  $('twostep-box').hidden = false;
+  $('page-title').textContent = 'Two-step sign-in';
+  $('twostep-setup').hidden = !twoStep.setup;
+  if (twoStep.setup) showTwoStepKey($('twostep-key'), twoStep.setup);
+  $('twostep-code').value = '';
+  setStatus('twostep-status', '');
+  renderTwoStepKind();
+  $('twostep-code').focus();
+}
+
+function renderTwoStepKind() {
+  const { setup, recovery } = twoStep;
+  $('twostep-hint').textContent = setup
+    ? 'Then enter the six-digit code the app shows, to turn two-step sign-in on.'
+    : recovery
+      ? 'Enter one of the recovery codes you saved when you turned two-step sign-in on. Each works once.'
+      : 'Enter the six-digit code your authenticator app shows for CxMissionZero.';
+  $('twostep-label').textContent = recovery ? 'Recovery code' : 'Code';
+  $('twostep-code').inputMode = recovery ? 'text' : 'numeric';
+  $('twostep-recovery').hidden = Boolean(setup);
+  $('twostep-recovery').textContent = recovery ? 'Use a code from the app' : 'Use a recovery code';
+  $('twostep-submit').textContent = setup ? 'Turn on and sign in' : 'Sign in';
+}
+
+async function submitTwoStep(event) {
+  event.preventDefault();
+  if (!twoStep) return showSignIn();
+  const button = $('twostep-submit');
+  button.disabled = true;
+  setStatus('twostep-status', 'Signing in…');
+  try {
+    const { recoveryCodes, ...me } = await api('/api/session/two-step', { method: 'POST', body: JSON.stringify({ ticket: twoStep.ticket, code: $('twostep-code').value.trim() }) });
+    twoStep = null;
+    $('twostep-code').value = '';
+    setStatus('twostep-status', '');
+    if (!recoveryCodes) return await afterSignIn(me);
+    // Set up on the way in: the recovery codes are shown now, once, before the app opens.
+    state.pendingMe = me;
+    $('twostep-box').hidden = true;
+    $('recovery-box').hidden = false;
+    $('page-title').textContent = 'Recovery codes';
+    showRecoveryCodes($('recovery-codes'), recoveryCodes);
+  } catch (error) {
+    $('twostep-code').value = '';
+    if (error.body?.restart || error.status === 429) {
+      // The five minutes or the tries are over: back to the password.
+      twoStep = null;
+      showSignIn();
+      return showError('signin-status', error);
+    }
+    showError('twostep-status', error);
+    $('twostep-code').focus();
   } finally {
     button.disabled = false;
   }
@@ -2484,7 +2651,11 @@ function openPasswordChange() {
   $('user-menu').open = false;
   showSignIn({ change: true });
   state.pendingMe = me;
-  $('change-hint').textContent = me.user.hasPassword ? 'Enter your current password and choose a new one.' : 'You signed in with a Checkmarx One key: set a password to also sign in with your email.';
+  $('change-hint').textContent = me.user.hasPassword
+    ? 'Enter your current password and choose a new one.'
+    : me.via === 'sso'
+      ? 'You signed in with single sign-on: set a password to also sign in with your email.'
+      : 'You signed in with a Checkmarx One key: set a password to also sign in with your email.';
   $('change-current-field').hidden = !me.user.hasPassword;
   $('change-cancel').hidden = false;
 }
@@ -7331,7 +7502,12 @@ function renderSendResult(result) {
 window.addEventListener('hashchange', () => {
   const token = resetLinkToken();
   if (token) showReset(token);
+  else if (ssoRefusalCode()) showSsoRefusal(ssoRefusalCode());
   else route();
+});
+$('sso-button').addEventListener('click', () => {
+  setStatus('sso-status', 'Going to the identity provider…');
+  location.href = '/api/session/oidc/start';
 });
 
 $('connect-form').addEventListener('submit', connect);
@@ -7347,6 +7523,26 @@ for (const id of ['forgot-back', 'reset-back']) {
     showSignIn();
   });
 }
+$('twostep-form').addEventListener('submit', submitTwoStep);
+$('twostep-recovery').addEventListener('click', () => {
+  if (!twoStep) return;
+  twoStep.recovery = !twoStep.recovery;
+  $('twostep-code').value = '';
+  setStatus('twostep-status', '');
+  renderTwoStepKind();
+  $('twostep-code').focus();
+});
+$('twostep-back').addEventListener('click', () => {
+  twoStep = null;
+  showSignIn();
+});
+$('recovery-done').addEventListener('click', () => {
+  const me = state.pendingMe;
+  state.pendingMe = null;
+  $('recovery-codes').textContent = '';
+  if (me) afterSignIn(me);
+  else showSignIn();
+});
 $('change-form').addEventListener('submit', changePassword);
 $('change-cancel').addEventListener('click', () => {
   if (state.pendingMe) showConnected(state.pendingMe);
@@ -8854,11 +9050,15 @@ document.addEventListener('keydown', (event) => {
   // Opened from an emailed reset link: that comes first, signed in or not (using it signs everyone out).
   const token = resetLinkToken();
   if (token) return showReset(token);
+  // Back from the identity provider without a sign-in: the reason, by its code, once the page knows nobody is signed in.
+  const ssoRefused = ssoRefusalCode();
+  if (ssoRefused) history.replaceState(null, '', location.pathname + location.search);
   try {
     const session = await api('/api/session');
     if (session.signedIn) await afterSignIn(session);
     else {
       showSignIn({ setup: session.setup });
+      if (ssoRefused) showSsoRefusal(ssoRefused);
       if (session.firstStart) {
         setStatus('signin-status', 'First start: sign in with the administrator email and password printed in the server (container) log.', 'ok');
       }
@@ -10927,7 +11127,7 @@ function roleName(id) {
 const IAM_COLUMNS = [
   (u) => `${u.name || ''} ${u.email}`.trim(),
   (u) => roleName(u.role),
-  (u) => [u.hasPassword ? 'Password' : '', 'Checkmarx One', ...(u.cxoneIdentities ?? [])].filter(Boolean).join(' '),
+  (u) => [u.hasPassword ? (u.twoStep ? 'Password and two-step code' : 'Password') : '', 'Checkmarx One', ...(u.cxoneIdentities ?? [])].filter(Boolean).join(' '),
   (u) => (u.disabled ? 'Disabled' : u.locked ? 'Locked' : u.mustChangePassword ? 'Must set password' : 'Active'),
   { value: (u) => Date.parse(u.lastLoginAt) || null, text: (u) => (u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : '') },
   null,
@@ -10945,7 +11145,125 @@ function renderSignInPolicy() {
   $('iam-reset-missing').innerHTML = missing.length
     ? `<li class="hint">"Forgot your password?" is not shown yet:</li>${missing.map((m) => `<li>${escapeHtml(m)}</li>`).join('')}`
     : '';
+  renderSignInSecurity();
 }
+
+/** People & roles → Sign-in, for Admins: two-step sign-in for everyone. */
+function renderSignInSecurity() {
+  const security = access.data?.signIn?.security;
+  $('iam-twostep-panel').hidden = !security;
+  $('iam-sso-panel').hidden = !security;
+  if (!security) return;
+  $('iam-twostep-required').checked = security.twoStepRequired;
+  renderSsoSettings(security);
+}
+
+// ---- People & roles → Sign-in → Single sign-on (Admins) ----
+
+/** What the form was last filled from, so that typing is not overwritten each time the page is drawn again. */
+let ssoFilledFrom = '';
+
+function renderSsoSettings(security) {
+  const { sso } = security;
+  $('sso-redirect').value = security.redirectUri || '';
+  $('sso-redirect').placeholder = 'Set this server\'s address first (Settings → Server address)';
+  $('sso-secret-state').textContent = sso.clientSecretSet ? '(stored)' : '(not set)';
+  $('sso-secret-remove').hidden = !sso.clientSecretSet;
+  const missing = sso.enabled ? security.missing ?? [] : [];
+  $('sso-missing').hidden = !missing.length;
+  $('sso-missing').innerHTML = missing.length ? `<li class="hint">The button is not shown on the sign-in page yet:</li>${missing.map((m) => `<li>${escapeHtml(m)}</li>`).join('')}` : '';
+  const from = JSON.stringify([sso, security.roles]);
+  if (from === ssoFilledFrom) return;
+  ssoFilledFrom = from;
+  $('sso-enabled').checked = sso.enabled;
+  $('sso-issuer').value = sso.issuer;
+  $('sso-label').value = sso.label;
+  $('sso-client-id').value = sso.clientId;
+  $('sso-client-secret').value = '';
+  $('sso-domains').value = (sso.domains ?? []).join(', ');
+  $('sso-provision').value = sso.provision;
+  $('sso-role').innerHTML = (security.roles ?? []).map((r) => `<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}</option>`).join('');
+  $('sso-role').value = (security.roles ?? []).some((r) => r.id === sso.role) ? sso.role : 'user';
+  $('sso-verified').checked = sso.requireVerifiedEmail;
+  $('sso-password-admins').checked = sso.passwordAdminsOnly;
+  syncSsoForm();
+}
+
+/** The role is chosen only when people are added; passwords can be kept for Admins only while single sign-on is on. */
+function syncSsoForm() {
+  $('sso-role-field').hidden = $('sso-provision').value !== 'create';
+  $('sso-password-admins').disabled = !$('sso-enabled').checked;
+  if (!$('sso-enabled').checked) $('sso-password-admins').checked = false;
+}
+
+async function saveSso(sso, done) {
+  setStatus('sso-admin-status', 'Saving…');
+  try {
+    access.data = await api('/api/iam/sign-in', { method: 'PUT', body: JSON.stringify({ sso }) });
+    ssoFilledFrom = '';
+    renderAccess();
+    setStatus('sso-admin-status', done, 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('sso-admin-status', error);
+  }
+}
+
+{
+  $('sso-provision').addEventListener('change', syncSsoForm);
+  $('sso-enabled').addEventListener('change', syncSsoForm);
+  $('iam-sso-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const secret = $('sso-client-secret').value;
+    saveSso(
+      {
+        enabled: $('sso-enabled').checked,
+        issuer: $('sso-issuer').value.trim(),
+        label: $('sso-label').value.trim(),
+        clientId: $('sso-client-id').value.trim(),
+        // Left empty, the stored secret is kept.
+        ...(secret ? { clientSecret: secret } : {}),
+        domains: $('sso-domains').value,
+        provision: $('sso-provision').value,
+        role: $('sso-role').value,
+        requireVerifiedEmail: $('sso-verified').checked,
+        passwordAdminsOnly: $('sso-password-admins').checked,
+      },
+      'Saved.',
+    );
+  });
+  $('sso-secret-remove').addEventListener('click', () => {
+    if (!confirm('Remove the stored client secret? Single sign-on stops working until a new one is saved, unless the identity provider needs none.')) return;
+    saveSso({ clientSecret: null }, 'The client secret was removed.');
+  });
+  $('sso-check').addEventListener('click', async () => {
+    setStatus('sso-admin-status', 'Checking the identity provider as saved…');
+    try {
+      const result = await api('/api/iam/sign-in/sso/check', { method: 'POST' });
+      setStatus('sso-admin-status', result.message, result.ok ? 'ok' : 'error');
+    } catch (error) {
+      if (!handleAuthLoss(error)) showError('sso-admin-status', error);
+    }
+  });
+  copyButton($('sso-redirect-copy'), $('sso-admin-status'), () => $('sso-redirect').value);
+}
+
+$('iam-twostep-required').addEventListener('change', async () => {
+  const on = $('iam-twostep-required').checked;
+  if (on && !confirm('Require two-step sign-in for everyone who signs in with a password? Each person without it sets it up at their next sign-in, you included.')) {
+    $('iam-twostep-required').checked = false;
+    return;
+  }
+  setStatus('iam-twostep-status', 'Saving…');
+  try {
+    access.data = await api('/api/iam/sign-in', { method: 'PUT', body: JSON.stringify({ twoStepRequired: on }) });
+    renderAccess();
+    setStatus('iam-twostep-status', 'Saved.', 'ok');
+    if (state.me?.twoStep) state.me = { ...state.me, twoStep: { ...state.me.twoStep, required: on } };
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('iam-twostep-status', error);
+    renderSignInSecurity();
+  }
+});
 
 $('iam-reset-policy').addEventListener('change', async () => {
   setStatus('iam-reset-status', 'Saving…');
@@ -10994,7 +11312,7 @@ function renderAccess() {
     .map((u) => {
       const me = u.id === state.me.user.id;
       const status = u.disabled ? '<span class="badge bad">Disabled</span>' : u.locked ? '<span class="badge warn">Locked</span>' : u.mustChangePassword ? '<span class="badge muted">Must set password</span>' : '<span class="badge">Active</span>';
-      const methods = [u.hasPassword ? 'Password' : '', `Checkmarx One: ${[u.email, ...u.cxoneIdentities].map(escapeHtml).join(', ')}`].filter(Boolean).join('<br>');
+      const methods = [u.hasPassword ? (u.twoStep ? 'Password and two-step code' : 'Password') : '', `Checkmarx One: ${[u.email, ...u.cxoneIdentities].map(escapeHtml).join(', ')}`].filter(Boolean).join('<br>');
       const roleCell = u.canManage
         ? `<select data-iam-role="${u.id}" aria-label="Role of ${escapeHtml(u.email)}">${roles
             .filter((r) => r.canAssign || r.id === u.role)
@@ -11004,6 +11322,7 @@ function renderAccess() {
       const actions = u.canManage
         ? `<button type="button" class="link" data-iam-profile="${u.id}">Edit profile</button>
            <button type="button" class="link" data-iam-reset="${u.id}">Set password</button>
+           ${u.twoStep ? `<button type="button" class="link" data-iam-twostep="${u.id}">Reset two-step</button>` : ''}
            <button type="button" class="link" data-iam-ids="${u.id}">Identities</button>
            <button type="button" class="link" data-iam-toggle="${u.id}">${u.disabled ? 'Enable' : 'Disable'}</button>
            <button type="button" class="link danger" data-iam-delete="${u.id}">Remove</button>`
@@ -11359,7 +11678,7 @@ $('iam-users').addEventListener('change', (event) => {
 $('iam-users').addEventListener('click', (event) => {
   const button = event.target.closest('button');
   if (!button) return;
-  const id = button.dataset.iamProfile || button.dataset.iamReset || button.dataset.iamIds || button.dataset.iamToggle || button.dataset.iamDelete || button.dataset.iamTenants;
+  const id = button.dataset.iamProfile || button.dataset.iamReset || button.dataset.iamTwostep || button.dataset.iamIds || button.dataset.iamToggle || button.dataset.iamDelete || button.dataset.iamTenants;
   const user = access.data.users.find((u) => u.id === id);
   if (!user) return;
   if (button.dataset.iamProfile) {
@@ -11372,6 +11691,9 @@ $('iam-users').addEventListener('click', (event) => {
     const password = generatePassword();
     if (!confirm(`Set a temporary password for ${user.email}? They are signed out and choose their own at next sign-in.`)) return;
     iamCall(`/api/iam/users/${id}/password`, { method: 'POST', body: JSON.stringify({ password }) }, `Temporary password for ${user.email}: ${password}`);
+  } else if (button.dataset.iamTwostep) {
+    if (!confirm(`Reset two-step sign-in for ${user.email}? Their authenticator app and recovery codes stop working here, and they set it up again.`)) return;
+    iamCall(`/api/iam/users/${id}/two-step`, { method: 'DELETE' }, `Two-step sign-in was reset for ${user.email}.`);
   } else if (button.dataset.iamIds) {
     const value = prompt(`Checkmarx One identities that sign in as ${user.email} — Checkmarx One usernames, comma separated (their email always counts):`, user.cxoneIdentities.join(', '));
     if (value === null) return;
@@ -13090,6 +13412,104 @@ function renderPersonalImpact(profile) {
     : `<span>The organisation's currency:</span> <b translate="no">${escapeHtml(org.currency || 'USD')}</b>`;
 }
 
+// ---- Your profile → Two-step sign-in: on, off, and new recovery codes, each with a code from the app ----
+
+/** What the code form is for right now: 'enable' (with the key shown), 'disable' or 'codes'; '' when it is closed. */
+let ownTwoStepStep = '';
+
+function renderOwnTwoStep() {
+  const mine = state.me?.twoStep;
+  // Only one's own, and only for people who have a password to protect.
+  const shown = !profileOf && Boolean(mine?.available);
+  $('pf-twostep-block').hidden = !shown;
+  if (!shown) return;
+  const since = mine.since ? new Date(mine.since).toLocaleDateString() : '';
+  $('pf-twostep-state').innerHTML = mine.on
+    ? `<span class="badge">On</span> <span>Turned on:</span> <b translate="no">${escapeHtml(since)}</b> · <span>Recovery codes left:</span> <b translate="no">${Number(mine.recoveryLeft) || 0}</b>${mine.required ? ' · <span>An administrator requires it, so it cannot be turned off.</span>' : ''}`
+    : `<span class="badge muted">Off</span>${mine.required ? ' <span>An administrator requires it for everyone who signs in with a password: turn it on now, or you are asked to at your next sign-in.</span>' : ''}`;
+  const busy = Boolean(ownTwoStepStep) || !$('pf-twostep-recovery').hidden;
+  $('pf-twostep-actions').hidden = busy;
+  $('pf-twostep-on').hidden = mine.on;
+  $('pf-twostep-codes').hidden = !mine.on;
+  $('pf-twostep-off').hidden = !mine.on || mine.required;
+  $('pf-twostep-setup').hidden = ownTwoStepStep !== 'enable';
+  $('pf-twostep-form').hidden = !ownTwoStepStep;
+  $('pf-twostep-ask').textContent =
+    ownTwoStepStep === 'disable'
+      ? 'To turn two-step sign-in off, enter a current code from your authenticator app.'
+      : ownTwoStepStep === 'codes'
+        ? 'To make new recovery codes, enter a current code from your authenticator app. The old recovery codes stop working.'
+        : '';
+  $('pf-twostep-ask').hidden = ownTwoStepStep === 'enable' || !ownTwoStepStep;
+  $('pf-twostep-submit').textContent = ownTwoStepStep === 'enable' ? 'Turn on' : ownTwoStepStep === 'disable' ? 'Turn off' : 'Make new codes';
+}
+
+function openOwnTwoStep(step) {
+  ownTwoStepStep = step;
+  $('pf-twostep-code').value = '';
+  renderOwnTwoStep();
+  if (step) $('pf-twostep-code').focus();
+}
+
+{
+  $('pf-twostep-on').addEventListener('click', async () => {
+    setStatus('pf-twostep-status', '');
+    try {
+      const setup = await api('/api/me/two-step/setup', { method: 'POST' });
+      showTwoStepKey($('pf-twostep-key'), setup);
+      openOwnTwoStep('enable');
+    } catch (error) {
+      if (!handleAuthLoss(error)) showError('pf-twostep-status', error);
+    }
+  });
+  $('pf-twostep-off').addEventListener('click', () => {
+    setStatus('pf-twostep-status', '');
+    openOwnTwoStep('disable');
+  });
+  $('pf-twostep-codes').addEventListener('click', () => {
+    setStatus('pf-twostep-status', '');
+    openOwnTwoStep('codes');
+  });
+  $('pf-twostep-cancel').addEventListener('click', () => {
+    $('pf-twostep-key').textContent = '';
+    setStatus('pf-twostep-status', '');
+    openOwnTwoStep('');
+  });
+  $('pf-twostep-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const step = ownTwoStepStep;
+    if (!step) return;
+    const path = { enable: '/api/me/two-step/enable', disable: '/api/me/two-step/disable', codes: '/api/me/two-step/recovery-codes' }[step];
+    const button = $('pf-twostep-submit');
+    button.disabled = true;
+    try {
+      const answer = await api(path, { method: 'POST', body: JSON.stringify({ code: $('pf-twostep-code').value.trim() }) });
+      state.me = { ...state.me, user: answer.me.user, twoStep: answer.me.twoStep };
+      $('pf-twostep-key').textContent = '';
+      ownTwoStepStep = '';
+      if (answer.recoveryCodes) {
+        showRecoveryCodes($('pf-recovery-codes'), answer.recoveryCodes);
+        $('pf-twostep-recovery').hidden = false;
+      }
+      setStatus('pf-twostep-status', step === 'enable' ? 'Two-step sign-in is on.' : step === 'disable' ? 'Two-step sign-in is off.' : 'New recovery codes made. The old ones no longer work.', 'ok');
+      renderOwnTwoStep();
+    } catch (error) {
+      $('pf-twostep-code').value = '';
+      if (handleAuthLoss(error)) return;
+      showError('pf-twostep-status', error);
+      // The key was shown more than ten minutes ago: start again from the button.
+      if (error.body?.restart) openOwnTwoStep('');
+    } finally {
+      button.disabled = false;
+    }
+  });
+  $('pf-recovery-done').addEventListener('click', () => {
+    $('pf-recovery-codes').textContent = '';
+    $('pf-twostep-recovery').hidden = true;
+    renderOwnTwoStep();
+  });
+}
+
 /** "Asia/Tokyo (UTC+09:00)". */
 function profileZoneLabel(zone) {
   try {
@@ -13120,7 +13540,7 @@ function renderProfile() {
   $('pf-email').textContent = user.email;
   if (other && document.activeElement !== $('pf-email-input')) $('pf-email-input').value = user.email;
   $('pf-role').textContent = other ? user.roleName : me.role.name;
-  $('pf-via').textContent = me.via === 'cxone' ? 'A Checkmarx One key' : 'A password';
+  $('pf-via').textContent = me.via === 'cxone' ? 'A Checkmarx One key' : me.via === 'sso' ? 'Single sign-on' : 'A password';
   $('pf-last').textContent = user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : '—';
   if (document.activeElement !== $('pf-name')) $('pf-name').value = user.name ?? '';
   const language = $('pf-language');
@@ -13132,6 +13552,7 @@ function renderProfile() {
     $('pf-theme').value = profile.theme ?? 'auto';
     $('pf-accent').value = profile.accent ?? 'indigo';
   }
+  renderOwnTwoStep();
   const zones = $('pf-tz');
   if (!zones.options.length) {
     let all = [];

@@ -121,7 +121,8 @@ The state folder holds:
 
 ```
 settings.json               SMTP, recipients, template, credit settings, stored keys
-iam.json                    people, roles and permissions (passwords as scrypt hashes)
+iam.json                    people, roles and permissions (passwords as scrypt hashes), two-step sign-in keys,
+                            and the sign-in rules with the single sign-on client secret
 triage-credits.json         credit ledger: every credit spent, never trimmed
 credit-allocations.json     per-project allocations and admin-added credits
 audit/audit-YYYY-MM.jsonl   the audit log

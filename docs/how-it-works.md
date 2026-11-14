@@ -145,7 +145,7 @@ All state lives in one folder: `/data` in the container, `DATA_DIR` elsewhere (d
 | What | File |
 | --- | --- |
 | Settings: SMTP password, the integration key, template, credit settings | `settings.json` |
-| People and roles (passwords as scrypt hashes) | `iam.json` |
+| People and roles (passwords as scrypt hashes), two-step sign-in keys, and the sign-in rules with the single sign-on client secret | `iam.json` |
 | Credit ledger, per-project allocations | `triage-credits.json`, `credit-allocations.json` |
 | Audit log (append-only, hash-chained) | `audit/audit-YYYY-MM.jsonl`, `audit.key` |
 | Tracked reports, emailed reports kept for download | `tracked-reports.json`, `report-files/` |
