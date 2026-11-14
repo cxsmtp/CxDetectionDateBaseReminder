@@ -37779,5 +37779,1049 @@
   "seen": [
    "Workbench › scope"
   ]
+ },
+ "Two-step sign-in": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "An administrator requires two-step sign-in for everyone who signs in with a password. Set it up now: it takes a minute. From then on, you type a code from your phone after your password.": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Install an authenticator app on your phone, if you have none: Microsoft Authenticator, Google Authenticator, or any other that makes six-digit codes.": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "In the app, add an account and scan this QR code. If you cannot scan it, type the key instead.": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Enter the six-digit code your authenticator app shows for CxMissionZero.": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Then enter the six-digit code the app shows, to turn two-step sign-in on.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Enter one of the recovery codes you saved when you turned two-step sign-in on. Each works once.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Recovery code": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Use a recovery code": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Use a code from the app": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Turn on and sign in": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Keep your recovery codes": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Two-step sign-in is on. If you lose your phone, one of these codes signs you in instead of a code from the app. Each works once. They are shown only now: keep them somewhere safe, not on the phone itself.": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "I have saved them": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Recovery codes": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "The key, if you cannot scan the code:": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Copy the key": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Copy the codes": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "Could not copy: select the text and copy it.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "That sign-in is over: it lasts five minutes and takes a few tries. Sign in again.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › two-step sign-in › status (from the server)"
+  ]
+ },
+ "That code is not right. Use the newest code in your authenticator app, and check that the phone's clock is right.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › two-step sign-in › status (from the server)"
+  ]
+ },
+ "Two-step sign-in was turned on for this account in the meantime. Sign in again.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › two-step sign-in › status (from the server)"
+  ]
+ },
+ "Two-step sign-in was reset for this account in the meantime. Sign in again.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › two-step sign-in › status (from the server)"
+  ]
+ },
+ "This account is disabled. Ask an administrator.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › status"
+  ]
+ },
+ "Too many sign-in attempts from this address. Wait a few minutes.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › status"
+  ]
+ },
+ "After your password, a six-digit code from an authenticator app on your phone: someone who learns your password still cannot sign in as you. It is asked for when you sign in with your password, not when you sign in with a Checkmarx One key or with single sign-on.": {
+  "kind": "text",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "Turn on two-step sign-in": {
+  "kind": "text",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "New recovery codes": {
+  "kind": "text",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "Turn off two-step sign-in": {
+  "kind": "text",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "Enter the six-digit code the app shows. Only then is two-step sign-in on.": {
+  "kind": "text",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "Code from your authenticator app": {
+  "kind": "text",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "If you lose your phone, one of these recovery codes signs you in instead of a code from the app. Each works once. They are shown only now: keep them somewhere safe, not on the phone itself.": {
+  "kind": "text",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "Turned on:": {
+  "kind": "text",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "Recovery codes left:": {
+  "kind": "text",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "An administrator requires it, so it cannot be turned off.": {
+  "kind": "text",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "An administrator requires it for everyone who signs in with a password: turn it on now, or you are asked to at your next sign-in.": {
+  "kind": "text",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "To turn two-step sign-in off, enter a current code from your authenticator app.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "To make new recovery codes, enter a current code from your authenticator app. The old recovery codes stop working.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "Turn off": {
+  "kind": "message",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "Make new codes": {
+  "kind": "message",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "Two-step sign-in is on.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "Two-step sign-in is off.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "New recovery codes made. The old ones no longer work.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in"
+  ]
+ },
+ "Two-step sign-in is for people who sign in with a password. Set a password first.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in › status (from the server)"
+  ]
+ },
+ "Two-step sign-in is already on.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in › status (from the server)"
+  ]
+ },
+ "That key is more than ten minutes old. Start again.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in › status (from the server)"
+  ]
+ },
+ "Two-step sign-in is not on.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in › status (from the server)"
+  ]
+ },
+ "An administrator requires two-step sign-in for everyone who signs in with a password, so it cannot be turned off.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Your profile › Two-step sign-in › status (from the server)"
+  ]
+ },
+ "After the password, a six-digit code from an authenticator app on the person's phone. Each person turns it on for themselves under Settings → Your profile. It covers signing in with a password. Signing in with a Checkmarx One key, single sign-on and the links in emailed reports are not asked for a code. For the whole server.": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Two-step sign-in"
+  ]
+ },
+ "Require two-step sign-in for everyone who signs in with a password": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Two-step sign-in"
+  ]
+ },
+ "Off: each person chooses. On: a person without it sets it up at their next password sign-in, before they get in, and nobody can turn their own off. People who are signed in now carry on until they sign in again.": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Two-step sign-in"
+  ]
+ },
+ "Someone lost their phone and their recovery codes? Under People, <strong>Reset two-step</strong> takes it off for them, and they set it up again. For the only Admin, start the server once with <code>RESET_TWO_STEP</code> set to their email address.": {
+  "kind": "html",
+  "seen": [
+   "People & roles › Sign-in › Two-step sign-in: the <code> part is a setting name and stays as it is"
+  ]
+ },
+ "Require two-step sign-in for everyone who signs in with a password? Each person without it sets it up at their next sign-in, you included.": {
+  "kind": "dialog",
+  "seen": [
+   "People & roles › Sign-in › Two-step sign-in › confirmation"
+  ]
+ },
+ "Reset two-step": {
+  "kind": "text",
+  "seen": [
+   "People & roles › People › a person’s row"
+  ]
+ },
+ "Resetting two-step sign-in…": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "Two-step sign-in reset": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "Resetting two-step sign-in did not finish": {
+  "kind": "text",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "Only an Admin changes two-step sign-in for everyone and single sign-on.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Two-step sign-in › status (from the server)"
+  ]
+ },
+ "Turn your own two-step sign-in off under Settings → Your profile.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Two-step sign-in › status (from the server)"
+  ]
+ },
+ "You cannot reset this person's two-step sign-in: their role holds permissions you do not have.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Two-step sign-in › status (from the server)"
+  ]
+ },
+ "Sign in with single sign-on": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › single sign-on › the button (its default label)"
+  ]
+ },
+ "Here, only Admins still sign in with a password. Everyone else uses the button above.": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › single sign-on"
+  ]
+ },
+ "Going to the identity provider…": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › single sign-on"
+  ]
+ },
+ "Single sign-on is not turned on here. Sign in with your email and password.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › single sign-on › status"
+  ]
+ },
+ "Single sign-on is not set up completely. Ask an administrator.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › single sign-on › status"
+  ]
+ },
+ "The identity provider could not be reached, or did not answer as expected. Try again in a moment, or ask an administrator.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › single sign-on › status"
+  ]
+ },
+ "The identity provider did not sign you in. Try again.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › single sign-on › status"
+  ]
+ },
+ "That sign-in took too long, or was started in another browser. Try again.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › single sign-on › status"
+  ]
+ },
+ "The identity provider's answer could not be verified, so nobody was signed in. Ask an administrator.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › single sign-on › status"
+  ]
+ },
+ "The identity provider did not give a verified email address for you. Ask an administrator.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › single sign-on › status"
+  ]
+ },
+ "Your email address is not one that may sign in here this way.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › single sign-on › status"
+  ]
+ },
+ "The identity provider signed you in, but you have no access here yet. Ask an administrator to add you.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › single sign-on › status"
+  ]
+ },
+ "Single sign-on did not work. Try again, or ask an administrator.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › single sign-on › status"
+  ]
+ },
+ "Signing in with a password is turned off for this account. Use single sign-on.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › status (from the server)"
+  ]
+ },
+ "You signed in with single sign-on and have no password here. An administrator can give you one under People & roles.": {
+  "kind": "message",
+  "seen": [
+   "Change password › hint (signed in with single sign-on, no password here)"
+  ]
+ },
+ "Back": {
+  "kind": "text",
+  "seen": [
+   "Change password › signed in with single sign-on, no password here › button"
+  ]
+ },
+ "You signed in with single sign-on and have no password here, so you cannot set one yourself. An administrator can give you one under People & roles.": {
+  "kind": "message",
+  "seen": [
+   "Change password › status (from the server)"
+  ]
+ },
+ "Your account here is linked to another account at the identity provider. Ask an administrator.": {
+  "kind": "message",
+  "seen": [
+   "Sign-in page › single sign-on › status"
+  ]
+ },
+ "Single sign-on": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "People sign in at your organisation's identity provider (Microsoft Entra ID, Okta, Keycloak, Google, or any other that speaks OpenID Connect) and come back signed in here, as the person in People & roles with the same email address. Their role, and what they may do, are still set here. Two-step sign-in is not asked for after single sign-on: the identity provider has its own. For the whole server.": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Offer single sign-on on the sign-in page": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Off: the button is not shown, and nobody can sign in this way.": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Redirect address to register at the identity provider": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Copy": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "This server's address (Settings → Server address) followed by": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on: the start of a sentence that ends with a path in code"
+  ]
+ },
+ "Identity provider address (issuer)": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "https://login.company.com/realms/main": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "An https address. The server reads": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on: the start of a sentence; a path in code follows"
+  ]
+ },
+ "under it, through the proxy and with the certificates set under Settings → Network & proxy.": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on: the end of that sentence, after the path in code"
+  ]
+ },
+ "Button label": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "What the button on the sign-in page says.": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Client id": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Client secret": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "(stored)": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Leave empty to keep the stored one": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Stored on the server and never shown again.": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Who may sign in this way": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Only people who are already in People & roles": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Everyone the identity provider signs in: add them with the role below": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Role for people added this way": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Never Admin. List at least one email domain allowed below: without one, this cannot be saved. A person you remove is added again at their next single sign-on: to keep someone out, disable them instead.": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Email domains allowed (optional)": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "company.com, company.co.uk": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Empty: any address the identity provider signs in.": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "The identity provider must mark the email address as verified": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Turn this off only for a provider that never sends that mark, and whose addresses you trust.": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Only Admins may still sign in with a password": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Off: everyone who has a password can still use it. On: only people with the Admin role can, so that an Admin gets in when the identity provider cannot be reached. Signing in with a Checkmarx One key is not affected.": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Save single sign-on": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Check the identity provider": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Remove the stored client secret": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "Set this server's address first (Settings → Server address)": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "The button is not shown on the sign-in page yet:": {
+  "kind": "text",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on"
+  ]
+ },
+ "The identity provider's address and the client id are not set.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › item of the missing list (from the server)"
+  ]
+ },
+ "Remove the stored client secret? Single sign-on stops working until a new one is saved, unless the identity provider needs none.": {
+  "kind": "dialog",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › confirmation"
+  ]
+ },
+ "The client secret was removed.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status"
+  ]
+ },
+ "Checking the identity provider as saved…": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status"
+  ]
+ },
+ "Only an Admin checks single sign-on.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "Give the identity provider's address first, and save.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "The identity provider answered, but publishes no RSA or EC signing key.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "The identity provider answered: {0} signing key found.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "The identity provider answered: {0} signing keys found.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "The identity provider's address is not a web address.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "The identity provider's address must not carry a user name or password.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "The identity provider's address must be an https address.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "The identity provider's address points at a link-local or cloud metadata address, which the server never calls.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "The identity provider's address must not have a \"?\" or \"#\" part.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "That client secret is too long.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "Choose who may sign in this way: people already in People & roles, or everyone the identity provider signs in.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "People added by single sign-on cannot be given the Admin role. Choose another role, and make someone an Admin under People & roles.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "Choose the role people added by single sign-on get.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "Give the identity provider's address and the client id before turning single sign-on on.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "Turn single sign-on on before keeping passwords for Admins only.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "List at least one email domain allowed before adding people at their first single sign-on. Otherwise everyone the identity provider signs in would be added.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › Sign-in › Single sign-on › status (from the server)"
+  ]
+ },
+ "Reset single sign-on link": {
+  "kind": "text",
+  "seen": [
+   "People & roles › People › a person’s row (the link between the person and their account at the identity provider)"
+  ]
+ },
+ "Resetting the single sign-on link…": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "Single sign-on link reset": {
+  "kind": "busy",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "Resetting the single sign-on link did not finish": {
+  "kind": "text",
+  "seen": [
+   "busy line"
+  ]
+ },
+ "You cannot reset this person's single sign-on link: their role holds permissions you do not have.": {
+  "kind": "message",
+  "seen": [
+   "People & roles › People › status (from the server)"
+  ]
+ },
+ "Single sign-on is on, and the identity provider sends people back to this server's address, so only an Admin changes it.": {
+  "kind": "message",
+  "seen": [
+   "Settings › Server address › status (from the server)"
+  ]
+ },
+ "Single sign-on is on, and people come back from the identity provider to this server's address, so it must stay an https address. Give an https address, or turn single sign-on off first (People & roles → Sign-in).": {
+  "kind": "message",
+  "seen": [
+   "Settings › Server address › status (from the server)"
+  ]
+ },
+ "Identity provider (single sign-on)": {
+  "kind": "text",
+  "seen": [
+   "Settings → Network & proxy: table cell"
+  ]
+ },
+ "Backups are encrypted with this server's backup key, and nobody has confirmed saving the key somewhere else yet. If this server is lost, its backups open only with that key. <a href=\"#/audit/backups\">Save the backup key</a>": {
+  "kind": "html",
+  "seen": [
+   "every page › notice for Admins while nobody confirmed saving the backup key"
+  ]
+ },
+ "Backups of this server are not encrypted: each one holds the Checkmarx One key, the mail password and the signing keys in the clear. <a href=\"#/audit/backups\">Turn on backup encryption</a>": {
+  "kind": "html",
+  "seen": [
+   "every page › notice for Admins while backups are not encrypted"
+  ]
+ },
+ "Encryption": {
+  "kind": "text",
+  "seen": [
+   "audit › dt › State folder & backups"
+  ]
+ },
+ "every {0} h, keeping {1}, encrypted": {
+  "kind": "text",
+  "seen": [
+   "audit › dd › State folder & backups"
+  ]
+ },
+ "every {0} h, keeping {1}, not encrypted": {
+  "kind": "text",
+  "seen": [
+   "audit › dd › State folder & backups"
+  ]
+ },
+ "on, with BACKUP_PASSPHRASE": {
+  "kind": "text",
+  "seen": [
+   "audit › dd › State folder & backups"
+  ]
+ },
+ "on, with this server's backup key — nobody has confirmed saving the key somewhere else yet": {
+  "kind": "text",
+  "seen": [
+   "audit › dd › State folder & backups"
+  ]
+ },
+ "off (BACKUP_ENCRYPTION=off is set on the server)": {
+  "kind": "text",
+  "seen": [
+   "audit › dd › State folder & backups"
+  ]
+ },
+ "off — each backup holds the keys and passwords in the clear": {
+  "kind": "text",
+  "seen": [
+   "audit › dd › State folder & backups"
+  ]
+ },
+ "Backups are not encrypted.": {
+  "kind": "text",
+  "seen": [
+   "Audit › State & backups › backup encryption"
+  ]
+ },
+ "BACKUP_ENCRYPTION=off is set on the server. Each backup holds the Checkmarx One key, the mail password and the signing keys in the clear. To encrypt them, remove that setting and restart the server.": {
+  "kind": "text",
+  "seen": [
+   "Audit › State & backups › backup encryption"
+  ]
+ },
+ "Each backup holds the Checkmarx One key, the mail password and the signing keys in the clear. Turn encryption on and the server makes a backup key, shows it to you, and encrypts every backup from then on. Backups made before stay as they are.": {
+  "kind": "text",
+  "seen": [
+   "Audit › State & backups › backup encryption"
+  ]
+ },
+ "Turn on backup encryption": {
+  "kind": "text",
+  "seen": [
+   "Audit › State & backups › backup encryption"
+  ]
+ },
+ "Backup key": {
+  "kind": "text",
+  "seen": [
+   "Audit › State & backups › backup encryption"
+  ]
+ },
+ "Every backup is encrypted with this server's backup key. Keep the key somewhere other than this server: if the server is lost, a backup opens only with it. To restore on another server, give the key when the restore asks, or set BACKUP_PASSPHRASE to it. The key is never emailed and is not inside a backup.": {
+  "kind": "text",
+  "seen": [
+   "Audit › State & backups › backup encryption"
+  ]
+ },
+ "Show backup key": {
+  "kind": "text",
+  "seen": [
+   "Audit › State & backups › backup encryption"
+  ]
+ },
+ "<b>Nobody has confirmed saving this key yet.</b> Show it, keep a copy somewhere other than this server (a password manager, a safe), then confirm.": {
+  "kind": "html",
+  "seen": [
+   "Audit › State & backups › backup encryption"
+  ]
+ },
+ "Download as a text file": {
+  "kind": "text",
+  "seen": [
+   "Audit › State & backups › backup encryption"
+  ]
+ },
+ "I have saved it": {
+  "kind": "text",
+  "seen": [
+   "Audit › State & backups › backup encryption"
+  ]
+ },
+ "Turn on backup encryption? The server makes a backup key and encrypts every backup from now on. You will be shown the key: keep it somewhere other than this server, because a backup opens only with it.": {
+  "kind": "dialog",
+  "seen": [
+   "Audit › State & backups › backup encryption › confirmation"
+  ]
+ },
+ "Have you saved the backup key somewhere other than this server? Without it, a backup cannot be opened if this server is lost.": {
+  "kind": "dialog",
+  "seen": [
+   "Audit › State & backups › backup encryption › confirmation"
+  ]
+ },
+ "Backup key copied.": {
+  "kind": "message",
+  "seen": [
+   "Audit › State & backups › backup encryption"
+  ]
+ },
+ "Select the key and copy it.": {
+  "kind": "message",
+  "seen": [
+   "Audit › State & backups › backup encryption"
+  ]
+ },
+ "Backup key or passphrase:": {
+  "kind": "dialog",
+  "seen": [
+   "Audit › State & backups › Restore from backup…: label of the box that asks for the key of an encrypted backup"
+  ]
+ },
+ "This server has no backup key: backup encryption has not been turned on.": {
+  "kind": "message",
+  "seen": [
+   "Audit › State & backups › backup encryption › status (from the server)"
+  ]
+ },
+ "Backup encryption can be turned on here. To keep backups plain, set BACKUP_ENCRYPTION=off on the server.": {
+  "kind": "message",
+  "seen": [
+   "Audit › State & backups › backup encryption › status (from the server)"
+  ]
+ },
+ "Backups are already encrypted, with BACKUP_PASSPHRASE.": {
+  "kind": "message",
+  "seen": [
+   "Audit › State & backups › backup encryption › status (from the server)"
+  ]
+ },
+ "BACKUP_ENCRYPTION=off is set on the server: remove it and restart to encrypt backups.": {
+  "kind": "message",
+  "seen": [
+   "Audit › State & backups › backup encryption › status (from the server)"
+  ]
+ },
+ "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": {
+  "kind": "message",
+  "seen": [
+   "Audit › State & backups › Restore from backup… (from the server)"
+  ]
+ },
+ "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": {
+  "kind": "message",
+  "seen": [
+   "Audit › State & backups › Restore from backup… (from the server)"
+  ]
+ },
+ "twostep|Code": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
+ },
+ "twostep|Recovery code": {
+  "kind": "text",
+  "seen": [
+   "Sign-in page › two-step sign-in"
+  ]
  }
 }

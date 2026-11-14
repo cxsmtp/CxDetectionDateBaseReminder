@@ -144,13 +144,13 @@ export class ActivationStore {
   /**
    * Each kept entry as its signed code says it: the scope, the action, the date and the tenant count are read from
    * the code, not from the file. An entry whose code does not verify (edited, or from another key) counts for
-   * nothing. An entry without a code is from a version before MZ-01.01.10: kept as it is, except the product
-   * licence, which needs its code.
+   * nothing. So does an entry without a code (kept by a version before MZ-01.01.10, or written by hand): the
+   * code is entered once more, for the product, for several tenants and for every feature alike.
    */
   #seal() {
     const sealed = (entry, scope) => {
       if (!entry || typeof entry !== 'object') return null;
-      if (!entry.code) return scope === 'product' ? null : entry;
+      if (!entry.code) return null;
       // now: 0, so an expired code still reads (its date then says it is over).
       const checked = checkCode(entry.code, { now: 0, ...(this.#keys ? { keys: this.#keys } : {}) });
       if (!checked.valid || checked.scope !== scope) return null;

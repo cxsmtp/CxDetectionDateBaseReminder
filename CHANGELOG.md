@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.11 | 509/s, 0 (main 514 and 508, 0; two pairs) | 1.0 and 3.4 s (4.4 and 0.7 s) | 142 and 293 ms (209 and 144 ms) | 1,202 + 9 in a browser | 0 vulnerabilities | Scan e20ac30a of the final code, every engine but the AI ones: 32 open (1 / 4 / 10 / 16, 1 info); 2 in this release's code, checked and not exploitable; an independent review's 6 findings fixed ([review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.10 | 501–515/s, 0 (main 493–510, 0; five pairs) | 1.0–5.6 s (0.2–2.0 s; 0.2–0.5 s inside the server on both) | 128–262 ms (119–206 ms) | 1,112 | 0 vulnerabilities | Scan dc0b5c87 of the final code, every engine but the AI ones: 31 open (1 / 4 / 9 / 16, 1 info), none new, all judged before; the release's own code has no result; an independent review's 6 fixes are in ([review](docs/security/mz-01.01.10-review.md)) |
 | MZ-01.01.09 | 507/s, 0 (main 502, 0) | 4.1 s (6.3 s) | 115 ms (288 ms) | 1,055 | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, e4657d28 of MZ-01.01.08's final code: 75 open (7 / 23 / 27 / 17, 1 info), 15 to verify |
 | MZ-01.01.08 | 509/s, 0 (main 521, 0) | 412 ms (563 ms) | 97 ms (70 ms) | 1,037 | 0 vulnerabilities | Scan e4657d28 of the final code: 75 open (7 / 23 / 27 / 17, 1 info), none new; nodemailer CVE-2026-125755 and the launcher's timing fixed in the release, 15 to verify (by design, not shipped, or unchanged code under newer rules) |
@@ -96,6 +97,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.11 — 2026-11-14 14:10 UTC · [#133](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/133)
+
+- **Two-step sign-in.** After the password, a six-digit code from an authenticator app on the phone, set up by scanning a QR code, with ten one-time recovery codes; each person turns it on under Settings → Your profile, an Admin can require it for everyone who signs in with a password, and Reset two-step (or `reset-admin`) gets back someone who lost their phone.
+- **Single sign-on.** Off until an Admin turns it on under People & roles → Sign-in and gives the identity provider's address, client id and secret (Microsoft Entra ID, Okta, Keycloak, Google, or any other OpenID Connect provider): people sign in there and come back as the person with the same email address, linked to their account at the provider from the first time; Admins can keep passwords for themselves only.
+- **Backups are encrypted from the first one on a new installation.** The server makes a backup key of its own, shown to an Admin on Audit → State & backups to keep somewhere else; an installation that already exists keeps its backups as they were until an Admin turns encryption on there, and says so in a notice.
+- **Every activation code is checked from its signature.** Feature and tenant codes entered before MZ-01.01.10 are entered once more after updating, as the product code already was; a code still in date is accepted as it is.
+- **A stable channel.** `stable` is the release the maintainer promoted by hand from an image that was built from main, tested and signed; `latest` stays every merged release.
+- **The page is tested in a real browser before an image is published.** Setup, sign-in, the Workbench, Settings, People & roles, Labs per role and sign-out run in Chromium on every change.
+- **Status.** 1,202 tests pass (one is skipped when run as root and passes in CI), with 9 more that drive the page in Chromium, and `npm audit --omit=dev` finds nothing. Benchmark against main, two pairs on a quiet host, every run with 0 failed requests and no finding sent twice: 509 requests a second in both (main 514 and 508), triage polls 142 and 293 ms at p95 (main 209 and 144 ms), report opens 1.0 and 3.4 s at p95 as the load generator measures them (main 4.4 and 0.7 s). An independent review of the new code found nothing critical or high; its four medium and two low findings are fixed here. Checkmarx One scan e20ac30a of the final code, every engine but the AI ones: 32 results, two in this release's code (the two-step code's HMAC-SHA1, as the standard requires, and a true-or-false mark named `keys`), both not exploitable ([review](docs/security/mz-01.01.11-review.md)). Single sign-on is tested against a mock identity provider, not yet against a real one.
 
 ## MZ-01.01.10 — 2026-11-14 12:05 UTC · [#131](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/131)
 

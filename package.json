@@ -1,6 +1,6 @@
 {
   "name": "cx-detection-date-reminder",
-  "version": "1.1.10",
+  "version": "1.1.11",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "description": "Utility that lists Checkmarx One projects with vulnerability first-detection dates and sends ageing reminders through a configured CxONE Feedback App.",
@@ -13,6 +13,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node scripts/run-tests.mjs",
+    "test:browser": "node scripts/run-tests.mjs test/browser/app.browser.test.js",
     "backup": "node scripts/backup.mjs",
     "restore": "node scripts/restore.mjs",
     "reset-admin": "node scripts/reset-admin.mjs"
@@ -26,5 +27,8 @@
   },
   "overrides": {
     "debug": "^4.4.3"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
   }
 }

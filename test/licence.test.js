@@ -103,9 +103,19 @@ test('the kept code is what counts: a date edited in activation.json, or an entr
   // A code signed by another key counts for nothing either.
   fs.writeFileSync(file, JSON.stringify({ ...raw, seenAt: '', expires: undefined }));
   assert.equal(new ActivationStore({ file, keys: [] }).product(at('2027-05-01T00:00:00Z')).active, false);
-  // A feature entry kept by an earlier version (no code) stays as it was; one whose code was edited does not.
+  // A feature or tenant entry without its code (kept by an earlier version, or written by hand) counts for nothing
+  // either, and neither does one whose code was edited: the code is entered once more.
   fs.writeFileSync(file, JSON.stringify({ features: { impact: { org: 'Acme', scope: 'feature:impact', action: 'activate', expires: '2028-01-01T00:00:00.000Z' }, govern: { org: 'Acme', scope: 'feature:govern', action: 'activate', expires: '2028-01-01T00:00:00.000Z', code: 'MZ1.e30.AAAA' } } }));
   const kept = new ActivationStore({ file, keys: [publicKey] });
-  assert.equal(kept.feature('impact', at('2027-06-01T00:00:00Z')).on, true);
+  assert.equal(kept.feature('impact', at('2027-06-01T00:00:00Z')), null);
   assert.equal(kept.feature('govern', at('2027-06-01T00:00:00Z')), null);
+  fs.writeFileSync(file, JSON.stringify({ tenants: { org: 'Acme', scope: 'tenants', maxTenants: 999, expires: '2099-01-01T00:00:00.000Z' } }));
+  assert.equal(new ActivationStore({ file, keys: [publicKey] }).tenants(), null, 'no tenants unlocked by a line typed into the file');
+  // Entered through the store, with its signed code, it holds across a restart.
+  const real = new ActivationStore({ file, keys: [publicKey] });
+  real.record(checkCode(script('issue', keyFile, 'Acme', '4'), { keys: [publicKey] }), 'admin');
+  real.record(checkCode(script('feature', keyFile, 'Acme', 'impact', 'on'), { keys: [publicKey] }), 'admin');
+  const again = new ActivationStore({ file, keys: [publicKey] });
+  assert.equal(again.tenants().maxTenants, 4);
+  assert.equal(again.feature('impact').on, true);
 });

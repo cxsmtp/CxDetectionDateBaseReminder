@@ -2,6 +2,39 @@
 
 New versions are applied **without losing data, sign-ins or work in progress**. The service is unavailable for only the few seconds the new container takes to start, and the browsers and reports wait through that by themselves.
 
+## Two channels: `latest` and `stable`
+
+Every release is published as an image under several tags. Two of them are channels: tags that move as releases come.
+
+| Channel | What it is | When it moves |
+| --- | --- | --- |
+| `latest` | Every merged release. | Each time a change is merged, once every test, the browser tests and the image's smoke test have passed. |
+| `stable` | The release the maintainer promoted. | Only when the maintainer marks a release as stable, by hand. |
+
+- **`stable` is never a different build.** Promoting rebuilds nothing. `stable` points at the same image, byte for byte, as that release's own tags.
+- **How a release becomes stable.** The maintainer runs the **Promote to stable** workflow by hand, with the version (or the commit). It checks that the image is published and that its signature verifies: the one this repository's release workflow made for it, from `main`. Only then does it point `stable` at that image. It never runs on a pull request.
+- **A release keeps its own tags.** Each one is also published as its version (for example `1.1.10`, shown in the app as MZ-01.01.10) and as `sha-<commit>`. Those never move.
+- **Which to use.** `stable` for production, where a release should have been looked at first. `latest` to get every fix as soon as it is merged.
+- **Until the first promotion there is no `stable` tag.** A pull of `:stable` then answers `manifest unknown`: use `latest` or a version.
+
+**Run from `stable`** (Podman, Windows cmd, one line each). The first line downloads it, the second starts or replaces the container:
+
+```
+podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:stable
+```
+
+```
+podman run --replace -d --name mission-zero -p 3000:3000 -v mission-zero-data:/data -e TZ=Asia/Dubai --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true ghcr.io/cxsmtp/cxdetectiondatebasereminder:stable
+```
+
+To move to the next stable release later, run the same two lines again.
+
+**The Update page and the channels.** Settings → Update & recovery works the same whichever tag the container was started from:
+
+- It lists **every** published version. **Update now** and **Auto-update** install the newest one, so they follow `latest`.
+- **To stay on stable,** leave Auto-update off. Update with the two lines above, or choose **Install and switch** on the version the maintainer named as stable.
+- The page does not yet mark which version is stable, and **Replace the whole image** takes a version, `latest` or a commit tag, not `stable`.
+
 ## From the app: Settings → Update & recovery (Admins, from MZ-01.00.30)
 
 No server sign-in after deployment: everything an update needs is on this page. A click on the version number at the bottom left of the app opens it (for anyone without the update permission, it opens About & terms of use).
@@ -85,6 +118,8 @@ The page follows each step, reconnects by itself, and reloads on the new version
 The app container itself never gets the socket. If you do not want a container with the socket on the machine, leave the companion out and use the two lines below.
 
 ## Update (Podman, Windows cmd, two lines)
+
+These two lines follow `latest`. To follow `stable`, write `:stable` in place of `:latest` in both ([the two channels](#two-channels-latest-and-stable)).
 
 ```
 podman pull ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest

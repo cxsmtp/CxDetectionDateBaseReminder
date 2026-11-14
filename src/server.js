@@ -33,8 +33,10 @@ import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
 import { IamStore, LANGUAGE_PERMISSIONS, PERMISSIONS, PROFILE_LANGUAGES, PROGRAMMING_LANGUAGES, cleanProfile, generatePassword, passwordProblem, publicUser } from './iam.js';
 import { insideProject, migrateLegacyData, prepareDataDir, resolveDataDir } from './data-dir.js';
-import { PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, isSealed, listBackups, readBackup, writeBackupTo } from './backup.js';
+import { BackupKeyError, PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, isSealed, listBackups, readBackup, writeBackupTo } from './backup.js';
+import { BackupKeyStore } from './backup-key.js';
 import fs from 'node:fs';
+import os from 'node:os';
 import zlib from 'node:zlib';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { GitHubClient } from './github/client.js';
@@ -102,6 +104,8 @@ import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
 import { PasswordResets, RESET_TTL_MS, maskEmail, resetAllowed } from './password-reset.js';
+import { PendingSetups, SignInTickets, TICKET_TTL_MS, groupedKey, matchTotp, newRecoveryCodes, newSecret, otpauthUri, recoveryHash } from './mfa.js';
+import { OidcClient, SSO_CALLBACK_PATH, SSO_COOKIE, SSO_FLOW_TTL_MS, SsoError, SsoFlows, identityProblem, mergeSso, publicSso, ssoChanges } from './oidc.js';
 import { FaeFlushRunner, FaeFlushStore, FaeHistory, NE, cleanOptions, markState, previewTenant, summaryOf, testProject, valueOf } from './fae-flush.js';
 import { AGE_PRESETS, WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
 // Govern (beta): credit governance, per tenant (src/govern/).
@@ -114,6 +118,7 @@ import { checkOutboundUrl } from './outbound-url.js';
 import {
   SessionStore,
   clearSessionCookie,
+  cookieShouldBeSecure,
   describeSession,
   readSessionCookie,
   setSessionCookie,
@@ -173,6 +178,24 @@ const migrated = migrateLegacyData(dataDir, { legacyDir: path.join(projectDir, '
 if (migrated.length) {
   console.log(`[data] Copied ${migrated.length} file(s) from ${path.join(projectDir, 'data')} to ${dataDir}: ${migrated.join(', ')}`);
   console.log('[data] The old copies are left in place; delete them once this server runs well from the new folder.');
+}
+/**
+ * Backups are encrypted with BACKUP_PASSPHRASE or, without one, with this server's own backup key
+ * (src/backup-key.js). Whether this is a new installation (encrypted from its first backup) or an existing
+ * one (left as it was until an Admin turns encryption on) is decided here, once, before anything of this
+ * start is loaded, restored or written: what is in the folder now is what was there before.
+ */
+const backupDir = path.resolve(process.env.BACKUP_DIR?.trim() || path.join(dataDir, 'backups'));
+const backupKey = new BackupKeyStore({ dataDir });
+{
+  const decision = backupKey.decide({ settingsFile: config.settingsFile, backupDir });
+  if (decision?.decidedBy === 'new-installation') {
+    console.log('[backup] A new installation: every backup is encrypted with this server\'s own backup key. An Admin saves the key somewhere else under Audit → State & backups: without it, a backup cannot be opened if this server is lost.');
+  } else if (decision?.decidedBy === 'existing-installation') {
+    console.log(`[backup] This installation has data from before (${decision.found}): its backups are left as they were${process.env.BACKUP_PASSPHRASE ? ', encrypted with BACKUP_PASSPHRASE' : ', not encrypted, until an Admin turns encryption on under Audit → State & backups'}.`);
+  } else if (decision) {
+    console.log('[backup] BACKUP_ENCRYPTION=off: backups are not encrypted.');
+  }
 }
 /**
  * The backup mailbox (BACKUP_EMAIL): every encrypted backup is emailed there, and a new
@@ -511,6 +534,28 @@ async function prepareAccess() {
   console.log(`  until then it is also in ${firstAdminFile}.`);
   console.log('  Lost it? Run: node scripts/reset-admin.mjs  (in a container: docker exec <name> node scripts/reset-admin.mjs)');
   console.log(`${line}\n`);
+}
+
+/**
+ * RESET_TWO_STEP=<email>: the way back in for someone whose authenticator app and recovery codes are both gone when
+ * no Admin is left to reset it for them (the only Admin, say). At start-up their two-step sign-in is taken off;
+ * they sign in with their password and set it up again. Whoever can set the server's environment can do this, as
+ * they can run scripts/reset-admin.mjs. Recorded in the audit log. It works once for a person: left in the
+ * environment it does nothing more, until the server has started without it.
+ */
+function resetTwoStepFromEnvironment() {
+  const email = String(process.env.RESET_TWO_STEP ?? '').trim().toLowerCase();
+  if (!email) return iam.noteTwoStepResetFor('');
+  if (iam.twoStepResetFor() === email) return console.warn('! [access] RESET_TWO_STEP was used for this person at an earlier start, so nothing was reset now. Take it out of the environment.');
+  const user = iam.findByEmail(email);
+  if (!user) return console.warn('! [access] RESET_TWO_STEP names nobody who has access here: nothing was reset. Take it out of the environment.');
+  iam.noteTwoStepResetFor(email);
+  if (iam.resetTwoStep(user.id)) {
+    audit.record({ type: 'iam', outcome: 'changed', reason: `Two-step sign-in reset for ${user.email} from the server's environment (RESET_TWO_STEP).`, actor: SYSTEM_ACTOR });
+    console.log(`[access] Two-step sign-in was reset for ${user.email} (RESET_TWO_STEP). Take RESET_TWO_STEP out of the environment now.`);
+  } else {
+    console.log(`[access] RESET_TWO_STEP: ${user.email} has no two-step sign-in to reset. Take RESET_TWO_STEP out of the environment.`);
+  }
 }
 
 /** Projects someone just triaged or remediated in, so reports covering them refresh soon. */
@@ -906,21 +951,24 @@ app.use('/api', (req, res, next) => {
  * sign-in (refused ones too), with who, when, from where and how it ended. Reading the page, and
  * the polls a page makes while open, are not recorded; pages visited are (POST /api/activity).
  */
+const SIGN_IN_ROUTES = new Set(['/api/session', '/api/session/password', '/api/session/two-step', SSO_CALLBACK_PATH]);
 const NOT_RECORDED = new Set(['/api/activity', '/api/credits/prepare', '/api/settings/template/preview', '/api/https/inspect', '/api/https/browser-check', '/api/projections/series', '/api/integration/cxone/draft', '/api/diagnostics/client-error', '/api/hands-off/status', '/api/settings/notices/ack']);
 function recordActivity(req, res, route, ms) {
   try {
     if (route === '(unmatched)' || NOT_RECORDED.has(route) || route.startsWith('/api/relay/')) return;
     if ((req.method === 'GET' || req.method === 'HEAD') && !recordsGet(route)) return;
     const who = req.user ?? res.locals.activityUser ?? null;
-    const signIn = route === '/api/session' || route === '/api/session/password';
+    const signIn = SIGN_IN_ROUTES.has(route);
     if (!who && !signIn) return;
+    // An attempt to sign in: a POST to one of them, or the way back from the identity provider (a GET).
+    const attempt = signIn && (req.method === 'POST' || route === SSO_CALLBACK_PATH);
     activity.record({
       user: who?.email ?? '',
       name: who?.name ?? '',
       role: who?.role ? iam.role(who.role)?.name ?? who.role : '',
       ip: clientIp(req),
-      kind: signIn && req.method === 'POST' ? 'sign-in' : 'action',
-      action: res.statusCode >= 400 && signIn && req.method === 'POST' ? 'Sign-in refused' : describeAction(req.method, route),
+      kind: attempt ? 'sign-in' : 'action',
+      action: attempt && (res.statusCode >= 400 || res.locals.signInRefused) ? 'Sign-in refused' : res.locals.activityAction ?? describeAction(req.method, route),
       target: targetOf(req.params),
       fields: req.method === 'GET' ? Object.keys(req.query ?? {}) : fieldNames(req.body),
       method: req.method,
@@ -1300,6 +1348,8 @@ function describeMe(session, user) {
     // The Cx Credits Calculator at an address of its own (an Admin's switch): the menu opens it there, for whoever may use the calculator.
     calculator: held.has('projections.use') && settings.calculator?.external && settings.calculator.url ? { url: settings.calculator.url } : null,
     via: session.via,
+    // Two-step sign-in for this person: on or not, how many recovery codes are left, and whether an Admin requires it.
+    twoStep: { available: Boolean(user.passwordHash), on: Boolean(user.mfa?.secret), since: user.mfa?.secret ? user.mfa.enabledAt ?? '' : '', recoveryLeft: user.mfa?.secret ? (user.mfa.recovery ?? []).length : 0, required: iam.twoStepRequired() },
     // The organisation's Impact figures: what Your profile → Your Impact figures falls back to.
     organisationImpact: (({ currency, hourlyRate, creditPrice, triageMinutes, fixMinutes }) => ({ currency, hourlyRate, creditPrice, triageMinutes, fixMinutes }))(settings.impact),
     integration: { connected: Boolean(integration), tenant },
@@ -1313,6 +1363,8 @@ function describeMe(session, user) {
     unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, impact: Boolean(activations.feature('impact')?.on), faeFlush: Boolean(activations.feature('faeFlush')?.on), govern: Boolean(activations.feature('govern')?.on), statusBoard: Boolean(activations.feature('statusBoard')?.on), consolidated: Boolean(activations.feature('consolidated')?.on) },
     // The product licence's end, for the Admins' banner in the last 30 days (src/activation.js).
     licence: held.has('activation.manage') ? (({ until, daysLeft, warn, activation }) => ({ until, daysLeft, warn, activation }))(activations.product()) : null,
+    // Backups, for the Admins' notice: 'save-key' while nobody confirmed saving the backup key, 'not-encrypted' while they are plain.
+    backupNotice: held.has('backup.manage') ? backupKey.status().notice : null,
     // The organisation's name (given with the terms of use), for what CxMissionZero makes for others.
     organisationName: terms.organisationName(),
     // Get help: the support portal here, or email to an address (installations whose mail cannot leave).
@@ -1338,7 +1390,9 @@ app.get('/api/session', (req, res) => {
     // First start: nobody has signed in yet, so point at the log with the generated sign-in.
     const users = iam.users();
     const firstStart = users.length > 0 && users.every((u) => !u.lastLoginAt);
-    return res.json({ connected: false, signedIn: false, setup: !iam.hasUsers() && Boolean(setupCode), firstStart, passwordReset: passwordResetReady().ready });
+    // Single sign-on, when it is on and can work: the button's label, and whether passwords are for Admins only.
+    const { sso, ready } = ssoState();
+    return res.json({ connected: false, signedIn: false, setup: !iam.hasUsers() && Boolean(setupCode), firstStart, passwordReset: passwordResetReady().ready, sso: ready ? { label: sso.label, passwordAdminsOnly: sso.passwordAdminsOnly } : null });
   }
   res.json(describeMe(session, user));
 });
@@ -1346,7 +1400,7 @@ app.get('/api/session', (req, res) => {
 /** Sign-in attempts per address, to slow down guessing across many accounts. */
 const SIGN_IN_WINDOW_MS = 10 * 60 * 1000;
 const signInAttempts = new Map();
-function throttleSignIn(req, res) {
+function tooManySignIns(req) {
   const ip = clientIp(req);
   const now = Date.now();
   const recent = (signInAttempts.get(ip) ?? []).filter((t) => now - t < SIGN_IN_WINDOW_MS);
@@ -1357,11 +1411,12 @@ function throttleSignIn(req, res) {
   // Many addresses: forget the ones whose attempts have all expired, never the whole map
   // (that would hand a guesser a fresh start just by sending from enough addresses).
   pruneAttempts(signInAttempts, now, { windowMs: SIGN_IN_WINDOW_MS, max: 10_000 });
-  if (recent.length > 30) {
-    res.status(429).json({ error: 'Too many sign-in attempts from this address. Wait a few minutes.' });
-    return true;
-  }
-  return false;
+  return recent.length > 30;
+}
+function throttleSignIn(req, res) {
+  if (!tooManySignIns(req)) return false;
+  res.status(429).json({ error: 'Too many sign-in attempts from this address. Wait a few minutes.' });
+  return true;
 }
 
 function auditAccess(req, outcome, reason, user = null, details) {
@@ -1383,7 +1438,8 @@ app.post(
     const email = String(req.body?.email ?? '').trim().slice(0, 254);
     let user;
     try {
-      user = await iam.signIn(email, String(req.body?.password ?? ''));
+      // (With a second step to come, or a password that is no longer enough, this is not a sign-in yet.)
+      user = await iam.signIn(email, String(req.body?.password ?? ''), Date.now(), { more: (u) => passwordNotEnough(u) || needsTwoStep(u) });
     } catch (error) {
       const known = error.userId ? iam.user(error.userId) : null;
       res.locals.activityUser = known ?? { email };
@@ -1391,13 +1447,353 @@ app.post(
       if (refusalListed(`address ${clientIp(req)}`, Date.now(), 'signIn')) auditAccess(req, 'refused', `Sign-in refused for ${email || '(no email)'}: ${error.message}${error.locked ? ' Account locked.' : ''}`, known);
       throw error;
     }
-    const session = sessions.createLinked(integrationSession);
-    Object.assign(session, { userId: user.id, via: 'password' });
-    saveSignInsSoon();
-    setSessionCookie(req, res, session.id);
     res.locals.activityUser = user;
-    auditAccess(req, 'info', `${user.email} signed in with a password.`, user);
-    res.status(201).json(describeMe(session, user));
+    // Single sign-on is on and passwords are kept for Admins: said only to someone who typed the right password.
+    if (passwordNotEnough(user)) {
+      res.locals.signInRefused = true;
+      if (refusalListed(`address ${clientIp(req)}`, Date.now(), 'signIn')) auditAccess(req, 'refused', `Sign-in refused for ${user.email}: only Admins may sign in with a password; everyone else uses single sign-on.`, user);
+      return res.status(403).json({ error: 'Signing in with a password is turned off for this account. Use single sign-on.', sso: true });
+    }
+    // Two-step sign-in: no session yet, only a ticket for the code (or, when an Admin requires it and this person has none, for setting it up).
+    if (needsTwoStep(user)) {
+      const secret = user.mfa?.secret ? '' : newSecret();
+      const ticket = signInTickets.issue(user.id, { secret });
+      // (In User activity this is not a sign-in yet.)
+      res.locals.activityAction = secret ? 'Typed the right password: asked to set up two-step sign-in' : 'Typed the right password: asked for the two-step code';
+      res.set('Cache-Control', 'no-store');
+      return res.json({ twoStep: true, ticket, minutes: Math.round(TICKET_TTL_MS / 60_000), ...(secret ? { setup: twoStepSetup(user, secret) } : {}) });
+    }
+    res.status(201).json(openPasswordSession(req, res, user, 'signed in with a password'));
+  }),
+);
+
+/** The session a password sign-in gives (single sign-on gives the same one, `via` apart), with its cookie and audit entry. */
+function openPasswordSession(req, res, user, how, via = 'password') {
+  const session = sessions.createLinked(integrationSession);
+  Object.assign(session, { userId: user.id, via });
+  saveSignInsSoon();
+  setSessionCookie(req, res, session.id);
+  res.locals.activityUser = user;
+  auditAccess(req, 'info', `${user.email} ${how}.`, user);
+  return describeMe(session, user);
+}
+
+// ---------------------------------------------------------------------------
+// Two-step sign-in (src/mfa.js): a code from an authenticator app after the password
+// ---------------------------------------------------------------------------
+
+const signInTickets = new SignInTickets();
+const pendingSetups = new PendingSetups();
+/** A second step stands between this person's correct password and a session: they have it on, or an Admin requires it. */
+const needsTwoStep = (user) => Boolean(user.mfa?.secret) || iam.twoStepRequired();
+/** What the page shows to set an authenticator app up: the key (also in groups of four) and the address its QR code carries. */
+const twoStepSetup = (user, secret) => ({ secret, key: groupedKey(secret), otpauth: otpauthUri(user.email, secret) });
+const TICKET_OVER = 'That sign-in is over: it lasts five minutes and takes a few tries. Sign in again.';
+const WRONG_CODE = 'That code is not right. Use the newest code in your authenticator app, and check that the phone\'s clock is right.';
+
+/** Turn two-step sign-in on for `user` with a secret their app has just proved it holds: ten new recovery codes, shown this once. */
+function turnOnTwoStep(user, secret, step) {
+  const codes = newRecoveryCodes();
+  iam.enableTwoStep(user.id, secret, { step, recovery: codes.map((code) => recoveryHash(user.id, code)) });
+  return codes;
+}
+
+/** The second step: the ticket from the password step, and a code (or a recovery code). Only then is there a session. */
+app.post(
+  '/api/session/two-step',
+  asyncRoute(async (req, res) => {
+    if (throttleSignIn(req, res)) return;
+    const ticket = String(req.body?.ticket ?? '');
+    const typed = String(req.body?.code ?? '').slice(0, 40);
+    const entry = signInTickets.get(ticket);
+    const user = entry ? iam.user(entry.userId) : null;
+    const refused = (status, message, why, extra = {}) => {
+      if (refusalListed(`address ${clientIp(req)}`, Date.now(), 'signIn')) auditAccess(req, 'refused', `Sign-in refused${user ? ` for ${user.email}` : ''}: ${why}`, user);
+      return res.status(status).json({ error: message, ...extra });
+    };
+    if (!entry || !user) return refused(401, TICKET_OVER, 'the two-step sign-in was over, or was never started.', { restart: true });
+    res.locals.activityUser = user;
+    if (user.disabled) {
+      signInTickets.consume(ticket);
+      return refused(403, 'This account is disabled. Ask an administrator.', 'the account is disabled.', { restart: true });
+    }
+    let how = 'signed in with a password and a two-step code';
+    let recoveryCodes = null;
+    if (entry.secret) {
+      // An Admin requires two-step sign-in and this person had none: the first right code turns it on.
+      if (user.mfa?.secret) {
+        signInTickets.consume(ticket);
+        return refused(409, 'Two-step sign-in was turned on for this account in the meantime. Sign in again.', 'two-step sign-in was set up elsewhere in the meantime.', { restart: true });
+      }
+      const step = matchTotp(entry.secret, typed);
+      if (!step) {
+        const left = signInTickets.wrong(ticket);
+        return refused(401, left ? WRONG_CODE : TICKET_OVER, 'wrong code while setting up two-step sign-in.', { restart: !left });
+      }
+      recoveryCodes = turnOnTwoStep(user, entry.secret, step);
+      audit.record({ type: 'iam', outcome: 'changed', reason: `${user.email} turned on two-step sign-in (required at sign-in).`, actor: resetActor(req, user.email) });
+      how = 'signed in with a password and set up two-step sign-in';
+    } else {
+      if (!user.mfa?.secret) {
+        signInTickets.consume(ticket);
+        return refused(409, 'Two-step sign-in was reset for this account in the meantime. Sign in again.', 'two-step sign-in was reset in the meantime.', { restart: true });
+      }
+      let result;
+      try {
+        result = iam.checkTwoStep(user.id, typed);
+      } catch (error) {
+        if (error.status === 423) {
+          signInTickets.consume(ticket);
+          return refused(423, error.message, 'the account is locked after too many wrong attempts.', { restart: true });
+        }
+        if (error.status !== 401) throw error;
+        const left = signInTickets.wrong(ticket);
+        const over = !left || Boolean(error.locked);
+        if (over) signInTickets.consume(ticket);
+        return refused(401, over ? TICKET_OVER : WRONG_CODE, `wrong two-step code.${error.locked ? ' Account locked.' : ''}`, { restart: over });
+      }
+      if (result.kind === 'recovery') {
+        audit.record({ type: 'iam', outcome: 'changed', reason: `${user.email} used a recovery code to sign in: it is gone, ${result.left} left.`, actor: resetActor(req, user.email) });
+        how = `signed in with a password and a recovery code (${result.left} left)`;
+      }
+    }
+    signInTickets.consume(ticket);
+    iam.recordSignIn(user);
+    const me = openPasswordSession(req, res, iam.user(user.id), how);
+    res.set('Cache-Control', 'no-store');
+    res.status(201).json({ ...me, ...(recoveryCodes ? { recoveryCodes } : {}) });
+  }),
+);
+
+/** Someone signed in turns two-step sign-in on: first a secret to put in their authenticator app (kept in memory until proved). */
+app.post('/api/me/two-step/setup', requireSession, (req, res) => {
+  if (!req.user.passwordHash) return res.status(400).json({ error: 'Two-step sign-in is for people who sign in with a password. Set a password first.' });
+  if (req.user.mfa?.secret) return res.status(400).json({ error: 'Two-step sign-in is already on.' });
+  res.set('Cache-Control', 'no-store');
+  res.json(twoStepSetup(req.user, pendingSetups.start(req.user.id)));
+});
+
+/** …then the code their app shows: only now is it on. The recovery codes are shown this once. */
+app.post(
+  '/api/me/two-step/enable',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    if (req.user.mfa?.secret) return res.status(400).json({ error: 'Two-step sign-in is already on.' });
+    const secret = pendingSetups.get(req.user.id);
+    if (!secret) return res.status(400).json({ error: 'That key is more than ten minutes old. Start again.', restart: true });
+    const step = matchTotp(secret, req.body?.code);
+    if (!step) return res.status(400).json({ error: WRONG_CODE });
+    const recoveryCodes = turnOnTwoStep(req.user, secret, step);
+    pendingSetups.clear(req.user.id);
+    audit.record({ type: 'iam', outcome: 'changed', reason: `${req.user.email} turned on two-step sign-in.`, actor: await adminActor(req) });
+    res.set('Cache-Control', 'no-store');
+    res.json({ recoveryCodes, me: describeMe(req.session, iam.user(req.user.id)) });
+  }),
+);
+
+/** A current code from the app, checked for someone signed in (turning it off, new recovery codes). Wrong ones count towards the lock. */
+async function ownTwoStepCode(req, res, what) {
+  try {
+    iam.checkTwoStep(req.user.id, req.body?.code, { recovery: false });
+    return true;
+  } catch (error) {
+    if (error.status !== 401 && error.status !== 423) throw error;
+    audit.record({ type: 'iam', outcome: 'refused', reason: `${req.user.email} could not ${what}: ${error.status === 423 ? 'too many wrong codes' : 'wrong code'}.`, actor: await adminActor(req) });
+    res.status(error.status === 423 ? 423 : 400).json({ error: error.status === 423 ? error.message : WRONG_CODE });
+    return false;
+  }
+}
+
+/** Turn one's own two-step sign-in off: only with a current code, and not while an Admin requires it. */
+app.post(
+  '/api/me/two-step/disable',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    if (!req.user.mfa?.secret) return res.status(400).json({ error: 'Two-step sign-in is not on.' });
+    if (iam.twoStepRequired()) return res.status(403).json({ error: 'An administrator requires two-step sign-in for everyone who signs in with a password, so it cannot be turned off.' });
+    if (!(await ownTwoStepCode(req, res, 'turn off two-step sign-in'))) return;
+    iam.resetTwoStep(req.user.id);
+    signInTickets.revokeUser(req.user.id);
+    audit.record({ type: 'iam', outcome: 'changed', reason: `${req.user.email} turned off two-step sign-in.`, actor: await adminActor(req) });
+    res.json({ me: describeMe(req.session, iam.user(req.user.id)) });
+  }),
+);
+
+/** Ten new recovery codes in place of the old ones: with a current code. */
+app.post(
+  '/api/me/two-step/recovery-codes',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    if (!req.user.mfa?.secret) return res.status(400).json({ error: 'Two-step sign-in is not on.' });
+    if (!(await ownTwoStepCode(req, res, 'make new recovery codes'))) return;
+    const recoveryCodes = newRecoveryCodes();
+    iam.setRecoveryCodes(req.user.id, recoveryCodes.map((code) => recoveryHash(req.user.id, code)));
+    audit.record({ type: 'iam', outcome: 'changed', reason: `${req.user.email} made new recovery codes; the old ones no longer work.`, actor: await adminActor(req) });
+    res.set('Cache-Control', 'no-store');
+    res.json({ recoveryCodes, me: describeMe(req.session, iam.user(req.user.id)) });
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Single sign-on with OpenID Connect (src/oidc.js)
+// ---------------------------------------------------------------------------
+
+const oidc = new OidcClient();
+const ssoFlows = new SsoFlows();
+
+/** Single sign-on as set, the address the identity provider sends people back to, and whether it can work now (and if not, why). */
+function ssoState() {
+  const sso = iam.sso();
+  // The address set under Settings, or, when that one is not an https address, the deployment's own (REPORT_SERVER_URL).
+  const base = tenancy.run(DEFAULT_TENANT, () => resetLinkBase(settingsStore.get())) || resetLinkBase({ links: {} });
+  const missing = [];
+  if (!sso.issuer || !sso.clientId) missing.push('The identity provider\'s address and the client id are not set.');
+  if (!base) missing.push('No https address for this server is set (Settings → Server address).');
+  return { sso, base, redirectUri: base ? `${base}${SSO_CALLBACK_PATH}` : '', missing, ready: sso.enabled && missing.length === 0 };
+}
+
+/**
+ * With single sign-on on and "only Admins may still sign in with a password": a correct password is not enough for
+ * anyone else. Only those two switches decide, both an Admin's. Whether single sign-on can work right now (the
+ * server's address, which others may change) never does: it could otherwise be used to bring passwords back.
+ */
+function passwordNotEnough(user) {
+  const sso = iam.sso();
+  return sso.enabled && sso.passwordAdminsOnly && user.role !== 'admin';
+}
+
+const SSO_ADDRESS_ADMIN = 'Single sign-on is on, and the identity provider sends people back to this server\'s address, so only an Admin changes it.';
+const SSO_NEEDS_ADDRESS = 'Single sign-on is on, and people come back from the identity provider to this server\'s address, so it must stay an https address. Give an https address, or turn single sign-on off first (People & roles → Sign-in).';
+/**
+ * Why the server's address may not be changed as asked ('' when it may): while single sign-on is on, only an Admin
+ * changes it, and a change that would leave no https address for the way back is refused for everyone, Admins too
+ * (they turn single sign-on off first). (The first tenant's address: the one sign-in uses.)
+ */
+function ssoAddressProblem(req, links) {
+  if (!links || !('reportServerUrl' in links) || (req.tenantId ?? DEFAULT_TENANT) !== DEFAULT_TENANT || !iam.sso().enabled) return '';
+  const current = settingsStore.get();
+  const next = mergeSettings(current, { links: { reportServerUrl: links.reportServerUrl } }).links.reportServerUrl;
+  if (next === current.links.reportServerUrl) return '';
+  // Any change moves the way back from the identity provider: that is for an Admin, who can change it there too.
+  if (req.user?.role !== 'admin') return SSO_ADDRESS_ADMIN;
+  return resetLinkBase({ links: { reportServerUrl: next } }) || (!next && resetLinkBase({ links: {} })) ? '' : SSO_NEEDS_ADDRESS;
+}
+
+/** One cookie by name, as readSessionCookie reads the session's. */
+function readCookie(req, name) {
+  for (const part of String(req.headers.cookie ?? '').split(';')) {
+    const [key, ...rest] = part.trim().split('=');
+    if (key === name) return rest.join('=');
+  }
+  return '';
+}
+const SSO_COOKIE_PATH = '/api/session/oidc';
+const setSsoCookie = (req, res, value) => res.append('Set-Cookie', [`${SSO_COOKIE}=${value}`, `Path=${SSO_COOKIE_PATH}`, 'HttpOnly', 'SameSite=Lax', `Max-Age=${Math.round(SSO_FLOW_TTL_MS / 1000)}`, cookieShouldBeSecure(req) ? 'Secure' : ''].filter(Boolean).join('; '));
+const clearSsoCookie = (res) => res.append('Set-Cookie', `${SSO_COOKIE}=; Path=${SSO_COOKIE_PATH}; HttpOnly; SameSite=Lax; Max-Age=0`);
+
+/**
+ * Back to the sign-in page with a short code, which picks the sentence the page shows (public/app.js). What went
+ * wrong is written, scrubbed, in the server log and the audit log: never a token, the client secret or the
+ * provider's own error text.
+ */
+function ssoRefused(req, res, code, why, user = null) {
+  res.locals.signInRefused = true;
+  if (user) res.locals.activityUser = user;
+  // (Listed only so many a minute, in the audit log and in the server log: nobody has signed in here.)
+  if (refusalListed(`address ${clientIp(req)}`, Date.now(), 'signIn')) {
+    console.warn(`! [single sign-on] Not signed in (${code}): ${logSafe(why)}.`);
+    auditAccess(req, 'refused', `Single sign-on refused${user ? ` for ${user.email}` : ''}: ${why}.`, user);
+  }
+  res.redirect(`/#sso=${code}`);
+}
+
+/** The "single sign-on" button: off to the identity provider, with a state, a nonce and a PKCE challenge for the way back. */
+app.get(
+  '/api/session/oidc/start',
+  asyncRoute(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (tooManySignIns(req)) return res.redirect('/#sso=busy');
+    const { sso, redirectUri, ready, base } = ssoState();
+    if (!sso.enabled) return res.redirect('/#sso=off');
+    if (!ready) return res.redirect('/#sso=setup');
+    // Opened at another address than the server's own (an IP address, an old name): the round trip begins where it
+    // ends, or the browser would not send its cookie on the way back. Once only (`at`), so it can never go in circles.
+    const here = requestOrigin(req);
+    if (req.query.at === undefined && here && new URL(here).host.toLowerCase() !== new URL(base).host.toLowerCase()) return res.redirect(`${base}/api/session/oidc/start?at=server`);
+    const flow = ssoFlows.start();
+    let url;
+    try {
+      url = await oidc.authorizationUrl(sso, redirectUri, flow);
+    } catch (error) {
+      if (!(error instanceof SsoError)) throw error;
+      console.warn(`! [single sign-on] Could not start (${error.code}): ${logSafe(error.message)}.`);
+      return res.redirect(`/#sso=${error.code}`);
+    }
+    setSsoCookie(req, res, flow.cookie);
+    res.redirect(url);
+  }),
+);
+
+/** The way back from the identity provider: the code is exchanged, the ID token verified, and the person it names signed in. */
+app.get(
+  SSO_CALLBACK_PATH,
+  asyncRoute(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const one = (value) => (typeof value === 'string' ? value : '');
+    const flow = ssoFlows.take(one(req.query.state), readCookie(req, SSO_COOKIE));
+    // The answer to a sign-in this browser started was counted when it started. Anything else is an attempt of its own.
+    if (!flow && tooManySignIns(req)) return res.redirect('/#sso=busy');
+    const { sso, redirectUri, ready, base } = ssoState();
+    if (!sso.enabled) return ssoRefused(req, res, 'off', 'single sign-on is turned off');
+    if (!ready) return ssoRefused(req, res, 'setup', 'single sign-on is not set up completely');
+    if (!flow) return ssoRefused(req, res, 'expired', 'the answer belongs to no sign-in started from this browser in the last ten minutes (state)');
+    if (req.query.error !== undefined) {
+      const said = /^[a-z0-9_.-]{1,60}$/i.test(one(req.query.error)) ? one(req.query.error) : 'an error';
+      return ssoRefused(req, res, 'cancelled', `the identity provider answered ${said}`);
+    }
+    const code = one(req.query.code);
+    if (!code || code.length > 4096) return ssoRefused(req, res, 'provider', 'the identity provider sent no code');
+    let identity;
+    try {
+      identity = await oidc.finish(sso, redirectUri, { code, ...flow });
+      const problem = identityProblem(sso, identity);
+      if (problem) throw problem;
+    } catch (error) {
+      if (!(error instanceof SsoError)) throw error;
+      return ssoRefused(req, res, error.code, error.message);
+    }
+    // Someone who has signed in this way before is the person linked to that account at the provider, whatever
+    // its email address says now. Anyone else is found by email, once, and linked from then on.
+    const linked = iam.findBySso(identity.issuer, identity.sub);
+    let user = linked ?? iam.findByEmail(identity.email);
+    if (user && !linked) {
+      if (user.sso?.sub) return ssoRefused(req, res, 'link', `${user.email} is linked to another account at the identity provider (reset the single sign-on link under People & roles if that account was made anew)`, user);
+      // Whatever the "verified" switch says: people who may manage people are never linked on an address the provider does not vouch for.
+      if (!identity.verified && iam.permissionsOf({ ...user, disabled: false }).has('iam.manage')) {
+        return ssoRefused(req, res, 'email', `the identity provider does not mark ${identity.email} as verified, and someone who may manage people is not signed in on such an address until they are linked`, user);
+      }
+    }
+    if (!user && sso.provision === 'create') {
+      // (The same rule for someone about to be added with a role that may manage people.)
+      if (!identity.verified && iam.permissionsOf({ role: sso.role, disabled: false }).has('iam.manage')) {
+        return ssoRefused(req, res, 'email', `the identity provider does not mark ${identity.email} as verified, and nobody is added with a role that may manage people on such an address`);
+      }
+      // An Admin chose to add people the identity provider signs in, with this role (never Admin: src/oidc.js).
+      const added = await iam.createUser({ email: identity.email, name: identity.name, role: sso.role, mustChangePassword: false });
+      audit.record({ type: 'iam', outcome: 'changed', reason: `Added ${added.email} as ${iam.role(added.role)?.name ?? added.role} at their first single sign-on.`, actor: SYSTEM_ACTOR, details: { user: added } });
+      user = iam.user(added.id);
+    }
+    if (!user) return ssoRefused(req, res, 'unknown', `${identity.email} is not in People & roles`);
+    if (user.disabled) return ssoRefused(req, res, 'disabled', 'the account is disabled', user);
+    if (!linked) {
+      iam.linkSso(user.id, identity);
+      audit.record({ type: 'iam', outcome: 'changed', reason: `${user.email} was linked to their account at the identity provider at their first single sign-on.`, actor: resetActor(req, user.email) });
+      user = iam.user(user.id);
+    }
+    iam.recordSignIn(user);
+    openPasswordSession(req, res, user, 'signed in with single sign-on', 'sso');
+    clearSsoCookie(res);
+    res.redirect(`${base}/`);
   }),
 );
 
@@ -1576,6 +1972,100 @@ app.put('/api/iam/policy', requirePermission('iam.manage'), (req, res) => {
 });
 const RESET_POLICY_NAMES = { everyone: 'everyone', 'not-admins': 'everyone but Admins', off: 'off' };
 
+/** Two-step sign-in for everyone and single sign-on are an Admin's to set (the Admin role), for the whole server. */
+const maySetSignInSecurity = (req) => can(req, 'iam.manage') && req.user.role === 'admin' && (!tenancy.enabled || isSuperAdmin(req.permissions));
+
+/** What the Admin's Sign-in page shows of them: never the client secret, only whether one is set. */
+function signInSecurityView() {
+  const { sso, redirectUri, missing } = ssoState();
+  return {
+    twoStepRequired: iam.twoStepRequired(),
+    sso: publicSso(sso),
+    redirectUri,
+    missing,
+    // The roles people added by single sign-on may be given: every role but Admin.
+    roles: iam.roles().filter((r) => r.id !== 'admin').map((r) => ({ id: r.id, name: r.name })),
+  };
+}
+
+app.put(
+  '/api/iam/sign-in',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    if (!maySetSignInSecurity(req)) return res.status(403).json({ error: tenancy.enabled && req.user.role === 'admin' ? 'Sign-in rules are for the whole server: a Super Admin changes them.' : 'Only an Admin changes two-step sign-in for everyone and single sign-on.' });
+    const body = req.body ?? {};
+    if ('twoStepRequired' in body) {
+      const { before, after } = iam.setTwoStepRequired(body.twoStepRequired === true);
+      if (before !== after) await auditIam(req, `Two-step sign-in for everyone who signs in with a password: ${before ? 'required' : 'not required'} → ${after ? 'required' : 'not required'}.`);
+    }
+    if (body.sso && typeof body.sso === 'object') {
+      const next = mergeSso(iam.sso(), body.sso, { roles: iam.roles().filter((r) => r.id !== 'admin').map((r) => r.id) });
+      const { before, after } = iam.setSso(next);
+      const changed = ssoChanges(before, after);
+      if (changed.length) {
+        oidc.forget();
+        // (The client secret is never part of the log: only that it changed, and whether one is set.)
+        await auditIam(req, `Changed single sign-on: ${changed.join(', ')}.`, { before: publicSso(before), after: publicSso(after) });
+      }
+      // Another identity provider: the links to people's accounts at the old one mean nothing there.
+      if (before.issuer.replace(/\/+$/, '') !== after.issuer.replace(/\/+$/, '')) {
+        const cleared = iam.clearSsoLinks();
+        if (cleared) await auditIam(req, `The identity provider changed: the single sign-on links of ${cleared} ${cleared === 1 ? 'person' : 'people'} were reset. Each is linked again at their next single sign-on.`);
+      }
+    }
+    res.json(iamView(req));
+  }),
+);
+
+/** The Admin's "Check" button: can the identity provider be reached as set, through this server's proxy and trusted certificates? */
+app.post(
+  '/api/iam/sign-in/sso/check',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    if (!maySetSignInSecurity(req)) return res.status(403).json({ error: 'Only an Admin checks single sign-on.' });
+    const { sso, missing } = ssoState();
+    if (!sso.issuer) return res.json({ ok: false, message: 'Give the identity provider\'s address first, and save.' });
+    const result = await oidc.check(sso);
+    res.json({ ok: result.ok && !missing.length, message: [result.message, ...(result.ok ? missing : [])].join(' ') });
+  }),
+);
+
+/**
+ * Reset someone's link to their account at the identity provider (it was made anew there, so its subject changed):
+ * their next single sign-on links them again, by their email address. One's own included.
+ */
+app.delete(
+  '/api/iam/users/:id/sso-link',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    const target = visibleUser(req, req.params.id);
+    if (!iam.canGrant(req.permissions, iam.permissionsOf({ ...target, disabled: false }))) {
+      return res.status(403).json({ error: 'You cannot reset this person\'s single sign-on link: their role holds permissions you do not have.' });
+    }
+    if (iam.unlinkSso(target.id)) await auditIam(req, `Reset the single sign-on link of ${target.email}.`);
+    res.json(iamView(req));
+  }),
+);
+
+/** An Admin takes someone's two-step sign-in off (a lost phone): they set it up again themselves, at once when it is required. */
+app.delete(
+  '/api/iam/users/:id/two-step',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Turn your own two-step sign-in off under Settings → Your profile.' });
+    const target = visibleUser(req, req.params.id);
+    if (!iam.canGrant(req.permissions, iam.permissionsOf({ ...target, disabled: false }))) {
+      return res.status(403).json({ error: 'You cannot reset this person\'s two-step sign-in: their role holds permissions you do not have.' });
+    }
+    if (iam.resetTwoStep(target.id)) {
+      signInTickets.revokeUser(target.id);
+      pendingSetups.clear(target.id);
+      await auditIam(req, `Reset two-step sign-in for ${target.email}.`);
+    }
+    res.json(iamView(req));
+  }),
+);
+
 /**
  * Sign in with a Checkmarx One API key. The key's identity (email, username or
  * client id) must belong to a user here; the session then calls Checkmarx One
@@ -1742,6 +2232,11 @@ app.post(
   requireSession,
   asyncRoute(async (req, res) => {
     const user = req.user;
+    // Signed in by single sign-on, with no password here: they cannot give themselves one (it would outlast
+    // their account at the identity provider). An Admin sets one for them under People & roles.
+    if (!user.passwordHash && req.session.via === 'sso') {
+      return res.status(403).json({ error: 'You signed in with single sign-on and have no password here, so you cannot set one yourself. An administrator can give you one under People & roles.' });
+    }
     if (user.passwordHash) {
       try {
         await iam.signIn(user.email, String(req.body?.current ?? ''));
@@ -1868,7 +2363,7 @@ function iamView(req) {
     rolesChangeable: can(req, 'iam.manage') && mayChangeRoles(req),
     me: { id: req.user.id, permissions: [...req.permissions] },
     tenants: tenancy.enabled && isSuperAdmin(req.permissions) ? tenancy.list().map((t) => ({ id: t.id, name: tenantName(t.id) })) : null,
-    signIn: can(req, 'iam.manage') ? { ...passwordResetReady(), canChange: !tenancy.enabled || isSuperAdmin(req.permissions) } : null,
+    signIn: can(req, 'iam.manage') ? { ...passwordResetReady(), canChange: !tenancy.enabled || isSuperAdmin(req.permissions), security: maySetSignInSecurity(req) ? signInSecurityView() : null } : null,
     // Labs → Consolidated view: an Admin ticks who may see it, once its activation code is in force.
     consolidatedGrant: !featureLocked(featureById('consolidated')) && can(req, 'iam.manage') && req.user.role === 'admin',
   };
@@ -1887,6 +2382,8 @@ async function auditIam(req, reason, details) {
 
 /** Sign out every session of a user whose access was removed (all but `keep`, when given). */
 function endSessionsOf(userId, keep = null) {
+  // A sign-in waiting for its two-step code ends too.
+  signInTickets.revokeUser(userId);
   // Saved sign-ins nobody has come back for since a restart end too.
   const keepKey = keep ? sessionKey(keep) : null;
   sessions.endWhere((s) => s.userId === userId && !(keep && (s.id === keep || s.key === keepKey)));
@@ -2239,6 +2736,18 @@ function gitHosts(settings) {
   return out;
 }
 
+/** The identity provider's host and port, while single sign-on is on: one more connection for the network team's sheet. */
+function ssoHost() {
+  const sso = iam.sso();
+  if (!sso.enabled) return null;
+  try {
+    const url = new URL(sso.issuer);
+    return { host: url.hostname, port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80) };
+  } catch {
+    return null;
+  }
+}
+
 function networkView() {
   const settings = settingsStore.get();
   const proxy = activeProxy(dataDir);
@@ -2251,6 +2760,7 @@ function networkView() {
     smtp: settings.smtp?.host ? { host: settings.smtp.host, port: settings.smtp.port } : null,
     backupMail: backupMailbox.email && backupMailbox.host ? { host: backupMailbox.host, port: backupMailbox.port } : null,
     git: gitHosts(settings),
+    sso: ssoHost(),
     letsEncrypt,
     updates: updates.supervised,
     inboundPort: Number(process.env.HTTPS_PUBLIC_PORT || process.env.PORT) || 3000,
@@ -2645,6 +3155,8 @@ app.post(
         applied, refused, ignored, findings,
       });
     }
+    const addressProblem = ssoAddressProblem(req, changes.links);
+    if (addressProblem) return res.status(400).json({ error: addressProblem, applied: [], refused, ignored, findings });
     if (changes.cxone) {
       const current = settingsStore.get();
       const { apiKey, ...endpoints } = changes.cxone;
@@ -2788,6 +3300,8 @@ app.put(
         return res.status(400).json({ error: `The credit pool (${size.toLocaleString('en')}) cannot be more than the ${tenant.available.toLocaleString('en')} credits this tenant has left in Checkmarx One (${(tenant.total ?? tenant.available).toLocaleString('en')} in all, ${(tenant.used ?? 0).toLocaleString('en')} used).`, tenant });
       }
     }
+    const addressProblem = ssoAddressProblem(req, allowed.links);
+    if (addressProblem) return res.status(400).json({ error: addressProblem });
     const smtpBefore = smtpFingerprint(settingsStore.get().smtp);
     const saved = settingsStore.save(allowed);
     // A changed mail server is checked (and rolled back if it fails) when the editor leaves Settings, or after a while.
@@ -4262,7 +4776,7 @@ async function adminActor(req) {
     name: user?.name ?? '',
     email: user?.email ?? '',
     role: user ? (iam.role(user.role)?.name ?? user.role) : '',
-    via: session?.via === 'cxone' ? `Checkmarx One key${session.cxUser ? ` (${session.cxUser})` : ''}` : 'password',
+    via: session?.via === 'cxone' ? `Checkmarx One key${session.cxUser ? ` (${session.cxUser})` : ''}` : session?.via === 'sso' ? 'single sign-on' : 'password',
     tenant,
     ip: clientIp(req),
     userAgent: String(req.get('user-agent') ?? '').slice(0, 200),
@@ -9570,12 +10084,19 @@ app.get('/api/audit/reconcile', requirePermission('audit.view'), asyncRoute(asyn
 // ---------------------------------------------------------------------------
 
 const backupConfig = {
-  dir: path.resolve(process.env.BACKUP_DIR?.trim() || path.join(dataDir, 'backups')),
+  dir: backupDir,
   explicitDir: Boolean(process.env.BACKUP_DIR?.trim()),
   intervalHours: Math.max(0, Number(process.env.BACKUP_INTERVAL_HOURS ?? 24) || 0),
   keep: Math.max(1, Number(process.env.BACKUP_KEEP) || 14),
-  passphrase: process.env.BACKUP_PASSPHRASE || '',
+  /** What a backup made now is sealed with: BACKUP_PASSPHRASE, else this server's backup key, else nothing (plain). */
+  get passphrase() {
+    return backupKey.secret();
+  },
 };
+/** What a backup made now is encrypted with, in words for an email or the log (never the secret itself). */
+const sealedWith = () => (backupKey.source === 'passphrase' ? 'BACKUP_PASSPHRASE' : 'this server\'s backup key');
+/** How to give a new server what opens such a backup, for the same emails. */
+const sameSecret = () => (backupKey.source === 'passphrase' ? 'the same BACKUP_PASSPHRASE' : 'BACKUP_PASSPHRASE set to this server\'s backup key (an Admin saved it from Audit → State & backups; it is never emailed)');
 let lastBackup = null;
 /** The largest backup that is attached to an email (most mail servers refuse much more). */
 const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
@@ -9616,13 +10137,13 @@ async function backupToFolder(actor, trigger) {
 
 /**
  * A copy of a backup to the backup mailbox (BACKUP_EMAIL), so a new server can bring it back
- * by itself. Encrypted backups only (BACKUP_PASSPHRASE): never one that holds the passwords
- * and keys in the clear. Returns whether it went.
+ * by itself. Encrypted backups only (BACKUP_PASSPHRASE or this server's backup key): never one
+ * that holds the passwords and keys in the clear, and never the key with it. Returns whether it went.
  */
 async function mailBackupCopy(file, summary, trigger) {
   if (!backupMailbox.email) return false;
   if (!summary.encrypted) {
-    console.warn('! [backup] BACKUP_EMAIL is set, but backups are not encrypted: set BACKUP_PASSPHRASE to email them.');
+    console.warn('! [backup] BACKUP_EMAIL is set, but backups are not encrypted: turn encryption on under Audit → State & backups (or set BACKUP_PASSPHRASE) to email them.');
     return false;
   }
   if (summary.size > MAX_ATTACHMENT_BYTES) {
@@ -9637,8 +10158,8 @@ async function mailBackupCopy(file, summary, trigger) {
         appName: appNameNow(),
         subject: `${BACKUP_SUBJECT} ${summary.createdAt.slice(0, 16).replace('T', ' ')} UTC`,
         lines: [
-          `${trigger} backup of MissionZero, encrypted with BACKUP_PASSPHRASE: ${name}.`,
-          'Keep this email. A new MissionZero started with BACKUP_EMAIL, BACKUP_EMAIL_PASSWORD and the same BACKUP_PASSPHRASE finds the newest backup here and restores it by itself.',
+          `${trigger} backup of MissionZero, encrypted with ${sealedWith()}: ${name}.`,
+          `Keep this email. A new MissionZero started with BACKUP_EMAIL, BACKUP_EMAIL_PASSWORD and ${sameSecret()} finds the newest backup here and restores it by itself.`,
         ],
         facts: [['Files', String(summary.files)], ['Size', `${Math.max(1, Math.round(summary.size / 1024))} KB`], ['Version', `MZ-${PACKAGE_VERSION}`]],
         replyHelp: false,
@@ -9922,6 +10443,8 @@ app.get('/api/backup', requirePermission('backup.view'), (req, res) => {
     intervalHours: backupConfig.intervalHours,
     keep: backupConfig.keep,
     encrypted: Boolean(backupConfig.passphrase),
+    // What encrypts a backup made now, whether its key was saved elsewhere, and whether an Admin can turn it on (never the key).
+    encryption: backupKey.status(),
     last: lastBackup,
     backups: listBackups(backupConfig.dir).slice(0, 30),
     pendingRestore: fs.existsSync(path.join(dataDir, PENDING_RESTORE)),
@@ -9929,7 +10452,42 @@ app.get('/api/backup', requirePermission('backup.view'), (req, res) => {
   });
 });
 
-/** Download a backup now (encrypted when BACKUP_PASSPHRASE is set). */
+/**
+ * The server's own backup key (src/backup-key.js), for those who may download and restore backups (Admins).
+ * It is shown on request only, each showing is audited (never the key), and it goes nowhere else: not into
+ * a backup, an email or a log.
+ */
+app.post('/api/backup/key/show', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
+  const key = backupKey.reveal();
+  if (!key) return res.status(409).json({ error: 'This server has no backup key: backup encryption has not been turned on.' });
+  audit.record({ type: 'backup', outcome: 'info', reason: 'Backup key shown.', actor: await adminActor(req) });
+  await audit.settled();
+  const { keyCreatedAt, keySaved } = backupKey.status();
+  res.set('Cache-Control', 'no-store').json({ key, createdAt: keyCreatedAt, saved: keySaved, host: os.hostname() });
+}));
+
+/** "I have saved it": an Admin kept the backup key somewhere other than this server. */
+app.post('/api/backup/key/confirm', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
+  const actor = await adminActor(req);
+  if (!backupKey.confirmSaved({ by: actor.email })) return res.status(409).json({ error: 'This server has no backup key: backup encryption has not been turned on.' });
+  audit.record({ type: 'backup', outcome: 'changed', reason: 'Backup key confirmed as saved somewhere other than this server.', actor });
+  res.json({ encryption: backupKey.status() });
+}));
+
+/** Turn backup encryption on, on an installation whose backups were plain: the server makes its backup key now. */
+app.post('/api/backup/encryption', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
+  if (req.body?.on !== true) return res.status(400).json({ error: 'Backup encryption can be turned on here. To keep backups plain, set BACKUP_ENCRYPTION=off on the server.' });
+  const before = backupKey.status();
+  if (before.source === 'passphrase') return res.status(409).json({ error: 'Backups are already encrypted, with BACKUP_PASSPHRASE.' });
+  if (before.optedOut) return res.status(409).json({ error: 'BACKUP_ENCRYPTION=off is set on the server: remove it and restart to encrypt backups.' });
+  const actor = await adminActor(req);
+  if (backupKey.turnOn({ by: actor.email })) {
+    audit.record({ type: 'backup', outcome: 'changed', reason: 'Backup encryption turned on: backups are encrypted with this server\'s backup key from now on.', actor });
+  }
+  res.json({ encryption: backupKey.status() });
+}));
+
+/** Download a backup now (encrypted with BACKUP_PASSPHRASE or the server's backup key, when either is in use). */
 app.get('/api/backup/download', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
   await settleState();
   const { buffer, summary } = createBackup({ dataDir, settingsFile: config.settingsFile, passphrase: backupConfig.passphrase });
@@ -9964,11 +10522,18 @@ app.post(
   asyncRoute(async (req, res) => {
     const actor = await adminActor(req);
     let bundle;
+    // What the person typed first, then what this server encrypts with: a backup of its own opens without asking.
+    const given = String(req.get('x-backup-passphrase') ?? '');
     try {
-      bundle = readBackup(req.body ?? Buffer.alloc(0), { passphrase: String(req.get('x-backup-passphrase') ?? '') || backupConfig.passphrase });
+      bundle = readBackup(req.body ?? Buffer.alloc(0), { passphrases: [given, ...backupKey.candidates()] });
     } catch (error) {
-      if (req.query.check !== '1') audit.record({ type: 'backup', outcome: 'refused', reason: `Restore refused: ${error.message}`, actor });
-      return res.status(400).json({ error: error.message });
+      const needsKey = error instanceof BackupKeyError;
+      // Nothing was typed and this server's own key does not open it: say whose key is needed, not "wrong".
+      const message = needsKey && !given
+        ? 'This backup is encrypted, and this server\'s own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.'
+        : error.message;
+      if (req.query.check !== '1') audit.record({ type: 'backup', outcome: 'refused', reason: `Restore refused: ${message}`, actor });
+      return res.status(400).json({ error: message, needsKey });
     }
     const info = describeBackup(bundle);
     if (req.query.check === '1') return res.json({ backup: info });
@@ -11476,6 +12041,7 @@ const server = httpsManager.listen({ app, httpsOnly: httpsOnlyAnswer, port: conf
   // The deployment's own connections (CX_API_KEY, SMTP_*) belong to the first tenant.
   await tenancy.run(DEFAULT_TENANT, async () => {
     await prepareAccess();
+    resetTwoStepFromEnvironment();
     await bootstrap();
     await verifyEnvironmentSmtp();
   });
@@ -11545,8 +12111,9 @@ const LAST_WORDS_EVERY_MS = Math.max(0, Number(process.env.LAST_WORDS_EVERY_HOUR
  * Before stopping for a reason nobody here asked for (the service stopped or killed,
  * a crash): a backup in the backup folder, and an email to the administrators with
  * how to bring it back. The copy is attached only when it is encrypted
- * (BACKUP_PASSPHRASE): an unencrypted backup holds the passwords and keys, so then
- * the email says where it is instead. Never throws, and never waits past `deadline`.
+ * (BACKUP_PASSPHRASE, or the server's backup key): an unencrypted backup holds the
+ * passwords and keys, so then the email says where it is instead. The key is never in
+ * the email. Never throws, and never waits past `deadline`.
  */
 async function lastWords(reason, deadline) {
   let backup = null;
@@ -11574,6 +12141,8 @@ async function lastWords(reason, deadline) {
   } catch {}
   const attach = Boolean(backup?.summary.encrypted && backup.summary.size <= MAX_ATTACHMENT_BYTES);
   const name = backup ? path.basename(backup.file) : '';
+  // Encrypted with the server's own backup key (not a BACKUP_PASSPHRASE): the email says where that key is kept.
+  const keyed = Boolean(backup?.summary.encrypted) && backupKey.source === 'key';
   const send = tenancy.run(DEFAULT_TENANT, async () => {
     if (!isVerified(sendingSettings())) return;
     const attachments = attach ? [{ filename: name, content: fs.readFileSync(backup.file), contentType: 'application/octet-stream' }] : [];
@@ -11585,13 +12154,17 @@ async function lastWords(reason, deadline) {
           `MissionZero stopped (${reason}) at ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC. Nobody asked it to from the Update page.`,
           backup
             ? attach
-              ? `Its data was backed up just before, and the backup is attached (${name}, encrypted with BACKUP_PASSPHRASE).`
+              ? `Its data was backed up just before, and the backup is attached (${name}, encrypted with ${sealedWith()}).`
               : backup.summary.encrypted
                 ? `Its data was backed up just before, to ${backup.file} on the server. It is too large to attach.`
-                : `Its data was backed up just before, to ${backup.file} on the server. It is not attached because it is not encrypted: it holds the passwords and keys. Set BACKUP_PASSPHRASE to get an encrypted copy by email next time.`
+                : `Its data was backed up just before, to ${backup.file} on the server. It is not attached because it is not encrypted: it holds the passwords and keys. Turn encryption on under Audit → State & backups (or set BACKUP_PASSPHRASE) to get an encrypted copy by email next time.`
             : 'It could not write a backup before stopping. Its data folder is still there.',
           'To bring it back: start MissionZero again with the same command and data folder. Nothing needs restoring while the data folder is there.',
-          'If the data folder is lost: start a new MissionZero with the same BACKUP_PASSPHRASE, sign in as an Admin, open Audit → State folder & backups → Restore from backup…, and choose this backup. It is restored when the server next starts, with every setting, person, credit, tracked report and the audit log. On the server itself, `npm run restore -- <file> --yes` does the same.',
+          // The key itself is never part of an email: only where an Admin kept it.
+          keyed
+            ? 'If the data folder is lost: start a new MissionZero, sign in as an Admin, open Audit → State & backups → Restore from backup…, choose this backup, and give the backup key when it asks. The key is not in this email: it is the one an Admin saved from Audit → State & backups. The backup is restored when the server next starts, with every setting, person, credit, tracked report and the audit log. On the server itself, `npm run restore -- <file> --yes` with BACKUP_PASSPHRASE set to the backup key does the same.'
+            : 'If the data folder is lost: start a new MissionZero with the same BACKUP_PASSPHRASE, sign in as an Admin, open Audit → State folder & backups → Restore from backup…, and choose this backup. It is restored when the server next starts, with every setting, person, credit, tracked report and the audit log. On the server itself, `npm run restore -- <file> --yes` does the same.',
+          ...(keyed && !backupKey.status().keySaved ? ['Nobody has confirmed saving the backup key yet. While the data folder is still there, start MissionZero again and save the key from Audit → State & backups: without it, this backup cannot be opened.'] : []),
         ],
         facts: backup ? [['Backup', name], ['Files', String(backup.summary.files)], ['Encrypted', backup.summary.encrypted ? 'yes' : 'no'], ['Version', `MZ-${PACKAGE_VERSION}`]] : [['Version', `MZ-${PACKAGE_VERSION}`]],
         replyHelp: false,

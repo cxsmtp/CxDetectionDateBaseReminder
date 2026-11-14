@@ -137,6 +137,7 @@ What is translated, and what is not:
 - **Language:** the same choice as the globe.
 - **Time zone:** picked up from your computer by default. Untick **Use this computer's time zone** to choose another. Dates and times on every page are shown in it.
 - **Programming languages:** the languages you work in.
+- **Two-step sign-in** (for people who sign in with a password): a six-digit code from an authenticator app on your phone, after your password. **Turn on two-step sign-in**, scan the QR code with the app (or type the key), enter the code it shows, and keep the ten recovery codes. **New recovery codes** and **Turn off two-step sign-in** each ask for a current code. See [Sign in](#sign-in).
 - **Currency:** any country's currency, for money on the Impact page and in the summary you download. Choose it, then give the exchange rate from the organisation's currency, for example **1 USD = 83.2 INR**. Until you give a rate, amounts stay in the organisation's currency. Only you see your choice.
 
 Changes save as you make them and are recorded in the audit log. A time zone or first language picked up from your computer is saved without an audit entry.
@@ -187,6 +188,21 @@ Admins and Analysts can change what Security Analyst and User may do, or create 
 - The key must be for the same tenant as the server.
 - Checkmarx One then sees your actions as yours.
 
+**Two-step sign-in.** After your password, the page asks for the six-digit code your authenticator app shows for CxMissionZero.
+- Turn it on yourself under **Your profile → Two-step sign-in**. An Admin can also require it for everyone who signs in with a password: you then set it up at your next sign-in, before you get in.
+- **Use a recovery code** signs you in without the phone. Each of the ten codes works once.
+- Five wrong codes send you back to the password, and lock the account for 15 minutes, as five wrong passwords do.
+- Lost the phone and the recovery codes? An Admin takes it off under People & roles (**Reset two-step**), and you set it up again.
+- It is not asked for when you sign in with a Checkmarx One API key or with single sign-on.
+
+**Single sign-on.** When an Admin has set it up, the sign-in page has one more button (its label is theirs, such as **Sign in with Acme**). It takes you to your organisation's sign-in page and brings you back signed in, as the person in People & roles with your email address. No password and no code are asked for here.
+- If you come back to the sign-in page instead, a sentence under the button says why: for example, you have no access here yet (ask an Admin to add you), or your account is disabled.
+- An Admin may keep passwords for Admins only. Your password is then refused with *Use single sign-on*.
+- Your first single sign-on links you to your account at the identity provider. If that account is made anew, you are sent back with *linked to another account*: an Admin resets the link under People & roles.
+- If you have no password here, **Change password** has nothing to fill in: an Admin can give you one.
+
+How both work, and what keeps them safe: [Sign-in and passwords](sign-in.md).
+
 **The first administrator.** On its very first start the server creates an administrator and prints the email and password in its log:
 
 ```
@@ -212,7 +228,7 @@ podman exec mission-zero node scripts/reset-admin.mjs
 
 Nothing arrived? Check spam, or ask an Admin: at most 3 links an hour are sent to one person, and an Admin may have kept Admins, or everyone, out of resetting by email (People & roles → **Sign-in**).
 
-**Locked out?** Five wrong passwords lock an account for 15 minutes. Resetting your password by email unlocks it. An Admin or Analyst can also set a new temporary password for you on the People & roles page (**Set password**).
+**Locked out?** Five wrong passwords, or wrong two-step codes, lock an account for 15 minutes. Resetting your password by email unlocks it. An Admin or Analyst can also set a new temporary password for you on the People & roles page (**Set password**).
 
 **Connections, top right.** One look shows whether CxMissionZero can reach what it needs:
 
@@ -467,6 +483,8 @@ Settings shows one section at a time: pick it from the list on the left (a strip
 ### Update & recovery (Admin)
 
 Install a new version, go back to any version, turn on auto-update, restart the server, or download a troubleshooting report, all without signing in to the server. A click on the version number at the bottom left (`MZ-xx.xx.xx`) opens it; for someone who may not update the server, the same click opens About & terms of use. How it works and what it needs: [Updating](updating.md).
+
+**Two channels.** The image is published as `latest` (every merged release) and as `stable` (the release the maintainer promoted, the same image under one more tag). This page lists every version; **Update now** and auto-update install the newest, so they follow `latest`. To stay on `stable`, leave auto-update off and update with `podman pull …:stable` ([the two channels](updating.md#two-channels-latest-and-stable)).
 
 - **Software integrity** says whether the code running is exactly what this repository's release workflow built and signed: **Genuine** (with the commit, the workflow run and the Sigstore log entry), **Files changed** (with the files), **Not signed by the release workflow**, **Not confirmed yet** (GitHub not reachable yet) or **Development copy**. It is checked at start, every 6 hours, with **Check now**, and before any update is installed or switched to; only a version whose files match its signed list is installed ([software integrity](integrity.md)).
 
@@ -1104,11 +1122,21 @@ Totals at the top, then three tabs: **Credit audit log**, **Integrity & reconcil
 
 | Action | Who | What |
 | --- | --- | --- |
-| **Download backup** | Admin | One `.mzbackup` file. It holds the keys, the mail password and the users, so keep it safe. |
+| **Download backup** | Admin | One `.mzbackup` file. It holds the keys, the mail password and the users, so it is encrypted (below). |
 | **Back up to folder now** | Admin / Analyst | Writes a backup to the backup folder. Scheduled backups run every 24 hours by default. |
-| **Restore from backup…** | Admin | Checks the file (asks for the passphrase if it is encrypted), shows what it holds, then **Restore at next restart**: the state is replaced when the server next starts. |
+| **Restore from backup…** | Admin | Checks the file, shows what it holds, then **Restore at next restart**: the state is replaced when the server next starts. A backup this server made opens by itself; another server's asks for its backup key or passphrase. |
+| **Show backup key**, **Copy**, **Download as a text file**, **I have saved it** | Admin | The key the backups are encrypted with. Keep a copy somewhere other than the server, then confirm. |
+| **Turn on backup encryption** | Admin | On an installation whose backups were plain: the server makes its backup key, shows it, and encrypts every backup from then on. |
 
-See [audit-and-backup.md](audit-and-backup.md) for encrypted backups and moving to a new server.
+**Backups are encrypted.** The **Encryption** line says with what:
+
+- **A new installation** encrypts every backup with a backup key of its own, from the first one. The key is eight groups of four letters and digits.
+- **Save the key.** If the server is lost, a backup opens only with its key. **Show backup key**, copy or download it, keep it in a password manager or a safe, then choose **I have saved it**. Until someone does, Admins see a notice at the top of every page.
+- **An installation that already existed** keeps plain backups until an Admin chooses **Turn on backup encryption**. Until then Admins see a notice that backups are not encrypted.
+- **With `BACKUP_PASSPHRASE` set**, backups are encrypted with that passphrase and none of this changes anything.
+- Each time the key is shown is recorded in the audit log, without the key. The key is never emailed and is not inside a backup.
+
+See [audit-and-backup.md](audit-and-backup.md#backups-are-encrypted) for how the server tells a new installation from an existing one, plain backups on purpose (`BACKUP_ENCRYPTION=off`), and moving to a new server.
 
 ---
 
@@ -1124,6 +1152,8 @@ Identity and access management, in three tabs.
 | **Edit profile** | Their profile, as on Settings → Your profile: name, language, time zone, programming languages, Impact figures, look (the organisation's or one of the nine, theme, accent) and picture, and their **sign-in email** (**Change email**, after a confirmation). A new email ends any password reset link sent to the old one, and both addresses are told by email. Every change is in the audit log. For people whose permissions you hold all of, never your own (that is Your profile). **Back to People & roles** returns. |
 | Role (per person) | Change it. It applies on their next click. |
 | **Set password** | A new temporary password. |
+| **Reset single sign-on link** | Shown for a person linked to their account at the identity provider by a single sign-on. Use it when that account was made anew: their next single sign-on links them again, by their email address. In the audit log. |
+| **Reset two-step** | Shown for a person who has two-step sign-in on. Takes it off (a lost phone): their app and recovery codes stop working here, and they set it up again. In the audit log. |
 | **Disable / Enable** | Disabling ends their sessions at once. |
 | **Remove** | Deletes the account. |
 | **Tenants** (Super Admin, several tenants) | Choose the Checkmarx One tenants the person works in. Under each name, the tenants they work in now. |
@@ -1132,6 +1162,22 @@ Identity and access management, in three tabs.
 - **Everyone with a password** (the default), **Everyone except Admins** (people who may manage people or tenants then get a temporary password from another Admin, or with `node scripts/reset-admin.mjs`), or **Nobody**.
 - Under it, what is still missing for **Forgot your password?** to show: the email server set up and tested, and the server's https address (Settings → Server address).
 - Accounts that sign in with a Checkmarx One key only, and disabled accounts, are never sent a link.
+
+Admins see two more cards on the same tab, both for the whole server and both off by default (a Super Admin's when there are several tenants). Every change is in the audit log.
+
+- **Two-step sign-in → Require two-step sign-in for everyone who signs in with a password.** On: a person without it sets it up at their next password sign-in, before they get in, and nobody can turn their own off. People who are signed in carry on until they sign in again. Signing in with a Checkmarx One key, single sign-on and the links in emailed reports are not asked for a code.
+- **Single sign-on** (OpenID Connect: Microsoft Entra ID, Okta, Keycloak, Google and others):
+  - **Offer single sign-on on the sign-in page**: the switch.
+  - **Redirect address to register at the identity provider**: this server's address followed by `/api/session/oidc/callback` (**Copy**). Set the server's address first (Settings → Server address).
+  - **Identity provider address (issuer)**, **Client id**, **Client secret** (stored, never shown again) and **Button label**.
+  - **Who may sign in this way**: only people who are already in People & roles (the default), or everyone the identity provider signs in, added with the role you choose (never Admin). Adding people needs at least one email domain allowed. A person you remove is added again at their next single sign-on: disable them instead.
+  - **Email domains allowed** (optional, unless people are added).
+  - **The identity provider must mark the email address as verified** (on by default). Turned off, it still holds for people who may manage people, until they are linked.
+  - While single sign-on is on, only an Admin changes the server's address (Settings → Server address), and it must stay https.
+  - **Only Admins may still sign in with a password** (off by default: passwords keep working beside single sign-on).
+  - **Save single sign-on**, then **Check the identity provider**: it reads the provider's settings and keys through this server's proxy and trusted certificates, and says what it found.
+
+Step by step, with what is and is not covered: [Sign-in and passwords](sign-in.md).
 
 **Roles & permissions** is a matrix of permissions against roles.
 - **Find a permission** narrows the matrix; click a group name to fold it, or **Collapse all**. Each group row shows how many of its permissions each role has.
@@ -1391,6 +1437,7 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
+| **MZ-01.01.11** | 509/s, 0 failed (main 514/s and 508/s, 0; two pairs) | 1.0 and 3.4 s (main 4.4 and 0.7 s) | 142 and 293 ms (main 209 and 144 ms) | 1,202 pass, and 9 in a browser | 0 vulnerabilities | Scan e20ac30a of the final code, every engine but the AI ones: 32 open (1 / 4 / 10 / 16, 1 info); 2 in this release's code, checked and not exploitable; an independent review's 6 findings fixed ([review](security/mz-01.01.11-review.md)) |
 | **MZ-01.01.10** | 501–515/s, 0 failed (main 493–510/s, 0; five pairs) | 1.0–5.6 s (main 0.2–2.0 s; 0.2–0.5 s inside the server on both) | 128–262 ms (main 119–206 ms) | 1,112 pass | 0 vulnerabilities | Scan dc0b5c87 of the final code, every engine but the AI ones: 31 open (1 / 4 / 9 / 16, 1 info), none new, all judged before; the release's own code has no result; an independent review's 6 fixes are in ([review](security/mz-01.01.10-review.md)) |
 | **MZ-01.01.09** | 507/s, 0 failed (main 502/s, 0) | 4.1 s (main 6.3 s) | 115 ms (main 288 ms) | 1,055 pass | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, e4657d28 of MZ-01.01.08's final code: 75 open (7 / 23 / 27 / 17, 1 info), 15 to verify |
 | **MZ-01.01.08** | 509/s, 0 failed (main 521/s, 0) | 412 ms (main 563 ms) | 97 ms (main 70 ms) | 1,037 pass | 0 vulnerabilities | Scan e4657d28 of the final code: 75 open (7 / 23 / 27 / 17, 1 info), none new; nodemailer CVE-2026-125755 and the launcher's timing fixed in the release, 15 to verify (by design, not shipped, or unchanged code under newer rules) |
@@ -1502,9 +1549,9 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 - The projects loaded on the Workbench: Credits panel → **Take back unused credits**.
 
 **Move to a new server**
-1. Audit page → **Download backup**.
+1. Audit page → **Download backup**. Have the backup key at hand (**Show backup key**), or the `BACKUP_PASSPHRASE`.
 2. Start the new container.
-3. **Restore from backup…**
+3. **Restore from backup…**, and give the key or passphrase when it asks.
 
 ---
 

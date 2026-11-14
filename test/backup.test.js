@@ -89,7 +89,7 @@ test('encrypted backups need the passphrase; damaged or foreign files are refuse
   const { buffer } = createBackup({ dataDir: source, passphrase: PASSPHRASE });
   assert.ok(!buffer.includes(Buffer.from('mail.acme.io')));
   assert.throws(() => readBackup(buffer), /encrypted/);
-  assert.throws(() => readBackup(buffer, { passphrase: 'wrong' }), /Wrong passphrase/);
+  assert.throws(() => readBackup(buffer, { passphrase: 'wrong' }), /wrong backup key or passphrase/);
   assert.equal(describeBackup(readBackup(buffer, { passphrase: PASSPHRASE })).hasSettings, true);
 
   assert.throws(() => readBackup(Buffer.from('hello')), /Not a CxMissionZero backup/);

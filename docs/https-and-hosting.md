@@ -184,7 +184,7 @@ This is what the image does when no certificate is given; `TLS_HOSTNAMES` only a
 
 **Data and email**
 - [ ] **The data volume** holds settings, the audit log, the credit ledger, sign-ins and the report-signing key.
-  - Back it up with a passphrase (`BACKUP_PASSPHRASE`), and copy the backups off the host (see [Audit log and backups](audit-and-backup.md)).
+  - Keep its backups encrypted: a new installation does by itself, and an Admin saves its backup key from **Audit → State & backups**; an older one turns encryption on there, or sets `BACKUP_PASSPHRASE`. Copy the backups off the host (see [Audit log and backups](audit-and-backup.md#backups-are-encrypted)).
   - Only administrators of the host should be able to read the volume.
 - [ ] **Mail.** Use port 587 with TLS (`SMTP_SECURE=false` upgrades with STARTTLS) or 465 (`SMTP_SECURE=true`). Leave certificate checks on: `SMTP_REJECT_UNAUTHORIZED` stays `true`.
 

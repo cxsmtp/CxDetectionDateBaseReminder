@@ -27,6 +27,8 @@ import { promisify } from 'node:util';
 import { validCurrency } from './money.js';
 import { LOOKS as ALL_LOOKS, NEXTGEN_ACCENTS } from '../public/look.js';
 import { RESET_POLICIES } from './password-reset.js';
+import { matchTotp, recoveryHash, typedCode, typedRecoveryCode } from './mfa.js';
+import { storedSso } from './oidc.js';
 import { readState, writeState } from './state-file.js';
 
 const scrypt = promisify(scryptCb);
@@ -234,8 +236,15 @@ export class IamStore {
     }
     const users = Array.isArray(raw.users) ? raw.users.filter((u) => u?.id && u?.email) : [];
     const migrations = Array.isArray(raw.migrations) ? raw.migrations.filter((m) => typeof m === 'string') : [];
-    // Server-wide sign-in rules (People & roles → Sign-in): who may reset a forgotten password by email.
-    const policy = { passwordReset: RESET_POLICIES.includes(raw.policy?.passwordReset) ? raw.policy.passwordReset : 'everyone' };
+    // Server-wide sign-in rules (People & roles → Sign-in): who may reset a forgotten password by email, whether
+    // everyone with a password needs two-step sign-in, and single sign-on (src/oidc.js; its client secret is here too).
+    const policy = {
+      passwordReset: RESET_POLICIES.includes(raw.policy?.passwordReset) ? raw.policy.passwordReset : 'everyone',
+      twoStepRequired: raw.policy?.twoStepRequired === true,
+      // Whose two-step sign-in RESET_TWO_STEP last took off (so the variable, left in the environment, works once).
+      twoStepResetFor: typeof raw.policy?.twoStepResetFor === 'string' ? raw.policy.twoStepResetFor : '',
+      sso: storedSso(raw.policy?.sso),
+    };
     const state = { version: 1, roles, users, migrations, policy };
     if (Object.keys(raw).length && !migrations.includes(ROLES_1_0_63)) {
       migrateRoles1063(state);
@@ -540,6 +549,152 @@ export class IamStore {
     return { before, after: value };
   }
 
+  /** Whether everyone who signs in with a password must have two-step sign-in (an Admin's switch, off by default). */
+  twoStepRequired() {
+    return this.#state.policy?.twoStepRequired === true;
+  }
+
+  setTwoStepRequired(on) {
+    const before = this.twoStepRequired();
+    this.#state.policy = { ...(this.#state.policy ?? {}), twoStepRequired: on === true };
+    this.#save();
+    return { before, after: on === true };
+  }
+
+  // -------------------------------------------------------------------------
+  // Single sign-on: who a person is at the identity provider (its issuer and subject), kept from their first sign-in
+  // -------------------------------------------------------------------------
+
+  /** The person linked to this account at the identity provider, or null. */
+  findBySso(issuer, sub) {
+    this.#fresh();
+    if (!issuer || !sub) return null;
+    return this.#state.users.find((u) => u.sso?.issuer === issuer && u.sso?.sub === sub) ?? null;
+  }
+
+  /** Link a person to their account at the identity provider (at their first single sign-on). */
+  linkSso(id, { issuer, sub }) {
+    const user = this.user(id);
+    if (!user) throw fail(404, 'No such user.');
+    user.sso = { issuer: String(issuer), sub: String(sub), linkedAt: new Date().toISOString() };
+    this.#save();
+    return publicUser(user);
+  }
+
+  /** Take the link off (their account at the provider was made anew): the next single sign-on links them again. */
+  unlinkSso(id) {
+    const user = this.user(id);
+    if (!user) throw fail(404, 'No such user.');
+    const had = Boolean(user.sso?.sub);
+    delete user.sso;
+    if (had) this.#save();
+    return had;
+  }
+
+  /** Take every link off (the identity provider was changed): how many there were. */
+  clearSsoLinks() {
+    const linked = this.#state.users.filter((u) => u.sso?.sub);
+    for (const user of linked) delete user.sso;
+    if (linked.length) this.#save();
+    return linked.length;
+  }
+
+  /** The email RESET_TWO_STEP was last used for ('' once the server has started without the variable). */
+  twoStepResetFor() {
+    return this.#state.policy?.twoStepResetFor ?? '';
+  }
+
+  noteTwoStepResetFor(email) {
+    const value = norm(email);
+    if (this.twoStepResetFor() === value) return;
+    this.#state.policy = { ...(this.#state.policy ?? {}), twoStepResetFor: value };
+    this.#save();
+  }
+
+  /** Single sign-on as saved (src/oidc.js), client secret included: for the server only, never sent to a browser. */
+  sso() {
+    this.#fresh();
+    return this.#state.policy?.sso ?? storedSso();
+  }
+
+  /** Save single sign-on settings already checked (mergeSso). A client secret replaced or taken out leaves no last good copy holding it. */
+  setSso(next) {
+    const before = this.sso();
+    this.#state.policy = { ...(this.#state.policy ?? {}), sso: storedSso(next) };
+    this.#save({ forget: Boolean(before.clientSecret) && before.clientSecret !== next.clientSecret });
+    return { before, after: this.sso() };
+  }
+
+  // -------------------------------------------------------------------------
+  // Two-step sign-in (src/mfa.js): the secret sits with the person, recovery codes as hashes
+  // -------------------------------------------------------------------------
+
+  /** Turn it on, once a first code has proved the authenticator app holds the secret. `step`: that code's, so it is not used twice. */
+  enableTwoStep(id, secret, { step = 0, recovery = [] } = {}) {
+    const user = this.user(id);
+    if (!user) throw fail(404, 'No such user.');
+    user.mfa = { secret, enabledAt: new Date().toISOString(), lastStep: step, recovery: [...recovery] };
+    this.#save();
+    return publicUser(user);
+  }
+
+  /** Take it off (the person's own choice, or an Admin's reset). Nothing of the secret stays, not in the last good copy either. */
+  resetTwoStep(id) {
+    const user = this.user(id);
+    if (!user) throw fail(404, 'No such user.');
+    const had = Boolean(user.mfa?.secret);
+    delete user.mfa;
+    if (had) this.#save({ forget: true });
+    return had;
+  }
+
+  /** New recovery codes (their hashes) in place of the ones before. */
+  setRecoveryCodes(id, recovery) {
+    const user = this.user(id);
+    if (!user?.mfa?.secret) throw fail(400, 'Two-step sign-in is not on.');
+    user.mfa.recovery = [...recovery];
+    this.#save({ forget: true });
+    return publicUser(user);
+  }
+
+  /**
+   * Check a code from the authenticator app, or (unless `recovery` is false) a recovery code, which is
+   * then gone. Returns { kind: 'code' | 'recovery', left }. A wrong one throws 401 and counts as a wrong
+   * password does: five in a row lock the account for a quarter of an hour (423 while it is locked).
+   */
+  checkTwoStep(id, typed, { now = Date.now(), recovery = true } = {}) {
+    const user = this.user(id);
+    if (!user?.mfa?.secret) throw fail(400, 'Two-step sign-in is not on.');
+    if (user.lockedUntil > now) {
+      throw fail(423, `Too many failed attempts: try again after ${new Date(user.lockedUntil).toLocaleTimeString()}, or ask an administrator.`, { userId: user.id });
+    }
+    const mfa = user.mfa;
+    if (typedCode(typed)) {
+      const step = matchTotp(mfa.secret, typed, { now, after: mfa.lastStep ?? 0 });
+      if (step) {
+        mfa.lastStep = step;
+        this.#save();
+        return { kind: 'code', left: (mfa.recovery ?? []).length };
+      }
+    } else if (recovery && typedRecoveryCode(typed)) {
+      const hash = Buffer.from(recoveryHash(user.id, typed));
+      const index = (mfa.recovery ?? []).findIndex((kept) => kept.length === hash.length && timingSafeEqual(Buffer.from(kept), hash));
+      if (index >= 0) {
+        mfa.recovery.splice(index, 1);
+        // The used code is gone for good: the last good copy does not keep it either.
+        this.#save({ forget: true });
+        return { kind: 'recovery', left: mfa.recovery.length };
+      }
+    }
+    user.failedLogins = (user.failedLogins ?? 0) + 1;
+    if (user.failedLogins >= MAX_FAILED) {
+      user.lockedUntil = now + LOCK_MS;
+      user.failedLogins = 0;
+    }
+    this.#save();
+    throw fail(401, 'That code is not right.', { userId: user.id, locked: user.lockedUntil > now });
+  }
+
   /** Whether `password` is this person's current one (a reset may not choose it again). */
   async isCurrentPassword(id, password) {
     const user = this.user(id);
@@ -566,8 +721,9 @@ export class IamStore {
   /**
    * Check an email and password. Returns the user, or throws 401 (same message
    * whether the account exists or not) / 423 when locked after repeated failures.
+   * `more(user)`: true when a second step follows, so the sign-in is not recorded yet.
    */
-  async signIn(email, password, now = Date.now()) {
+  async signIn(email, password, now = Date.now(), { more = () => false } = {}) {
     const user = this.findByEmail(email);
     const ok = await checkPassword(password, user?.passwordHash);
     if (!user || !user.passwordHash) throw fail(401, 'Wrong email or password.');
@@ -587,7 +743,9 @@ export class IamStore {
       throw fail(401, 'Wrong email or password.', { userId: user.id, locked: user.lockedUntil > now });
     }
     if (user.disabled) throw fail(403, 'This account is disabled. Ask an administrator.', { userId: user.id });
-    this.recordSignIn(user, now);
+    // `more`: the password is right and something still stands between this person and a session (their
+    // two-step code): they have not signed in yet, and wrong attempts keep counting until they have.
+    if (!more(user)) this.recordSignIn(user, now);
     return user;
   }
 
@@ -819,6 +977,11 @@ export function publicUser(user) {
     tenants: user.tenants ?? [],
     consolidated: Boolean(user.consolidated),
     hasPassword: Boolean(user.passwordHash),
+    // Two-step sign-in: on or off, and since when. Never the secret or the recovery codes.
+    twoStep: Boolean(user.mfa?.secret),
+    twoStepSince: user.mfa?.secret ? user.mfa.enabledAt ?? '' : '',
+    // Linked to an account at the identity provider by their first single sign-on (never which one).
+    ssoLinked: Boolean(user.sso?.sub),
     mustChangePassword: Boolean(user.mustChangePassword),
     disabled: Boolean(user.disabled),
     locked: (user.lockedUntil ?? 0) > Date.now(),
