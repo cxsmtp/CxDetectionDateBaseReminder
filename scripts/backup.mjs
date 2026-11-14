@@ -28,7 +28,14 @@ if (!fs.existsSync(dataDir)) {
   process.exit(1);
 }
 // Read only: whether this installation is new or existing is the server's to decide, at its start.
-const backupKey = new BackupKeyStore({ dataDir });
+let backupKey;
+try {
+  backupKey = new BackupKeyStore({ dataDir });
+} catch (error) {
+  // The key file is there and cannot be read: said in plain words, as the server says it, and nothing is written.
+  console.error(`Cannot back up: ${error.message}`);
+  process.exit(1);
+}
 const passphrase = backupKey.secret();
 const isFolder = (fs.existsSync(target) && fs.statSync(target).isDirectory()) || target.endsWith('/');
 const out = isFolder ? path.join(target, backupFileName()) : target;
