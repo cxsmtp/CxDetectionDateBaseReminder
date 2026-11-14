@@ -4,7 +4,7 @@ name: Promote to stable
 # already published, and so already tested, as `stable`, without building anything:
 #   1. finds the published image for the version or commit given;
 #   2. checks its signature: the build attestation the "Container image" workflow of this repository
-#      made for it, from main (or master, or a version tag), on a GitHub-hosted runner. Nothing is
+#      made for it, from main (or master), on a GitHub-hosted runner. Nothing is
 #      published by that workflow unless every test, the browser tests and the smoke test passed;
 #   3. points ghcr.io/<owner>/<repo>:stable at that same digest, and checks that it did.
 # `latest` is every merged release; `stable` is the one promoted here (docs/updating.md).
@@ -97,9 +97,10 @@ jobs:
             --deny-self-hosted-runners \
             --bundle-from-oci \
             --format json > verified.json
-          # And built from what was merged: main (or master), or a version tag. Never a pull request or another branch.
-          jq -e 'length > 0 and all(.[]; .verificationResult.signature.certificate.sourceRepositoryRef | test("^refs/(heads/(main|master)|tags/v[0-9][^/]*)$"))' verified.json > /dev/null || {
-            echo "::error::The image is signed, but not from main, master or a version tag: $(jq -c '[.[].verificationResult.signature.certificate.sourceRepositoryRef]' verified.json)"
+          # And built from what was merged: main (or master). Never a pull request, another branch or a tag: a tag
+          # can be pushed on a commit that was never merged, and its own copy of the workflow would build and sign it.
+          jq -e 'length > 0 and all(.[]; .verificationResult.signature.certificate.sourceRepositoryRef | test("^refs/heads/(main|master)$"))' verified.json > /dev/null || {
+            echo "::error::The image is signed, but was not built from main: $(jq -c '[.[].verificationResult.signature.certificate.sourceRepositoryRef]' verified.json)"
             exit 1
           }
           echo "Signed by $(jq -r '.[0].verificationResult.signature.certificate.buildSignerURI' verified.json)"
