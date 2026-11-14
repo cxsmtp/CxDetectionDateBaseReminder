@@ -4056,7 +4056,17 @@ function relayError(error) {
  * report, and is refused before it is looked at (or written anywhere).
  */
 const RELAY_FIELD_MAX = { projectId: 200, projectName: 512, riskId: 512, scanId: 200, scanner: 40, alternateId: 512, groupId: 512, grant: 512 };
-const relayFieldsFit = (raw) => Object.entries(RELAY_FIELD_MAX).every(([field, max]) => String(raw?.[field] ?? '').length <= max) && String(raw?.exp ?? '').length <= 40;
+const RELAY_FIELDS = [...Object.entries(RELAY_FIELD_MAX), ['exp', 40]];
+/** (Run for every finding of every report request: a plain loop, nothing made along the way.) */
+function relayFieldsFit(raw) {
+  if (raw === null || typeof raw !== 'object') return true;
+  for (let i = 0; i < RELAY_FIELDS.length; i += 1) {
+    const value = raw[RELAY_FIELDS[i][0]];
+    if (value === undefined || value === null) continue;
+    if ((typeof value === 'string' ? value : String(value)).length > RELAY_FIELDS[i][1]) return false;
+  }
+  return true;
+}
 
 /**
  * Refused report requests are written to the audit log, but only so many: nobody has signed in on these routes, so
