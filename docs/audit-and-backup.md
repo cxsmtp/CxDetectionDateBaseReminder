@@ -21,7 +21,7 @@ One entry per event, in `audit/audit-YYYY-MM.jsonl` in the state folder:
 | `allocation` | An admin adds or removes credits, and every automatic recalculation after a scan or triage |
 | `settings` | A credit setting changes: switches, monthly limit, re-triage or re-remediation, admin contact |
 | `report` | A report is issued (downloaded, emailed to an initiator, or sent to "only to" addresses), with its recipient |
-| `backup` | A backup is downloaded or written, a restore is staged, cancelled or applied |
+| `backup` | A backup is downloaded or written, a restore is staged, cancelled or applied; backup encryption is turned on; the backup key is shown, or confirmed as saved (the key itself is never recorded) |
 | `audit` | Someone ran "Verify integrity" |
 | `access` | Every sign-in and sign-out, and every refused sign-in (wrong password, lockout, a key with no matching person) |
 | `iam` | People added, changed, disabled or removed; roles created, changed or removed; passwords set |
@@ -127,6 +127,7 @@ credit-allocations.json     per-project allocations and admin-added credits
 audit/audit-YYYY-MM.jsonl   the audit log
 audit.key                   the audit log's HMAC key
 report-signing.key          signs report permissions: emailed reports stay valid after a restore
+backup-key.json             the server's backup key and whether backups are encrypted: never part of a backup
 tracked-reports.json, known-initiators.json, automation-state.json
 projections.json            Cx Credits Calculator: each customer, as saved
 projection-reports/         Cx Credits Calculator: every projection report made, one file each
@@ -147,7 +148,7 @@ makes it survive a power cut, follows a few milliseconds later, one flush for th
 meanwhile.
 
 Files that hold only secrets or that are rebuilt by themselves keep no `.bak`: the audit and
-report-signing keys, the saved sign-ins, the Govern files, the connection guard, and the network and
+report-signing keys, the backup key, the saved sign-ins, the Govern files, the connection guard, and the network and
 watchdog files. Removing a stored
 key or password from Settings also removes it from the `.bak`.
 
@@ -193,22 +194,105 @@ half-restored. There are three ways to make one:
   SIGINT), or crashes under its launcher, it writes everything to disk and makes one
   more backup into `BACKUP_DIR`. When nobody asked for the stop from the Update page,
   it also emails the administrators the backup and how to restore it. The backup is
-  attached only when it is encrypted with `BACKUP_PASSPHRASE`; otherwise the email
-  says where it is on the server. There is at most one such email every 6 hours
+  attached only when it is encrypted; otherwise the email says where it is on the
+  server. The backup key is never in the email. There is at most one such email every 6 hours
   (`LAST_WORDS_EVERY_HOURS`). A forced kill (SIGKILL, power loss) cannot be caught:
   the scheduled backups cover that ([hands-off](hands-off.md)).
 
-The backup contains the SMTP password and any stored API key. Set
-`BACKUP_PASSPHRASE` to encrypt backups (AES-256-GCM, key derived with scrypt).
-Keep the passphrase somewhere other than the server: it is needed to restore.
+## Backups are encrypted
+
+A backup holds the Checkmarx One key, the mail password and the signing keys. So a
+new installation encrypts every backup, wherever it goes: downloaded, written to the
+backup folder, or emailed. An installation that already existed turns this on first
+(below). The encryption is AES-256-GCM, with the key derived by scrypt.
+
+**What encrypts a backup.** One of three things, in this order:
+
+| The server has | Backups are |
+| --- | --- |
+| `BACKUP_PASSPHRASE` set | Encrypted with that passphrase. Nothing else on this page changes that. |
+| No passphrase, encryption on | Encrypted with **the server's own backup key**. |
+| No passphrase, encryption off | Not encrypted. Admins see a notice on every page, unless it is off on purpose (`BACKUP_ENCRYPTION=off`). |
+
+**A new installation encrypts from its first backup.** At its first start the server
+makes a backup key of its own: eight groups of four letters and digits, such as
+`K7QM-2HXD-…`, random, and easy to type. It keeps the key in `backup-key.json` in the
+state folder, readable only by the server's user. Every backup is encrypted with it.
+
+**Save the key somewhere else.** If the server is lost, a backup opens only with its
+key. So an Admin keeps a copy away from the server:
+
+1. Open **Audit → State & backups**. The **Backup key** box is there for Admins (the
+   *Download & restore backups* permission).
+2. **Show backup key**, then **Copy** it or **Download as a text file**. Put it in a
+   password manager or a safe, not on the server.
+3. **I have saved it.** Until someone confirms, Admins see a notice on every page.
+
+- Each time the key is shown is recorded in the audit log, with who asked. The key
+  itself is never recorded.
+- The key is never emailed, never written into a backup or into the restore
+  instructions an email carries, and never written to the server's log.
+- The key is not part of a backup. A restore leaves the server's own key as it is.
+
+**An installation that already existed is not changed.** A server that ran before
+backups were encrypted by default, with no `BACKUP_PASSPHRASE`, keeps making plain
+backups: nobody holds a key for them yet. Admins see a notice that backups are not
+encrypted. To encrypt them, an Admin opens **Audit → State & backups** and chooses
+**Turn on backup encryption**. The server makes its backup key then, shows it, and
+asks for the same **I have saved it**. Backups made before stay as they are.
+
+**How the server tells new from existing.** It decides once, at the first start that
+finds no decision, before it loads or writes anything, and keeps the answer in
+`backup-key.json`:
+
+- **New:** nothing from before is there. No state file of any version (no `.json`,
+  `.jsonl` or `.key` file in the state folder, and no `.bak` of one), no audit month,
+  no tenant folder, no saved sign-in, nothing an update or a restore left, and no
+  plain backup in the backup folder. At a first start the folder holds only the
+  server's lock.
+- **Existing:** anything else. A doubt always ends in "leave it as it was", never in
+  encrypting the backups of people who hold no key for them.
+- The server's log says which it was, and what it found.
+- It is never decided again. If `backup-key.json` is damaged, the server does not
+  start and says so, as for the other state files. Moving the file away makes the
+  server an existing installation: its backups are plain until an Admin turns
+  encryption on again, which makes a new key.
+
+**`BACKUP_PASSPHRASE` still wins.** With it set, backups are encrypted with the
+passphrase, as before, and the server's key is not used. Keep the passphrase
+somewhere other than the server: it is needed to restore.
+
+**To keep backups plain on purpose**, set `BACKUP_ENCRYPTION=off`. Backups are then
+not encrypted, Admins see no notice, and encryption cannot be turned on from the
+page. A `BACKUP_PASSPHRASE` still wins over it. Keep plain backups where only
+administrators of the host can read them.
+
+**Opening an encrypted backup.** A backup made with the server's key is in the same
+format a passphrase gives. Give the key wherever a passphrase is asked for:
+
+- **On the page:** *Restore from backup…* opens a backup this server made by itself.
+  For another server's backup it asks for the backup key or passphrase.
+- **On the command line:** set `BACKUP_PASSPHRASE` to the key for the restore command.
+  A backup of the same state folder's own server opens without it.
+- The key can be typed in lower case, and with spaces or nothing in place of the dashes.
+- Without a key, or with the wrong one, the restore says so and writes nothing.
+- Plain backups, and backups encrypted with a passphrase by an earlier version,
+  restore as they always did.
+
+`npm run backup` follows the same rules as the server's own backups.
+
+**Going back to an older version.** A version from before backups were encrypted by
+default does not know the backup key. While it runs, with no `BACKUP_PASSPHRASE`, the
+backups it makes are plain. The key stays in the state folder, and the newer version
+uses it again when it is back.
 
 ## The backup mailbox: rebuilding without touching anything
 
 Set `BACKUP_EMAIL` to a mailbox kept for backups. Every encrypted backup is then
 emailed there: the scheduled ones, the one before stopping, the one before switching
-versions, and **Back up to folder now**. It needs `BACKUP_PASSPHRASE` (an
+versions, and **Back up to folder now**. It needs encrypted backups (an
 unencrypted backup is never emailed, because it holds the passwords and keys) and a
-tested email server. A backup over 15 MB is not emailed, and the audit log says so.
+tested email server. The backup key is never emailed with it. A backup over 15 MB is not emailed, and the audit log says so.
 
 To rebuild, start a new server with an empty state folder and these settings:
 
@@ -216,7 +300,7 @@ To rebuild, start a new server with an empty state folder and these settings:
 | --- | --- |
 | `BACKUP_EMAIL` | The same backup mailbox. |
 | `BACKUP_EMAIL_PASSWORD` | The mailbox's password. |
-| `BACKUP_PASSPHRASE` | The same passphrase as the old server. |
+| `BACKUP_PASSPHRASE` | The same passphrase as the old server. If the old server used its own backup key, the key an Admin saved. |
 | `BACKUP_EMAIL_IMAP_HOST` | The mailbox server. It defaults to `SMTP_HOST`. |
 | `BACKUP_EMAIL_IMAP_PORT` | The port. It defaults to 993. On any other port (such as 143) the server must offer STARTTLS: the password is only ever sent over an encrypted connection, and the server log says so if it cannot be (from MZ-01.01.05). |
 | `BACKUP_EMAIL_USER` | The account. It defaults to `BACKUP_EMAIL`. |
@@ -239,7 +323,8 @@ sign in or upload anything.
 ## Rebuilding a server from scratch
 
 1. Install the application on the new server (`npm ci`).
-2. Set `DATA_DIR`, and `BACKUP_PASSPHRASE` if the backup is encrypted.
+2. Set `DATA_DIR`. If the backup is encrypted, set `BACKUP_PASSPHRASE` to what it was
+   encrypted with: the old server's passphrase, or the backup key an Admin saved.
 3. Check the backup first. This writes nothing:
 
    ```
@@ -264,6 +349,12 @@ Everything comes back from the backup:
 - tracked reports;
 - the signing keys, so reports already emailed keep working.
 
+A server rebuilt with the old server's backup key keeps that key: its backups go on
+being encrypted with the key already saved, and nothing needs confirming again. A
+server rebuilt from a backup that was encrypted with a passphrase needs the same
+`BACKUP_PASSPHRASE` when it starts. Without it, its backups are plain until an Admin
+turns encryption on.
+
 Anything already in the state folder is moved to `replaced-<time>/`, never deleted. That includes
 the `.bak` copies, so an older state cannot come back after the restore.
 
@@ -281,11 +372,18 @@ With the container, stop it and run the restore from the same image on the same 
 podman run --rm -v mission-zero-data:/data ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest node scripts/restore.mjs /data/backups/mission-zero-2026-09-30T02-00-00.mzbackup --yes
 ```
 
+On the same volume an encrypted backup opens by itself: the volume holds the server's backup key. On a new, empty volume, give the key (or the old passphrase) on the same line:
+
+```
+podman run --rm -e BACKUP_PASSPHRASE=K7QM-2HXD-AAAA-BBBB-CCCC-DDDD-EEEE-FFFF -v mission-zero-data:/data ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest node scripts/restore.mjs /data/backups/mission-zero-2026-09-30T02-00-00.mzbackup --yes
+```
+
 Then start the container again with `podman start mission-zero`.
 
 You can also restore a running server from **Audit → Restore from backup…**:
 
-- The backup is checked, and the page shows what it holds.
+- The backup is checked, and the page shows what it holds. An encrypted backup of
+  another server asks for its backup key or passphrase first.
 - The upload is limited to 200 MB. A larger backup is restored with `npm run restore`, as above.
 - The restore is staged, and applied at the next restart before anything loads.
   Otherwise the running server would write its in-memory state over the restored

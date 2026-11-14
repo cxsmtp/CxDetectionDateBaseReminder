@@ -101,11 +101,11 @@ The email carries the troubleshooting log: no personal data, keys or findings. T
 1. Writes everything to disk and makes a backup into the backup folder.
 2. Emails the administrators the backup, with how to bring it back. The steps are:
    - Start it again with the same data folder, and nothing needs restoring.
-   - If the data folder is lost, start a new MissionZero with the same `BACKUP_PASSPHRASE`, then open **Audit → State folder & backups → Restore from backup…** and choose the file. On the server, `npm run restore -- <file> --yes` does the same.
+   - If the data folder is lost, start a new MissionZero, then open **Audit → State & backups → Restore from backup…**, choose the file, and give the backup key (or the old `BACKUP_PASSPHRASE`) when it asks. On the server, `npm run restore -- <file> --yes` with `BACKUP_PASSPHRASE` set to the key does the same.
 
-The backup is attached only when it is encrypted (`BACKUP_PASSPHRASE`), because it holds the passwords and keys. Otherwise the email says where it is on the server.
+The backup is attached only when it is encrypted, because it holds the passwords and keys: with the server's own backup key (a new installation's default) or with `BACKUP_PASSPHRASE`. Otherwise the email says where it is on the server. The backup key is never in the email: an Admin saves it from **Audit → State & backups** ([backups are encrypted](audit-and-backup.md#backups-are-encrypted)).
 
-With `BACKUP_EMAIL` set, every encrypted backup also goes to that mailbox. A new server started with the mailbox's password and the same passphrase then finds the newest backup there and restores itself, with nothing to touch ([the backup mailbox](audit-and-backup.md#the-backup-mailbox-rebuilding-without-touching-anything)).
+With `BACKUP_EMAIL` set, every encrypted backup also goes to that mailbox. A new server started with the mailbox's password and the same passphrase (or `BACKUP_PASSPHRASE` set to the old server's backup key) then finds the newest backup there and restores itself, with nothing to touch ([the backup mailbox](audit-and-backup.md#the-backup-mailbox-rebuilding-without-touching-anything)).
 
 Some stops send no email:
 - A stop MissionZero asked for itself (an update, a version switch, a restart from the Update page). It still backs up.

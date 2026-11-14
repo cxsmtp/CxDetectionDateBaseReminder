@@ -95,15 +95,40 @@ test('stopped by someone: a backup first, and the encrypted copy to the administ
   assert.equal(stoppedMails().length, 1, 'one email, not one per stop');
 });
 
-test('without a passphrase the copy is never attached: the email says where it is', async () => {
+test('a backup that is not encrypted is never attached: the email says where it is', async () => {
   const before = stoppedMails().length;
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'last-words-plain-'));
-  const server = await start(dataDir, { BACKUP_PASSPHRASE: '' });
+  // Plain on purpose (an existing installation that never turned encryption on gets the same email).
+  const server = await start(dataDir, { BACKUP_PASSPHRASE: '', BACKUP_ENCRYPTION: 'off' });
   await server.stop();
   const mail = stoppedMails().at(-1);
   assert.equal(stoppedMails().length, before + 1);
   assert.match(readable(mail.raw), /not attached because it is not encrypted/);
   assert.doesNotMatch(mail.raw, /\.mzbackup"?\r\nContent-Transfer-Encoding: base64/);
+});
+
+test('a new installation without a passphrase: the copy is attached, encrypted with the server\'s backup key, and the key is not in the email', async () => {
+  const before = stoppedMails().length;
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'last-words-key-'));
+  const server = await start(dataDir, { BACKUP_PASSPHRASE: '', BACKUP_ENCRYPTION: '' });
+  const key = (await server.call('POST', '/api/backup/key/show')).body.key;
+  assert.match(key, /^([A-Z2-9]{4}-){7}[A-Z2-9]{4}$/);
+  await server.stop();
+  assert.equal(stoppedMails().length, before + 1);
+  const mail = stoppedMails().at(-1);
+  const text = readable(mail.raw);
+  assert.match(text, /backup is attached \(mission-zero-[^)]*\.mzbackup, encrypted with this server's backup key\)/);
+  assert.match(text, /give the backup key when it asks\. The key is not in this email/);
+  assert.match(text, /Nobody has confirmed saving the backup key yet/);
+  // Neither as text nor inside the attachment: the email never carries the key.
+  assert.ok(!mail.raw.includes(key) && !text.includes(key), 'the key is not in the email');
+  assert.ok(!mail.raw.includes(Buffer.from(key).toString('base64').slice(0, 24)));
+  const [name] = fs.readdirSync(path.join(dataDir, 'backups')).filter((f) => f.endsWith('.mzbackup'));
+  const part = new RegExp(`filename="?${name.replace(/\./g, '\\.')}"?[\\s\\S]*?\\r\\n\\r\\n([A-Za-z0-9+/=\\r\\n]+?)\\r\\n--`).exec(mail.raw);
+  assert.ok(part, 'attached');
+  const attached = Buffer.from(part[1].replace(/\s+/g, ''), 'base64');
+  assert.throws(() => readBackup(attached), /no backup key or passphrase was given/);
+  assert.ok(readBackup(attached, { passphrase: key }).files['iam.json'], 'it opens with the key the Admin saved');
 });
 
 test('every backup goes to the backup mailbox, and a new server brings the newest one back by itself', async () => {

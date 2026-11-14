@@ -2095,6 +2095,7 @@ async function showConnected(me) {
   if (me.configNotices?.length) showNotices(me.configNotices, { acknowledge: true });
   // The code running is not what the release workflow built: said to those who look after updates, at once.
   renderLicenceBanner(me.licence);
+  renderBackupBanner(me.backupNotice);
   if (['tampered', 'not-genuine'].includes(me.integrity?.state)) toast(me.integrity.state === 'tampered' ? 'Software integrity: files changed. Settings → Update & recovery has the details.' : 'Software integrity: not signed by the release workflow. Settings → Update & recovery has the details.', 'bad', 15000);
   if (me.hasScan && !freshStart) restoreLastScan();
   startConnections();
@@ -10341,7 +10342,8 @@ async function loadBackupStatus() {
       ['State folder', `${b.dataDir}${b.insideProject ? ' — inside the project folder: set DATA_DIR' : ''}`, b.insideProject],
       ['Holds', `${b.files} files, ${formatBytes(b.bytes)}`],
       ['Backup folder', `${b.backupDir}${b.sameDisk ? ' — same disk as the state: set BACKUP_DIR to another disk or share' : ''}`, b.sameDisk],
-      ['Schedule', b.intervalHours ? `every ${b.intervalHours} h, keeping ${b.keep}${b.encrypted ? ', encrypted' : ', not encrypted (set BACKUP_PASSPHRASE)'}` : 'off (BACKUP_INTERVAL_HOURS=0)', !b.encrypted],
+      ['Schedule', b.intervalHours ? `every ${b.intervalHours} h, keeping ${b.keep}${b.encrypted ? ', encrypted' : ', not encrypted'}` : 'off (BACKUP_INTERVAL_HOURS=0)', !b.encrypted],
+      ['Encryption', backupEncryptionText(b.encryption), !b.encryption.encrypted || b.encryption.notice === 'save-key'],
       ['Last backup', last, b.last && !b.last.ok],
       b.pendingRestore && ['Restore staged', 'applied when the server restarts', true],
       b.restoredAtStart && ['Restored at start', `backup of ${formatTime(b.restoredAtStart.createdAt)} (${b.restoredAtStart.files} files)`],
@@ -10349,6 +10351,7 @@ async function loadBackupStatus() {
     $('backup-facts').innerHTML = facts.map(([k, v, warn]) => `<div><dt>${escapeHtml(k)}</dt><dd class="${warn ? 'warn' : ''}">${escapeHtml(v)}</dd></div>`).join('');
     $('backup-list-wrap').hidden = !b.backups.length;
     $('backup-list').innerHTML = b.backups.map((f) => `<tr><td class="code">${escapeHtml(f.name)}</td><td class="num">${formatBytes(f.size)}</td><td>${escapeHtml(formatTime(f.at))}</td></tr>`).join('');
+    renderBackupKeyPanel(b.encryption);
     if (b.pendingRestore && $('restore-panel').hidden) {
       $('restore-panel').hidden = false;
       $('restore-panel').className = 'audit-result';
@@ -10358,6 +10361,133 @@ async function loadBackupStatus() {
     if (!handleAuthLoss(error)) showError('backup-status', error);
   }
 }
+
+// ---- Backup encryption and the server's backup key (Admins: backup.manage) ----
+
+/** The "Encryption" line of the facts: what encrypts a backup made now. */
+function backupEncryptionText(e) {
+  if (e.source === 'passphrase') return 'on, with BACKUP_PASSPHRASE';
+  if (e.source === 'key') {
+    return e.keySaved
+      ? `on, with this server's backup key (saved somewhere else: confirmed ${formatTime(e.keySavedAt)}${e.keySavedBy ? ` by ${e.keySavedBy}` : ''})`
+      : 'on, with this server\'s backup key — nobody has confirmed saving the key somewhere else yet';
+  }
+  return e.optedOut ? 'off (BACKUP_ENCRYPTION=off is set on the server)' : 'off — each backup holds the keys and passwords in the clear';
+}
+
+/** The key while it is on screen (never kept anywhere else in the page). */
+let backupKeyShown = null;
+
+/** The Admins' block under the backup buttons: turn encryption on, see the key, copy or download it, confirm it is saved. */
+function renderBackupKeyPanel(encryption) {
+  const panel = $('backup-key-panel');
+  panel.dataset.source = encryption.source;
+  if (encryption.source !== 'key') backupKeyShown = null;
+  // With BACKUP_PASSPHRASE the server's key is not used: there is nothing to do here.
+  panel.hidden = encryption.source === 'passphrase';
+  // (classList, not className: the permission class on the panel stays.)
+  panel.classList.toggle('bad', Boolean(encryption.notice));
+  if (encryption.source === 'none') {
+    panel.innerHTML = encryption.optedOut
+      ? '<strong>Backups are not encrypted.</strong><span>BACKUP_ENCRYPTION=off is set on the server. Each backup holds the Checkmarx One key, the mail password and the signing keys in the clear. To encrypt them, remove that setting and restart the server.</span>'
+      : `<strong>Backups are not encrypted.</strong>
+        <span>Each backup holds the Checkmarx One key, the mail password and the signing keys in the clear. Turn encryption on and the server makes a backup key, shows it to you, and encrypts every backup from then on. Backups made before stay as they are.</span>
+        <div><button type="button" id="backup-encrypt-on" class="sm">Turn on backup encryption</button></div>`;
+    return;
+  }
+  const saved = encryption.keySaved
+    ? `<span class="hint">Saved somewhere else: confirmed ${escapeHtml(formatTime(encryption.keySavedAt))}${encryption.keySavedBy ? ` by ${escapeHtml(encryption.keySavedBy)}` : ''}.</span>`
+    : '<span><b>Nobody has confirmed saving this key yet.</b> Show it, keep a copy somewhere other than this server (a password manager, a safe), then confirm.</span>';
+  const shown = backupKeyShown
+    ? `<code class="code" id="backup-key-value">${escapeHtml(backupKeyShown.key)}</code>
+       <div><button type="button" id="backup-key-copy" class="sm">Copy</button> <button type="button" id="backup-key-download" class="sm">Download as a text file</button> <button type="button" id="backup-key-hide" class="sm ghost">Hide</button></div>`
+    : '<div><button type="button" id="backup-key-show" class="sm">Show backup key</button></div>';
+  panel.innerHTML = `<strong>Backup key</strong>
+    <span>Every backup is encrypted with this server's backup key. Keep the key somewhere other than this server: if the server is lost, a backup opens only with it. To restore on another server, give the key when the restore asks, or set BACKUP_PASSPHRASE to it. The key is never emailed and is not inside a backup.</span>
+    ${shown}
+    ${saved}
+    ${backupKeyShown && !encryption.keySaved ? '<div><button type="button" id="backup-key-confirm" class="sm">I have saved it</button></div>' : ''}`;
+}
+
+/** The Admins' notice at the top of every page, until they act. */
+function renderBackupBanner(notice) {
+  const banner = $('backup-banner');
+  if (!banner) return;
+  banner.hidden = !notice;
+  if (!notice) return;
+  banner.innerHTML = notice === 'save-key'
+    ? 'Backups are encrypted with this server\'s backup key, and nobody has confirmed saving the key somewhere else yet. If this server is lost, its backups open only with that key. <a href="#/audit/backups">Save the backup key</a>'
+    : 'Backups of this server are not encrypted: each one holds the Checkmarx One key, the mail password and the signing keys in the clear. <a href="#/audit/backups">Turn on backup encryption</a>';
+}
+
+// Signed out (the sign-in panel shows): the notice goes away with the workspace it is about.
+new MutationObserver(() => {
+  if (!$('connect-panel').hidden) renderBackupBanner(null);
+}).observe($('connect-panel'), { attributes: true, attributeFilter: ['hidden'] });
+
+/** After a change to backup encryption: the panel, the facts and the notice follow. */
+function backupEncryptionChanged(encryption) {
+  if (state.me) state.me = { ...state.me, backupNotice: encryption.notice };
+  renderBackupBanner(encryption.notice);
+  loadBackupStatus();
+}
+
+async function showBackupKey() {
+  backupKeyShown = await api('/api/backup/key/show', { method: 'POST' });
+}
+
+$('backup-key-panel').addEventListener('click', async (event) => {
+  const id = event.target.id;
+  if (!id) return;
+  try {
+    if (id === 'backup-encrypt-on') {
+      if (!confirm('Turn on backup encryption? The server makes a backup key and encrypts every backup from now on. You will be shown the key: keep it somewhere other than this server, because a backup opens only with it.')) return;
+      const { encryption } = await api('/api/backup/encryption', { method: 'POST', body: JSON.stringify({ on: true }) });
+      await showBackupKey();
+      backupEncryptionChanged(encryption);
+    } else if (id === 'backup-key-show') {
+      await showBackupKey();
+      loadBackupStatus();
+    } else if (id === 'backup-key-hide') {
+      backupKeyShown = null;
+      loadBackupStatus();
+    } else if (id === 'backup-key-copy') {
+      try {
+        await navigator.clipboard.writeText(backupKeyShown.key);
+        toast('Backup key copied.');
+      } catch {
+        toast('Select the key and copy it.');
+      }
+    } else if (id === 'backup-key-download') {
+      const text = [
+        'CxMissionZero backup key',
+        '',
+        backupKeyShown.key,
+        '',
+        `Server: ${backupKeyShown.host}`,
+        `Saved from the Audit page: ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`,
+        '',
+        'Keep this file somewhere other than the server. Anyone who has it and a backup can read everything in the backup.',
+        'To restore a backup on another server: give this key when the restore asks for it, or set BACKUP_PASSPHRASE to it.',
+        '',
+      ].join('\r\n');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+      link.download = 'cxmissionzero-backup-key.txt';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    } else if (id === 'backup-key-confirm') {
+      if (!confirm('Have you saved the backup key somewhere other than this server? Without it, a backup cannot be opened if this server is lost.')) return;
+      const { encryption } = await api('/api/backup/key/confirm', { method: 'POST' });
+      backupKeyShown = null;
+      backupEncryptionChanged(encryption);
+    }
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('backup-status', error);
+  }
+});
 
 $('backup-download').addEventListener('click', () => {
   const link = document.createElement('a');
@@ -10405,7 +10535,7 @@ $('restore-file').addEventListener('change', async () => {
       break;
     } catch (error) {
       if (/encrypted|passphrase/i.test(error.message)) {
-        const passphrase = prompt(`${error.message}\n\nPassphrase:`);
+        const passphrase = prompt(`${error.message}\n\nBackup key or passphrase:`);
         if (passphrase) {
           restoreUpload.passphrase = passphrase;
           continue;

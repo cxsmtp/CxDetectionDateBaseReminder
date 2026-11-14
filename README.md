@@ -124,6 +124,8 @@ Use the same options you started it with. What carries over:
 
 The version shows bottom-left as `MZ-xx.xx.xx`; a click on it opens Settings → Update & recovery (About & terms of use for those who may not update). Details and rollback: [Updating](docs/updating.md).
 
+**Two channels.** `:latest` is every merged release. `:stable` is the release the maintainer promoted: the same image, under one more tag. To run from stable, write `:stable` in place of `:latest` in the lines above ([the two channels](docs/updating.md#two-channels-latest-and-stable)).
+
 **Compose** (from a checkout): `podman compose up -d`. It binds to `127.0.0.1` unless `BIND_ADDRESS=0.0.0.0` is set in `.env`.
 
 **Without a container** (Node 20+): `npm install`, then `npm start`.
@@ -246,7 +248,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `NODE_OPTIONS` | e.g. `--max-old-space-size=2048` with `--memory 3g`. |
 | `NODE_EXTRA_CA_CERTS` | A company CA, when a proxy inspects TLS. Not needed: Settings → Checkmarx One → Trusted certificates does the same without a restart. |
 | `HTTPS_PROXY`, `NO_PROXY` | Your company's web proxy and the hosts that skip it. Or set them under Settings → Network & proxy, which checks them first ([network](docs/network.md)). |
-| `BACKUP_INTERVAL_HOURS` (24), `BACKUP_KEEP` (14), `BACKUP_PASSPHRASE`, `BACKUP_DIR` | Scheduled, optionally encrypted backups of `/data`. |
+| `BACKUP_INTERVAL_HOURS` (24), `BACKUP_KEEP` (14), `BACKUP_PASSPHRASE`, `BACKUP_ENCRYPTION`, `BACKUP_DIR` | Scheduled backups of `/data`. A new installation encrypts them with a backup key of its own (an Admin saves it from Audit → State & backups); `BACKUP_PASSPHRASE` encrypts with a passphrase instead; `BACKUP_ENCRYPTION=off` keeps them plain. |
 | `SHUTDOWN_DRAIN_SECONDS` (8), `INSTANCE_LOCK_WAIT_SECONDS` (45) | Updates: how long running requests may finish when stopping; how long a new server waits for the old one ([Updating](docs/updating.md)). |
 | `CONNECTION_CHECK_TIMEOUT_MS` (25000), `CONFIG_ROLLBACK_IDLE_MINUTES` (10) | When a changed connection counts as failed, and when an unattended one is rolled back. |
 | `BRAND_FONT_DIR` (`<DATA_DIR>/fonts`), `BRAND_FONT_FAMILY` (`Founders Grotesk`) | Your organisation's own licensed brand font, served from your folder; never part of the image ([branding](docs/branding.md#your-own-brand-font-founders-grotesk-for-checkmarx)). |
@@ -365,8 +367,9 @@ How it is measured, and what is open and why: [Performance and security status](
 ```bash
 npm install
 npm test                          # unit and end-to-end tests (mock Checkmarx One, fake mail server)
+npm run test:browser              # the page in Chromium (Playwright); once: npx playwright install chromium
 npm start                         # http://127.0.0.1:3000
 loadtest/benchmark.sh 3000 120    # mixed-load benchmark
 ```
 
-The version is `version` in `package.json`, shown as `MZ-xx.xx.xx` and bumped with every change merged to `main`. Pushing to `main` publishes `ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest` after a container smoke test.
+The version is `version` in `package.json`, shown as `MZ-xx.xx.xx` and bumped with every change merged to `main`. Pushing to `main` publishes `ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest` after the tests, the browser tests and a container smoke test. The maintainer marks a published release as `:stable` with the **Promote to stable** workflow, run by hand.

@@ -13,6 +13,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node scripts/run-tests.mjs",
+    "test:browser": "node scripts/run-tests.mjs test/browser/app.browser.test.js",
     "backup": "node scripts/backup.mjs",
     "restore": "node scripts/restore.mjs",
     "reset-admin": "node scripts/reset-admin.mjs"
@@ -26,5 +27,8 @@
   },
   "overrides": {
     "debug": "^4.4.3"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
   }
 }

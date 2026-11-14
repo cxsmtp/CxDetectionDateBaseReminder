@@ -9,6 +9,8 @@
  * refused rather than half-restored. With a passphrase the gzip is sealed with
  * AES-256-GCM (key from scrypt): the backup holds the SMTP password and any
  * stored API key, so keep unencrypted backups somewhere only admins can read.
+ * The passphrase is BACKUP_PASSPHRASE, or else the server's own backup key
+ * (src/backup-key.js), which a new installation makes at its first start.
  *
  * Restore writes the files back into the state folder; whatever was there is
  * moved aside to replaced-<time>/ first, never deleted.
@@ -20,6 +22,7 @@ import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
 
+import { canonicalBackupKey } from './backup-key.js';
 import { STATE_DIRS, TENANT_FILES, TENANT_ID, statePaths } from './data-dir.js';
 
 export const BACKUP_FORMAT = 'mission-zero-backup';
@@ -132,29 +135,71 @@ function seal(plain, passphrase) {
   return Buffer.concat([MAGIC_SEALED, Buffer.from(`${header}\n`), data]);
 }
 
-function unseal(buffer, passphrase) {
+/**
+ * A backup that needs a key: none was given (`BACKUP_KEY_NEEDED`), or none of those given opens it
+ * (`BACKUP_KEY_WRONG`). The message is complete on its own, for the restore script and the page.
+ */
+export class BackupKeyError extends Error {
+  constructor(code) {
+    super(
+      code === 'BACKUP_KEY_NEEDED'
+        ? 'This backup is encrypted, and no backup key or passphrase was given. It opens with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.'
+        : 'This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.',
+    );
+    this.name = 'BackupKeyError';
+    this.code = code;
+  }
+}
+
+/** Open a sealed backup with the first of `secrets` that fits. */
+function unseal(buffer, secrets) {
   const rest = buffer.subarray(MAGIC_SEALED.length);
   const newline = rest.indexOf(0x0a);
-  const header = JSON.parse(rest.subarray(0, newline).toString('utf8'));
-  if (header.format !== SEALED_FORMAT) throw new Error('Not a CxMissionZero backup.');
-  if (!passphrase) throw new Error('This backup is encrypted: give its passphrase (BACKUP_PASSPHRASE).');
-  const key = scryptSync(passphrase, Buffer.from(header.salt, 'base64'), 32);
-  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(header.iv, 'base64'));
-  decipher.setAuthTag(Buffer.from(header.tag, 'base64'));
+  let header;
   try {
-    return Buffer.concat([decipher.update(rest.subarray(newline + 1)), decipher.final()]);
+    header = JSON.parse(rest.subarray(0, newline).toString('utf8'));
   } catch {
-    throw new Error('Wrong passphrase, or the backup is damaged.');
+    throw new Error('Not a CxMissionZero backup (or the file is damaged).');
   }
+  if (header?.format !== SEALED_FORMAT) throw new Error('Not a CxMissionZero backup.');
+  if (!secrets.length) throw new BackupKeyError('BACKUP_KEY_NEEDED');
+  for (const secret of secrets) {
+    try {
+      const key = scryptSync(secret, Buffer.from(header.salt, 'base64'), 32);
+      const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(header.iv, 'base64'));
+      decipher.setAuthTag(Buffer.from(header.tag, 'base64'));
+      return Buffer.concat([decipher.update(rest.subarray(newline + 1)), decipher.final()]);
+    } catch {}
+  }
+  throw new BackupKeyError('BACKUP_KEY_WRONG');
+}
+
+/**
+ * What to try a sealed backup with: each secret as given, then, when it is a server's backup key typed
+ * another way (lower case, spaces for dashes), the key as the server wrote it.
+ */
+function secretsToTry(given) {
+  const all = [];
+  for (const secret of given) {
+    if (!secret) continue;
+    all.push(String(secret));
+    const key = canonicalBackupKey(secret);
+    if (key) all.push(key);
+  }
+  return [...new Set(all)];
 }
 
 /** The most a backup may unpack to. */
 export const MAX_UNPACKED_BYTES = 512 * 1024 * 1024;
 
-/** Read and check a backup. Throws with a readable reason; returns the bundle. */
-export function readBackup(buffer, { passphrase = '', maxUnpackedBytes = MAX_UNPACKED_BYTES } = {}) {
+/**
+ * Read and check a backup. Throws with a readable reason; returns the bundle. An encrypted backup opens
+ * with `passphrase` or any of `passphrases` (a BACKUP_PASSPHRASE or a server's backup key); without one
+ * that fits it throws a BackupKeyError.
+ */
+export function readBackup(buffer, { passphrase = '', passphrases = [], maxUnpackedBytes = MAX_UNPACKED_BYTES } = {}) {
   let data = Buffer.from(buffer);
-  if (data.subarray(0, MAGIC_SEALED.length).equals(MAGIC_SEALED)) data = unseal(data, passphrase);
+  if (data.subarray(0, MAGIC_SEALED.length).equals(MAGIC_SEALED)) data = unseal(data, secretsToTry([passphrase, ...passphrases]));
   let bundle;
   try {
     // Capped, so a small file that unpacks to gigabytes cannot exhaust the server's memory.

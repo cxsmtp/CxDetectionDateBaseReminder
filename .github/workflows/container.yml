@@ -1,8 +1,9 @@
 name: Container image
 
-# Runs every test and the dependency audit, builds the image on every push and
-# pull request, smoke-tests it (starts, turns healthy, prints the first
-# administrator's sign-in), and, only when all of that passed, publishes it
+# Runs every test and the dependency audit, drives the page in a real browser,
+# builds the image on every push and pull request, smoke-tests it (starts, turns
+# healthy, prints the first administrator's sign-in), and, only when all of that
+# passed, publishes it
 # for linux/amd64 and linux/arm64 to the GitHub container registry from main
 # (or master) and version tags:
 #   ghcr.io/<owner>/<repo>:latest   (and :<version>, :sha-<commit>)
@@ -37,6 +38,28 @@ jobs:
         run: npm audit --omit=dev
       - name: Tests
         run: npm test
+
+  # The page in a real browser (Chromium), against the real server and the mock Checkmarx One: the first
+  # administrator's setup, sign-in, the Workbench, Settings, People & roles, Labs per role, sign-out (test/browser/).
+  # Playwright is a devDependency pinned to one exact version, so `npm ci` and the browser it installs always match.
+  browser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      # Only the headless Chromium the tests drive, with the system libraries it needs.
+      - name: Chromium for the pinned Playwright
+        run: npx playwright install --with-deps --only-shell chromium
+      - name: Browser tests
+        run: npm run test:browser
 
   smoke-test:
     runs-on: ubuntu-latest
@@ -135,7 +158,7 @@ jobs:
           curl -sf http://127.0.0.1:3001/api/health | grep -q '"version":"MZ-'
 
   publish:
-    needs: [tests, smoke-test]
+    needs: [tests, browser-tests, smoke-test]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:

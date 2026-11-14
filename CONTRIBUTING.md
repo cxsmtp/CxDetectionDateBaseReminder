@@ -8,6 +8,7 @@ Improvements are welcome: bug reports, ideas, documentation and code.
 2. **Fork, branch and change.** Keep each pull request to one purpose.
 3. **Check it.**
    - `npm test` must pass, and new behaviour comes with a test. It runs every test with a temporary folder of its own, removed at the end (`npm test -- test/one.test.js` runs some of them). The same tests and `npm audit --omit=dev` run on every push and pull request, and nothing is published unless they pass.
+   - `npm run test:browser` drives the page in a real browser (Chromium, through Playwright) against the real server and the mock Checkmarx One: the first administrator's setup, sign-in, the Workbench, Settings, People & roles, Labs per role and sign-out. It fails on any error nobody caught in the page and on any request to the server that failed or was refused. It needs Chromium once: `npx playwright install chromium` (on Linux, add `--with-deps`). It runs on every push and pull request too, and `npm test` does not run it. Run it when you change the page.
    - For speed-related changes, run `loadtest/benchmark.sh` (see docs/performance.md).
 4. **Keep the docs in step:**
    - README.md;

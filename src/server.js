@@ -33,8 +33,10 @@ import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
 import { IamStore, LANGUAGE_PERMISSIONS, PERMISSIONS, PROFILE_LANGUAGES, PROGRAMMING_LANGUAGES, cleanProfile, generatePassword, passwordProblem, publicUser } from './iam.js';
 import { insideProject, migrateLegacyData, prepareDataDir, resolveDataDir } from './data-dir.js';
-import { PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, isSealed, listBackups, readBackup, writeBackupTo } from './backup.js';
+import { BackupKeyError, PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, isSealed, listBackups, readBackup, writeBackupTo } from './backup.js';
+import { BackupKeyStore } from './backup-key.js';
 import fs from 'node:fs';
+import os from 'node:os';
 import zlib from 'node:zlib';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { GitHubClient } from './github/client.js';
@@ -173,6 +175,24 @@ const migrated = migrateLegacyData(dataDir, { legacyDir: path.join(projectDir, '
 if (migrated.length) {
   console.log(`[data] Copied ${migrated.length} file(s) from ${path.join(projectDir, 'data')} to ${dataDir}: ${migrated.join(', ')}`);
   console.log('[data] The old copies are left in place; delete them once this server runs well from the new folder.');
+}
+/**
+ * Backups are encrypted with BACKUP_PASSPHRASE or, without one, with this server's own backup key
+ * (src/backup-key.js). Whether this is a new installation (encrypted from its first backup) or an existing
+ * one (left as it was until an Admin turns encryption on) is decided here, once, before anything of this
+ * start is loaded, restored or written: what is in the folder now is what was there before.
+ */
+const backupDir = path.resolve(process.env.BACKUP_DIR?.trim() || path.join(dataDir, 'backups'));
+const backupKey = new BackupKeyStore({ dataDir });
+{
+  const decision = backupKey.decide({ settingsFile: config.settingsFile, backupDir });
+  if (decision?.decidedBy === 'new-installation') {
+    console.log('[backup] A new installation: every backup is encrypted with this server\'s own backup key. An Admin saves the key somewhere else under Audit → State & backups: without it, a backup cannot be opened if this server is lost.');
+  } else if (decision?.decidedBy === 'existing-installation') {
+    console.log(`[backup] This installation has data from before (${decision.found}): its backups are left as they were${process.env.BACKUP_PASSPHRASE ? ', encrypted with BACKUP_PASSPHRASE' : ', not encrypted, until an Admin turns encryption on under Audit → State & backups'}.`);
+  } else if (decision) {
+    console.log('[backup] BACKUP_ENCRYPTION=off: backups are not encrypted.');
+  }
 }
 /**
  * The backup mailbox (BACKUP_EMAIL): every encrypted backup is emailed there, and a new
@@ -1313,6 +1333,8 @@ function describeMe(session, user) {
     unlocked: { tenants: Boolean(activations.tenants()) || tenancy.enabled, impact: Boolean(activations.feature('impact')?.on), faeFlush: Boolean(activations.feature('faeFlush')?.on), govern: Boolean(activations.feature('govern')?.on), statusBoard: Boolean(activations.feature('statusBoard')?.on), consolidated: Boolean(activations.feature('consolidated')?.on) },
     // The product licence's end, for the Admins' banner in the last 30 days (src/activation.js).
     licence: held.has('activation.manage') ? (({ until, daysLeft, warn, activation }) => ({ until, daysLeft, warn, activation }))(activations.product()) : null,
+    // Backups, for the Admins' notice: 'save-key' while nobody confirmed saving the backup key, 'not-encrypted' while they are plain.
+    backupNotice: held.has('backup.manage') ? backupKey.status().notice : null,
     // The organisation's name (given with the terms of use), for what CxMissionZero makes for others.
     organisationName: terms.organisationName(),
     // Get help: the support portal here, or email to an address (installations whose mail cannot leave).
@@ -9570,12 +9592,19 @@ app.get('/api/audit/reconcile', requirePermission('audit.view'), asyncRoute(asyn
 // ---------------------------------------------------------------------------
 
 const backupConfig = {
-  dir: path.resolve(process.env.BACKUP_DIR?.trim() || path.join(dataDir, 'backups')),
+  dir: backupDir,
   explicitDir: Boolean(process.env.BACKUP_DIR?.trim()),
   intervalHours: Math.max(0, Number(process.env.BACKUP_INTERVAL_HOURS ?? 24) || 0),
   keep: Math.max(1, Number(process.env.BACKUP_KEEP) || 14),
-  passphrase: process.env.BACKUP_PASSPHRASE || '',
+  /** What a backup made now is sealed with: BACKUP_PASSPHRASE, else this server's backup key, else nothing (plain). */
+  get passphrase() {
+    return backupKey.secret();
+  },
 };
+/** What a backup made now is encrypted with, in words for an email or the log (never the secret itself). */
+const sealedWith = () => (backupKey.source === 'passphrase' ? 'BACKUP_PASSPHRASE' : 'this server\'s backup key');
+/** How to give a new server what opens such a backup, for the same emails. */
+const sameSecret = () => (backupKey.source === 'passphrase' ? 'the same BACKUP_PASSPHRASE' : 'BACKUP_PASSPHRASE set to this server\'s backup key (an Admin saved it from Audit → State & backups; it is never emailed)');
 let lastBackup = null;
 /** The largest backup that is attached to an email (most mail servers refuse much more). */
 const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
@@ -9616,13 +9645,13 @@ async function backupToFolder(actor, trigger) {
 
 /**
  * A copy of a backup to the backup mailbox (BACKUP_EMAIL), so a new server can bring it back
- * by itself. Encrypted backups only (BACKUP_PASSPHRASE): never one that holds the passwords
- * and keys in the clear. Returns whether it went.
+ * by itself. Encrypted backups only (BACKUP_PASSPHRASE or this server's backup key): never one
+ * that holds the passwords and keys in the clear, and never the key with it. Returns whether it went.
  */
 async function mailBackupCopy(file, summary, trigger) {
   if (!backupMailbox.email) return false;
   if (!summary.encrypted) {
-    console.warn('! [backup] BACKUP_EMAIL is set, but backups are not encrypted: set BACKUP_PASSPHRASE to email them.');
+    console.warn('! [backup] BACKUP_EMAIL is set, but backups are not encrypted: turn encryption on under Audit → State & backups (or set BACKUP_PASSPHRASE) to email them.');
     return false;
   }
   if (summary.size > MAX_ATTACHMENT_BYTES) {
@@ -9637,8 +9666,8 @@ async function mailBackupCopy(file, summary, trigger) {
         appName: appNameNow(),
         subject: `${BACKUP_SUBJECT} ${summary.createdAt.slice(0, 16).replace('T', ' ')} UTC`,
         lines: [
-          `${trigger} backup of MissionZero, encrypted with BACKUP_PASSPHRASE: ${name}.`,
-          'Keep this email. A new MissionZero started with BACKUP_EMAIL, BACKUP_EMAIL_PASSWORD and the same BACKUP_PASSPHRASE finds the newest backup here and restores it by itself.',
+          `${trigger} backup of MissionZero, encrypted with ${sealedWith()}: ${name}.`,
+          `Keep this email. A new MissionZero started with BACKUP_EMAIL, BACKUP_EMAIL_PASSWORD and ${sameSecret()} finds the newest backup here and restores it by itself.`,
         ],
         facts: [['Files', String(summary.files)], ['Size', `${Math.max(1, Math.round(summary.size / 1024))} KB`], ['Version', `MZ-${PACKAGE_VERSION}`]],
         replyHelp: false,
@@ -9922,6 +9951,8 @@ app.get('/api/backup', requirePermission('backup.view'), (req, res) => {
     intervalHours: backupConfig.intervalHours,
     keep: backupConfig.keep,
     encrypted: Boolean(backupConfig.passphrase),
+    // What encrypts a backup made now, whether its key was saved elsewhere, and whether an Admin can turn it on (never the key).
+    encryption: backupKey.status(),
     last: lastBackup,
     backups: listBackups(backupConfig.dir).slice(0, 30),
     pendingRestore: fs.existsSync(path.join(dataDir, PENDING_RESTORE)),
@@ -9929,7 +9960,42 @@ app.get('/api/backup', requirePermission('backup.view'), (req, res) => {
   });
 });
 
-/** Download a backup now (encrypted when BACKUP_PASSPHRASE is set). */
+/**
+ * The server's own backup key (src/backup-key.js), for those who may download and restore backups (Admins).
+ * It is shown on request only, each showing is audited (never the key), and it goes nowhere else: not into
+ * a backup, an email or a log.
+ */
+app.post('/api/backup/key/show', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
+  const key = backupKey.reveal();
+  if (!key) return res.status(409).json({ error: 'This server has no backup key: backup encryption has not been turned on.' });
+  audit.record({ type: 'backup', outcome: 'info', reason: 'Backup key shown.', actor: await adminActor(req) });
+  await audit.settled();
+  const { keyCreatedAt, keySaved } = backupKey.status();
+  res.set('Cache-Control', 'no-store').json({ key, createdAt: keyCreatedAt, saved: keySaved, host: os.hostname() });
+}));
+
+/** "I have saved it": an Admin kept the backup key somewhere other than this server. */
+app.post('/api/backup/key/confirm', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
+  const actor = await adminActor(req);
+  if (!backupKey.confirmSaved({ by: actor.email })) return res.status(409).json({ error: 'This server has no backup key: backup encryption has not been turned on.' });
+  audit.record({ type: 'backup', outcome: 'changed', reason: 'Backup key confirmed as saved somewhere other than this server.', actor });
+  res.json({ encryption: backupKey.status() });
+}));
+
+/** Turn backup encryption on, on an installation whose backups were plain: the server makes its backup key now. */
+app.post('/api/backup/encryption', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
+  if (req.body?.on !== true) return res.status(400).json({ error: 'Backup encryption can be turned on here. To keep backups plain, set BACKUP_ENCRYPTION=off on the server.' });
+  const before = backupKey.status();
+  if (before.source === 'passphrase') return res.status(409).json({ error: 'Backups are already encrypted, with BACKUP_PASSPHRASE.' });
+  if (before.optedOut) return res.status(409).json({ error: 'BACKUP_ENCRYPTION=off is set on the server: remove it and restart to encrypt backups.' });
+  const actor = await adminActor(req);
+  if (backupKey.turnOn({ by: actor.email })) {
+    audit.record({ type: 'backup', outcome: 'changed', reason: 'Backup encryption turned on: backups are encrypted with this server\'s backup key from now on.', actor });
+  }
+  res.json({ encryption: backupKey.status() });
+}));
+
+/** Download a backup now (encrypted with BACKUP_PASSPHRASE or the server's backup key, when either is in use). */
 app.get('/api/backup/download', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
   await settleState();
   const { buffer, summary } = createBackup({ dataDir, settingsFile: config.settingsFile, passphrase: backupConfig.passphrase });
@@ -9964,11 +10030,18 @@ app.post(
   asyncRoute(async (req, res) => {
     const actor = await adminActor(req);
     let bundle;
+    // What the person typed first, then what this server encrypts with: a backup of its own opens without asking.
+    const given = String(req.get('x-backup-passphrase') ?? '');
     try {
-      bundle = readBackup(req.body ?? Buffer.alloc(0), { passphrase: String(req.get('x-backup-passphrase') ?? '') || backupConfig.passphrase });
+      bundle = readBackup(req.body ?? Buffer.alloc(0), { passphrases: [given, ...backupKey.candidates()] });
     } catch (error) {
-      if (req.query.check !== '1') audit.record({ type: 'backup', outcome: 'refused', reason: `Restore refused: ${error.message}`, actor });
-      return res.status(400).json({ error: error.message });
+      const needsKey = error instanceof BackupKeyError;
+      // Nothing was typed and this server's own key does not open it: say whose key is needed, not "wrong".
+      const message = needsKey && !given
+        ? 'This backup is encrypted, and this server\'s own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.'
+        : error.message;
+      if (req.query.check !== '1') audit.record({ type: 'backup', outcome: 'refused', reason: `Restore refused: ${message}`, actor });
+      return res.status(400).json({ error: message, needsKey });
     }
     const info = describeBackup(bundle);
     if (req.query.check === '1') return res.json({ backup: info });
@@ -11545,8 +11618,9 @@ const LAST_WORDS_EVERY_MS = Math.max(0, Number(process.env.LAST_WORDS_EVERY_HOUR
  * Before stopping for a reason nobody here asked for (the service stopped or killed,
  * a crash): a backup in the backup folder, and an email to the administrators with
  * how to bring it back. The copy is attached only when it is encrypted
- * (BACKUP_PASSPHRASE): an unencrypted backup holds the passwords and keys, so then
- * the email says where it is instead. Never throws, and never waits past `deadline`.
+ * (BACKUP_PASSPHRASE, or the server's backup key): an unencrypted backup holds the
+ * passwords and keys, so then the email says where it is instead. The key is never in
+ * the email. Never throws, and never waits past `deadline`.
  */
 async function lastWords(reason, deadline) {
   let backup = null;
@@ -11574,6 +11648,8 @@ async function lastWords(reason, deadline) {
   } catch {}
   const attach = Boolean(backup?.summary.encrypted && backup.summary.size <= MAX_ATTACHMENT_BYTES);
   const name = backup ? path.basename(backup.file) : '';
+  // Encrypted with the server's own backup key (not a BACKUP_PASSPHRASE): the email says where that key is kept.
+  const keyed = Boolean(backup?.summary.encrypted) && backupKey.source === 'key';
   const send = tenancy.run(DEFAULT_TENANT, async () => {
     if (!isVerified(sendingSettings())) return;
     const attachments = attach ? [{ filename: name, content: fs.readFileSync(backup.file), contentType: 'application/octet-stream' }] : [];
@@ -11585,13 +11661,17 @@ async function lastWords(reason, deadline) {
           `MissionZero stopped (${reason}) at ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC. Nobody asked it to from the Update page.`,
           backup
             ? attach
-              ? `Its data was backed up just before, and the backup is attached (${name}, encrypted with BACKUP_PASSPHRASE).`
+              ? `Its data was backed up just before, and the backup is attached (${name}, encrypted with ${sealedWith()}).`
               : backup.summary.encrypted
                 ? `Its data was backed up just before, to ${backup.file} on the server. It is too large to attach.`
-                : `Its data was backed up just before, to ${backup.file} on the server. It is not attached because it is not encrypted: it holds the passwords and keys. Set BACKUP_PASSPHRASE to get an encrypted copy by email next time.`
+                : `Its data was backed up just before, to ${backup.file} on the server. It is not attached because it is not encrypted: it holds the passwords and keys. Turn encryption on under Audit → State & backups (or set BACKUP_PASSPHRASE) to get an encrypted copy by email next time.`
             : 'It could not write a backup before stopping. Its data folder is still there.',
           'To bring it back: start MissionZero again with the same command and data folder. Nothing needs restoring while the data folder is there.',
-          'If the data folder is lost: start a new MissionZero with the same BACKUP_PASSPHRASE, sign in as an Admin, open Audit → State folder & backups → Restore from backup…, and choose this backup. It is restored when the server next starts, with every setting, person, credit, tracked report and the audit log. On the server itself, `npm run restore -- <file> --yes` does the same.',
+          // The key itself is never part of an email: only where an Admin kept it.
+          keyed
+            ? 'If the data folder is lost: start a new MissionZero, sign in as an Admin, open Audit → State & backups → Restore from backup…, choose this backup, and give the backup key when it asks. The key is not in this email: it is the one an Admin saved from Audit → State & backups. The backup is restored when the server next starts, with every setting, person, credit, tracked report and the audit log. On the server itself, `npm run restore -- <file> --yes` with BACKUP_PASSPHRASE set to the backup key does the same.'
+            : 'If the data folder is lost: start a new MissionZero with the same BACKUP_PASSPHRASE, sign in as an Admin, open Audit → State folder & backups → Restore from backup…, and choose this backup. It is restored when the server next starts, with every setting, person, credit, tracked report and the audit log. On the server itself, `npm run restore -- <file> --yes` does the same.',
+          ...(keyed && !backupKey.status().keySaved ? ['Nobody has confirmed saving the backup key yet. While the data folder is still there, start MissionZero again and save the key from Audit → State & backups: without it, this backup cannot be opened.'] : []),
         ],
         facts: backup ? [['Backup', name], ['Files', String(backup.summary.files)], ['Encrypted', backup.summary.encrypted ? 'yes' : 'no'], ['Version', `MZ-${PACKAGE_VERSION}`]] : [['Version', `MZ-${PACKAGE_VERSION}`]],
         replyHelp: false,
