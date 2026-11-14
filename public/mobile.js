@@ -414,7 +414,9 @@ export function initMobile() {
     let group = null;
     for (const el of items) {
       if (el.matches('.set-group, .nav-group')) {
-        if (!usable(el)) continue;
+        // A heading is put away on narrow screens (the strip has no room for it), so it is not judged by what
+        // shows: it is kept when something under it is listed (below).
+        if (el.hidden || el.closest('[hidden]')) continue;
         const label = document.createElement('p');
         label.className = 'm-group-label';
         label.textContent = el.textContent.trim();

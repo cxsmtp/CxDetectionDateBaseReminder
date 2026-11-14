@@ -471,6 +471,12 @@ test('at a phone\'s width the Admin\'s menu keeps its four groups in the More sh
   await admin.locator('.m-more').click();
   await sheet.locator('a.tab[data-route="settings"]').click();
   await admin.locator('#page-settings').waitFor({ state: 'visible' });
+  await admin.locator('#page-settings .m-tabpick').first().click();
+  const picker = admin.locator('#m-pick');
+  await picker.locator('.m-pick-list').first().waitFor({ state: 'visible' });
+  assert.deepEqual((await picker.locator('.m-group-label').allTextContents()).map((t) => t.trim()), ['You', 'Connections', 'Reminders', 'Organisation', 'About']);
+  await picker.locator('.m-row').filter({ hasText: 'About & terms of use' }).click();
+  await admin.locator('#set-about').waitFor({ state: 'visible' });
   await admin.setViewportSize({ width: 1440, height: 900 });
   await admin.locator('#nav .nav-group[data-group="act"]').waitFor({ state: 'visible' });
   nothingWentWrong();
