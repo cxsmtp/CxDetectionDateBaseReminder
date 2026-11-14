@@ -1195,7 +1195,7 @@ app.get('/app-icon', (req, res) => {
  * are used, where errors and discrepancies happen, and recommended fixes.
  * Holds no personal data, keys, findings or code (see src/diagnostics.js).
  */
-app.get('/api/diagnostics/download', requirePermission('diagnostics.export'), async (req, res) => {
+app.get('/api/diagnostics/download', requirePermission('diagnostics.export'), asyncRoute(async (req, res) => {
   const actor = await adminActor(req);
   const report = diagnostics.report({
     extra: {
@@ -1213,7 +1213,7 @@ app.get('/api/diagnostics/download', requirePermission('diagnostics.export'), as
   audit.record({ type: 'audit', outcome: 'changed', reason: 'Troubleshooting log downloaded (no personal data, keys or findings).', actor });
   const name = `mission-zero-troubleshooting-${APP_VERSION}-${new Date().toISOString().slice(0, 10)}.json`;
   res.set('Content-Disposition', `attachment; filename="${name}"`).type('application/json').send(JSON.stringify(report, null, 2));
-});
+}));
 
 /** Script errors in the page, so bugs in the browser show up in the troubleshooting log too. */
 app.post('/api/diagnostics/client-error', requireSession, (req, res) => {
@@ -1230,7 +1230,7 @@ app.post('/api/diagnostics/client-error', requireSession, (req, res) => {
   res.status(204).end();
 });
 
-app.get('/api/metrics', requirePermission('system.metrics'), async (req, res) => {
+app.get('/api/metrics', requirePermission('system.metrics'), asyncRoute(async (req, res) => {
   const session = await resolveAutomationSession();
   const memory = process.memoryUsage();
   res.json({
@@ -1241,7 +1241,7 @@ app.get('/api/metrics', requirePermission('system.metrics'), async (req, res) =>
     projectReads: projectReads.stats,
     checkmarxOne: session?.client?.load ?? null,
   });
-});
+}));
 
 /** What this browser may see about itself: who is signed in, what they may do, and the connection. */
 function describeMe(session, user) {
@@ -7561,7 +7561,7 @@ function portfolioCredits(reports) {
   return creditLedger.usedSinceEach(since);
 }
 
-app.get('/api/tracked-reports', requirePermission('reports.view'), async (req, res) => {
+app.get('/api/tracked-reports', requirePermission('reports.view'), asyncRoute(async (req, res) => {
   const reports = trackedReports.list();
   res.json({
     timeZone: serverTimeZone(),
@@ -7569,7 +7569,7 @@ app.get('/api/tracked-reports', requirePermission('reports.view'), async (req, r
     portfolio: { aiActions: portfolioCredits(reports) },
     autoRefresh: Boolean(sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) ?? settingsStore.get().automationApiKey),
   });
-});
+}));
 
 app.post('/api/tracked-reports', requirePermission('reports.manage'), (req, res) => {
   const { lastScan } = req.session;
@@ -9376,10 +9376,10 @@ function auditFilters(query) {
   };
 }
 
-app.get('/api/audit', requirePermission('audit.view'), async (req, res) => {
+app.get('/api/audit', requirePermission('audit.view'), asyncRoute(async (req, res) => {
   await audit.settled();
   res.json({ ...audit.query(auditFilters(req.query)), writeError: audit.writeError });
-});
+}));
 
 const CSV_COLUMNS = [
   ['seq', (e) => e.seq],
@@ -9417,7 +9417,7 @@ const csvCell = (v) => {
 };
 
 /** Everything matching the filters, as CSV (for spreadsheets) or JSON Lines (complete, verifiable). */
-app.get('/api/audit/export', requirePermission('audit.export'), async (req, res) => {
+app.get('/api/audit/export', requirePermission('audit.export'), asyncRoute(async (req, res) => {
   await audit.settled();
   const filters = { ...auditFilters(req.query), limit: 1_000_000, before: 0 };
   const format = req.query.format === 'jsonl' ? 'jsonl' : 'csv';
@@ -9431,10 +9431,10 @@ app.get('/api/audit/export', requirePermission('audit.export'), async (req, res)
   }
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.send([csvCell(`Notice: ${SUPPORTING_NOTICE}`), CSV_COLUMNS.map(([name]) => name).join(','), ...entries.map((e) => CSV_COLUMNS.map(([, get]) => csvCell(get(e))).join(','))].join('\n') + '\n');
-});
+}));
 
 /** Walk the hash chain: any edited, removed or reordered entry is found. */
-app.get('/api/audit/verify', requirePermission('audit.view'), async (req, res) => {
+app.get('/api/audit/verify', requirePermission('audit.view'), asyncRoute(async (req, res) => {
   await audit.settled();
   const result = audit.verify();
   audit.record({
@@ -9445,14 +9445,14 @@ app.get('/api/audit/verify', requirePermission('audit.view'), async (req, res) =
     details: { verify: { ok: result.ok, entries: result.entries, problems: result.problems.slice(0, 10) } },
   });
   res.json(result);
-});
+}));
 
 /**
  * Do the credits the audit log says were charged match the ledger the
  * balances are computed from? Per month and per project, plus ledger entries
  * with no audit entry (spent before auditing began).
  */
-app.get('/api/audit/reconcile', requirePermission('audit.view'), async (req, res) => {
+app.get('/api/audit/reconcile', requirePermission('audit.view'), asyncRoute(async (req, res) => {
   await audit.settled();
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
   const audited = new Map();
@@ -9485,7 +9485,7 @@ app.get('/api/audit/reconcile', requirePermission('audit.view'), async (req, res
     unlinked: { entries: unlinked.length, credits: unlinked.reduce((n, e) => n + e.credits, 0), note: 'Spent before the audit log existed.' },
     missing: missing.map((e) => ({ at: e.at, projectId: e.projectId, credits: e.credits, auditId: e.auditId })),
   });
-});
+}));
 
 // ---------------------------------------------------------------------------
 // Backup and restore: one file rebuilds the whole server
