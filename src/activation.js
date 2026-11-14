@@ -168,6 +168,31 @@ export class ActivationStore {
     writeState(this.#file, this.#state, { space: 2 });
   }
 
+  /**
+   * Why a code that checks out must still not replace the one in force for its scope ('' when it may): codes
+   * are not tied to one server, so an older one, still in date, could be entered again to undo a later one
+   * (to bring back a feature a deactivation code turned off, or to cut the product's date short).
+   * - Issued before the code in force: never.
+   * - `mustExtend` (the deactivated page, open to everyone): only a code that ends later than the one in force.
+   * A code in force that is kept without its signed text (entered before MZ-01.01.10) is not compared.
+   */
+  refusal(result, { mustExtend = false } = {}) {
+    const scope = String(result?.scope ?? '');
+    const entry = scope === 'tenants' ? this.#state.tenants : scope === 'product' ? this.#state.product : scope.startsWith('feature:') ? this.#state.features[scope.slice(8)] : null;
+    if (!entry?.code) return '';
+    const current = checkCode(entry.code, { now: 0, ...(this.#keys ? { keys: this.#keys } : {}) });
+    if (!current.valid || current.scope !== scope) return '';
+    const issued = Date.parse(result.issued);
+    const issuedBefore = Date.parse(current.issued);
+    if (Number.isFinite(issued) && Number.isFinite(issuedBefore) && issued < issuedBefore) {
+      return `This activation code was issued before the one in force (issued ${current.issued.slice(0, 10)}): ask for a new one.`;
+    }
+    if (mustExtend && current.action !== 'deactivate' && Date.parse(result.expires) <= Date.parse(current.expires)) {
+      return `An activation code that runs until ${current.expires.slice(0, 10)} is already in force: this one does not run longer.`;
+    }
+    return '';
+  }
+
   /** Record an accepted code (the result of checkCode) and who entered it. */
   record(result, by = '') {
     const entry = { id: result.id, org: result.org, scope: result.scope, action: result.action || 'activate', expires: result.expires, at: new Date().toISOString(), by: String(by ?? '') };

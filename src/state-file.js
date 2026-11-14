@@ -91,6 +91,19 @@ function attempt(file, parse) {
 }
 
 /**
+ * The last good copy becomes the file again (the copy stays), so the file is there for whatever reads the
+ * folder without this module: a backup made before the store's next save would otherwise leave it out, and a
+ * restore of that backup would start the store empty. Made only if nothing has the name; best effort.
+ */
+function putBack(bak, file) {
+  try {
+    fs.copyFileSync(bak, file, fs.constants.COPYFILE_EXCL);
+    fs.chmodSync(file, fs.statSync(bak).mode & 0o777);
+    syncDirSoon(path.dirname(file));
+  } catch {}
+}
+
+/**
  * Read a state file.
  * - No file and no last good copy: `fallback` (a new installation).
  * - The file reads: what it holds.
@@ -115,6 +128,7 @@ export function readState(file, { fallback = null, parse = parseJson, holds = ''
   if (copy.state === 'ok' && main.state !== 'unreadable') {
     if (main.state === 'missing') {
       console.error(`! [data] ${file} is missing, but its last good copy ${bak} is there: the last good copy was used. Anything saved after that copy was made is not in it.`);
+      putBack(bak, file);
       return copy.value;
     }
     const aside = `${file}.damaged-${new Date().toISOString().replace(/[:.]/g, '-')}`;
@@ -125,6 +139,7 @@ export function readState(file, { fallback = null, parse = parseJson, holds = ''
       kept = `The damaged file could not be moved aside (${reasonOf(error)}); the next save keeps it as ${bak}.`;
     }
     console.error(`! [data] ${file} is damaged (${main.reason}): the last good copy ${bak} was used instead. Anything saved after that copy was made is lost. ${kept}`);
+    if (!fs.existsSync(file)) putBack(bak, file);
     return copy.value;
   }
   // The reasons are in the message; no `cause` is attached, so what Node prints for an error nobody caught

@@ -65,6 +65,15 @@ anyone who can reach the server could fill the disk with refusals. A request
 naming a finding with ids or names longer than a report sends is refused without
 being listed.
 
+The same holds for someone who does hold a report: a request of theirs that is
+refused as a whole (an altered report identity, AI Triage switched off, a triage
+already under way) is listed at most 10 times a minute for one report and 40
+times a minute in all, and each entry lists the first 20 findings and counts the
+rest. Refused product activation codes and refused sign-ins have limits of
+their own (10 and 30 a minute from one address, 40 and 120 in all), each with
+its line saying how many were left out, so a flood of one kind never hides
+another.
+
 ## User activity
 
 Next to the audit log, each tenant keeps `activity.jsonl` in its state folder: what each person did, one line each — when, who (email, name, role), the IP address, the page or action, the item it was about, the **names** of the fields a change touched (never their values), the status and how long it took. Pages and tabs opened are reported by the browser; everything else is recorded by the server as it answers, including refused sign-ins. Reads that change nothing are not recorded, except downloads and exports. The file moves to `activity.1.jsonl` past 20 MB; entries older than a year are not shown. **Logs → User activity** shows it (with the **audit.view** permission), filtered by person, kind, dates or text, and exports it as CSV. It is not hash-chained: the audit log stays the record of credits and access.

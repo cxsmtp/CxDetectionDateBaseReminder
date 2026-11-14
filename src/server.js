@@ -1387,7 +1387,8 @@ app.post(
     } catch (error) {
       const known = error.userId ? iam.user(error.userId) : null;
       res.locals.activityUser = known ?? { email };
-      auditAccess(req, 'refused', `Sign-in refused for ${email || '(no email)'}: ${error.message}${error.locked ? ' Account locked.' : ''}`, known);
+      // (Listed only so many a minute, by address and in all: nobody has signed in here, and the log is never trimmed.)
+      if (refusalListed(`address ${clientIp(req)}`, Date.now(), 'signIn')) auditAccess(req, 'refused', `Sign-in refused for ${email || '(no email)'}: ${error.message}${error.locked ? ' Account locked.' : ''}`, known);
       throw error;
     }
     const session = sessions.createLinked(integrationSession);
@@ -4075,26 +4076,36 @@ function relayFieldsFit(raw) {
  * many were left out.
  */
 const REFUSED_AUDIT_PER_MINUTE = 10;
-const refusedAudits = { since: 0, total: 0, byAddress: new Map(), leftOut: 0 };
-function mayAuditRefusal(req, now = Date.now()) {
-  if (now - refusedAudits.since >= 60_000) {
-    if (refusedAudits.leftOut) {
-      audit.record({ type: 'access', outcome: 'refused', reason: `${refusedAudits.leftOut} more refused report requests in the minute before were not listed one by one (too many at once).`, actor: SYSTEM_ACTOR });
+/** One count per kind of refusal, so a flood of one kind never hides another: kind -> { since, total, byKey, leftOut }. */
+const refusedAudits = new Map();
+const REFUSED_KINDS = {
+  report: { perKey: REFUSED_AUDIT_PER_MINUTE, total: REFUSED_AUDIT_PER_MINUTE * 4, what: 'refused report requests' },
+  licence: { perKey: REFUSED_AUDIT_PER_MINUTE, total: REFUSED_AUDIT_PER_MINUTE * 4, what: 'refused product activation codes' },
+  signIn: { perKey: 30, total: 120, what: 'refused sign-ins' },
+};
+/** May one more refusal from `key` (an address, a report) be listed in the audit log this minute? */
+function refusalListed(key, now = Date.now(), kind = 'report') {
+  const limits = REFUSED_KINDS[kind];
+  let state = refusedAudits.get(kind);
+  if (!state) refusedAudits.set(kind, (state = { since: 0, total: 0, byKey: new Map(), leftOut: 0 }));
+  if (now - state.since >= 60_000) {
+    if (state.leftOut) {
+      audit.record({ type: 'access', outcome: 'refused', reason: `${state.leftOut} more ${limits.what} in the minute before were not listed one by one (too many at once).`, actor: SYSTEM_ACTOR });
     }
-    Object.assign(refusedAudits, { since: now, total: 0, leftOut: 0 });
-    refusedAudits.byAddress.clear();
+    Object.assign(state, { since: now, total: 0, leftOut: 0 });
+    state.byKey.clear();
   }
-  const address = clientIp(req);
-  const seen = refusedAudits.byAddress.get(address) ?? 0;
-  if (seen >= REFUSED_AUDIT_PER_MINUTE || refusedAudits.total >= REFUSED_AUDIT_PER_MINUTE * 4) {
-    refusedAudits.leftOut += 1;
+  const seen = state.byKey.get(key) ?? 0;
+  if (seen >= limits.perKey || state.total >= limits.total) {
+    state.leftOut += 1;
     return false;
   }
   // (The map cannot grow past the total allowed in a minute.)
-  refusedAudits.byAddress.set(address, seen + 1);
-  refusedAudits.total += 1;
+  state.byKey.set(key, seen + 1);
+  state.total += 1;
   return true;
 }
+const mayAuditRefusal = (req, now = Date.now()) => refusalListed(`address ${clientIp(req)}`, now);
 
 function grantedFindings(req, res, { type = '', actor = null, list: given = req.body?.findings } = {}) {
   const list = Array.isArray(given) ? given : [];
@@ -4375,17 +4386,37 @@ if (allocations.migrated?.length) {
   console.log(`[credits] ${allocations.migrated.length} project allocation(s) made automatically by an earlier release were removed; allocate on the Workbench.`);
 }
 
-/** A whole request turned away before anything was sent: one entry per project. */
+/** How many findings a refused request's audit entry lists; the rest are counted. */
+const REFUSED_FINDINGS_LISTED = 20;
+
+/**
+ * A whole request turned away before anything was sent: one entry per project. From a report (nobody signed in)
+ * only so many a minute are listed, by the report and the address it came from, and each lists a few of its
+ * findings and counts the rest: a report's holder could otherwise repeat a refused request with hundreds of
+ * findings until the audit log, which is never trimmed, filled the disk.
+ */
 function auditRefusedRequest(type, actor, findings, reason, outcome = 'refused') {
   const kind = type === 'remediation' ? 'remediation' : 'triage';
   const perFinding = kind === 'remediation' ? CREDIT_COST.remediation : 1;
+  const fromReport = actor?.kind === 'report';
   const byProject = new Map();
   for (const f of findings) {
     if (!byProject.has(f.projectId)) byProject.set(f.projectId, []);
     byProject.get(f.projectId).push(f);
   }
   for (const group of byProject.values()) {
-    auditCredit({ type, outcome, reason, actor, findings: group, kind, requested: new Set(group.map((f) => f.alternateId)).size * perFinding });
+    if (fromReport && !refusalListed(`report ${actor.reportId || actor.ip || ''}`)) continue;
+    const listed = fromReport ? group.slice(0, REFUSED_FINDINGS_LISTED) : group;
+    auditCredit({
+      type,
+      outcome,
+      reason,
+      actor,
+      findings: listed,
+      kind,
+      requested: new Set(group.map((f) => f.alternateId)).size * perFinding,
+      ...(listed.length < group.length ? { details: { findingsInRequest: group.length, findingsListed: listed.length } } : {}),
+    });
   }
 }
 
@@ -4998,9 +5029,11 @@ app.post('/api/licence/activate', (req, res) => {
   const result = checkCode(String(req.body?.code ?? '').trim().slice(0, 4000));
   // In date by the licence's own clock too (never earlier than the latest time it has seen).
   const passed = result.valid && Date.parse(result.expires) <= activations.now();
-  if (!result.valid || result.scope !== 'product' || passed) {
-    const reason = !result.valid ? result.reason || 'This activation code is not valid.' : result.scope !== 'product' ? 'This is not a CxMissionZero activation code.' : `This activation code ended on ${result.expires.slice(0, 10)}.`;
-    audit.record({ type: 'settings', outcome: 'refused', reason: `Product activation code refused: ${reason}`, actor: { kind: 'system', user: `deactivation page (${ip})` } });
+  // Open to everyone: only a code that runs longer than the one in force, and was not issued before it, is taken.
+  const stale = result.valid && result.scope === 'product' && !passed ? activations.refusal(result, { mustExtend: true }) : '';
+  if (!result.valid || result.scope !== 'product' || passed || stale) {
+    const reason = !result.valid ? result.reason || 'This activation code is not valid.' : result.scope !== 'product' ? 'This is not a CxMissionZero activation code.' : passed ? `This activation code ended on ${result.expires.slice(0, 10)}.` : stale;
+    if (refusalListed(`address ${ip}`, now, 'licence')) audit.record({ type: 'settings', outcome: 'refused', reason: `Product activation code refused: ${reason}`, actor: { kind: 'system', user: `deactivation page (${ip})` } });
     return res.status(400).json({ error: reason });
   }
   activations.record(result, `deactivation page (${ip})`);
@@ -5039,6 +5072,12 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
   if (!usable) {
     audit.record({ type: 'settings', outcome: 'refused', reason: `Activation code refused: ${result.reason}`, actor });
     return res.status(400).json({ error: result.reason || 'This activation code is not valid.' });
+  }
+  // An older code entered again would undo the one in force (a feature turned off, a shorter date).
+  const stale = result.scope.startsWith('lang:') ? '' : activations.refusal(result);
+  if (stale) {
+    audit.record({ type: 'settings', outcome: 'refused', reason: `Activation code refused: ${stale}`, actor });
+    return res.status(400).json({ error: stale });
   }
   let what;
   if (result.scope.startsWith('lang:')) {

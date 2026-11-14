@@ -87,4 +87,10 @@ test('only a product code from the maintainer, in date, brings it back', async (
   assert.equal((await ask('GET', '/deactivated.html')).status, 302, 'its deactivation page is not shown while it works');
   const signIn = await fetch(`${BASE}/api/session/password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@acme.io', password: FIRST_PASSWORD }) });
   assert.ok(signIn.ok, `signing in works again (${signIn.status})`);
+  // Anyone may post here: a code that ends sooner than the one in force (an older one, kept from before) is not taken.
+  const shorter = script('product', keyFile, '2027-05-31');
+  const refused = await ask('POST', '/api/licence/activate', { code: shorter });
+  assert.equal(refused.status, 400);
+  assert.match(refused.body.error, /already in force: this one does not run longer/);
+  assert.deepEqual((await ask('GET', '/api/licence')).body.until ?? '2027-07-01T00:00:00.000Z', '2027-07-01T00:00:00.000Z');
 });

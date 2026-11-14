@@ -124,7 +124,26 @@ test('a missing file with a last good copy beside it (a crash between the two re
   assert.deepEqual(value, { enabled: true }, 'not the fallback: this is no new installation');
   assert.equal(lines.length, 1);
   assert.match(lines[0], /is missing/);
-  assert.deepEqual(fs.readdirSync(dir), ['tenants.json.bak'], 'nothing to move aside');
+  // The copy becomes the file again (and stays), so a backup made before the next save still holds it.
+  assert.deepEqual(fs.readdirSync(dir).sort(), ['tenants.json', 'tenants.json.bak']);
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), { enabled: true });
+  assert.equal(fs.statSync(file).mode & 0o777, fs.statSync(`${file}.bak`).mode & 0o777);
+  const [again, quiet] = quietly(() => readState(file, { fallback: {} }));
+  assert.deepEqual(again, { enabled: true });
+  assert.deepEqual(quiet, [], 'read as any other file from then on');
+});
+
+test('a damaged file put right from its copy is whole again on the disk, with the damaged one kept aside', (t) => {
+  const dir = folder(t);
+  const file = path.join(dir, 'settings.json');
+  fs.writeFileSync(file, '{"smtp":');
+  fs.writeFileSync(`${file}.bak`, JSON.stringify({ smtp: { host: 'mail.acme.io' } }), { mode: 0o600 });
+  const [value] = quietly(() => readState(file, { fallback: {} }));
+  assert.deepEqual(value, { smtp: { host: 'mail.acme.io' } });
+  const names = fs.readdirSync(dir).sort();
+  assert.equal(names.length, 3);
+  assert.ok(names.some((name) => name.startsWith('settings.json.damaged-')));
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), { smtp: { host: 'mail.acme.io' } });
 });
 
 test('damaged, and the last good copy damaged too: refused, both left as they are, both named', (t) => {

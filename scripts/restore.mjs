@@ -75,7 +75,9 @@ if (flags.has('--force')) {
 }
 let done;
 try {
-  done = restoreBackup(bundle, { dataDir, settingsFile });
+  // The lock is beaten between files: a long restore gives its timer no turn, and a lock that stopped changing
+  // would be taken over by a server started meanwhile.
+  done = restoreBackup(bundle, { dataDir, settingsFile, onFile: () => lock?.touch() });
 } finally {
   lock?.release();
 }

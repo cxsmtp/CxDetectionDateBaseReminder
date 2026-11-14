@@ -412,3 +412,42 @@ test('a starting server killed in the middle of taking over does not keep the ot
   lock.release();
   assert.deepEqual(fs.readdirSync(dir), []);
 });
+
+test('a lock that cannot be opened at all is held for good: a start waits, refuses, and takes nothing over', async (t) => {
+  const dir = folder(t);
+  // Something there that reading fails on, the same at every look (as a file of another user's would be).
+  fs.mkdirSync(lockFile(dir));
+  const started = performance.now();
+  await assert.rejects(new InstanceLock(dir, { staleMs: 150, pollMs: 5 }).acquire({ waitMs: 700 }), (error) => error.code === 'ELOCKED');
+  assert.ok(performance.now() - started >= 650, 'not before the wait allowed, though the stale time passed four times');
+  assert.ok(fs.statSync(lockFile(dir)).isDirectory(), 'left as it was');
+  assert.deepEqual(leftovers(dir), []);
+});
+
+test('a heartbeat never writes through a link left under a name it might use', async (t) => {
+  const dir = folder(t);
+  const victim = path.join(dir, 'iam.json');
+  fs.writeFileSync(victim, '{"users":["kept"]}');
+  const lock = await new InstanceLock(dir, { staleMs: 300, beatMs: 20 }).acquire({ waitMs: 0 });
+  // The name every beat used to write to, now a link to a state file.
+  fs.symlinkSync(victim, `${lockFile(dir)}.${lock.id}.tmp`);
+  const first = readLock(dir).seq;
+  await until('a few more beats', () => readLock(dir).seq >= first + 3);
+  assert.equal(fs.readFileSync(victim, 'utf8'), '{"users":["kept"]}');
+  lock.release();
+});
+
+test('touch() is a heartbeat made at once, for work that gives the timer no turn', async (t) => {
+  const dir = folder(t);
+  const lock = await new InstanceLock(dir, { staleMs: 60_000 }).acquire({ waitMs: 0 });
+  const before = fs.readFileSync(lockFile(dir), 'utf8');
+  assert.equal(lock.touch(), true);
+  const after = fs.readFileSync(lockFile(dir), 'utf8');
+  assert.notEqual(after, before);
+  assert.equal(JSON.parse(after).id, lock.id);
+  assert.deepEqual(leftovers(dir), [], 'no temporary file left');
+  // Taken by another server: touch says so and writes nothing.
+  fs.writeFileSync(lockFile(dir), JSON.stringify({ id: 'someone-else', host: 'other', startedAt: 'now' }));
+  assert.equal(lock.touch(), false);
+  assert.equal(readLock(dir).id, 'someone-else');
+});

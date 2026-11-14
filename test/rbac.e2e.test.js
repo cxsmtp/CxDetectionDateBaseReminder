@@ -363,3 +363,25 @@ test('nobody signed in can fill the disk: forged report requests are bounded in 
   const listed = (await refusedCount()) - before;
   assert.ok(listed >= 1 && listed <= 10, `${listed} listed of 40`);
 });
+
+test('someone holding one report cannot fill the audit log either: repeated refusals are listed only so often, with a few findings each', async () => {
+  const { ReportGrants } = await import('../src/report-grants.js');
+  const grants = new ReportGrants({ secret: SIGNING_KEY });
+  // Sixty findings of one project, each with a grant that verifies, and a report identity that does not.
+  const findings = Array.from({ length: 60 }, (_, i) => {
+    const base = { projectId: 'p0', projectName: 'Project 0', riskId: `p0-many-${i}`, scanId: 'scan-p0', scanner: 'SAST', alternateId: `alt-many-${i}`, groupId: `sim-many-${i}` };
+    return { ...base, ...grants.issue(base) };
+  });
+  const refused = async () => (await as.admin('GET', '/api/audit?limit=500')).body.entries.filter((e) => /Report identity did not verify/.test(e.reason));
+  const before = (await refused()).length;
+  for (let i = 0; i < 25; i += 1) {
+    const response = await fetch(`${BASE}/api/relay/triage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ findings, report: 'not-a-report-token' }) });
+    assert.equal(response.status, 403);
+  }
+  const entries = await refused();
+  const listed = entries.length - before;
+  assert.ok(listed >= 1 && listed <= 10, `${listed} listed of 25`);
+  const newest = entries[0];
+  assert.ok(newest.findings.length <= 20, `${newest.findings.length} findings listed in one entry`);
+  assert.deepEqual(newest.details, { findingsInRequest: 60, findingsListed: 20 });
+});

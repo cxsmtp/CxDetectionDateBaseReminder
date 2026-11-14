@@ -19,7 +19,7 @@ import { DEFAULT_LOOK, LOOKS } from '../public/look.js';
 import { TOKEN_NAMES, cleanStoredInstances, mergeStoredInstances } from './scm/instances.js';
 import { DEFAULT_SLA, mergeSla } from './sla.js';
 import { azureOrgKey, normalizeAzureOrgUrl } from './scm/azure-url.js';
-import { StateFileError, readState, writeState } from './state-file.js';
+import { readState, writeState } from './state-file.js';
 
 /**
  * Administrator settings: SMTP, recipients and the mail template.
@@ -810,8 +810,10 @@ export class SettingsStore {
           : { audience: raw.automation?.groupBy === 'none' ? 'list' : 'initiator' },
       };
     } catch (error) {
-      // It is JSON, and still not settings this server can load: stop, as for any damaged file.
-      throw new StateFileError(this.#file, `its contents are not settings this version can load: ${error.message}`, { holds: 'the settings', cause: error });
+      // It is whole, and still not settings this version can load (saved by another version, or edited by hand).
+      // Stop, and leave the file as it is. Not as a damaged file (src/state-file.js): after an update the launcher
+      // then goes back to the version before, which reads it, where a damaged file would keep this one trying.
+      throw Object.assign(new Error(`The settings file ${this.#file} holds settings this version cannot load (${error.message}). It has not been changed. Go back to the version that saved it, or restore a backup: node scripts/restore.mjs <backup file> --yes`, { cause: error }), { code: 'SETTINGS_NOT_LOADABLE', file: this.#file });
     }
   }
 

@@ -38,7 +38,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 
 export const LOCK_FILE = '.instance-lock';
@@ -68,6 +68,7 @@ function parse(raw) {
  * `sig` changes whenever the file's content or its modified time does; `held`
  * is its content when that is a whole lock, else null.
  */
+let unreadable = 0;
 function look(file) {
   let fd;
   try {
@@ -77,7 +78,10 @@ function look(file) {
     return { there: true, sig: `${mtimeMs} ${raw}`, raw, held: parse(raw), error: null };
   } catch (error) {
     if (error.code === 'ENOENT') return { there: false, sig: '!ENOENT', raw: '', held: null, error: null };
-    return { there: true, sig: `!${error.code}`, raw: '', held: null, error };
+    // There, but it cannot be read (another user's file, a failing disk): held, and never the same twice, so it
+    // is never taken for a dead server's lock and taken over. A start that meets it waits, then refuses.
+    unreadable += 1;
+    return { there: true, sig: `!${error.code} ${unreadable}`, raw: '', held: null, error };
   } finally {
     if (fd !== undefined) {
       try {
@@ -127,7 +131,7 @@ export class InstanceLock {
    */
   constructor(dataDir, { staleMs = 30_000, beatMs = 10_000, pollMs, retryMs = 50, onLost = stopAtOnce } = {}) {
     this.#file = path.join(dataDir, LOCK_FILE);
-    this.#tmp = `${this.#file}.${this.#id}.tmp`;
+    this.#tmp = '';
     this.#gate = `${this.#file}.takeover`;
     this.#staleMs = staleMs;
     // At least three beats per stale window, or a live server's lock looks dead between beats.
@@ -323,17 +327,59 @@ export class InstanceLock {
     return this;
   }
 
+  /**
+   * The next lock, written beside the one in place: under a name nobody can guess, made only if nothing has
+   * that name (never written through a link another user left there). False when it could not be written.
+   */
+  #prepare() {
+    this.#discard();
+    const tmp = `${this.#file}.${this.#id}.${randomBytes(6).toString('hex')}.tmp`;
+    try {
+      fs.writeFileSync(tmp, this.#body(), { mode: 0o600, flag: 'wx' });
+      this.#tmp = tmp;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  #discard() {
+    if (!this.#tmp) return;
+    try {
+      fs.rmSync(this.#tmp, { force: true });
+    } catch {}
+    this.#tmp = '';
+  }
+
+  /**
+   * A heartbeat made now, for work that keeps the process too busy for its timer (a restore writing a large
+   * backup): the lock is checked and replaced with a fresh one before this returns. False when the lock is
+   * not ours (any more).
+   */
+  touch() {
+    if (this.#state !== 'held') return false;
+    if (look(this.#file).held?.id !== this.#id) return false;
+    try {
+      if (!this.#prepare()) throw new Error('no new lock to put in place');
+      fs.renameSync(this.#tmp, this.#file);
+      this.#tmp = '';
+    } catch {
+      try {
+        const now = new Date();
+        fs.utimesSync(this.#file, now, now);
+      } catch {}
+    }
+    this.#confirmedAt = performance.now();
+    return true;
+  }
+
   /** One heartbeat: check the lock is still ours, then replace it with a fresh one. */
   async #beat() {
     if (this.#state !== 'held' || this.#beating) return;
     this.#beating = true;
     try {
       // Written first, so that nothing but the rename stands between the check and the beat.
-      let ready = false;
-      try {
-        fs.writeFileSync(this.#tmp, this.#body(), { mode: 0o600 });
-        ready = true;
-      } catch {}
+      const ready = this.#prepare();
       for (let attempt = 1; ; attempt += 1) {
         const seen = look(this.#file);
         if (this.#state !== 'held') return; // released while we waited to look again
@@ -342,6 +388,7 @@ export class InstanceLock {
           try {
             if (!ready) throw new Error('no new lock to put in place');
             fs.renameSync(this.#tmp, this.#file);
+            this.#tmp = '';
           } catch {
             // A full disk, or a file held open on Windows: a new modified time is a beat too.
             try {
@@ -373,9 +420,7 @@ export class InstanceLock {
     this.#state = 'lost';
     clearInterval(this.#timer);
     this.#timer = null;
-    try {
-      fs.rmSync(this.#tmp, { force: true });
-    } catch {}
+    this.#discard();
     this.#onLost(`Lost the lock on the data folder ${path.dirname(this.#file)}: ${why}.`, holder);
   }
 
@@ -385,9 +430,7 @@ export class InstanceLock {
     this.#timer = null;
     const was = this.#state;
     this.#state = 'released';
-    try {
-      fs.rmSync(this.#tmp, { force: true });
-    } catch {}
+    this.#discard();
     if (was !== 'held') return; // never taken, or lost: whatever is there is not ours to remove
     if (look(this.#file).held?.id === this.#id) fs.rmSync(this.#file, { force: true });
   }
