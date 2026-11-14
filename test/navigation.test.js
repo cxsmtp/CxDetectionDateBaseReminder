@@ -201,11 +201,21 @@ test('every old address and saved choice still leads somewhere', () => {
   assert.match(app, /const NAV_FOLDS_KEY = 'mz-nav-folded';/);
 });
 
-test('Settings outside "You" still needs settings.view', () => {
+test('Settings outside "You" still needs settings.view, except About & terms of use', () => {
   const line = app.split('\n').find((l) => l.includes("classList.toggle('no-settings', !settingsToo)"));
   assert.ok(line, 'one line hides the rest of Settings from whoever lacks settings.view');
   const open = [...line.matchAll(/:not\(\[data-set="(\w+)"\]\)/g)].map((m) => m[1]);
-  assert.deepEqual(open, ['profile', 'appearance', 'mybrand'], 'only the sections under You are for everyone');
-  assert.match(line, /#set-nav \.set-group:not\(\.set-you\)/, 'and only the You heading');
+  // About & terms of use is for everyone since the flattening: the version at the bottom of the menu leads there,
+  // and it holds nothing but the version, the licence and the terms (its one control has a permission of its own).
+  assert.deepEqual(open, ['profile', 'appearance', 'mybrand', 'about'], 'only the sections under You, and About & terms of use, are for everyone');
+  assert.match(line, /#set-nav \.set-group:not\(\.set-you\):not\(\.set-open\), /, 'with their two headings');
+  const headings = [...between('<nav class="set-nav" id="set-nav"', '</nav>').matchAll(/<p class="set-group( [\w -]+)?">([^<]+)<\/p>/g)].map((m) => [m[2], (m[1] ?? '').trim()]);
+  assert.deepEqual(headings.filter(([, cls]) => cls), [['You', 'set-you'], ['About', 'set-open']]);
+  const about = between('<section class="panel" id="set-about">', '</section>');
+  assert.deepEqual(tags(about, 'input|button|select|textarea').length, 3, 'the organisation name and its Save, and Read the terms of use');
+  assert.match(about, /<span class="about-org-edit" data-perm="settings\.branding"><input type="text" id="about-org-input"[^>]*> <button type="button" id="about-org-save">Save<\/button>/, 'the name is changed only with its permission');
+  // It is filled for everyone, before the rest of Settings is loaded for whoever may see it.
+  const reload = app.slice(app.indexOf('const reloadSettingsPage = () => {'), app.indexOf('};', app.indexOf('const reloadSettingsPage = () => {')));
+  assert.ok(reload.indexOf('renderAbout();') > 0 && reload.indexOf('renderAbout();') < reload.indexOf("if (!can('settings.view')) return;"));
   assert.match(app, /const settingsToo = can\('settings\.view'\);/);
 });

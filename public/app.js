@@ -647,7 +647,7 @@ const PAGE_PERMS = {
   credits: 'credits.view',
   impact: 'reports.view',
   audit: 'audit.view backup.view',
-  settings: '', // everyone has Your profile; the rest needs settings.view
+  settings: '', // everyone has what is under You, and About & terms of use; the rest needs settings.view
   access: 'iam.view',
   // Labs: each item for the roles holding Labs and its own permission (the server gives feature.<id> to them).
   beta: 'feature.codeAuthors feature.identityMatching',
@@ -704,9 +704,10 @@ function applyVersionLink() {
 function applyPermissions() {
   for (const el of document.querySelectorAll('[data-perm]')) el.classList.toggle('perm-hidden', !canAny(el.dataset.perm));
   applyVersionLink();
-  // Settings: Your profile is everyone's; every other section needs settings.view.
+  // Settings: what is under You, and About & terms of use (where the version at the bottom of the menu leads), are
+  // everyone's; every other section needs settings.view.
   const settingsToo = can('settings.view');
-  for (const el of document.querySelectorAll('#set-nav .set-group:not(.set-you), #set-nav [data-set]:not([data-set="profile"]):not([data-set="appearance"]):not([data-set="mybrand"]), #autosave-note')) el.classList.toggle('no-settings', !settingsToo);
+  for (const el of document.querySelectorAll('#set-nav .set-group:not(.set-you):not(.set-open), #set-nav [data-set]:not([data-set="profile"]):not([data-set="appearance"]):not([data-set="mybrand"]):not([data-set="about"]), #autosave-note')) el.classList.toggle('no-settings', !settingsToo);
   applyMyAppBranding();
   // Settings → Tenants only once a tenants activation code has been applied.
   for (const el of document.querySelectorAll('[data-set="tenants"], #set-tenants')) el.classList.toggle('addon-hidden', !state.me?.unlocked?.tenants);
@@ -1332,6 +1333,7 @@ const reloadSettingsPage = () => {
   renderProfile();
   loadMyBranding();
   loadHandsOff();
+  renderAbout();
   if (!can('settings.view')) return;
   loadFeatures();
   loadActivation();
@@ -1340,7 +1342,6 @@ const reloadSettingsPage = () => {
   loadAutomation();
   loadPool();
   loadHttps();
-  renderAbout();
   loadUpdates();
 };
 
