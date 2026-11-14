@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.10 | 511/s, 0 (main 496, 0; a second pair 515 against 510, 0) | 2.6 s (2.0 s) | 128 ms (206 ms) | 1,105 | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, e4657d28 of MZ-01.01.08's final code: 75 open (7 / 23 / 27 / 17, 1 info), 15 to verify |
 | MZ-01.01.09 | 507/s, 0 (main 502, 0) | 4.1 s (6.3 s) | 115 ms (288 ms) | 1,055 | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, e4657d28 of MZ-01.01.08's final code: 75 open (7 / 23 / 27 / 17, 1 info), 15 to verify |
 | MZ-01.01.08 | 509/s, 0 (main 521, 0) | 412 ms (563 ms) | 97 ms (70 ms) | 1,037 | 0 vulnerabilities | Scan e4657d28 of the final code: 75 open (7 / 23 / 27 / 17, 1 info), none new; nodemailer CVE-2026-125755 and the launcher's timing fixed in the release, 15 to verify (by design, not shipped, or unchanged code under newer rules) |
 | MZ-01.01.07 | 446/s, 192 (connection failures on the host; main 435, 303) | 17.5 s | 3.2 s | 1028 | 0 vulnerabilities (qs 6.16.2) | Rescan 9477a871 of the final code (cad438d): 70 open (1 / 32 / 21 / 15, 1 info), none new; the qs SCA result fixed (6.16.2, CVE-2026-110910), the other 69 SAST + 1 KICS judged not exploitable before ([review](docs/security/mz-01.01.07-review.md)) |
@@ -95,6 +96,17 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.10 — 2026-11-14 09:05 UTC · [#131](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/131)
+
+- **Works until 31 March 2027.** CxMissionZero now stops at the end of 31 March 2027 (UTC), not 31 December 2026, until the product activation code is entered; the code is checked again from its signature at every start, so a code entered on an older release is entered once more after updating.
+- **A crash or a full disk can no longer empty a state file.** Every save is written beside the file, flushed to the disk and then put in place, with the file before it kept as `.bak`; a damaged file is put right from its `.bak`, and with none the server names the file and does not start, where it used to carry on as if the file were empty and write over it.
+- **Audit entries are flushed to the disk.** Each entry is in the log before its action is answered and flushed a few milliseconds later, several in one flush under load, so a power cut can lose only the last moments.
+- **One server per data folder, for certain.** Two servers starting together, a half-written lock or clocks that disagree can no longer give both the folder; a server that finds its folder taken stops at once without saving.
+- **A restore refuses while a server is running.** `npm run restore` holds the data folder for the restore and says which server to stop; `--force` is for a folder whose server is certainly gone.
+- **Strangers cannot fill the disk, and tests gate every image.** Requests from people who are not signed in are limited in size and their refusals are logged at most ten times a minute per address; an image is published only after all tests and the dependency audit pass.
+- **One time control on the Workbench.** "Findings open for" (any time, more than 30, 60 or 90 days, new this week, new this month, or your own dates) replaces the two time filters and the Age filter; "Skip projects not scanned in" moved under Narrow down.
+- **Status.** 1,105 tests pass, as root and as an ordinary user, and `npm audit --omit=dev` finds nothing. Benchmark of the final code against main on a quiet host, two pairs, all with 0 failed requests and no finding sent twice: 511 and 515 requests a second (main 496 and 510), report opens 2.6 s and 5.2 s at p95 (main 2.0 s and 0.2 s; main's own clean runs that day ranged from 0.2 to 7.7 s), triage polls 128 and 262 ms (main 206 and 119 ms). Earlier in the day the host dropped connections in runs of both; a size check that ran for every finding was made cheap, and audit and folder flushes were moved off the request path, after measuring ([performance](docs/performance.md)). No new Checkmarx One scan (the connector needs signing in again); the last, e4657d28, has 75 open, 15 to verify.
 
 ## MZ-01.01.09 — 2026-11-13 17:57 UTC · [#131](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/131)
 
