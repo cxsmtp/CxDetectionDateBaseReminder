@@ -5836,6 +5836,8 @@
   "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": "הגיבוי הזה מוצפן, ומפתח הגיבוי או ביטוי הסיסמה של השרת הזה אינם פותחים אותו. הזינו את מפתח הגיבוי של השרת שיצר אותו (שנשמר מתוך ביקורת ← מצב וגיבויים באותו שרת), או את ה-BACKUP_PASSPHRASE שהיה לאותו שרת.",
   "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": "הגיבוי הזה לא נפתח: מפתח הגיבוי או ביטוי הסיסמה שגויים, או שהגיבוי פגום. הוא נפתח רק באמצעות מפתח הגיבוי של השרת שיצר אותו (שנשמר מתוך ביקורת ← מצב וגיבויים), או באמצעות ה-BACKUP_PASSPHRASE שהיה לאותו שרת.",
   "twostep|Code": "קוד",
-  "twostep|Recovery code": "קוד שחזור"
+  "twostep|Recovery code": "קוד שחזור",
+  "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>קרדיטים",
+  "Credits given, used and left, what they achieved, and how many a customer needs": "קרדיטים שהוקצו, נוצלו ונותרו, מה הם השיגו וכמה קרדיטים לקוח צריך"
  }
 }

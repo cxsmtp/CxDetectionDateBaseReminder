@@ -5836,6 +5836,8 @@
   "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": "Este backup é criptografado, e nem a chave de backup nem a frase secreta deste servidor o abrem. Informe a chave de backup do servidor que o criou (salva em Auditoria → Estado e backups desse servidor) ou a BACKUP_PASSPHRASE que esse servidor tinha.",
   "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": "Este backup não abriu: a chave de backup ou a frase secreta está errada, ou o backup está danificado. Ele só abre com a chave de backup do servidor que o criou (salva em Auditoria → Estado e backups) ou com a BACKUP_PASSPHRASE que esse servidor tinha.",
   "twostep|Code": "Código",
-  "twostep|Recovery code": "Código de recuperação"
+  "twostep|Recovery code": "Código de recuperação",
+  "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>Créditos",
+  "Credits given, used and left, what they achieved, and how many a customer needs": "Créditos concedidos, usados e restantes, o que eles alcançaram e de quantos um cliente precisa"
  }
 }

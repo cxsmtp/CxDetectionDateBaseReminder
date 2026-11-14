@@ -5836,6 +5836,8 @@
   "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": "Sandaran ini disulitkan, dan kunci sandaran atau frasa laluan pelayan ini sendiri tidak dapat membukanya. Berikan kunci sandaran pelayan yang membuatnya (disimpan daripada Audit → Keadaan & sandaran pelayan itu), atau BACKUP_PASSPHRASE yang digunakan oleh pelayan itu.",
   "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": "Sandaran ini tidak dapat dibuka: kunci sandaran atau frasa laluan salah, atau sandaran rosak. Sandaran ini hanya boleh dibuka dengan kunci sandaran pelayan yang membuatnya (disimpan daripada Audit → Keadaan & sandaran), atau dengan BACKUP_PASSPHRASE yang digunakan oleh pelayan itu.",
   "twostep|Code": "Kod",
-  "twostep|Recovery code": "Kod pemulihan"
+  "twostep|Recovery code": "Kod pemulihan",
+  "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>Kredit",
+  "Credits given, used and left, what they achieved, and how many a customer needs": "Kredit yang diberi, digunakan dan berbaki, hasil yang dicapai, dan jumlah yang diperlukan pelanggan"
  }
 }

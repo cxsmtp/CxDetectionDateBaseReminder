@@ -5836,6 +5836,8 @@
   "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": "此备份已加密，而此服务器自己的备份密钥或密码短语无法打开它。请提供创建此备份的服务器的备份密钥（从该服务器的“审计 → 状态与备份”保存），或该服务器当时使用的 BACKUP_PASSPHRASE。",
   "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": "此备份无法打开：备份密钥或密码短语不正确，或备份已损坏。只有创建此备份的服务器的备份密钥（从“审计 → 状态与备份”保存），或该服务器当时使用的 BACKUP_PASSPHRASE 才能打开。",
   "twostep|Code": "验证码",
-  "twostep|Recovery code": "恢复码"
+  "twostep|Recovery code": "恢复码",
+  "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>点数",
+  "Credits given, used and left, what they achieved, and how many a customer needs": "已分配、已使用和剩余的点数，取得的成效，以及客户所需的点数"
  }
 }

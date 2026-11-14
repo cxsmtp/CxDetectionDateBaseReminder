@@ -38823,5 +38823,21 @@
   "seen": [
    "Sign-in page › two-step sign-in"
   ]
+ },
+ "<i aria-hidden=\"true\"></i>Credits": {
+  "kind": "html",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
+  ]
+ },
+ "Credits given, used and left, what they achieved, and how many a customer needs": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
+  ]
  }
 }

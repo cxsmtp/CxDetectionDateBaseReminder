@@ -1,6 +1,8 @@
 // The page in a real browser (Chromium, through Playwright as a library), against the real server and
 // the mock Checkmarx One: the first administrator's setup with the setup code, signing in, the Workbench
-// with its projects, Settings, People & roles, the Admins' backup-key notice, Labs in the menu only for
+// with its projects, Settings, People & roles, the Admins' backup-key notice, the menu's groups (four for
+// an Admin, one flat list for a User or a Security Champion, also at a phone's width), the addresses and
+// the choices a browser kept from before the menu and Settings were regrouped, Labs in the menu only for
 // a role that holds Labs permissions, and signing out. Along the way, any error nobody caught in the
 // page, any request to the server that failed or was refused, and anything loaded from outside the
 // server fails the test it happened in.
@@ -8,7 +10,9 @@
 //   npm run test:browser
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { MEMBER_NEXT_PASSWORD, MEMBER_PASSWORD, NEXT_PASSWORD } from '../test-credentials.js';
@@ -62,8 +66,38 @@ async function signIn(page, email, password) {
 
 /** Open a page from the menu and wait until it shows. */
 async function open(page, route, pageId) {
-  await page.locator(`#nav a[data-route="${route}"]`).click();
+  await page.locator(`#nav > a[data-route="${route}"]`).click();
   await page.locator(`#${pageId}`).waitFor({ state: 'visible' });
+}
+
+/** Go to an address in the page (#/…), as a bookmark or a link in an email would, and wait until a page shows. */
+async function goTo(page, hash, pageId) {
+  await page.evaluate((h) => (location.hash = h), hash);
+  await page.locator(`#${pageId}`).waitFor({ state: 'visible' });
+}
+
+/** The menu as it is seen: each heading in brackets, then the pages under it. */
+const menuSeen = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('#nav > .nav-group, #nav > a.tab')]
+      .filter((el) => el.getClientRects().length)
+      .map((el) => (el.matches('.nav-group') ? `[${el.textContent.trim()}]` : el.querySelector('span').textContent.trim())),
+  );
+
+/** Someone an Admin just added signs in for the first time: they choose their own password first. */
+async function firstSignIn(who, { email, name }) {
+  const { page, context } = await browser.person(who);
+  await page.goto('/');
+  await signIn(page, email, MEMBER_PASSWORD);
+  await page.locator('#change-box').waitFor({ state: 'visible' });
+  await page.fill('#change-current', MEMBER_PASSWORD);
+  await page.fill('#change-next', MEMBER_NEXT_PASSWORD);
+  await page.fill('#change-next2', MEMBER_NEXT_PASSWORD);
+  await page.locator('#change-form button[type="submit"]').click();
+  await signedInAs(page, name);
+  // The menu has been drawn for this person once the Workbench is in it.
+  await page.locator('#nav > a[data-route="dashboard"]').waitFor({ state: 'visible' });
+  return { page, context };
 }
 
 /** The first visit to a server nobody has set up: the setup code from its log makes the first administrator. */
@@ -155,8 +189,9 @@ test('Labs is in the menu only for a role that holds Labs permissions', async ()
   await admin.locator('#nav .nav-labs').waitFor({ state: 'visible' });
   await admin.locator('#nav a[data-route="beta"]').waitFor({ state: 'visible' });
 
-  // Two roles that differ only in Labs, and a person in each (made as the Admin, through the server).
-  const same = ['findings.fetch', 'reports.view', 'settings.view'];
+  // Two roles that differ only in Labs, and a person in each (made as the Admin, through the server). Both have
+  // more than seven pages, so their menu keeps its headings.
+  const same = ['findings.fetch', 'reports.view', 'settings.view', 'credits.view', 'audit.view'];
   const people = [
     { who: 'someone without Labs', email: 'plain@acme.io', name: 'Pat Plain', role: 'Without Labs', permissions: same, labs: false },
     { who: 'someone with Labs', email: 'labs@acme.io', name: 'Lee Labs', role: 'With Labs', permissions: [...same, 'labs.view', 'labs.codeAuthors'], labs: true },
@@ -170,18 +205,8 @@ test('Labs is in the menu only for a role that holds Labs permissions', async ()
   }
 
   for (const person of people) {
-    const { page, context } = await browser.person(person.who);
-    await page.goto('/');
-    await signIn(page, person.email, MEMBER_PASSWORD);
     // An administrator set the password: they choose their own before anything else.
-    await page.locator('#change-box').waitFor({ state: 'visible' });
-    await page.fill('#change-current', MEMBER_PASSWORD);
-    await page.fill('#change-next', MEMBER_NEXT_PASSWORD);
-    await page.fill('#change-next2', MEMBER_NEXT_PASSWORD);
-    await page.locator('#change-form button[type="submit"]').click();
-    await signedInAs(page, person.name);
-    // The menu has been drawn for this person once the Workbench is in it.
-    await page.locator('#nav a[data-route="dashboard"]').waitFor({ state: 'visible' });
+    const { page, context } = await firstSignIn(person.who, person);
     const labsGroup = page.locator('#nav .nav-labs');
     const labsItems = page.locator('#nav a[data-stage="labs"]:visible');
     if (person.labs) {
@@ -201,6 +226,256 @@ test('Labs is in the menu only for a role that holds Labs permissions', async ()
   nothingWentWrong();
 });
 
+test('the menu: an Admin sees four groups, each with its pages', async () => {
+  assert.deepEqual(await menuSeen(admin), [
+    '[Act]', 'Workbench', 'Automation', 'Dashboard',
+    '[Credits]', 'Credit Control', 'Impact', 'Audit', 'Cx Credits Calculator',
+    '[Set up]', 'People & roles', 'Settings', 'Logs',
+    '[Labs]', 'Code authors', 'Fusion results',
+  ]);
+  assert.equal(await admin.locator('#nav').evaluate((nav) => nav.classList.contains('nav-flat')), false);
+  // The label beside a page's title is as it was: Credit Control is still "Prove", the Dashboard "Follow up".
+  await open(admin, 'credits', 'page-credits');
+  assert.equal((await admin.locator('#page-stage').textContent()).trim(), 'Prove');
+  await open(admin, 'reports', 'page-reports');
+  assert.equal((await admin.locator('#page-stage').textContent()).trim(), 'Follow up');
+  assert.equal((await admin.locator('#page-title').textContent()).trim(), 'Dashboard');
+
+  // A group folds with a click on its name, and the page that is open stays in view.
+  const credits = admin.locator('#nav .nav-group[data-group="credits"]');
+  await credits.click();
+  assert.equal(await credits.getAttribute('aria-expanded'), 'false');
+  assert.deepEqual((await menuSeen(admin)).slice(0, 6), ['[Act]', 'Workbench', 'Automation', 'Dashboard', '[Credits]', '[Set up]']);
+  await open(admin, 'settings', 'page-settings');
+  await goTo(admin, '#/audit', 'page-audit');
+  assert.deepEqual((await menuSeen(admin)).slice(4, 7), ['[Credits]', 'Audit', '[Set up]'], 'a folded group still shows the page that is open');
+  await credits.click();
+  assert.equal(await credits.getAttribute('aria-expanded'), 'true');
+
+  // Fold every group, and unfold them again.
+  await admin.locator('#nav-fold-all').click();
+  assert.deepEqual(await menuSeen(admin), ['[Act]', '[Credits]', 'Audit', '[Set up]', '[Labs]']);
+  await admin.locator('#nav-fold-all').click();
+  assert.equal((await menuSeen(admin)).length, 16);
+
+  // A pinned page sits at the top, and Focus shows only the pinned pages and the one that is open.
+  await admin.locator('#nav > a[data-route="impact"]').hover();
+  await admin.locator('#nav > .nav-pin[data-route="impact"]').click();
+  assert.deepEqual((await admin.locator('#nav-pinned a.tab').allTextContents()).map((t) => t.trim()), ['Impact']);
+  await admin.locator('#nav-focus').click();
+  assert.deepEqual(await menuSeen(admin), ['[Pinned]', 'Audit']);
+  await admin.locator('#nav-pinned a.tab').click();
+  await admin.locator('#page-impact').waitFor({ state: 'visible' });
+  await admin.locator('#nav-focus').click();
+  await admin.locator('#nav > a[data-route="impact"]').hover();
+  await admin.locator('#nav > .nav-pin[data-route="impact"]').click();
+  assert.equal(await admin.locator('#nav-pinned a.tab').count(), 0);
+  assert.equal((await menuSeen(admin)).length, 16);
+  nothingWentWrong();
+});
+
+test('the Cx Credits Calculator in the menu opens its own address when an Admin turned that on', async () => {
+  const item = admin.locator('#nav > a[data-route="calculator"]');
+  assert.equal(await item.getAttribute('href'), '#/calculator');
+  // Settings → Beta features, under Organisation since the regrouping.
+  await open(admin, 'settings', 'page-settings');
+  await admin.locator('#set-nav [data-set="features"]').click();
+  await admin.locator('#calc-address-url').fill('http://127.0.0.1:8333/');
+  await admin.locator('#calc-address-on').check();
+  await admin.locator('#calc-address-save').click();
+  await admin.locator('#calc-address-status').filter({ hasText: 'in the menu now opens this address' }).waitFor();
+  assert.equal(await item.getAttribute('href'), 'http://127.0.0.1:8333/');
+  assert.equal(await item.getAttribute('target'), '_blank');
+  assert.deepEqual((await menuSeen(admin)).slice(4, 9), ['[Credits]', 'Credit Control', 'Impact', 'Audit', 'Cx Credits Calculator'], 'in its place in the menu');
+  // Off again: the built-in page.
+  await admin.locator('#calc-address-on').uncheck();
+  await admin.locator('#calc-address-save').click();
+  await admin.locator('#calc-address-status').filter({ hasText: 'opens in CxMissionZero' }).waitFor();
+  assert.equal(await item.getAttribute('href'), '#/calculator');
+  assert.equal(await item.getAttribute('target'), null);
+  nothingWentWrong();
+});
+
+test('Settings has five groups, and the old addresses and the section a browser kept still lead there', async () => {
+  await open(admin, 'settings', 'page-settings');
+  const listed = () =>
+    admin.evaluate(() =>
+      [...document.querySelectorAll('#set-nav .set-nav-list > *')]
+        .filter((el) => el.getClientRects().length)
+        .map((el) => (el.matches('.set-group') ? `[${el.textContent.trim()}]` : el.firstChild.textContent.trim())),
+    );
+  assert.deepEqual(await listed(), [
+    '[You]', 'Your profile', 'Your appearance', 'Your branding',
+    '[Connections]', 'Quick setup (.env)', 'Checkmarx One', 'Email server', 'Network & proxy', 'HTTPS', 'Server address',
+    '[Reminders]', 'Hands-off', 'Developer addresses', 'Automation', 'SLAs',
+    '[Organisation]', 'AI & credit pool', 'Branding', 'Beta features', 'Get help',
+    '[About]', 'Activation codes', 'Update & recovery', 'About & terms of use',
+  ]);
+
+  // Risks endpoint and Links into Checkmarx One were sections of their own, shown with the advanced options.
+  // Without them, the old address opens the section that holds the part, as it fell back before.
+  await goTo(admin, '#/settings/endpoint', 'set-connection');
+  assert.equal(await admin.evaluate(() => location.hash), '#/settings/connection');
+  assert.equal(await admin.locator('#risks-path').isVisible(), false);
+  await admin.locator('#user-menu summary').click();
+  await admin.locator('#me-advanced').check();
+  await admin.locator('#user-menu summary').click();
+  assert.ok((await listed()).includes('Mail template'), 'the advanced sections are listed');
+  for (const gone of ['Risks endpoint', 'Links into Checkmarx One']) assert.ok(!(await listed()).includes(gone), `${gone} is no longer a section of its own`);
+  // With them, the part opens inside its section.
+  await goTo(admin, '#/settings/endpoint', 'set-connection');
+  await admin.locator('#risks-path').waitFor({ state: 'visible' });
+  assert.equal(await admin.evaluate(() => location.hash), '#/settings/connection');
+  assert.equal(await admin.locator('#set-nav a.active').getAttribute('data-set'), 'connection');
+  await goTo(admin, '#/settings/links', 'set-server');
+  await admin.locator('#link-base').waitFor({ state: 'visible' });
+  assert.equal(await admin.locator('#set-nav a.active').getAttribute('data-set'), 'server');
+  assert.equal(await admin.locator('#link-report-server').isVisible(), true, 'beside the server address it belongs with');
+  // The last section a browser kept, under its old name, opens the same way.
+  await open(admin, 'logs', 'page-logs');
+  await admin.evaluate(() => localStorage.setItem('mz-settings-section', 'endpoint'));
+  await open(admin, 'settings', 'page-settings');
+  await admin.locator('#set-connection').waitFor({ state: 'visible' });
+  assert.equal(await admin.evaluate(() => localStorage.getItem('mz-settings-section')), 'connection');
+  // "Jump to" still finds both by name.
+  await admin.locator('#palette-open').click();
+  await admin.locator('#palette-q').fill('Risks endpoint');
+  await admin.locator('#palette-list li[role="option"]').filter({ hasText: 'Settings → Risks endpoint' }).click();
+  await admin.locator('#risks-path').waitFor({ state: 'visible' });
+  await admin.locator('#user-menu summary').click();
+  await admin.locator('#me-advanced').uncheck();
+  await admin.locator('#user-menu summary').click();
+
+  // Pages that were renamed, and Automation's old place in Settings.
+  await goTo(admin, '#/credit-control', 'page-credits');
+  await goTo(admin, '#/iam', 'page-access');
+  await goTo(admin, '#/settings/automation', 'page-automation');
+  assert.equal(await admin.evaluate(() => location.hash), '#/automation');
+  nothingWentWrong();
+});
+
+test('folded groups and pinned pages a browser kept from before the regrouping still apply', async () => {
+  // Before: Act, Follow up, Prove, Plan, Set up, Labs. This browser had Prove and Follow up folded, and two pages pinned.
+  await goTo(admin, '#/dashboard', 'page-dashboard');
+  await admin.evaluate(() => {
+    localStorage.setItem('mz-nav-folded', JSON.stringify(['prove', 'followup']));
+    localStorage.setItem('mz-nav-pins', JSON.stringify(['reports', 'calculator', 'a-page-there-never-was']));
+  });
+  await admin.reload();
+  await signedInAs(admin, ADMIN.name);
+  await admin.locator('#nav-pinned a.tab').first().waitFor({ state: 'visible' });
+  assert.deepEqual(await menuSeen(admin), [
+    '[Pinned]',
+    '[Act]', 'Workbench', 'Automation', 'Dashboard',
+    '[Credits]',
+    '[Set up]', 'People & roles', 'Settings', 'Logs',
+    '[Labs]', 'Code authors', 'Fusion results',
+  ], 'Prove folded is Credits folded; the Dashboard, alone under Follow up before, stays in view under Act');
+  assert.deepEqual((await admin.locator('#nav-pinned a.tab').allTextContents()).map((t) => t.trim()), ['Dashboard', 'Cx Credits Calculator']);
+  // A pinned page opens its page.
+  await admin.locator('#nav-pinned a.tab[data-route="calculator"]').click();
+  await admin.locator('#page-calculator').waitFor({ state: 'visible' });
+  // Unfolding writes today's names.
+  await admin.locator('#nav .nav-group[data-group="credits"]').click();
+  assert.equal(await admin.evaluate(() => localStorage.getItem('mz-nav-folded')), '[]');
+  await admin.evaluate(() => localStorage.removeItem('mz-nav-pins'));
+  await admin.reload();
+  await signedInAs(admin, ADMIN.name);
+  await admin.locator('#nav > a[data-route="dashboard"]').waitFor({ state: 'visible' });
+  assert.equal((await menuSeen(admin)).length, 16);
+  nothingWentWrong();
+});
+
+test('a User and a Security Champion have seven pages or fewer: one flat list, with no headings', async () => {
+  const people = [
+    { who: 'a User', email: 'una@acme.io', name: 'Una User', role: 'user', menu: ['Workbench', 'Automation', 'Dashboard', 'Credit Control', 'Impact', 'Settings', 'Logs'] },
+    { who: 'a Security Champion', email: 'cy@acme.io', name: 'Cy Champion', role: 'champion', menu: ['Workbench', 'Dashboard', 'Credit Control', 'Impact', 'Settings', 'Logs'] },
+  ];
+  for (const person of people) {
+    const added = await admin.request.post('/api/iam/users', { data: { email: person.email, name: person.name, role: person.role, password: MEMBER_PASSWORD } });
+    assert.equal(added.status(), 201, await added.text());
+    const { page, context } = await firstSignIn(person.who, person);
+    assert.deepEqual(await menuSeen(page), person.menu, `${person.who}: the pages, and no heading`);
+    assert.equal(await page.locator('#nav').evaluate((nav) => nav.classList.contains('nav-flat')), true);
+    assert.equal(await page.locator('#nav-fold-all').isVisible(), false, 'nothing to fold');
+    assert.equal(await page.locator('#nav-focus').isVisible(), true, 'pinning and Focus still work');
+    // Folds kept from before hide nothing in a flat list.
+    await page.evaluate(() => localStorage.setItem('mz-nav-folded', JSON.stringify(['act', 'prove', 'setup'])));
+    await open(page, 'credits', 'page-credits');
+    assert.deepEqual(await menuSeen(page), person.menu);
+    assert.equal((await page.locator('#page-stage').textContent()).trim(), 'Prove');
+
+    // Settings: what each may see, under the same five headings.
+    await open(page, 'settings', 'page-settings');
+    const groups = (await page.locator('#set-nav .set-group:visible').allTextContents()).map((t) => t.trim());
+    const sections = (await page.locator('#set-nav [data-set]:visible').allTextContents()).map((t) => t.trim());
+    if (person.role === 'user') {
+      assert.deepEqual(groups, ['You', 'Connections', 'Reminders', 'Organisation', 'About']);
+      assert.deepEqual(sections, ['Your profile', 'Your appearance', 'Checkmarx One', 'Email server', 'Server address', 'Hands-off', 'Developer addresses', 'AI & credit pool', 'About & terms of use']);
+    } else {
+      // No "View settings": only what is under You, and About & terms of use, where the version in the menu leads.
+      assert.deepEqual(groups, ['You', 'About']);
+      assert.deepEqual(sections, ['Your profile', 'Your appearance', 'About & terms of use']);
+      await open(page, 'dashboard', 'page-dashboard');
+      await page.locator('#app-version').click();
+      await page.locator('#set-about').waitFor({ state: 'visible' });
+      assert.match((await page.locator('#about-version').textContent()).trim(), /^MZ-\d\d\.\d\d\.\d\d$/);
+      assert.equal(await page.locator('#about-org-input').isVisible(), false, 'the organisation name is not theirs to change');
+      // The rest of Settings stays closed to them: the address of a section they may not see opens one of their own.
+      await goTo(page, '#/settings/connection', 'page-settings');
+      assert.equal(await page.evaluate(() => location.hash), '#/settings/about');
+      assert.equal(await page.locator('#set-connection').isVisible(), false);
+      assert.equal(await page.locator('#set-about').isVisible(), true);
+    }
+
+    // At a phone's width: four pages in the bar, the rest in the More sheet, in one list with no labels.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('.m-more').waitFor({ state: 'visible' });
+    const bar = (await page.locator('#nav > a.tab[data-primary]:visible').allTextContents()).map((t) => t.trim());
+    assert.deepEqual(bar, person.menu.slice(0, 4));
+    await page.locator('.m-more').click();
+    const sheet = page.locator('.m-menu .m-pages');
+    await sheet.waitFor({ state: 'visible' });
+    assert.equal(await sheet.locator('.m-group-label').count(), 0, 'no group labels in a flat menu');
+    assert.equal(await sheet.locator('.m-group').count(), 1);
+    assert.deepEqual((await sheet.locator('a.tab').allTextContents()).map((t) => t.trim()), person.menu);
+    await sheet.locator('a.tab[data-route="logs"]').click();
+    await page.locator('#page-logs').waitFor({ state: 'visible' });
+    await sheet.waitFor({ state: 'hidden' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signOut(page);
+    await context.close();
+  }
+  nothingWentWrong();
+});
+
+test('at a phone\'s width the Admin\'s menu keeps its four groups in the More sheet', async () => {
+  await admin.setViewportSize({ width: 390, height: 844 });
+  await admin.locator('.m-more').waitFor({ state: 'visible' });
+  assert.deepEqual((await admin.locator('#nav > a.tab[data-primary]:visible').allTextContents()).map((t) => t.trim()), ['Workbench', 'Automation', 'Dashboard', 'Credit Control']);
+  await admin.locator('.m-more').click();
+  const sheet = admin.locator('.m-menu .m-pages');
+  await sheet.waitFor({ state: 'visible' });
+  const groups = await sheet.evaluate((pages) => [...pages.children].map((el) => (el.matches('.m-group-label') ? `[${el.textContent.trim()}]` : [...el.querySelectorAll('a.tab > span:not(.badge)')].map((s) => s.textContent.trim()).join(', '))));
+  assert.deepEqual(groups, [
+    '[Act]', 'Workbench, Automation, Dashboard',
+    '[Credits]', 'Credit Control, Impact, Audit, Cx Credits Calculator',
+    '[Set up]', 'People & roles, Settings, Logs',
+    '[Labs]', 'Code authors, Fusion results',
+  ]);
+  // A page chosen in the sheet opens, and the sheet closes.
+  await sheet.locator('a.tab[data-route="audit"]').click();
+  await admin.locator('#page-audit').waitFor({ state: 'visible' });
+  await sheet.waitFor({ state: 'hidden' });
+  // Settings' sections are one button that opens a list, under the same five headings.
+  await admin.locator('.m-more').click();
+  await sheet.locator('a.tab[data-route="settings"]').click();
+  await admin.locator('#page-settings').waitFor({ state: 'visible' });
+  await admin.setViewportSize({ width: 1440, height: 900 });
+  await admin.locator('#nav .nav-group[data-group="act"]').waitFor({ state: 'visible' });
+  nothingWentWrong();
+});
+
 test('signing out ends the visit: the menu goes, and the server no longer answers this browser', async () => {
   await signOut(admin);
   assert.equal(await admin.locator('#backup-banner').isVisible(), false);
@@ -213,6 +488,80 @@ test('signing out ends the visit: the menu goes, and the server no longer answer
   await admin.locator('#signin-box').waitFor({ state: 'visible' });
   assert.equal(await admin.locator('#nav').isVisible(), false);
   nothingWentWrong();
+});
+
+test('a feature made final leaves Labs for its group: FAE Flush to the top of Act, Govern into Credits after Audit', async () => {
+  // A server of its own that takes activation codes signed with a key made here (as the maintainer's are).
+  const keyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'menu-key-'));
+  const script = (...args) => execFileSync(process.execPath, ['scripts/activation.mjs', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const publicKey = script('keygen', path.join(keyDir, 'issuer.pem')).split('\n').pop();
+  const own = await startServer({ projects: 1, risks: 1, env: { MZ_ACTIVATION_TEST_KEY: publicKey } });
+  const visit = await openBrowser(own.base);
+  try {
+    const { page } = await visit.person('the Admin of a server with FAE Flush and Govern');
+    await createFirstAdmin(page, own.setupCode);
+    const reloaded = async () => {
+      await page.reload();
+      await signedInAs(page, ADMIN.name);
+      await page.locator('#nav > a[data-route="dashboard"]').waitFor({ state: 'visible' });
+    };
+    const stage = async (feature, to) => {
+      const made = await page.request.put(`/api/features/${feature}`, { data: { stage: to } });
+      assert.equal(made.status(), 200, await made.text());
+    };
+    for (const feature of ['faeFlush', 'govern']) {
+      const applied = await page.request.post('/api/activation', { data: { code: script('feature', path.join(keyDir, 'issuer.pem'), 'Acme', feature, 'on') } });
+      assert.equal(applied.status(), 200, await applied.text());
+    }
+
+    // In Beta: both in Labs.
+    await reloaded();
+    assert.deepEqual(await menuSeen(page), [
+      '[Act]', 'Workbench', 'Automation', 'Dashboard',
+      '[Credits]', 'Credit Control', 'Impact', 'Audit', 'Cx Credits Calculator',
+      '[Set up]', 'People & roles', 'Settings', 'Logs',
+      '[Labs]', 'Code authors', 'Fusion results', 'FAE Flush', 'Govern',
+    ]);
+
+    // Final: FAE Flush first under Act, Govern under Credits after Audit; no group of its own.
+    await stage('faeFlush', 'final');
+    await stage('govern', 'final');
+    await reloaded();
+    assert.deepEqual(await menuSeen(page), [
+      '[Act]', 'FAE Flush', 'Workbench', 'Automation', 'Dashboard',
+      '[Credits]', 'Credit Control', 'Impact', 'Audit', 'Govern', 'Cx Credits Calculator',
+      '[Set up]', 'People & roles', 'Settings', 'Logs',
+      '[Labs]', 'Code authors', 'Fusion results',
+    ]);
+    // Each took its pin along (the pin sits right after its page), and folds with its new group.
+    for (const route of ['flush', 'govern']) assert.equal(await page.locator(`#nav > a.tab[data-route="${route}"] + .nav-pin[data-route="${route}"]`).count(), 1, `${route}: its pin follows it`);
+    await goTo(page, '#/logs', 'page-logs');
+    await page.locator('#nav .nav-group[data-group="credits"]').click();
+    assert.deepEqual((await menuSeen(page)).slice(5, 7), ['[Credits]', '[Set up]'], 'Govern folds with Credits');
+    await page.locator('#nav .nav-group[data-group="credits"]').click();
+    await page.locator('#nav .nav-group[data-group="act"]').click();
+    assert.deepEqual((await menuSeen(page)).slice(0, 2), ['[Act]', '[Credits]'], 'FAE Flush folds with Act');
+    await page.locator('#nav .nav-group[data-group="act"]').click();
+    // On a phone: the same groups in the More sheet.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('.m-more').click();
+    const sheet = page.locator('.m-menu .m-pages');
+    await sheet.waitFor({ state: 'visible' });
+    const groups = await sheet.evaluate((pages) => [...pages.children].map((el) => (el.matches('.m-group-label') ? `[${el.textContent.trim()}]` : [...el.querySelectorAll('a.tab > span:not(.badge)')].map((s) => s.textContent.trim()).join(', '))));
+    assert.deepEqual(groups.slice(0, 4), ['[Act]', 'FAE Flush, Workbench, Automation, Dashboard', '[Credits]', 'Credit Control, Impact, Audit, Govern, Cx Credits Calculator']);
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    // Back in Beta: both return to Labs, in their places.
+    await stage('faeFlush', 'beta');
+    await stage('govern', 'beta');
+    await reloaded();
+    assert.deepEqual((await menuSeen(page)).slice(13), ['[Labs]', 'Code authors', 'Fusion results', 'FAE Flush', 'Govern']);
+    assert.deepEqual(visit.problems(), []);
+  } finally {
+    await visit.close();
+    await own.stop();
+    fs.rmSync(keyDir, { recursive: true, force: true });
+  }
 });
 
 test('an existing installation: the Admin is told its backups are not encrypted, turns encryption on, and is shown the key to save', async () => {

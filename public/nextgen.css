@@ -505,7 +505,7 @@
   :root[data-ui="nextgen"][data-nav="top"] .nav { flex: 1 1 auto; flex-direction: row; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
   :root[data-ui="nextgen"][data-nav="top"] .nav::-webkit-scrollbar { display: none; }
   :root[data-ui="nextgen"][data-nav="top"] .nav-group { display: none; }
-  :root[data-ui="nextgen"][data-nav="top"] .nav-group + .tab { margin-inline-start: 10px; }
+  :root[data-ui="nextgen"][data-nav="top"] .nav-group:not([hidden]) + .tab { margin-inline-start: 10px; }
   :root[data-ui="nextgen"][data-nav="top"] .tab { padding: 7px 10px; white-space: nowrap; gap: 7px; font-size: 13.5px; }
   :root[data-ui="nextgen"][data-nav="top"] .tab.active::before { display: none; }
   :root[data-ui="nextgen"][data-nav="top"] .sidebar-tools { flex-direction: row; display: flex; margin: 0; padding: 0; border: 0; gap: 4px; }
@@ -519,7 +519,7 @@
 /* Not quite wide enough for every page with its icon: the names only. */
 @media (min-width: 1261px) and (max-width: 1599px) {
   :root[data-ui="nextgen"][data-nav="top"] .tab > svg { display: none; }
-  :root[data-ui="nextgen"][data-nav="top"] .nav-group + .tab { margin-inline-start: 6px; }
+  :root[data-ui="nextgen"][data-nav="top"] .nav-group:not([hidden]) + .tab { margin-inline-start: 6px; }
 }
 
 

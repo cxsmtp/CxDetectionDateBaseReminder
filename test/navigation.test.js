@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { SETTINGS_PARTS, settingsSectionFor } from '../public/nav-map.js';
+import { NAV_FLAT_MAX, NAV_GROUPS, OLD_NAV_GROUPS, SETTINGS_PARTS, navFoldsFrom, navIsFlat, settingsSectionFor } from '../public/nav-map.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -104,22 +104,73 @@ test('every page that can be opened has its place in the menu, behind the same p
   assert.equal(menuItems.length, Object.keys(PAGES_BEFORE).length, 'and the menu holds nothing else');
 });
 
-test('every menu item sits under a group heading that shows whenever the item can', () => {
-  let heading = null;
-  for (const el of menu) {
-    if (el.tag === 'p' && /\bnav-group\b/.test(el.class)) heading = el;
-    if (el.tag !== 'a' || !el['data-route']) continue;
-    assert.ok(heading, `${el['data-route']} comes after a heading`);
-    // Labs (and Govern until it is final) move when a feature is made final: checked in the browser.
-    if (heading['data-perm'] === 'labs.active') continue;
-    if (!heading['data-perm']) continue;
-    const needs = gate(heading['data-perm']).split(' ');
-    for (const perm of gate(el['data-perm']).split(' ')) {
-      // Known before the flattening: Impact (reports.view) under Prove, whose heading did not list it.
-      if (el['data-route'] === 'impact' && heading['data-stage'] === 'prove' && !heading['data-group']) continue;
-      assert.ok(needs.includes(perm), `${el['data-route']} (${perm}) can show without its heading (${heading['data-perm']})`);
+/** The pages under each heading, as the page is written (before a final feature moves): [[group, heading, [routes]]]. */
+const menuGroups = (() => {
+  const piece = between('<nav class="nav" id="nav"', '</nav>');
+  const groups = [];
+  for (const m of piece.matchAll(/<p class="nav-group[^"]*" data-group="(\w+)"[^>]*>(?:<i[^>]*><\/i>)?([^<]+)<\/p>|<a href="#\/\w+" data-route="(\w+)" class="tab"[^>]* data-group="(\w+)"/g)) {
+    if (m[1]) groups.push([m[1], m[2], []]);
+    else {
+      assert.equal(m[4], groups.at(-1)[0], `${m[3]} folds with the heading it sits under`);
+      groups.at(-1)[2].push(m[3]);
     }
   }
+  return groups;
+})();
+
+test('the menu has four groups: Act, Credits, Set up and Labs', () => {
+  assert.deepEqual(menuGroups, [
+    ['pinned', 'Pinned', []],
+    ['act', 'Act', ['dashboard', 'automation', 'reports']],
+    ['credits', 'Credits', ['credits', 'impact', 'audit', 'calculator']],
+    ['setup', 'Set up', ['access', 'settings', 'logs']],
+    ['labs', 'Labs', ['beta', 'fusion', 'flush', 'status', 'consolidated', 'govern']],
+  ]);
+  assert.deepEqual(menuGroups.slice(1).map(([group]) => group), NAV_GROUPS);
+  assert.equal(menuGroups.flatMap(([, , routes]) => routes).length, menuItems.length, 'every item is in a group');
+  // The colour and the label beside each page title are as they were: Dashboard is still Follow up, the credit pages Prove, the calculator Plan.
+  const stage = Object.fromEntries(menuItems.map((a) => [a['data-route'], a['data-stage']]));
+  assert.deepEqual(stage, { dashboard: 'act', automation: 'act', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup', beta: 'labs', fusion: 'labs', flush: 'labs', status: 'labs', consolidated: 'labs', govern: 'labs' });
+  assert.match(app, /const STAGES = \{ govern: 'labs', status: 'labs', consolidated: 'labs', flush: 'labs', dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' \};/);
+  assert.match(app, /const STAGE_LABELS = \{ act: 'Act', followup: 'Follow up', prove: 'Prove', govern: 'Govern', plan: 'Plan', setup: 'Set up', labs: 'Labs' \};/);
+  assert.match(html, /<p class="sidebar-foot">Act · Follow up · Prove — down to zero<\/p>/, 'and so is the line under the menu');
+});
+
+test('a heading shows when a page under it does, and never hides one', () => {
+  // No heading but Labs has permissions of its own (Impact used to show under a Prove heading that could be hidden).
+  const headings = menu.filter((el) => el.tag === 'p' && /\bnav-group\b/.test(el.class));
+  assert.deepEqual(headings.map((el) => [el['data-group'], el['data-perm'] ?? '']), [['pinned', ''], ['act', ''], ['credits', ''], ['setup', ''], ['labs', 'labs.active']]);
+  // The page hides a heading with nothing under it for this person, and every heading in a flat list.
+  const fn = app.slice(app.indexOf('function applyNavGroups() {'), app.indexOf('function toggleNavGroup('));
+  assert.match(fn, /const shown = navTabs\(\)\.filter\(\(tab\) => !tab\.classList\.contains\('perm-hidden'\)\);/);
+  assert.match(fn, /const flat = navIsFlat\(shown\.length\);/);
+  assert.match(fn, /group\.hidden = flat \|\| !shown\.some\(\(tab\) => tab\.dataset\.group === group\.dataset\.group\);/);
+  // It runs whenever what a person may do is applied, after a final feature has moved to its group.
+  const stages = app.slice(app.indexOf('function renderFeatureStages() {'), app.indexOf('function placeNavTab('));
+  assert.ok(stages.indexOf('applyNavGroups();') > stages.indexOf("governTab.dataset.group = governFinal ? 'credits' : 'labs';"));
+  assert.match(app, /function applyPermissions\(\) \{\n {2}for \(const el of document\.querySelectorAll\('\[data-perm\]'\)\) el\.classList\.toggle\('perm-hidden', !canAny\(el\.dataset\.perm\)\);[^]*?\n {2}renderFeatureStages\(\);/);
+});
+
+test('seven pages or fewer make a flat list; more keep the groups', () => {
+  assert.equal(NAV_FLAT_MAX, 7);
+  assert.equal(navIsFlat(1), true);
+  assert.equal(navIsFlat(7), true, 'a User: Workbench, Automation, Dashboard, Credit Control, Impact, Settings, Logs');
+  assert.equal(navIsFlat(8), false);
+  assert.equal(navIsFlat(16), false);
+  // In a flat list the folds kept in the browser hide nothing; on a phone the sheet then has one list with no labels.
+  assert.match(app, /const open = !folded\.has\(group\.dataset\.group\) \|\| \(flat && group\.dataset\.group !== 'pinned'\);/);
+  assert.match(read('public/mobile.js'), /for \(const el of copy\.querySelectorAll\('\.nav-pinned-head, \.nav-pinned-empty, \.nav-pin, \.perm-hidden, \[hidden\]'\)\) el\.remove\(\);/);
+});
+
+test('final features move to their group with their pin: FAE Flush to the top of Act, Govern into Credits after Audit', () => {
+  const stages = app.slice(app.indexOf('function renderFeatureStages() {'), app.indexOf('function placeNavTab('));
+  assert.match(stages, /placeNavTab\(flush, final \? document\.querySelector\('#nav \.nav-group\[data-group="act"\]'\) : document\.querySelector\('#nav > a\.tab\[data-route="fusion"\]'\)\);/);
+  assert.match(stages, /flush\.dataset\.group = flush\.dataset\.stage = final \? 'act' : 'labs';/);
+  assert.match(stages, /placeNavTab\(governTab, governFinal \? document\.querySelector\('#nav > a\.tab\[data-route="audit"\]'\) : document\.getElementById\('nav-consolidated'\)\);/);
+  assert.match(stages, /governTab\.dataset\.group = governFinal \? 'credits' : 'labs';/);
+  assert.doesNotMatch(html, /nav-group-govern/, 'Govern has no group of its own');
+  const place = app.slice(app.indexOf('function placeNavTab('), app.indexOf('\n}\n', app.indexOf('function placeNavTab(')));
+  assert.match(place, /\(pinOf\(anchor\) \?\? anchor\)\.after\(tab\);\n {2}if \(pin\) tab\.after\(pin\);/);
 });
 
 test('every Settings link has its section, shown and changed by the same people', () => {
@@ -198,7 +249,19 @@ test('every old address and saved choice still leads somewhere', () => {
   assert.match(app, /usable\.find\(\(a\) => a\.dataset\.set === settingsSectionFor\(saved\)\)/);
   // Pinned pages (mz-nav-pins) are kept by route: every route there was is still a menu item (checked above).
   assert.match(app, /const NAV_PINS_KEY = 'mz-nav-pins';/);
+  assert.match(app, /const routes = new Set\(navTabs\(\)\.map\(\(t\) => t\.dataset\.route\)\);/);
+  // Folded groups (mz-nav-folded) are kept by group name: the names there were are read as today's.
   assert.match(app, /const NAV_FOLDS_KEY = 'mz-nav-folded';/);
+  assert.match(app, /return navFoldsFrom\(JSON\.parse\(localStorage\.getItem\(NAV_FOLDS_KEY\) \|\| '\[\]'\)\);/);
+  const before = ['act', 'followup', 'prove', 'govern', 'plan', 'setup', 'labs', 'pinned'];
+  for (const name of before) assert.ok(NAV_GROUPS.includes(name) || name === 'pinned' || name in OLD_NAV_GROUPS, `${name}: a group there is, or one that is mapped`);
+  for (const now of Object.values(OLD_NAV_GROUPS)) assert.ok(now === null || NAV_GROUPS.includes(now));
+  assert.deepEqual([...navFoldsFrom(before)].sort(), ['act', 'credits', 'labs', 'pinned', 'setup'], 'Fold every group, kept from before: everything is still folded');
+  assert.deepEqual([...navFoldsFrom(['prove'])], ['credits'], 'Prove folded: Credits folded');
+  assert.deepEqual([...navFoldsFrom(['followup', 'plan', 'govern'])], [], 'a one-page group that was folded hides nothing in the group its page joined');
+  assert.deepEqual([...navFoldsFrom(['act', 'credits'])].sort(), ['act', 'credits'], 'today\'s names pass through');
+  assert.deepEqual([...navFoldsFrom('act')], []);
+  assert.deepEqual([...navFoldsFrom([1, null, 'setup'])], ['setup']);
 });
 
 test('Settings outside "You" still needs settings.view, except About & terms of use', () => {

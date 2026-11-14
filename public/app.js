@@ -7,7 +7,7 @@ import { initConsolidated } from './consolidated.js';
 import { initGovern } from './govern.js';
 import { initTenantMenu } from './tenant-menu.js';
 import { initMobile } from './mobile.js';
-import { SETTINGS_PARTS, settingsSectionFor } from './nav-map.js';
+import { SETTINGS_PARTS, navFoldsFrom, navIsFlat, settingsSectionFor } from './nav-map.js';
 import { qrSvgPath } from './qr.js';
 import { SEVERITIES_ALL, creditTiers, tierName } from './credit-tiers.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from './engines.js';
@@ -750,7 +750,10 @@ function applyPermissions() {
 // ---------------------------------------------------------------------------
 
 const ROUTE_ALIASES = { iam: 'access', 'credit-control': 'credits' };
-/** Act → Follow up → Prove, plus Set up: what each page is for. */
+/**
+ * Act → Follow up → Prove, plus Set up: what each page is for, shown as the coloured label beside its title.
+ * The menu groups the pages more coarsely (Act, Credits, Set up, Labs: data-group in index.html).
+ */
 const STAGES = { govern: 'labs', status: 'labs', consolidated: 'labs', flush: 'labs', dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
 const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', govern: 'Govern', plan: 'Plan', setup: 'Set up', labs: 'Labs' };
 /** The tab group on each page (data-ptabs). */
@@ -787,33 +790,38 @@ function renderFeatureStages() {
   if (state.page === 'beta') setPageTitle('beta');
   const authorsRow = document.getElementById('auto-authors-row');
   if (authorsRow) authorsRow.hidden = stages.codeAuthors !== 'final';
-  // FAE Flush: in Labs while Beta; once final, the first page under Act (FAE Flush, Workbench, Automation).
+  // FAE Flush: in Labs while Beta; once final, the first page under Act (FAE Flush, Workbench, Automation, Dashboard).
   const flush = document.getElementById('nav-flush');
   const final = stages.faeFlush === 'final';
   if (flush) {
-    const act = document.querySelector('#nav .nav-group[data-stage="act"]');
-    const fusionTab = document.querySelector('#nav [data-route="fusion"]');
-    if (final && act) act.after(flush);
-    else if (!final && fusionTab) fusionTab.after(flush);
-    flush.dataset.stage = final ? 'act' : 'labs';
+    placeNavTab(flush, final ? document.querySelector('#nav .nav-group[data-group="act"]') : document.querySelector('#nav > a.tab[data-route="fusion"]'));
+    flush.dataset.group = flush.dataset.stage = final ? 'act' : 'labs';
   }
   STAGES.flush = final ? 'act' : 'labs';
   PAGE_TITLES.flush[1] = final ? 'Findings Analysis on the backlog, for every project at once' : 'Labs: Findings Analysis on the backlog, for every project at once';
   if (state.page === 'flush') setPageTitle('flush');
-  // Govern: in Labs while Beta; once final, its own group "Govern" between Prove and Plan.
+  // Govern: in Labs while Beta; once final, under Credits, after Audit (the label beside its title then says Govern).
   const governTab = document.getElementById('nav-govern');
-  const governGroup = document.getElementById('nav-group-govern');
   const governFinal = stages.govern === 'final';
-  if (governTab && governGroup) {
-    if (governFinal) governGroup.after(governTab);
-    else document.getElementById('nav-consolidated')?.after(governTab);
-    governGroup.hidden = !governFinal;
+  if (governTab) {
+    placeNavTab(governTab, governFinal ? document.querySelector('#nav > a.tab[data-route="audit"]') : document.getElementById('nav-consolidated'));
+    governTab.dataset.group = governFinal ? 'credits' : 'labs';
     governTab.dataset.stage = governFinal ? 'govern' : 'labs';
   }
   STAGES.govern = governFinal ? 'govern' : 'labs';
   PAGE_TITLES.govern[1] = governFinal ? 'Who may use how many AI credits, and what happens at the limit' : 'Labs: who may use how many AI credits, and what happens at the limit';
   if (state.page === 'govern') setPageTitle('govern');
+  applyNavGroups();
   applyCalculatorAddress();
+}
+
+/** Put a menu item right after another item, or after a group's heading, with its pin (which sits after it). */
+function placeNavTab(tab, anchor) {
+  if (!anchor) return;
+  const pinOf = (el) => (el.matches('a.tab') ? document.querySelector(`#nav > .nav-pin[data-route="${el.dataset.route}"]`) : null);
+  const pin = pinOf(tab);
+  (pinOf(anchor) ?? anchor).after(tab);
+  if (pin) tab.after(pin);
 }
 
 /** The calculator's own address, when an Admin turned it on (it then opens there, not in CxMissionZero). */
@@ -1605,33 +1613,51 @@ function showSettingsSection(id) {
 }
 
 // ---------------------------------------------------------------------------
-// The menu's groups (Act, Follow up, Prove, Plan, Set up) fold and unfold with a click on their name;
-// the choice is kept in this browser, and the page open is always shown.
+// The menu's groups (Act, Credits, Set up, Labs: data-group) fold and unfold with a click on their name;
+// the choice is kept in this browser, and the page open is always shown. Somebody with only a few pages
+// has one flat list with no headings, where nothing folds (applyNavGroups).
 // ---------------------------------------------------------------------------
 
 const NAV_FOLDS_KEY = 'mz-nav-folded';
+/** The folded groups; names kept from before the groups were merged are read as today's (public/nav-map.js). */
 function navFolds() {
   try {
-    const list = JSON.parse(localStorage.getItem(NAV_FOLDS_KEY) || '[]');
-    return new Set(Array.isArray(list) ? list.filter((x) => typeof x === 'string') : []);
+    return navFoldsFrom(JSON.parse(localStorage.getItem(NAV_FOLDS_KEY) || '[]'));
   } catch {
     return new Set();
   }
 }
 function applyNavFolds() {
   const folded = navFolds();
+  const flat = $('nav').classList.contains('nav-flat');
   for (const group of document.querySelectorAll('#nav .nav-group')) {
-    const open = !folded.has(group.dataset.stage);
+    // In a flat list only the pinned pages still have a heading to fold.
+    const open = !folded.has(group.dataset.group) || (flat && group.dataset.group !== 'pinned');
     group.setAttribute('aria-expanded', String(open));
-    for (const tab of document.querySelectorAll(`#nav .tab[data-stage="${group.dataset.stage}"]`)) {
+    for (const tab of document.querySelectorAll(`#nav .tab[data-group="${group.dataset.group}"]`)) {
       tab.classList.toggle('nav-folded', !open && !tab.classList.contains('active'));
     }
   }
 }
+/**
+ * The headings follow what is under them: a group with no page this person may open has no heading, and
+ * somebody with seven pages or fewer in their menu gets one flat list with no headings at all.
+ */
+function applyNavGroups() {
+  const nav = $('nav');
+  const shown = navTabs().filter((tab) => !tab.classList.contains('perm-hidden'));
+  const flat = navIsFlat(shown.length);
+  nav.classList.toggle('nav-flat', flat);
+  for (const group of nav.querySelectorAll(':scope > .nav-group:not(.nav-pinned-head)')) {
+    group.hidden = flat || !shown.some((tab) => tab.dataset.group === group.dataset.group);
+  }
+  $('nav-fold-all').hidden = flat;
+  applyNavFolds();
+}
 function toggleNavGroup(group) {
   const folded = navFolds();
-  if (folded.has(group.dataset.stage)) folded.delete(group.dataset.stage);
-  else folded.add(group.dataset.stage);
+  if (folded.has(group.dataset.group)) folded.delete(group.dataset.group);
+  else folded.add(group.dataset.group);
   try {
     localStorage.setItem(NAV_FOLDS_KEY, JSON.stringify([...folded]));
   } catch {}
@@ -1680,7 +1706,7 @@ function renderNavPins() {
   shelf.replaceChildren(
     ...pins.map((route) => {
       const copy = document.querySelector(`#nav > a.tab[data-route="${route}"]`).cloneNode(true);
-      copy.dataset.stage = 'pinned';
+      copy.dataset.group = copy.dataset.stage = 'pinned';
       copy.classList.add('tab-pinned');
       copy.classList.remove('nav-folded');
       copy.removeAttribute('id');
@@ -1703,7 +1729,7 @@ function renderNavPins() {
   $('nav-focus').title = focus ? 'Show every page' : 'Show only your pinned pages';
   $('nav-pinned-empty').hidden = !(focus && !pins.length);
   const folded = navFolds();
-  const allFolded = [...document.querySelectorAll('#nav .nav-group:not([hidden])')].every((g) => folded.has(g.dataset.stage));
+  const allFolded = [...document.querySelectorAll('#nav .nav-group:not([hidden])')].every((g) => folded.has(g.dataset.group));
   $('nav-fold-all').title = allFolded ? 'Unfold every group' : 'Fold every group';
   $('nav-fold-all').setAttribute('aria-label', $('nav-fold-all').title);
   $('nav-fold-all').classList.toggle('is-folded', allFolded);
@@ -1734,7 +1760,7 @@ $('nav-focus').addEventListener('click', () => {
   renderNavPins();
 });
 $('nav-fold-all').addEventListener('click', () => {
-  const groups = [...document.querySelectorAll('#nav .nav-group:not([hidden])')].map((g) => g.dataset.stage);
+  const groups = [...document.querySelectorAll('#nav .nav-group:not([hidden])')].map((g) => g.dataset.group);
   const folded = navFolds();
   const fold = !groups.every((s) => folded.has(s));
   try {

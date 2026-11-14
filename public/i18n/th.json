@@ -5836,6 +5836,8 @@
   "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": "ข้อมูลสำรองนี้เข้ารหัสไว้ และคีย์สำรองข้อมูลหรือวลีรหัสผ่านของเซิร์ฟเวอร์นี้เองเปิดไม่ได้ โปรดระบุคีย์สำรองข้อมูลของเซิร์ฟเวอร์ที่สร้างข้อมูลสำรองนี้ (บันทึกจาก การตรวจสอบ → สถานะและการสำรองข้อมูล ของเซิร์ฟเวอร์นั้น) หรือ BACKUP_PASSPHRASE ที่เซิร์ฟเวอร์นั้นเคยใช้",
   "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": "ข้อมูลสำรองนี้เปิดไม่ได้: คีย์สำรองข้อมูลหรือวลีรหัสผ่านไม่ถูกต้อง หรือข้อมูลสำรองเสียหาย ข้อมูลสำรองจะเปิดได้ด้วยคีย์สำรองข้อมูลของเซิร์ฟเวอร์ที่สร้างขึ้น (บันทึกจาก การตรวจสอบ → สถานะและการสำรองข้อมูล) หรือด้วย BACKUP_PASSPHRASE ที่เซิร์ฟเวอร์นั้นเคยใช้เท่านั้น",
   "twostep|Code": "รหัส",
-  "twostep|Recovery code": "รหัสกู้คืน"
+  "twostep|Recovery code": "รหัสกู้คืน",
+  "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>เครดิต",
+  "Credits given, used and left, what they achieved, and how many a customer needs": "เครดิตที่จัดสรร ใช้ไป และคงเหลือ ผลลัพธ์ที่ได้ และจำนวนเครดิตที่ลูกค้าต้องใช้"
  }
 }

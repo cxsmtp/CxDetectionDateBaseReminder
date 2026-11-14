@@ -5836,6 +5836,8 @@
   "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": "Bản sao lưu này được mã hóa, và khóa sao lưu hay cụm mật khẩu của chính máy chủ này không mở được nó. Hãy nhập khóa sao lưu của máy chủ đã tạo ra bản sao lưu (được lưu từ Kiểm tra → Trạng thái và sao lưu của máy chủ đó), hoặc BACKUP_PASSPHRASE mà máy chủ đó đã dùng.",
   "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": "Bản sao lưu này không mở được: khóa sao lưu hoặc cụm mật khẩu sai, hoặc bản sao lưu bị hỏng. Bản sao lưu chỉ mở được bằng khóa sao lưu của máy chủ đã tạo ra nó (được lưu từ Kiểm tra → Trạng thái và sao lưu), hoặc bằng BACKUP_PASSPHRASE mà máy chủ đó đã dùng.",
   "twostep|Code": "Mã",
-  "twostep|Recovery code": "Mã khôi phục"
+  "twostep|Recovery code": "Mã khôi phục",
+  "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>Tín dụng",
+  "Credits given, used and left, what they achieved, and how many a customer needs": "Tín dụng đã cấp, đã dùng và còn lại, kết quả đạt được và số tín dụng khách hàng cần"
  }
 }
