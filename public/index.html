@@ -350,6 +350,39 @@
               </form>
             </div>
 
+            <!-- Two-step sign-in: the code after the password; when an Admin requires it and this person has none, setting it up first -->
+            <div id="twostep-box" hidden>
+              <h2>Two-step sign-in</h2>
+              <div id="twostep-setup" hidden>
+                <p class="hint">An administrator requires two-step sign-in for everyone who signs in with a password. Set it up now: it takes a minute. From then on, you type a code from your phone after your password.</p>
+                <ol class="twostep-steps">
+                  <li>Install an authenticator app on your phone, if you have none: Microsoft Authenticator, Google Authenticator, or any other that makes six-digit codes.</li>
+                  <li>In the app, add an account and scan this QR code. If you cannot scan it, type the key instead.</li>
+                </ol>
+                <div class="twostep-key" id="twostep-key"></div>
+              </div>
+              <p class="hint" id="twostep-hint">Enter the six-digit code your authenticator app shows for CxMissionZero.</p>
+              <form id="twostep-form" autocomplete="off">
+                <label class="field"><span id="twostep-label">Code</span><input id="twostep-code" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="20" spellcheck="false" required /></label>
+                <div class="actions">
+                  <button type="submit" class="primary big block-sm" id="twostep-submit">Sign in</button>
+                  <button type="button" class="link forgot-link" id="twostep-recovery">Use a recovery code</button>
+                  <button type="button" class="ghost" id="twostep-back">Back to sign in</button>
+                  <span id="twostep-status" class="status" aria-live="polite"></span>
+                </div>
+              </form>
+            </div>
+
+            <!-- Recovery codes, shown once when two-step sign-in is set up at sign-in -->
+            <div id="recovery-box" hidden>
+              <h2>Keep your recovery codes</h2>
+              <p class="hint">Two-step sign-in is on. If you lose your phone, one of these codes signs you in instead of a code from the app. Each works once. They are shown only now: keep them somewhere safe, not on the phone itself.</p>
+              <div id="recovery-codes"></div>
+              <div class="actions">
+                <button type="button" class="primary big block-sm" id="recovery-done">I have saved them</button>
+              </div>
+            </div>
+
             <!-- Change password (first sign-in after a reset, or from the user menu) -->
             <div id="change-box" hidden>
               <h2>Choose a new password</h2>
@@ -1091,6 +1124,38 @@
                   <label class="field"><span>Theme</span><select id="pf-theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
                   <label class="field"><span>Accent</span><select id="pf-accent"><option value="indigo">Ink</option><option value="cyan">Lagoon</option><option value="emerald">Sage</option><option value="violet">Plum</option><option value="amber">Ochre</option></select></label>
                 </div>
+              </div>
+              <div class="profile-block" id="pf-twostep-block" hidden>
+                <h3>Two-step sign-in</h3>
+                <p class="hint">After your password, a six-digit code from an authenticator app on your phone: someone who learns your password still cannot sign in as you. It is asked for when you sign in with your password, not when you sign in with a Checkmarx One key or with single sign-on.</p>
+                <p class="twostep-state" id="pf-twostep-state"></p>
+                <div class="actions compact" id="pf-twostep-actions">
+                  <button type="button" id="pf-twostep-on">Turn on two-step sign-in</button>
+                  <button type="button" id="pf-twostep-codes" hidden>New recovery codes</button>
+                  <button type="button" class="ghost" id="pf-twostep-off" hidden>Turn off two-step sign-in</button>
+                </div>
+                <div id="pf-twostep-setup" hidden>
+                  <ol class="twostep-steps">
+                    <li>Install an authenticator app on your phone, if you have none: Microsoft Authenticator, Google Authenticator, or any other that makes six-digit codes.</li>
+                    <li>In the app, add an account and scan this QR code. If you cannot scan it, type the key instead.</li>
+                    <li>Enter the six-digit code the app shows. Only then is two-step sign-in on.</li>
+                  </ol>
+                  <div class="twostep-key" id="pf-twostep-key"></div>
+                </div>
+                <form id="pf-twostep-form" autocomplete="off" hidden>
+                  <p class="hint" id="pf-twostep-ask"></p>
+                  <label class="field"><span>Code from your authenticator app</span><input id="pf-twostep-code" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="20" spellcheck="false" required /></label>
+                  <div class="actions compact">
+                    <button type="submit" class="primary" id="pf-twostep-submit">Confirm</button>
+                    <button type="button" class="ghost" id="pf-twostep-cancel">Cancel</button>
+                  </div>
+                </form>
+                <div id="pf-twostep-recovery" hidden>
+                  <p class="hint">If you lose your phone, one of these recovery codes signs you in instead of a code from the app. Each works once. They are shown only now: keep them somewhere safe, not on the phone itself.</p>
+                  <div id="pf-recovery-codes"></div>
+                  <div class="actions compact"><button type="button" class="primary" id="pf-recovery-done">I have saved them</button></div>
+                </div>
+                <span class="status" id="pf-twostep-status" aria-live="polite"></span>
               </div>
               <span class="status" id="pf-status"></span>
             </section>
@@ -3426,6 +3491,15 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </label>
               <ul class="reset-missing" id="iam-reset-missing" hidden></ul>
               <p class="status" id="iam-reset-status" aria-live="polite"></p>
+            </section>
+            <section class="panel" id="iam-twostep-panel" hidden>
+              <h2>Two-step sign-in</h2>
+              <p class="hint">After the password, a six-digit code from an authenticator app on the person's phone. Each person turns it on for themselves under Settings → Your profile. It covers signing in with a password. Signing in with a Checkmarx One key, single sign-on and the links in emailed reports are not asked for a code. For the whole server.</p>
+              <div class="toggle-list">
+                <label class="switch"><input type="checkbox" id="iam-twostep-required" /> <span><strong>Require two-step sign-in for everyone who signs in with a password</strong><small>Off: each person chooses. On: a person without it sets it up at their next password sign-in, before they get in, and nobody can turn their own off. People who are signed in now carry on until they sign in again.</small></span></label>
+              </div>
+              <p class="hint">Someone lost their phone and their recovery codes? Under People, <strong>Reset two-step</strong> takes it off for them, and they set it up again. For the only Admin, start the server once with <code>RESET_TWO_STEP</code> set to their email address.</p>
+              <p class="status" id="iam-twostep-status" aria-live="polite"></p>
             </section>
             </div>
           </div>

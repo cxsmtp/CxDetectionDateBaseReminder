@@ -102,6 +102,8 @@ import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
 import { PasswordResets, RESET_TTL_MS, maskEmail, resetAllowed } from './password-reset.js';
+import { PendingSetups, SignInTickets, TICKET_TTL_MS, groupedKey, matchTotp, newRecoveryCodes, newSecret, otpauthUri, recoveryHash } from './mfa.js';
+import { OidcClient, SSO_CALLBACK_PATH, SSO_COOKIE, SSO_FLOW_TTL_MS, SsoError, SsoFlows, identityProblem, mergeSso, publicSso, ssoChanges } from './oidc.js';
 import { FaeFlushRunner, FaeFlushStore, FaeHistory, NE, cleanOptions, markState, previewTenant, summaryOf, testProject, valueOf } from './fae-flush.js';
 import { AGE_PRESETS, WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
 // Govern (beta): credit governance, per tenant (src/govern/).
@@ -114,6 +116,7 @@ import { checkOutboundUrl } from './outbound-url.js';
 import {
   SessionStore,
   clearSessionCookie,
+  cookieShouldBeSecure,
   describeSession,
   readSessionCookie,
   setSessionCookie,
@@ -513,6 +516,25 @@ async function prepareAccess() {
   console.log(`${line}\n`);
 }
 
+/**
+ * RESET_TWO_STEP=<email>: the way back in for someone whose authenticator app and recovery codes are both gone when
+ * no Admin is left to reset it for them (the only Admin, say). At start-up their two-step sign-in is taken off, once;
+ * they sign in with their password and set it up again. Whoever can set the server's environment can do this, as
+ * they can run scripts/reset-admin.mjs. Recorded in the audit log.
+ */
+function resetTwoStepFromEnvironment() {
+  const email = String(process.env.RESET_TWO_STEP ?? '').trim();
+  if (!email) return;
+  const user = iam.findByEmail(email);
+  if (!user) return console.warn('! [access] RESET_TWO_STEP names nobody who has access here: nothing was reset. Take it out of the environment.');
+  if (iam.resetTwoStep(user.id)) {
+    audit.record({ type: 'iam', outcome: 'changed', reason: `Two-step sign-in reset for ${user.email} from the server's environment (RESET_TWO_STEP).`, actor: SYSTEM_ACTOR });
+    console.log(`[access] Two-step sign-in was reset for ${user.email} (RESET_TWO_STEP). Take RESET_TWO_STEP out of the environment now.`);
+  } else {
+    console.log(`[access] RESET_TWO_STEP: ${user.email} has no two-step sign-in to reset. Take RESET_TWO_STEP out of the environment.`);
+  }
+}
+
 /** Projects someone just triaged or remediated in, so reports covering them refresh soon. */
 const touchedProjects = scoped(tenancy, 'touchedProjects');
 const touchProject = (projectId) => touchedProjects.set(projectId, Date.now());
@@ -906,21 +928,24 @@ app.use('/api', (req, res, next) => {
  * sign-in (refused ones too), with who, when, from where and how it ended. Reading the page, and
  * the polls a page makes while open, are not recorded; pages visited are (POST /api/activity).
  */
+const SIGN_IN_ROUTES = new Set(['/api/session', '/api/session/password', '/api/session/two-step', SSO_CALLBACK_PATH]);
 const NOT_RECORDED = new Set(['/api/activity', '/api/credits/prepare', '/api/settings/template/preview', '/api/https/inspect', '/api/https/browser-check', '/api/projections/series', '/api/integration/cxone/draft', '/api/diagnostics/client-error', '/api/hands-off/status', '/api/settings/notices/ack']);
 function recordActivity(req, res, route, ms) {
   try {
     if (route === '(unmatched)' || NOT_RECORDED.has(route) || route.startsWith('/api/relay/')) return;
     if ((req.method === 'GET' || req.method === 'HEAD') && !recordsGet(route)) return;
     const who = req.user ?? res.locals.activityUser ?? null;
-    const signIn = route === '/api/session' || route === '/api/session/password';
+    const signIn = SIGN_IN_ROUTES.has(route);
     if (!who && !signIn) return;
+    // An attempt to sign in: a POST to one of them, or the way back from the identity provider (a GET).
+    const attempt = signIn && (req.method === 'POST' || route === SSO_CALLBACK_PATH);
     activity.record({
       user: who?.email ?? '',
       name: who?.name ?? '',
       role: who?.role ? iam.role(who.role)?.name ?? who.role : '',
       ip: clientIp(req),
-      kind: signIn && req.method === 'POST' ? 'sign-in' : 'action',
-      action: res.statusCode >= 400 && signIn && req.method === 'POST' ? 'Sign-in refused' : describeAction(req.method, route),
+      kind: attempt ? 'sign-in' : 'action',
+      action: attempt && (res.statusCode >= 400 || res.locals.signInRefused) ? 'Sign-in refused' : describeAction(req.method, route),
       target: targetOf(req.params),
       fields: req.method === 'GET' ? Object.keys(req.query ?? {}) : fieldNames(req.body),
       method: req.method,
@@ -1300,6 +1325,8 @@ function describeMe(session, user) {
     // The Cx Credits Calculator at an address of its own (an Admin's switch): the menu opens it there, for whoever may use the calculator.
     calculator: held.has('projections.use') && settings.calculator?.external && settings.calculator.url ? { url: settings.calculator.url } : null,
     via: session.via,
+    // Two-step sign-in for this person: on or not, how many recovery codes are left, and whether an Admin requires it.
+    twoStep: { available: Boolean(user.passwordHash), on: Boolean(user.mfa?.secret), since: user.mfa?.secret ? user.mfa.enabledAt ?? '' : '', recoveryLeft: user.mfa?.secret ? (user.mfa.recovery ?? []).length : 0, required: iam.twoStepRequired() },
     // The organisation's Impact figures: what Your profile → Your Impact figures falls back to.
     organisationImpact: (({ currency, hourlyRate, creditPrice, triageMinutes, fixMinutes }) => ({ currency, hourlyRate, creditPrice, triageMinutes, fixMinutes }))(settings.impact),
     integration: { connected: Boolean(integration), tenant },
@@ -1338,7 +1365,9 @@ app.get('/api/session', (req, res) => {
     // First start: nobody has signed in yet, so point at the log with the generated sign-in.
     const users = iam.users();
     const firstStart = users.length > 0 && users.every((u) => !u.lastLoginAt);
-    return res.json({ connected: false, signedIn: false, setup: !iam.hasUsers() && Boolean(setupCode), firstStart, passwordReset: passwordResetReady().ready });
+    // Single sign-on, when it is on and can work: the button's label, and whether passwords are for Admins only.
+    const { sso, ready } = ssoState();
+    return res.json({ connected: false, signedIn: false, setup: !iam.hasUsers() && Boolean(setupCode), firstStart, passwordReset: passwordResetReady().ready, sso: ready ? { label: sso.label, passwordAdminsOnly: sso.passwordAdminsOnly } : null });
   }
   res.json(describeMe(session, user));
 });
@@ -1346,7 +1375,7 @@ app.get('/api/session', (req, res) => {
 /** Sign-in attempts per address, to slow down guessing across many accounts. */
 const SIGN_IN_WINDOW_MS = 10 * 60 * 1000;
 const signInAttempts = new Map();
-function throttleSignIn(req, res) {
+function tooManySignIns(req) {
   const ip = clientIp(req);
   const now = Date.now();
   const recent = (signInAttempts.get(ip) ?? []).filter((t) => now - t < SIGN_IN_WINDOW_MS);
@@ -1357,11 +1386,12 @@ function throttleSignIn(req, res) {
   // Many addresses: forget the ones whose attempts have all expired, never the whole map
   // (that would hand a guesser a fresh start just by sending from enough addresses).
   pruneAttempts(signInAttempts, now, { windowMs: SIGN_IN_WINDOW_MS, max: 10_000 });
-  if (recent.length > 30) {
-    res.status(429).json({ error: 'Too many sign-in attempts from this address. Wait a few minutes.' });
-    return true;
-  }
-  return false;
+  return recent.length > 30;
+}
+function throttleSignIn(req, res) {
+  if (!tooManySignIns(req)) return false;
+  res.status(429).json({ error: 'Too many sign-in attempts from this address. Wait a few minutes.' });
+  return true;
 }
 
 function auditAccess(req, outcome, reason, user = null, details) {
@@ -1383,7 +1413,8 @@ app.post(
     const email = String(req.body?.email ?? '').trim().slice(0, 254);
     let user;
     try {
-      user = await iam.signIn(email, String(req.body?.password ?? ''));
+      // (With a second step to come, or a password that is no longer enough, this is not a sign-in yet.)
+      user = await iam.signIn(email, String(req.body?.password ?? ''), Date.now(), { more: (u) => passwordNotEnough(u) || needsTwoStep(u) });
     } catch (error) {
       const known = error.userId ? iam.user(error.userId) : null;
       res.locals.activityUser = known ?? { email };
@@ -1391,13 +1422,303 @@ app.post(
       if (refusalListed(`address ${clientIp(req)}`, Date.now(), 'signIn')) auditAccess(req, 'refused', `Sign-in refused for ${email || '(no email)'}: ${error.message}${error.locked ? ' Account locked.' : ''}`, known);
       throw error;
     }
-    const session = sessions.createLinked(integrationSession);
-    Object.assign(session, { userId: user.id, via: 'password' });
-    saveSignInsSoon();
-    setSessionCookie(req, res, session.id);
     res.locals.activityUser = user;
-    auditAccess(req, 'info', `${user.email} signed in with a password.`, user);
-    res.status(201).json(describeMe(session, user));
+    // Single sign-on is on and passwords are kept for Admins: said only to someone who typed the right password.
+    if (passwordNotEnough(user)) {
+      res.locals.signInRefused = true;
+      if (refusalListed(`address ${clientIp(req)}`, Date.now(), 'signIn')) auditAccess(req, 'refused', `Sign-in refused for ${user.email}: only Admins may sign in with a password; everyone else uses single sign-on.`, user);
+      return res.status(403).json({ error: 'Signing in with a password is turned off for this account. Use single sign-on.', sso: true });
+    }
+    // Two-step sign-in: no session yet, only a ticket for the code (or, when an Admin requires it and this person has none, for setting it up).
+    if (needsTwoStep(user)) {
+      const secret = user.mfa?.secret ? '' : newSecret();
+      const ticket = signInTickets.issue(user.id, { secret });
+      res.set('Cache-Control', 'no-store');
+      return res.json({ twoStep: true, ticket, minutes: Math.round(TICKET_TTL_MS / 60_000), ...(secret ? { setup: twoStepSetup(user, secret) } : {}) });
+    }
+    res.status(201).json(openPasswordSession(req, res, user, 'signed in with a password'));
+  }),
+);
+
+/** The session a password sign-in gives (single sign-on gives the same one, `via` apart), with its cookie and audit entry. */
+function openPasswordSession(req, res, user, how, via = 'password') {
+  const session = sessions.createLinked(integrationSession);
+  Object.assign(session, { userId: user.id, via });
+  saveSignInsSoon();
+  setSessionCookie(req, res, session.id);
+  res.locals.activityUser = user;
+  auditAccess(req, 'info', `${user.email} ${how}.`, user);
+  return describeMe(session, user);
+}
+
+// ---------------------------------------------------------------------------
+// Two-step sign-in (src/mfa.js): a code from an authenticator app after the password
+// ---------------------------------------------------------------------------
+
+const signInTickets = new SignInTickets();
+const pendingSetups = new PendingSetups();
+/** A second step stands between this person's correct password and a session: they have it on, or an Admin requires it. */
+const needsTwoStep = (user) => Boolean(user.mfa?.secret) || iam.twoStepRequired();
+/** What the page shows to set an authenticator app up: the key (also in groups of four) and the address its QR code carries. */
+const twoStepSetup = (user, secret) => ({ secret, key: groupedKey(secret), otpauth: otpauthUri(user.email, secret) });
+const TICKET_OVER = 'That sign-in is over: it lasts five minutes and takes a few tries. Sign in again.';
+const WRONG_CODE = 'That code is not right. Use the newest code in your authenticator app, and check that the phone\'s clock is right.';
+
+/** Turn two-step sign-in on for `user` with a secret their app has just proved it holds: ten new recovery codes, shown this once. */
+function turnOnTwoStep(user, secret, step) {
+  const codes = newRecoveryCodes();
+  iam.enableTwoStep(user.id, secret, { step, recovery: codes.map((code) => recoveryHash(user.id, code)) });
+  return codes;
+}
+
+/** The second step: the ticket from the password step, and a code (or a recovery code). Only then is there a session. */
+app.post(
+  '/api/session/two-step',
+  asyncRoute(async (req, res) => {
+    if (throttleSignIn(req, res)) return;
+    const ticket = String(req.body?.ticket ?? '');
+    const typed = String(req.body?.code ?? '').slice(0, 40);
+    const entry = signInTickets.get(ticket);
+    const user = entry ? iam.user(entry.userId) : null;
+    const refused = (status, message, why, extra = {}) => {
+      if (refusalListed(`address ${clientIp(req)}`, Date.now(), 'signIn')) auditAccess(req, 'refused', `Sign-in refused${user ? ` for ${user.email}` : ''}: ${why}`, user);
+      return res.status(status).json({ error: message, ...extra });
+    };
+    if (!entry || !user) return refused(401, TICKET_OVER, 'the two-step sign-in was over, or was never started.', { restart: true });
+    res.locals.activityUser = user;
+    if (user.disabled) {
+      signInTickets.consume(ticket);
+      return refused(403, 'This account is disabled. Ask an administrator.', 'the account is disabled.', { restart: true });
+    }
+    let how = 'signed in with a password and a two-step code';
+    let recoveryCodes = null;
+    if (entry.secret) {
+      // An Admin requires two-step sign-in and this person had none: the first right code turns it on.
+      if (user.mfa?.secret) {
+        signInTickets.consume(ticket);
+        return refused(409, 'Two-step sign-in was turned on for this account in the meantime. Sign in again.', 'two-step sign-in was set up elsewhere in the meantime.', { restart: true });
+      }
+      const step = matchTotp(entry.secret, typed);
+      if (!step) {
+        const left = signInTickets.wrong(ticket);
+        return refused(401, left ? WRONG_CODE : TICKET_OVER, 'wrong code while setting up two-step sign-in.', { restart: !left });
+      }
+      recoveryCodes = turnOnTwoStep(user, entry.secret, step);
+      audit.record({ type: 'iam', outcome: 'changed', reason: `${user.email} turned on two-step sign-in (required at sign-in).`, actor: resetActor(req, user.email) });
+      how = 'signed in with a password and set up two-step sign-in';
+    } else {
+      if (!user.mfa?.secret) {
+        signInTickets.consume(ticket);
+        return refused(409, 'Two-step sign-in was reset for this account in the meantime. Sign in again.', 'two-step sign-in was reset in the meantime.', { restart: true });
+      }
+      let result;
+      try {
+        result = iam.checkTwoStep(user.id, typed);
+      } catch (error) {
+        if (error.status === 423) {
+          signInTickets.consume(ticket);
+          return refused(423, error.message, 'the account is locked after too many wrong attempts.', { restart: true });
+        }
+        if (error.status !== 401) throw error;
+        const left = signInTickets.wrong(ticket);
+        const over = !left || Boolean(error.locked);
+        if (over) signInTickets.consume(ticket);
+        return refused(401, over ? TICKET_OVER : WRONG_CODE, `wrong two-step code.${error.locked ? ' Account locked.' : ''}`, { restart: over });
+      }
+      if (result.kind === 'recovery') {
+        audit.record({ type: 'iam', outcome: 'changed', reason: `${user.email} used a recovery code to sign in: it is gone, ${result.left} left.`, actor: resetActor(req, user.email) });
+        how = `signed in with a password and a recovery code (${result.left} left)`;
+      }
+    }
+    signInTickets.consume(ticket);
+    iam.recordSignIn(user);
+    const me = openPasswordSession(req, res, iam.user(user.id), how);
+    res.set('Cache-Control', 'no-store');
+    res.status(201).json({ ...me, ...(recoveryCodes ? { recoveryCodes } : {}) });
+  }),
+);
+
+/** Someone signed in turns two-step sign-in on: first a secret to put in their authenticator app (kept in memory until proved). */
+app.post('/api/me/two-step/setup', requireSession, (req, res) => {
+  if (!req.user.passwordHash) return res.status(400).json({ error: 'Two-step sign-in is for people who sign in with a password. Set a password first.' });
+  if (req.user.mfa?.secret) return res.status(400).json({ error: 'Two-step sign-in is already on.' });
+  res.set('Cache-Control', 'no-store');
+  res.json(twoStepSetup(req.user, pendingSetups.start(req.user.id)));
+});
+
+/** …then the code their app shows: only now is it on. The recovery codes are shown this once. */
+app.post(
+  '/api/me/two-step/enable',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    if (req.user.mfa?.secret) return res.status(400).json({ error: 'Two-step sign-in is already on.' });
+    const secret = pendingSetups.get(req.user.id);
+    if (!secret) return res.status(400).json({ error: 'That key is more than ten minutes old. Start again.', restart: true });
+    const step = matchTotp(secret, req.body?.code);
+    if (!step) return res.status(400).json({ error: WRONG_CODE });
+    const recoveryCodes = turnOnTwoStep(req.user, secret, step);
+    pendingSetups.clear(req.user.id);
+    audit.record({ type: 'iam', outcome: 'changed', reason: `${req.user.email} turned on two-step sign-in.`, actor: await adminActor(req) });
+    res.set('Cache-Control', 'no-store');
+    res.json({ recoveryCodes, me: describeMe(req.session, iam.user(req.user.id)) });
+  }),
+);
+
+/** A current code from the app, checked for someone signed in (turning it off, new recovery codes). Wrong ones count towards the lock. */
+async function ownTwoStepCode(req, res, what) {
+  try {
+    iam.checkTwoStep(req.user.id, req.body?.code, { recovery: false });
+    return true;
+  } catch (error) {
+    if (error.status !== 401 && error.status !== 423) throw error;
+    audit.record({ type: 'iam', outcome: 'refused', reason: `${req.user.email} could not ${what}: ${error.status === 423 ? 'too many wrong codes' : 'wrong code'}.`, actor: await adminActor(req) });
+    res.status(error.status === 423 ? 423 : 400).json({ error: error.status === 423 ? error.message : WRONG_CODE });
+    return false;
+  }
+}
+
+/** Turn one's own two-step sign-in off: only with a current code, and not while an Admin requires it. */
+app.post(
+  '/api/me/two-step/disable',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    if (!req.user.mfa?.secret) return res.status(400).json({ error: 'Two-step sign-in is not on.' });
+    if (iam.twoStepRequired()) return res.status(403).json({ error: 'An administrator requires two-step sign-in for everyone who signs in with a password, so it cannot be turned off.' });
+    if (!(await ownTwoStepCode(req, res, 'turn off two-step sign-in'))) return;
+    iam.resetTwoStep(req.user.id);
+    signInTickets.revokeUser(req.user.id);
+    audit.record({ type: 'iam', outcome: 'changed', reason: `${req.user.email} turned off two-step sign-in.`, actor: await adminActor(req) });
+    res.json({ me: describeMe(req.session, iam.user(req.user.id)) });
+  }),
+);
+
+/** Ten new recovery codes in place of the old ones: with a current code. */
+app.post(
+  '/api/me/two-step/recovery-codes',
+  requireSession,
+  asyncRoute(async (req, res) => {
+    if (!req.user.mfa?.secret) return res.status(400).json({ error: 'Two-step sign-in is not on.' });
+    if (!(await ownTwoStepCode(req, res, 'make new recovery codes'))) return;
+    const recoveryCodes = newRecoveryCodes();
+    iam.setRecoveryCodes(req.user.id, recoveryCodes.map((code) => recoveryHash(req.user.id, code)));
+    audit.record({ type: 'iam', outcome: 'changed', reason: `${req.user.email} made new recovery codes; the old ones no longer work.`, actor: await adminActor(req) });
+    res.set('Cache-Control', 'no-store');
+    res.json({ recoveryCodes, me: describeMe(req.session, iam.user(req.user.id)) });
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Single sign-on with OpenID Connect (src/oidc.js)
+// ---------------------------------------------------------------------------
+
+const oidc = new OidcClient();
+const ssoFlows = new SsoFlows();
+
+/** Single sign-on as set, the address the identity provider sends people back to, and whether it can work now (and if not, why). */
+function ssoState() {
+  const sso = iam.sso();
+  const base = tenancy.run(DEFAULT_TENANT, () => resetLinkBase(settingsStore.get()));
+  const missing = [];
+  if (!sso.issuer || !sso.clientId) missing.push('The identity provider\'s address and the client id are not set.');
+  if (!base) missing.push('No https address for this server is set (Settings → Server address).');
+  return { sso, base, redirectUri: base ? `${base}${SSO_CALLBACK_PATH}` : '', missing, ready: sso.enabled && missing.length === 0 };
+}
+
+/** With single sign-on on and "only Admins may still sign in with a password": a correct password is not enough for anyone else. */
+function passwordNotEnough(user) {
+  const { sso, ready } = ssoState();
+  return ready && sso.passwordAdminsOnly && user.role !== 'admin';
+}
+
+/** One cookie by name, as readSessionCookie reads the session's. */
+function readCookie(req, name) {
+  for (const part of String(req.headers.cookie ?? '').split(';')) {
+    const [key, ...rest] = part.trim().split('=');
+    if (key === name) return rest.join('=');
+  }
+  return '';
+}
+const SSO_COOKIE_PATH = '/api/session/oidc';
+const setSsoCookie = (req, res, value) => res.append('Set-Cookie', [`${SSO_COOKIE}=${value}`, `Path=${SSO_COOKIE_PATH}`, 'HttpOnly', 'SameSite=Lax', `Max-Age=${Math.round(SSO_FLOW_TTL_MS / 1000)}`, cookieShouldBeSecure(req) ? 'Secure' : ''].filter(Boolean).join('; '));
+const clearSsoCookie = (res) => res.append('Set-Cookie', `${SSO_COOKIE}=; Path=${SSO_COOKIE_PATH}; HttpOnly; SameSite=Lax; Max-Age=0`);
+
+/**
+ * Back to the sign-in page with a short code, which picks the sentence the page shows (public/app.js). What went
+ * wrong is written, scrubbed, in the server log and the audit log: never a token, the client secret or the
+ * provider's own error text.
+ */
+function ssoRefused(req, res, code, why, user = null) {
+  res.locals.signInRefused = true;
+  if (user) res.locals.activityUser = user;
+  console.warn(`! [single sign-on] Not signed in (${code}): ${logSafe(why)}.`);
+  if (refusalListed(`address ${clientIp(req)}`, Date.now(), 'signIn')) auditAccess(req, 'refused', `Single sign-on refused${user ? ` for ${user.email}` : ''}: ${why}.`, user);
+  clearSsoCookie(res);
+  res.redirect(`/#sso=${code}`);
+}
+
+/** The "single sign-on" button: off to the identity provider, with a state, a nonce and a PKCE challenge for the way back. */
+app.get(
+  '/api/session/oidc/start',
+  asyncRoute(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (tooManySignIns(req)) return res.redirect('/#sso=busy');
+    const { sso, redirectUri, ready } = ssoState();
+    if (!sso.enabled) return res.redirect('/#sso=off');
+    if (!ready) return res.redirect('/#sso=setup');
+    const flow = ssoFlows.start(readCookie(req, SSO_COOKIE));
+    let url;
+    try {
+      url = await oidc.authorizationUrl(sso, redirectUri, flow);
+    } catch (error) {
+      if (!(error instanceof SsoError)) throw error;
+      console.warn(`! [single sign-on] Could not start (${error.code}): ${logSafe(error.message)}.`);
+      return res.redirect(`/#sso=${error.code}`);
+    }
+    setSsoCookie(req, res, flow.cookie);
+    res.redirect(url);
+  }),
+);
+
+/** The way back from the identity provider: the code is exchanged, the ID token verified, and the person it names signed in. */
+app.get(
+  SSO_CALLBACK_PATH,
+  asyncRoute(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (tooManySignIns(req)) return ssoRefused(req, res, 'busy', 'too many sign-in attempts from this address');
+    const { sso, redirectUri, ready, base } = ssoState();
+    if (!sso.enabled) return ssoRefused(req, res, 'off', 'single sign-on is turned off');
+    if (!ready) return ssoRefused(req, res, 'setup', 'single sign-on is not set up completely');
+    const one = (value) => (typeof value === 'string' ? value : '');
+    const flow = ssoFlows.take(one(req.query.state), readCookie(req, SSO_COOKIE));
+    if (!flow) return ssoRefused(req, res, 'expired', 'the answer belongs to no sign-in started from this browser in the last ten minutes (state)');
+    if (req.query.error !== undefined) {
+      const said = /^[a-z0-9_.-]{1,60}$/i.test(one(req.query.error)) ? one(req.query.error) : 'an error';
+      return ssoRefused(req, res, 'cancelled', `the identity provider answered ${said}`);
+    }
+    const code = one(req.query.code);
+    if (!code || code.length > 4096) return ssoRefused(req, res, 'provider', 'the identity provider sent no code');
+    let identity;
+    try {
+      identity = await oidc.finish(sso, redirectUri, { code, ...flow });
+      const problem = identityProblem(sso, identity);
+      if (problem) throw problem;
+    } catch (error) {
+      if (!(error instanceof SsoError)) throw error;
+      return ssoRefused(req, res, error.code, error.message);
+    }
+    let user = iam.findByEmail(identity.email);
+    if (!user && sso.provision === 'create') {
+      // An Admin chose to add people the identity provider signs in, with this role (never Admin: src/oidc.js).
+      const added = await iam.createUser({ email: identity.email, name: identity.name, role: sso.role, mustChangePassword: false });
+      audit.record({ type: 'iam', outcome: 'changed', reason: `Added ${added.email} as ${iam.role(added.role)?.name ?? added.role} at their first single sign-on.`, actor: SYSTEM_ACTOR, details: { user: added } });
+      user = iam.user(added.id);
+    }
+    if (!user) return ssoRefused(req, res, 'unknown', `${identity.email} is not in People & roles`);
+    if (user.disabled) return ssoRefused(req, res, 'disabled', 'the account is disabled', user);
+    iam.recordSignIn(user);
+    openPasswordSession(req, res, user, 'signed in with single sign-on', 'sso');
+    clearSsoCookie(res);
+    res.redirect(`${base}/`);
   }),
 );
 
@@ -1575,6 +1896,78 @@ app.put('/api/iam/policy', requirePermission('iam.manage'), (req, res) => {
   res.json(passwordResetReady());
 });
 const RESET_POLICY_NAMES = { everyone: 'everyone', 'not-admins': 'everyone but Admins', off: 'off' };
+
+/** Two-step sign-in for everyone and single sign-on are an Admin's to set (the Admin role), for the whole server. */
+const maySetSignInSecurity = (req) => can(req, 'iam.manage') && req.user.role === 'admin' && (!tenancy.enabled || isSuperAdmin(req.permissions));
+
+/** What the Admin's Sign-in page shows of them: never the client secret, only whether one is set. */
+function signInSecurityView() {
+  const { sso, redirectUri, missing } = ssoState();
+  return {
+    twoStepRequired: iam.twoStepRequired(),
+    sso: publicSso(sso),
+    redirectUri,
+    missing,
+    // The roles people added by single sign-on may be given: every role but Admin.
+    roles: iam.roles().filter((r) => r.id !== 'admin').map((r) => ({ id: r.id, name: r.name })),
+  };
+}
+
+app.put(
+  '/api/iam/sign-in',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    if (!maySetSignInSecurity(req)) return res.status(403).json({ error: tenancy.enabled && req.user.role === 'admin' ? 'Sign-in rules are for the whole server: a Super Admin changes them.' : 'Only an Admin changes two-step sign-in for everyone and single sign-on.' });
+    const body = req.body ?? {};
+    if ('twoStepRequired' in body) {
+      const { before, after } = iam.setTwoStepRequired(body.twoStepRequired === true);
+      if (before !== after) await auditIam(req, `Two-step sign-in for everyone who signs in with a password: ${before ? 'required' : 'not required'} → ${after ? 'required' : 'not required'}.`);
+    }
+    if (body.sso && typeof body.sso === 'object') {
+      const next = mergeSso(iam.sso(), body.sso, { roles: iam.roles().filter((r) => r.id !== 'admin').map((r) => r.id) });
+      const { before, after } = iam.setSso(next);
+      const changed = ssoChanges(before, after);
+      if (changed.length) {
+        oidc.forget();
+        // (The client secret is never part of the log: only that it changed, and whether one is set.)
+        await auditIam(req, `Changed single sign-on: ${changed.join(', ')}.`, { before: publicSso(before), after: publicSso(after) });
+      }
+    }
+    res.json(iamView(req));
+  }),
+);
+
+/** The Admin's "Check" button: can the identity provider be reached as set, through this server's proxy and trusted certificates? */
+app.post(
+  '/api/iam/sign-in/sso/check',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    if (!maySetSignInSecurity(req)) return res.status(403).json({ error: 'Only an Admin checks single sign-on.' });
+    const { sso, missing } = ssoState();
+    if (!sso.issuer) return res.json({ ok: false, message: 'Give the identity provider\'s address first, and save.' });
+    const result = await oidc.check(sso);
+    res.json({ ok: result.ok && !missing.length, message: [result.message, ...(result.ok ? missing : [])].join(' ') });
+  }),
+);
+
+/** An Admin takes someone's two-step sign-in off (a lost phone): they set it up again themselves, at once when it is required. */
+app.delete(
+  '/api/iam/users/:id/two-step',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Turn your own two-step sign-in off under Settings → Your profile.' });
+    const target = visibleUser(req, req.params.id);
+    if (!iam.canGrant(req.permissions, iam.permissionsOf({ ...target, disabled: false }))) {
+      return res.status(403).json({ error: 'You cannot reset this person\'s two-step sign-in: their role holds permissions you do not have.' });
+    }
+    if (iam.resetTwoStep(target.id)) {
+      signInTickets.revokeUser(target.id);
+      pendingSetups.clear(target.id);
+      await auditIam(req, `Reset two-step sign-in for ${target.email}.`);
+    }
+    res.json(iamView(req));
+  }),
+);
 
 /**
  * Sign in with a Checkmarx One API key. The key's identity (email, username or
@@ -1868,7 +2261,7 @@ function iamView(req) {
     rolesChangeable: can(req, 'iam.manage') && mayChangeRoles(req),
     me: { id: req.user.id, permissions: [...req.permissions] },
     tenants: tenancy.enabled && isSuperAdmin(req.permissions) ? tenancy.list().map((t) => ({ id: t.id, name: tenantName(t.id) })) : null,
-    signIn: can(req, 'iam.manage') ? { ...passwordResetReady(), canChange: !tenancy.enabled || isSuperAdmin(req.permissions) } : null,
+    signIn: can(req, 'iam.manage') ? { ...passwordResetReady(), canChange: !tenancy.enabled || isSuperAdmin(req.permissions), security: maySetSignInSecurity(req) ? signInSecurityView() : null } : null,
     // Labs → Consolidated view: an Admin ticks who may see it, once its activation code is in force.
     consolidatedGrant: !featureLocked(featureById('consolidated')) && can(req, 'iam.manage') && req.user.role === 'admin',
   };
@@ -1887,6 +2280,8 @@ async function auditIam(req, reason, details) {
 
 /** Sign out every session of a user whose access was removed (all but `keep`, when given). */
 function endSessionsOf(userId, keep = null) {
+  // A sign-in waiting for its two-step code ends too.
+  signInTickets.revokeUser(userId);
   // Saved sign-ins nobody has come back for since a restart end too.
   const keepKey = keep ? sessionKey(keep) : null;
   sessions.endWhere((s) => s.userId === userId && !(keep && (s.id === keep || s.key === keepKey)));
@@ -4262,7 +4657,7 @@ async function adminActor(req) {
     name: user?.name ?? '',
     email: user?.email ?? '',
     role: user ? (iam.role(user.role)?.name ?? user.role) : '',
-    via: session?.via === 'cxone' ? `Checkmarx One key${session.cxUser ? ` (${session.cxUser})` : ''}` : 'password',
+    via: session?.via === 'cxone' ? `Checkmarx One key${session.cxUser ? ` (${session.cxUser})` : ''}` : session?.via === 'sso' ? 'single sign-on' : 'password',
     tenant,
     ip: clientIp(req),
     userAgent: String(req.get('user-agent') ?? '').slice(0, 200),
@@ -11476,6 +11871,7 @@ const server = httpsManager.listen({ app, httpsOnly: httpsOnlyAnswer, port: conf
   // The deployment's own connections (CX_API_KEY, SMTP_*) belong to the first tenant.
   await tenancy.run(DEFAULT_TENANT, async () => {
     await prepareAccess();
+    resetTwoStepFromEnvironment();
     await bootstrap();
     await verifyEnvironmentSmtp();
   });

@@ -1564,6 +1564,16 @@ body.fetching [data-needs-data] { opacity: 0.45; cursor: not-allowed; }
 .reset-email { margin: 0 0 12px; font-weight: 600; font-family: var(--mono); overflow-wrap: anywhere; }
 #iam-reset-policy { max-width: 460px; }
 .reset-missing { margin: 8px 0 0; padding-inline-start: 18px; font-size: 13px; color: var(--warn); }
+/* Two-step sign-in: the key for the authenticator app (a QR code made in the page, and the key as text), and the recovery codes. */
+.twostep-steps { margin: 0 0 12px; padding-inline-start: 20px; font-size: 13.5px; line-height: 1.5; display: grid; gap: 4px; }
+.twostep-key { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 0 0 16px; }
+/* Black on white whatever the theme: that is what a phone's camera reads. */
+.twostep-qr { flex: none; width: 196px; height: 196px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.twostep-qr svg { display: block; width: 100%; height: 100%; }
+.twostep-key-text { display: grid; gap: 6px; min-width: 0; justify-items: start; }
+.twostep-key-text code { font-size: 13px; overflow-wrap: anywhere; user-select: all; }
+.twostep-state { margin: 0; font-size: 13.5px; }
+.recovery-codes { display: grid; grid-template-columns: repeat(2, max-content); gap: 4px 28px; margin: 0 0 12px; padding: 12px 16px; list-style: none; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); font: 14px/1.6 var(--mono); user-select: all; }
 .reset-missing li.hint { list-style: none; margin-inline-start: -18px; color: var(--text); font-weight: 600; }
 .terms-overlay { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgb(15 23 42 / 0.55); backdrop-filter: blur(3px); }
 .terms-overlay[hidden] { display: none; }
