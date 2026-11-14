@@ -8,8 +8,10 @@
  * reordering any entry breaks the chain from that point on, which verify()
  * reports. Nothing is ever trimmed or rewritten.
  *
- * Every entry is flushed to the disk (fdatasync) before record() returns, so a machine that loses
- * power just after still has it. The month's file is opened by its path for each entry and closed
+ * Every entry is in its month's file before record() returns, so a server that crashes or is killed
+ * just after still has it; the flush to the disk (fdatasync) that makes it last through a power cut
+ * follows in the background a few milliseconds later, one flush for the entries written meanwhile
+ * (src/state-file.js). The month's file is opened by its path for each entry and closed
  * again: a file made read-only, moved aside or replaced under a running server is seen at the next
  * entry (which is then held, or goes to the file that is really there), never written to unseen.
  *
@@ -33,7 +35,7 @@ import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { appendDurable, readState, writeState } from './state-file.js';
+import { appendDurable, flushesSettled, readState, writeState } from './state-file.js';
 
 const GENESIS = 'genesis';
 export const OUTCOMES = ['charged', 'not-charged', 'refused', 'failed', 'changed', 'info'];
@@ -196,8 +198,8 @@ export class AuditLog {
     while (this.#unwritten.length) {
       const e = this.#unwritten[0];
       try {
-        // By its path, every time: opened, written, flushed, closed (src/state-file.js).
-        appendDurable(path.join(this.#dir, `audit-${monthOf(e.at)}.jsonl`), `${JSON.stringify(e)}\n`);
+        // By its path, every time: opened, written, closed; flushed in the background (src/state-file.js).
+        appendDurable(path.join(this.#dir, `audit-${monthOf(e.at)}.jsonl`), `${JSON.stringify(e)}\n`, { flush: 'soon' });
         this.#flushError = '';
       } catch (error) {
         if (error.written) {
@@ -219,9 +221,10 @@ export class AuditLog {
     return true;
   }
 
-  /** Kept for callers that wait for writes: entries are written synchronously. */
+  /** For callers that wait for writes: entries are written at once, and this waits for their flush to the disk. */
   async settled() {
     this.flushSync();
+    await flushesSettled();
   }
 
   /**

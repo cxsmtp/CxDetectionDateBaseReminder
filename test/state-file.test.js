@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { StateFileError, appendDurable, clearHalfSaved, readState, removeState, writeState } from '../src/state-file.js';
+import { StateFileError, appendDurable, clearHalfSaved, flushPendingNow, flushesSettled, readState, removeState, writeState } from '../src/state-file.js';
 
 /** A folder of its own for one test, removed when the test ends. */
 function folder(t) {
@@ -263,4 +263,48 @@ test('files a crash left in the middle of a save are removed at the next start; 
   assert.deepEqual(clearHalfSaved(dir).sort(), [crashed, inTenant].sort());
   for (const file of [beingSaved, state, copy, someoneElses, tooDeep]) assert.ok(fs.existsSync(file), `${path.relative(dir, file)} is left`);
   assert.deepEqual(clearHalfSaved(path.join(dir, 'not-there')), []);
+});
+
+test('a log written on the request path is in its file at once, and flushed in the background, grouped', async (t) => {
+  const dir = folder(t);
+  const log = path.join(dir, 'audit', 'audit-2026-11.jsonl');
+  const flushes = [];
+  const original = fs.fdatasync;
+  fs.fdatasync = (fd, done) => {
+    flushes.push(fd);
+    return original(fd, done);
+  };
+  t.after(() => {
+    fs.fdatasync = original;
+  });
+  for (let i = 0; i < 50; i += 1) appendDurable(log, `{"seq":${i}}\n`, { flush: 'soon' });
+  // Before any flush has finished: every line is there for a reader, and for the server's next start.
+  assert.equal(fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).length, 50);
+  await flushesSettled();
+  assert.ok(flushes.length >= 1 && flushes.length <= 2, `50 entries written together took ${flushes.length} flush(es), not 50`);
+  // Nothing waiting any more: both return at once.
+  await flushesSettled();
+  flushPendingNow();
+});
+
+test('a server that stops flushes what is still waiting; a file removed meanwhile is not an error', async (t) => {
+  const dir = folder(t);
+  const [, lines] = await (async () => {
+    const said = [];
+    const original = console.error;
+    console.error = (...args) => said.push(args.join(' '));
+    try {
+      appendDurable(path.join(dir, 'a.jsonl'), 'one\n', { flush: 'soon' });
+      writeState(path.join(dir, 'settings.json'), { a: 1 });
+      flushPendingNow();
+      appendDurable(path.join(dir, 'gone.jsonl'), 'two\n', { flush: 'soon' });
+      fs.rmSync(path.join(dir, 'gone.jsonl'));
+      await flushesSettled();
+      return [null, said];
+    } finally {
+      console.error = original;
+    }
+  })();
+  assert.deepEqual(lines, []);
+  assert.deepEqual(readState(path.join(dir, 'settings.json')), { a: 1 });
 });

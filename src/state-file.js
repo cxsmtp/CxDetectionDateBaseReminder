@@ -147,13 +147,87 @@ export function syncDir(dir) {
 }
 
 /**
+ * Flushes done in the background, grouped. A flush on the request path holds every other request up
+ * for as long as the disk takes (a millisecond usually, far longer when the disk is busy), so the ones
+ * that only make a change last through a power cut, and are not needed to keep a file whole, are
+ * done here: one at a time per path, and a flush asked for while one is running is done once more
+ * after it, however many asked. What was written is on the disk a few milliseconds later.
+ */
+const pending = new Map(); // path -> { kind, running, again }
+let idle = [];
+let saidFlush = '';
+
+function runFlush(target, job) {
+  job.running = true;
+  job.again = false;
+  // A file is opened for reading where that is enough to flush it (not on Windows).
+  fs.open(target, job.kind === 'dir' || process.platform !== 'win32' ? 'r' : 'r+', (openError, fd) => {
+    const done = (error) => {
+      const quiet = !error || error.code === 'ENOENT' || (job.kind === 'dir' && ['EINVAL', 'EPERM', 'EISDIR', 'EACCES', 'ENOTSUP', 'EBADF'].includes(error.code));
+      if (!quiet && saidFlush !== error.message) {
+        console.error(`! [data] ${target} was written but could not be flushed to the disk: ${error.message}`);
+        saidFlush = error.message;
+      }
+      if (job.again) return runFlush(target, job);
+      pending.delete(target);
+      if (!pending.size) for (const resolve of idle.splice(0)) resolve();
+    };
+    if (openError) return done(openError);
+    const flushed = (error) => fs.close(fd, () => done(error));
+    if (job.kind === 'dir') fs.fsync(fd, flushed);
+    else fs.fdatasync(fd, flushed);
+  });
+}
+
+function flushSoon(target, kind) {
+  const job = pending.get(target);
+  if (job) {
+    job.again = true;
+    return;
+  }
+  const fresh = { kind, running: false, again: false };
+  pending.set(target, fresh);
+  runFlush(target, fresh);
+}
+
+/** Flush a folder in the background (see above): the file just renamed into it is whole either way. */
+export function syncDirSoon(dir) {
+  flushSoon(dir, 'dir');
+}
+
+/** Resolves once every background flush asked for so far is done. */
+export function flushesSettled() {
+  if (!pending.size) return Promise.resolve();
+  return new Promise((resolve) => idle.push(resolve));
+}
+
+/** Do, now and before returning, every background flush still waiting: for a server that is stopping. */
+export function flushPendingNow() {
+  for (const [target, job] of pending) {
+    try {
+      if (job.kind === 'dir') syncDir(target);
+      else {
+        const fd = fs.openSync(target, process.platform !== 'win32' ? 'r' : 'r+');
+        try {
+          fs.fdatasyncSync(fd);
+        } finally {
+          fs.closeSync(fd);
+        }
+      }
+    } catch {}
+  }
+}
+
+/**
  * Save a state file so that a crash at any moment leaves either the old contents or the new, never half:
  * 1. the new contents go to a file beside it, under a name nobody can guess, created only if nothing has
  *    that name yet (never written through a link left in its place), readable by this server's user alone;
  * 2. that file is flushed to the disk;
  * 3. the file being replaced becomes <file>.bak, the last good copy (in place of the one before);
- * 4. the new file takes its place, and the folder is flushed so both renames are on the disk.
- * A crash between 3 and 4 leaves only <file>.bak, which readState() uses.
+ * 4. the new file takes its place, and the folder is flushed in the background so both renames are on
+ *    the disk a few milliseconds later.
+ * A crash between 3 and 4 leaves only <file>.bak, which readState() uses. A power cut before the folder's
+ * flush leaves the file as it was before this save, or as it is after it: whole in both cases.
  *
  * @param {string} file
  * @param {object|string|Buffer} data  an object is written as JSON; text and bytes as they are
@@ -209,7 +283,7 @@ export function writeState(file, data, { mode = 0o600, space, keepLast = true } 
     fs.rmSync(tmp, { force: true });
     throw error;
   }
-  syncDir(dir);
+  syncDirSoon(dir);
 }
 
 /**
@@ -262,8 +336,13 @@ export function clearHalfSaved(dir, { depth = 2, olderThanMs = 10 * 60_000, now 
  *
  * Throws when it cannot. The error's `written` says how far it got: false, nothing was added (try again
  * later); true, the text is in the file and only the flush failed (adding it again would repeat it).
+ *
+ * `flush: 'soon'` is for a log written on the request path (the audit log): the text is in the file
+ * before this returns, so it survives the server crashing or being killed, and the flush that makes it
+ * survive a power cut is done in the background, grouped with the entries written just after
+ * (flushesSettled() waits for it, flushPendingNow() does it at once).
  */
-export function appendDurable(file, text) {
+export function appendDurable(file, text, { flush = 'now' } = {}) {
   const dir = path.dirname(file);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const isNew = !fs.existsSync(file);
@@ -273,9 +352,14 @@ export function appendDurable(file, text) {
     try {
       fs.appendFileSync(fd, text);
       written = true;
-      fs.fdatasyncSync(fd);
+      if (flush !== 'soon') fs.fdatasyncSync(fd);
     } finally {
       fs.closeSync(fd);
+    }
+    if (flush === 'soon') {
+      flushSoon(file, 'file');
+      if (isNew) syncDirSoon(dir);
+      return;
     }
     // A log made just now: its name has to reach the disk too.
     if (isNew) syncDir(dir);

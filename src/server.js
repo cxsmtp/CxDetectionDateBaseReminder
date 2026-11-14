@@ -83,7 +83,7 @@ import { addSla, slaSummary } from './sla.js';
 import { INSTANCE_VARS, extraInstanceNumbers, instanceSource, numberedVariable, providersIn, setForRepo } from './scm/instances.js';
 import { SessionPersistence, sessionKey } from './handover.js';
 import { InstanceLock } from './instance-lock.js';
-import { clearHalfSaved, StateFileError } from './state-file.js';
+import { clearHalfSaved, flushPendingNow, StateFileError } from './state-file.js';
 import { inlineScriptHashes, pruneAttempts, sameOriginGuard, securityHeaders, trustProxySetting, viaTrustedProxy } from './security.js';
 import { describeCertificate } from './tls.js';
 import { HSTS_AGES, HttpsManager } from './https-manager.js';
@@ -935,6 +935,8 @@ function recordActivity(req, res, route, ms) {
 process.on('exit', () => {
   for (const id of tenancy.ids?.() ?? []) tenancy.context(id)?.activity?.flush();
 });
+// However the server ends: what was written and still waits for its flush to the disk is flushed first.
+process.on('exit', flushPendingNow);
 
 // The page's files; API calls never touch the disk looking for one (a stat per request, under load).
 // A language behind an activation code (Hebrew) is not served until it is activated here.
@@ -11586,6 +11588,8 @@ const shutdown = async (signal) => {
   await lastWords(signal === 'SIGTERM' ? 'the service was stopped' : `${signal}`, deadline);
   for (const tenant of tenancy.loaded()) tenant.audit.flushSync();
   diagnostics.flush();
+  // What was written and is still waiting for its flush to the disk: now, before the folder is let go.
+  flushPendingNow();
   instanceLock.release();
   console.log('[update] Stopped cleanly.');
   process.exit(0);

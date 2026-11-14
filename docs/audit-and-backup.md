@@ -132,8 +132,10 @@ backups/                    default BACKUP_DIR (better on another disk)
 
 Every save is written to a new file, flushed to the disk, and only then put in the place of the old one.
 A power cut or a full disk in the middle of a save leaves the old file as it was. The file from before
-the save is kept beside it as `<file>.bak`. Audit entries are flushed to the disk one by one, before the
-action they record is answered.
+the save is kept beside it as `<file>.bak`. An audit entry is in the log's file before the action it
+records is answered, so it survives the server crashing or being killed; its flush to the disk, which
+makes it survive a power cut, follows a few milliseconds later, one flush for the entries written
+meanwhile.
 
 Files that hold only secrets or that are rebuilt by themselves keep no `.bak`: the audit and
 report-signing keys, the saved sign-ins, the Govern files, the connection guard, and the network and
