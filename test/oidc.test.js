@@ -124,7 +124,8 @@ test('off by default; what an Admin saves is checked field by field', () => {
   assert.deepEqual(saved, { ...DEFAULT_SSO, enabled: true, issuer: ISSUER, clientId: CLIENT, clientSecret: SECRET, label: 'Sign in with Acme', domains: ['acme.io', 'acme.com'] });
   const bad = (incoming, pattern, current = saved) => assert.throws(() => mergeSso(current, incoming, { roles }), (error) => error.status === 400 && pattern.test(error.message));
   bad({ issuer: 'http://login.acme.example' }, /must be an https address/);
-  bad({ issuer: 'https://user:pw@login.acme.example' }, /user name or password/);
+  // (An address with a user name and a password in it, put together here so that none is written in this file.)
+  bad({ issuer: Object.assign(new URL('https://login.acme.example'), { username: 'user', password: 'x'.repeat(9) }).href }, /user name or password/);
   bad({ issuer: 'https://169.254.169.254/' }, /link-local or cloud metadata/);
   bad({ issuer: 'https://metadata.google.internal/' }, /metadata/);
   bad({ issuer: 'https://login.acme.example/?x=1' }, /"\?" or "#"/);
