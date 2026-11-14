@@ -5651,6 +5651,17 @@
   "Saved. Cx Credits Calculator in the menu now opens this address.": "נשמר. מחשבון קרדיטים Cx בתפריט פותח עכשיו את הכתובת הזו.",
   "Saved. The calculator opens in CxMissionZero.": "נשמר. המחשבון נפתח בתוך CxMissionZero.",
   "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "כתובת המחשבון חייבת להתחיל ב-http:// או ב-https:// ולציין שרת, למשל http://server:8333/.",
-  "Give the calculator's address before turning this on.": "יש להזין את כתובת המחשבון לפני ההפעלה."
+  "Give the calculator's address before turning this on.": "יש להזין את כתובת המחשבון לפני ההפעלה.",
+  "Findings open for": "ממצאים פתוחים במשך",
+  "date|First found from": "נמצאו לראשונה מתאריך",
+  "Every open finding, whatever its age.": "כל ממצא פתוח, בכל גיל.",
+  "More than {0} days": "יותר מ-{0} ימים",
+  "New this week": "חדשים השבוע",
+  "New this month": "חדשים החודש",
+  "Custom dates…": "תאריכים מותאמים…",
+  "Skip projects not scanned in": "דילוג על פרויקטים שלא נסרקו במהלך",
+  "Only findings first found in the last {0} days: older ones are not loaded.": "רק ממצאים שנמצאו לראשונה ב-{0} הימים האחרונים: ישנים יותר לא נטענים.",
+  "Only findings first found between these dates.": "רק ממצאים שנמצאו לראשונה בין התאריכים האלה.",
+  "Only findings first found more than {0} days ago and still open.": "רק ממצאים שנמצאו לראשונה לפני יותר מ-{0} ימים ועדיין פתוחים."
  }
 }

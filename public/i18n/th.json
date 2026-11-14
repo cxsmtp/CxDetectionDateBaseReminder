@@ -5651,6 +5651,17 @@
   "Saved. Cx Credits Calculator in the menu now opens this address.": "บันทึกแล้ว เครื่องมือคำนวณเครดิต Cx ในเมนูจะเปิดที่อยู่นี้",
   "Saved. The calculator opens in CxMissionZero.": "บันทึกแล้ว เครื่องมือคำนวณเปิดใน CxMissionZero",
   "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "ที่อยู่ของเครื่องมือคำนวณต้องขึ้นต้นด้วย http:// หรือ https:// และระบุเซิร์ฟเวอร์ เช่น http://server:8333/",
-  "Give the calculator's address before turning this on.": "กรอกที่อยู่ของเครื่องมือคำนวณก่อนเปิดใช้"
+  "Give the calculator's address before turning this on.": "กรอกที่อยู่ของเครื่องมือคำนวณก่อนเปิดใช้",
+  "Findings open for": "ผลการตรวจพบที่เปิดค้างมา",
+  "date|First found from": "พบครั้งแรกตั้งแต่",
+  "Every open finding, whatever its age.": "ผลการตรวจพบที่ยังเปิดอยู่ทั้งหมด ไม่ว่าจะนานเท่าใด",
+  "More than {0} days": "มากกว่า {0} วัน",
+  "New this week": "ใหม่ในสัปดาห์นี้",
+  "New this month": "ใหม่ในเดือนนี้",
+  "Custom dates…": "กำหนดวันที่เอง…",
+  "Skip projects not scanned in": "ข้ามโปรเจกต์ที่ไม่ได้สแกนใน",
+  "Only findings first found in the last {0} days: older ones are not loaded.": "เฉพาะผลการตรวจพบที่พบครั้งแรกใน {0} วันที่ผ่านมา: ที่เก่ากว่านั้นจะไม่ถูกโหลด",
+  "Only findings first found between these dates.": "เฉพาะผลการตรวจพบที่พบครั้งแรกระหว่างวันที่เหล่านี้",
+  "Only findings first found more than {0} days ago and still open.": "เฉพาะผลการตรวจพบที่พบครั้งแรกเมื่อกว่า {0} วันก่อนและยังเปิดอยู่"
  }
 }

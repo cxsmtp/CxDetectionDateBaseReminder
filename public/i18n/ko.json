@@ -5651,6 +5651,17 @@
   "Saved. Cx Credits Calculator in the menu now opens this address.": "저장되었습니다. 이제 메뉴의 Cx 크레딧 계산기가 이 주소를 엽니다.",
   "Saved. The calculator opens in CxMissionZero.": "저장되었습니다. 계산기는 CxMissionZero에서 열립니다.",
   "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "계산기 주소는 http:// 또는 https://로 시작하고 서버를 지정해야 합니다(예: http://server:8333/).",
-  "Give the calculator's address before turning this on.": "켜기 전에 계산기 주소를 입력하세요."
+  "Give the calculator's address before turning this on.": "켜기 전에 계산기 주소를 입력하세요.",
+  "Findings open for": "탐지 결과 미해결 기간",
+  "date|First found from": "최초 탐지일(시작)",
+  "Every open finding, whatever its age.": "기간에 관계없이 미해결 탐지 결과 전체.",
+  "More than {0} days": "{0}일 초과",
+  "New this week": "이번 주 신규",
+  "New this month": "이번 달 신규",
+  "Custom dates…": "날짜 직접 지정…",
+  "Skip projects not scanned in": "다음 기간 동안 스캔되지 않은 프로젝트 건너뛰기",
+  "Only findings first found in the last {0} days: older ones are not loaded.": "최근 {0}일 이내에 처음 탐지된 결과만 불러옵니다. 그보다 오래된 결과는 불러오지 않습니다.",
+  "Only findings first found between these dates.": "이 날짜 사이에 처음 탐지된 결과만.",
+  "Only findings first found more than {0} days ago and still open.": "{0}일보다 전에 처음 탐지되어 아직 미해결인 결과만."
  }
 }

@@ -5651,6 +5651,17 @@
   "Saved. Cx Credits Calculator in the menu now opens this address.": "Đã lưu. Công cụ tính tín dụng Cx trong menu giờ mở địa chỉ này.",
   "Saved. The calculator opens in CxMissionZero.": "Đã lưu. Công cụ tính mở trong CxMissionZero.",
   "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "Địa chỉ của công cụ tính phải bắt đầu bằng http:// hoặc https:// và nêu tên một máy chủ, ví dụ http://server:8333/.",
-  "Give the calculator's address before turning this on.": "Hãy nhập địa chỉ của công cụ tính trước khi bật."
+  "Give the calculator's address before turning this on.": "Hãy nhập địa chỉ của công cụ tính trước khi bật.",
+  "Findings open for": "Phát hiện đã mở trong",
+  "date|First found from": "Phát hiện lần đầu từ",
+  "Every open finding, whatever its age.": "Mọi phát hiện đang mở, bất kể đã bao lâu.",
+  "More than {0} days": "Hơn {0} ngày",
+  "New this week": "Mới trong tuần này",
+  "New this month": "Mới trong tháng này",
+  "Custom dates…": "Ngày tùy chọn…",
+  "Skip projects not scanned in": "Bỏ qua dự án không được quét trong",
+  "Only findings first found in the last {0} days: older ones are not loaded.": "Chỉ các phát hiện được tìm thấy lần đầu trong {0} ngày qua: các phát hiện cũ hơn không được tải.",
+  "Only findings first found between these dates.": "Chỉ các phát hiện được tìm thấy lần đầu trong khoảng ngày này.",
+  "Only findings first found more than {0} days ago and still open.": "Chỉ các phát hiện được tìm thấy lần đầu hơn {0} ngày trước và vẫn đang mở."
  }
 }

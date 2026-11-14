@@ -37713,5 +37713,71 @@
   "seen": [
    "settings › Beta features › status"
   ]
+ },
+ "Findings open for": {
+  "kind": "text",
+  "seen": [
+   "Workbench › scope"
+  ]
+ },
+ "date|First found from": {
+  "kind": "text",
+  "seen": [
+   "Workbench › scope"
+  ]
+ },
+ "Every open finding, whatever its age.": {
+  "kind": "text",
+  "seen": [
+   "Workbench › scope"
+  ]
+ },
+ "More than {0} days": {
+  "kind": "text",
+  "seen": [
+   "Workbench › scope"
+  ]
+ },
+ "New this week": {
+  "kind": "text",
+  "seen": [
+   "Workbench › scope"
+  ]
+ },
+ "New this month": {
+  "kind": "text",
+  "seen": [
+   "Workbench › scope"
+  ]
+ },
+ "Custom dates…": {
+  "kind": "text",
+  "seen": [
+   "Workbench › scope"
+  ]
+ },
+ "Skip projects not scanned in": {
+  "kind": "text",
+  "seen": [
+   "Workbench › Narrow down"
+  ]
+ },
+ "Only findings first found in the last {0} days: older ones are not loaded.": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench › scope"
+  ]
+ },
+ "Only findings first found between these dates.": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench › scope"
+  ]
+ },
+ "Only findings first found more than {0} days ago and still open.": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench › scope"
+  ]
  }
 }

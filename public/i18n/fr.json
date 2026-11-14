@@ -5651,6 +5651,17 @@
   "Saved. Cx Credits Calculator in the menu now opens this address.": "Enregistré. Calculateur de crédits Cx dans le menu ouvre désormais cette adresse.",
   "Saved. The calculator opens in CxMissionZero.": "Enregistré. Le calculateur s'ouvre dans CxMissionZero.",
   "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "L'adresse du calculateur doit commencer par http:// ou https:// et nommer un serveur, par exemple http://server:8333/.",
-  "Give the calculator's address before turning this on.": "Indiquez l'adresse du calculateur avant d'activer ceci."
+  "Give the calculator's address before turning this on.": "Indiquez l'adresse du calculateur avant d'activer ceci.",
+  "Findings open for": "Détections ouvertes depuis",
+  "date|First found from": "Détectées pour la première fois à partir du",
+  "Every open finding, whatever its age.": "Toutes les détections ouvertes, quelle que soit leur ancienneté.",
+  "More than {0} days": "Plus de {0} jours",
+  "New this week": "Nouvelles cette semaine",
+  "New this month": "Nouvelles ce mois-ci",
+  "Custom dates…": "Dates personnalisées…",
+  "Skip projects not scanned in": "Ignorer les projets non scannés depuis",
+  "Only findings first found in the last {0} days: older ones are not loaded.": "Seulement les détections trouvées pour la première fois au cours des {0} derniers jours : les plus anciennes ne sont pas chargées.",
+  "Only findings first found between these dates.": "Seulement les détections trouvées pour la première fois entre ces dates.",
+  "Only findings first found more than {0} days ago and still open.": "Seulement les détections trouvées pour la première fois il y a plus de {0} jours et toujours ouvertes."
  }
 }

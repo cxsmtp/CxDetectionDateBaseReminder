@@ -5651,6 +5651,17 @@
   "Saved. Cx Credits Calculator in the menu now opens this address.": "已保存。菜单中的 Cx 点数计算器现在会打开此地址。",
   "Saved. The calculator opens in CxMissionZero.": "已保存。计算器在 CxMissionZero 中打开。",
   "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "计算器的地址必须以 http:// 或 https:// 开头并指明服务器，例如 http://server:8333/。",
-  "Give the calculator's address before turning this on.": "请先填写计算器的地址，再开启此项。"
+  "Give the calculator's address before turning this on.": "请先填写计算器的地址，再开启此项。",
+  "Findings open for": "检测结果未解决时长",
+  "date|First found from": "首次发现起始日期",
+  "Every open finding, whatever its age.": "所有未解决的检测结果，不论多久。",
+  "More than {0} days": "超过 {0} 天",
+  "New this week": "本周新增",
+  "New this month": "本月新增",
+  "Custom dates…": "自定义日期…",
+  "Skip projects not scanned in": "跳过在以下时间内未扫描的项目",
+  "Only findings first found in the last {0} days: older ones are not loaded.": "仅加载最近 {0} 天内首次发现的检测结果：更早的不会加载。",
+  "Only findings first found between these dates.": "仅加载在这些日期之间首次发现的检测结果。",
+  "Only findings first found more than {0} days ago and still open.": "仅加载首次发现已超过 {0} 天且仍未解决的检测结果。"
  }
 }

@@ -14,7 +14,7 @@
 //   node scripts/activation.mjs product <private-key-file> <YYYY-MM-DD | months> ["<label>"]
 //       Prints the product activation code: one key for everyone who has downloaded or uses CxMissionZero
 //       (it is not tied to a server or an organisation). With it, CxMissionZero works until the end of that
-//       day (UTC), or for that many months, past its built-in end (31 December 2026). Entered on the
+//       day (UTC), or for that many months, past its built-in end (31 March 2027). Entered on the
 //       deactivation page, or under Settings → Activation codes before then. The label (default "Everyone")
 //       is what the Activation codes page shows it was issued for.
 //

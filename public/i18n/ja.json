@@ -5651,6 +5651,17 @@
   "Saved. Cx Credits Calculator in the menu now opens this address.": "保存しました。メニューの Cx クレジット計算ツールはこのアドレスを開くようになりました。",
   "Saved. The calculator opens in CxMissionZero.": "保存しました。計算ツールは CxMissionZero の中で開きます。",
   "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "計算ツールのアドレスは http:// または https:// で始まり、サーバーを指定する必要があります（例：http://server:8333/）。",
-  "Give the calculator's address before turning this on.": "オンにする前に計算ツールのアドレスを入力してください。"
+  "Give the calculator's address before turning this on.": "オンにする前に計算ツールのアドレスを入力してください。",
+  "Findings open for": "検出結果の未解決期間",
+  "date|First found from": "初回検出日（開始）",
+  "Every open finding, whatever its age.": "期間を問わず、未解決の検出結果すべて。",
+  "More than {0} days": "{0}日超",
+  "New this week": "今週の新規",
+  "New this month": "今月の新規",
+  "Custom dates…": "日付を指定…",
+  "Skip projects not scanned in": "次の期間スキャンされていないプロジェクトを除外",
+  "Only findings first found in the last {0} days: older ones are not loaded.": "過去{0}日以内に初めて検出された結果のみ。それより古いものは読み込みません。",
+  "Only findings first found between these dates.": "この期間に初めて検出された結果のみ。",
+  "Only findings first found more than {0} days ago and still open.": "{0}日より前に初めて検出され、まだ未解決の結果のみ。"
  }
 }

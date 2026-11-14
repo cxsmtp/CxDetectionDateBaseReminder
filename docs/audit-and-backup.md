@@ -57,6 +57,14 @@ cannot spend credits under someone else's name. Reports emailed before auditing
 existed carry no token. They still work, and their entries are marked "report
 without identity".
 
+Requests that do not carry a report's permission at all (forged or altered) are
+refused, and listed here only so often (from MZ-01.01.10): at most 10 a minute
+from one address and 40 a minute from everyone, with one line saying how many
+more were left out. Nobody has signed in on those routes, so without that limit
+anyone who can reach the server could fill the disk with refusals. A request
+naming a finding with ids or names longer than a report sends is refused without
+being listed.
+
 ## User activity
 
 Next to the audit log, each tenant keeps `activity.jsonl` in its state folder: what each person did, one line each — when, who (email, name, role), the IP address, the page or action, the item it was about, the **names** of the fields a change touched (never their values), the status and how long it took. Pages and tabs opened are reported by the browser; everything else is recorded by the server as it answers, including refused sign-ins. Reads that change nothing are not recorded, except downloads and exports. The file moves to `activity.1.jsonl` past 20 MB; entries older than a year are not shown. **Logs → User activity** shows it (with the **audit.view** permission), filtered by person, kind, dates or text, and exports it as CSV. It is not hash-chained: the audit log stays the record of credits and access.

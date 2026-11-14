@@ -5651,6 +5651,17 @@
   "Saved. Cx Credits Calculator in the menu now opens this address.": "Disimpan. Pengira kredit Cx dalam menu kini membuka alamat ini.",
   "Saved. The calculator opens in CxMissionZero.": "Disimpan. Pengira dibuka dalam CxMissionZero.",
   "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "Alamat pengira mesti bermula dengan http:// atau https:// dan menamakan pelayan, contohnya http://server:8333/.",
-  "Give the calculator's address before turning this on.": "Berikan alamat pengira sebelum menghidupkan ini."
+  "Give the calculator's address before turning this on.": "Berikan alamat pengira sebelum menghidupkan ini.",
+  "Findings open for": "Penemuan terbuka selama",
+  "date|First found from": "Pertama ditemui dari",
+  "Every open finding, whatever its age.": "Setiap penemuan terbuka, tanpa mengira usianya.",
+  "More than {0} days": "Lebih daripada {0} hari",
+  "New this week": "Baharu minggu ini",
+  "New this month": "Baharu bulan ini",
+  "Custom dates…": "Tarikh tersuai…",
+  "Skip projects not scanned in": "Langkau projek yang tidak diimbas dalam",
+  "Only findings first found in the last {0} days: older ones are not loaded.": "Hanya penemuan yang pertama ditemui dalam {0} hari lepas: yang lebih lama tidak dimuatkan.",
+  "Only findings first found between these dates.": "Hanya penemuan yang pertama ditemui antara tarikh-tarikh ini.",
+  "Only findings first found more than {0} days ago and still open.": "Hanya penemuan yang pertama ditemui lebih daripada {0} hari lalu dan masih terbuka."
  }
 }

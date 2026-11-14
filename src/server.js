@@ -828,7 +828,7 @@ app.use('/api/projections', (req, res, next) => {
 app.use(express.json({ limit: '4mb' }));
 
 /**
- * The product licence (src/activation.js, docs/activation-codes.md): after the end of 31 December 2026 (UTC), or a product
+ * The product licence (src/activation.js, docs/activation-codes.md): after the end of 31 March 2027 (UTC), or a product
  * code's date if later, CxMissionZero stops. Every page shows that it has been deactivated, with a field for the
  * activation code; every other request is refused. Only the health check (the container's), the licence itself
  * and what its page needs stay open. Nothing is deleted.

@@ -5651,6 +5651,17 @@
   "Saved. Cx Credits Calculator in the menu now opens this address.": "تم الحفظ. عنصر حاسبة أرصدة Cx في القائمة يفتح الآن هذا العنوان.",
   "Saved. The calculator opens in CxMissionZero.": "تم الحفظ. تُفتح الحاسبة داخل CxMissionZero.",
   "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "يجب أن يبدأ عنوان الحاسبة بـ http:// أو https:// وأن يسمّي خادمًا، مثل http://server:8333/.",
-  "Give the calculator's address before turning this on.": "أدخل عنوان الحاسبة قبل تفعيل هذا الخيار."
+  "Give the calculator's address before turning this on.": "أدخل عنوان الحاسبة قبل تفعيل هذا الخيار.",
+  "Findings open for": "اكتشافات مفتوحة منذ",
+  "date|First found from": "اكتُشفت لأول مرة من",
+  "Every open finding, whatever its age.": "كل اكتشاف مفتوح، مهما كان عمره.",
+  "More than {0} days": "أكثر من {0} يومًا",
+  "New this week": "جديدة هذا الأسبوع",
+  "New this month": "جديدة هذا الشهر",
+  "Custom dates…": "تواريخ مخصصة…",
+  "Skip projects not scanned in": "تخطي المشاريع التي لم تُفحص خلال",
+  "Only findings first found in the last {0} days: older ones are not loaded.": "فقط الاكتشافات التي وُجدت لأول مرة خلال آخر {0} يومًا: الأقدم منها لا يُحمَّل.",
+  "Only findings first found between these dates.": "فقط الاكتشافات التي وُجدت لأول مرة بين هذين التاريخين.",
+  "Only findings first found more than {0} days ago and still open.": "فقط الاكتشافات التي وُجدت لأول مرة قبل أكثر من {0} يومًا وما زالت مفتوحة."
  }
 }
