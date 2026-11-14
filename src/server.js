@@ -948,7 +948,7 @@ function recordActivity(req, res, route, ms) {
       role: who?.role ? iam.role(who.role)?.name ?? who.role : '',
       ip: clientIp(req),
       kind: attempt ? 'sign-in' : 'action',
-      action: attempt && (res.statusCode >= 400 || res.locals.signInRefused) ? 'Sign-in refused' : describeAction(req.method, route),
+      action: attempt && (res.statusCode >= 400 || res.locals.signInRefused) ? 'Sign-in refused' : res.locals.activityAction ?? describeAction(req.method, route),
       target: targetOf(req.params),
       fields: req.method === 'GET' ? Object.keys(req.query ?? {}) : fieldNames(req.body),
       method: req.method,
@@ -1436,6 +1436,8 @@ app.post(
     if (needsTwoStep(user)) {
       const secret = user.mfa?.secret ? '' : newSecret();
       const ticket = signInTickets.issue(user.id, { secret });
+      // (In User activity this is not a sign-in yet.)
+      res.locals.activityAction = secret ? 'Typed the right password: asked to set up two-step sign-in' : 'Typed the right password: asked for the two-step code';
       res.set('Cache-Control', 'no-store');
       return res.json({ twoStep: true, ticket, minutes: Math.round(TICKET_TTL_MS / 60_000), ...(secret ? { setup: twoStepSetup(user, secret) } : {}) });
     }

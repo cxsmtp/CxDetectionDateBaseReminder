@@ -196,6 +196,9 @@ test('signing in: the password gives a ticket and no session; the code gives the
   const said = await reasons();
   assert.match(said, /refused: Sign-in refused for dev@acme\.io: wrong two-step code\./);
   assert.match(said, /info: dev@acme\.io signed in with a password and a two-step code\./);
+  // User activity tells the two steps apart: the password alone is not a sign-in.
+  const steps = ((await admin('GET', '/api/activity?kind=sign-in&limit=50')).body.entries ?? []).filter((e) => e.user === 'dev@acme.io').map((e) => e.action);
+  for (const action of ['Typed the right password: asked for the two-step code', 'Sign-in refused', 'Signed in with a password and a two-step code']) assert.ok(steps.includes(action), `${action}: ${steps.join(' | ')}`);
   assert.match(said, /refused: Sign-in refused: the two-step sign-in was over, or was never started\./);
   // The count of wrong tries starts again once someone is in (an Admin's change of the account clears it too).
   assert.equal((await admin('PATCH', `/api/iam/users/${devId}`, { disabled: false })).status, 200);
