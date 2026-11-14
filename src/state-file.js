@@ -153,25 +153,40 @@ export function syncDir(dir) {
  * done here: one at a time per path, and a flush asked for while one is running is done once more
  * after it, however many asked. What was written is on the disk a few milliseconds later.
  */
-const pending = new Map(); // path -> { kind, running, again }
+const pending = new Map(); // path -> { kind, again }, in the order asked for
+let flushing = false;
 let idle = [];
 let saidFlush = '';
 
-function runFlush(target, job) {
-  job.running = true;
+/**
+ * One flush at a time, whatever the number of files and folders waiting: the flushes use the pool of
+ * threads Node also compresses responses and checks passwords with, and a disk that has stopped
+ * answering must tie up one of those threads, not all of them.
+ */
+function nextFlush() {
+  if (flushing) return;
+  const first = pending.entries().next().value;
+  if (!first) {
+    for (const resolve of idle.splice(0)) resolve();
+    return;
+  }
+  const [target, job] = first;
+  flushing = true;
   job.again = false;
+  const done = (error) => {
+    const quiet = !error || error.code === 'ENOENT' || (job.kind === 'dir' && ['EINVAL', 'EPERM', 'EISDIR', 'EACCES', 'ENOTSUP', 'EBADF'].includes(error.code));
+    if (!quiet && saidFlush !== error.message) {
+      console.error(`! [data] ${target} was written but could not be flushed to the disk: ${error.message}`);
+      saidFlush = error.message;
+    }
+    flushing = false;
+    // Written to again meanwhile: once more, after the others that are waiting.
+    pending.delete(target);
+    if (job.again) pending.set(target, job);
+    nextFlush();
+  };
   // A file is opened for reading where that is enough to flush it (not on Windows).
   fs.open(target, job.kind === 'dir' || process.platform !== 'win32' ? 'r' : 'r+', (openError, fd) => {
-    const done = (error) => {
-      const quiet = !error || error.code === 'ENOENT' || (job.kind === 'dir' && ['EINVAL', 'EPERM', 'EISDIR', 'EACCES', 'ENOTSUP', 'EBADF'].includes(error.code));
-      if (!quiet && saidFlush !== error.message) {
-        console.error(`! [data] ${target} was written but could not be flushed to the disk: ${error.message}`);
-        saidFlush = error.message;
-      }
-      if (job.again) return runFlush(target, job);
-      pending.delete(target);
-      if (!pending.size) for (const resolve of idle.splice(0)) resolve();
-    };
     if (openError) return done(openError);
     const flushed = (error) => fs.close(fd, () => done(error));
     if (job.kind === 'dir') fs.fsync(fd, flushed);
@@ -185,9 +200,8 @@ function flushSoon(target, kind) {
     job.again = true;
     return;
   }
-  const fresh = { kind, running: false, again: false };
-  pending.set(target, fresh);
-  runFlush(target, fresh);
+  pending.set(target, { kind, again: false });
+  nextFlush();
 }
 
 /** Flush a folder in the background (see above): the file just renamed into it is whole either way. */
@@ -197,7 +211,7 @@ export function syncDirSoon(dir) {
 
 /** Resolves once every background flush asked for so far is done. */
 export function flushesSettled() {
-  if (!pending.size) return Promise.resolve();
+  if (!pending.size && !flushing) return Promise.resolve();
   return new Promise((resolve) => idle.push(resolve));
 }
 
