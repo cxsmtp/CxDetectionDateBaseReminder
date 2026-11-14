@@ -367,8 +367,9 @@ How it is measured, and what is open and why: [Performance and security status](
 ```bash
 npm install
 npm test                          # unit and end-to-end tests (mock Checkmarx One, fake mail server)
+npm run test:browser              # the page in Chromium (Playwright); once: npx playwright install chromium
 npm start                         # http://127.0.0.1:3000
 loadtest/benchmark.sh 3000 120    # mixed-load benchmark
 ```
 
-The version is `version` in `package.json`, shown as `MZ-xx.xx.xx` and bumped with every change merged to `main`. Pushing to `main` publishes `ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest` after a container smoke test.
+The version is `version` in `package.json`, shown as `MZ-xx.xx.xx` and bumped with every change merged to `main`. Pushing to `main` publishes `ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest` after the tests, the browser tests and a container smoke test. The maintainer marks a published release as `:stable` with the **Promote to stable** workflow, run by hand.
