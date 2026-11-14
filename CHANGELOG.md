@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.12 | 513/s, 0 (main 507, 0) | 0.3 s (1.8 s) | 129 ms (183 ms) | 1,213 + 16 in a browser | 0 vulnerabilities | Scan d79bed45 of the release's code, every engine but the AI ones: 32 open (1 / 4 / 10 / 16, 1 info), none new, all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.11 | 509/s, 0 (main 514 and 508, 0; two pairs) | 1.0 and 3.4 s (4.4 and 0.7 s) | 142 and 293 ms (209 and 144 ms) | 1,202 + 9 in a browser | 0 vulnerabilities | Scan e20ac30a of the final code, every engine but the AI ones: 32 open (1 / 4 / 10 / 16, 1 info); 2 in this release's code, checked and not exploitable; an independent review's 6 findings fixed ([review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.10 | 501–515/s, 0 (main 493–510, 0; five pairs) | 1.0–5.6 s (0.2–2.0 s; 0.2–0.5 s inside the server on both) | 128–262 ms (119–206 ms) | 1,112 | 0 vulnerabilities | Scan dc0b5c87 of the final code, every engine but the AI ones: 31 open (1 / 4 / 9 / 16, 1 info), none new, all judged before; the release's own code has no result; an independent review's 6 fixes are in ([review](docs/security/mz-01.01.10-review.md)) |
 | MZ-01.01.09 | 507/s, 0 (main 502, 0) | 4.1 s (6.3 s) | 115 ms (288 ms) | 1,055 | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, e4657d28 of MZ-01.01.08's final code: 75 open (7 / 23 / 27 / 17, 1 info), 15 to verify |
@@ -97,6 +98,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.12 — 2026-11-14 15:05 UTC · [#134](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/134)
+
+- **A shorter menu.** Four groups instead of six: Act (Workbench, Automation, Dashboard), Credits (Credit Control, Impact, Audit, Cx Credits Calculator), Set up and Labs; "Prove" is now called "Credits", and Follow up and Plan are folded into their neighbours.
+- **A plain list for people with few pages.** Someone with seven pages or fewer, such as a User or a Security Champion, sees one list without headings.
+- **Settings in five groups.** You, Connections, Reminders, Organisation and About; the Risks endpoint is now an advanced part of Checkmarx One, and Links into Checkmarx One an advanced part of Server address.
+- **Nothing moved out of reach.** Every page and setting opens for the same people as before; old links, pins and folded groups still work, and About & terms of use is now shown to everyone, so the version link works for every role.
+- **Status.** 1,213 tests pass (one is skipped when run as root and passes in CI), with 16 that drive the page in Chromium, among them the four groups, the plain list, old links, pins, folded groups and the phone layout; `npm audit --omit=dev` finds nothing. Benchmark against main, both runs with 0 failed requests and no finding sent twice: 513 requests a second (main 507), report opens 0.3 s at p95 (main 1.8 s), triage polls 129 ms (main 183 ms); the change is in the page only, so the server does the same work. Checkmarx One scan d79bed45, every engine but the AI ones: 32 results, none new.
 
 ## MZ-01.01.11 — 2026-11-14 14:10 UTC · [#133](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/133)
 
