@@ -159,6 +159,24 @@ test('every Settings link has its section, shown and changed by the same people'
   assert.deepEqual(out.map((a) => [a.href, gate(a['data-perm'])]), [['#/automation', gate(PAGES_BEFORE.automation)]]);
 });
 
+test('Settings has five groups, with every link in its place', () => {
+  const piece = between('<nav class="set-nav" id="set-nav"', '</nav>');
+  const groups = [];
+  for (const m of piece.matchAll(/<p class="set-group[^>]*>([^<]+)<\/p>|<a href="#\/settings\/(\w+)" data-set="\2"|<a href="#\/(automation)" class="set-out"/g)) {
+    if (m[1]) groups.push([m[1].replace('&amp;', '&'), []]);
+    else groups.at(-1)[1].push(m[2] ?? `→ ${m[3]}`);
+  }
+  assert.deepEqual(groups, [
+    ['You', ['profile', 'appearance', 'mybrand']],
+    ['Connections', ['import', 'connection', 'smtp', 'network', 'endpoint', 'https', 'server', 'links']],
+    ['Reminders', ['handsoff', 'initiators', 'template', '→ automation', 'sla']],
+    ['Organisation', ['ai', 'branding', 'features', 'support']],
+    ['About', ['activation', 'tenants', 'update', 'about']],
+  ]);
+  // A heading has no permissions of its own: it shows with settings.view, like the links under it that everyone with it sees.
+  for (const el of settingsNav.filter((p) => p.tag === 'p')) assert.equal(el['data-perm'], undefined, 'no heading can hide while a link under it shows');
+});
+
 test('every old address and saved choice still leads somewhere', () => {
   // Pages renamed long ago, and Automation's old place in Settings.
   const aliases = Object.fromEntries([.../const ROUTE_ALIASES = \{([^}]*)\}/.exec(app)[1].matchAll(/'?([\w-]+)'?: '(\w+)'/g)].map((m) => [m[1], m[2]]));
