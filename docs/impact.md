@@ -1,6 +1,6 @@
 # Impact: what AI did for the backlog
 
-The **Impact** page (sidebar group **Prove**) shows what AI Triage and AI Remediation did for your vulnerability backlog, in hours, money and findings. It also shows how fast the security debt is shrinking. Anyone who may view tracked reports can open it.
+The **Impact** page (sidebar group **Credits**) shows what AI Triage and AI Remediation did for your vulnerability backlog, in hours, money and findings. It also shows how fast the security debt is shrinking. Anyone who may view tracked reports can open it.
 
 It has two tabs:
 
@@ -30,7 +30,7 @@ The numbers are deliberately conservative, so nobody can call them inflated:
 
 ## Settings
 
-**Settings → AI & credits → Impact: time and money**:
+**Settings → AI & credit pool → Impact: time and money**:
 
 | Setting | Default | What it does |
 | --- | --- | --- |

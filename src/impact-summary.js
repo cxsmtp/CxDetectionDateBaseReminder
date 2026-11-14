@@ -74,7 +74,7 @@ export function impactSummary(impact, { appName = 'CxMissionZero', periodLabel =
   const debtLine = debt.change === null ? 'No open findings at the start of the period.' : `${debt.change <= 0 ? 'Down' : 'Up'} ${Math.abs(debt.change)}% (from ${num(debt.start)} to ${num(debt.now)})${debt.zeroBy ? `; at this pace it reaches zero by ${esc(debt.zeroBy)}` : ''}.`;
   const tiles = [
     ['Hours saved', `${num(impact.hours.total)} h`, `${num(impact.hours.triage)} h triage, ${num(impact.hours.fix)} h fixing`],
-    [m.value !== null && m.cost !== null ? 'Saved, after credits' : 'Value of that time', m.value === null ? 'Set an hourly cost' : cash(m.net ?? m.value, m.currency), m.value === null ? 'Settings → AI & credits → Impact' : m.cost === null ? 'before the cost of credits' : `${cash(m.value, m.currency)} saved, ${cash(m.cost, m.currency)} in credits`],
+    [m.value !== null && m.cost !== null ? 'Saved, after credits' : 'Value of that time', m.value === null ? 'Set an hourly cost' : cash(m.net ?? m.value, m.currency), m.value === null ? 'Settings → AI & credit pool → Impact' : m.cost === null ? 'before the cost of credits' : `${cash(m.value, m.currency)} saved, ${cash(m.cost, m.currency)} in credits`],
     ['Noise removed', num(impact.noiseRemoved), 'findings AI Triage showed not exploitable'],
     ['Security debt', debt.change === null ? '—' : `${debt.change > 0 ? '+' : ''}${debt.change}%`, debt.zeroBy ? `zero by ${esc(debt.zeroBy)} at this pace` : 'open findings, weighted by severity'],
   ];

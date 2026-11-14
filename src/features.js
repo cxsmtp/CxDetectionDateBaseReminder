@@ -61,7 +61,7 @@ export const FEATURES = [
   {
     id: 'faeFlush',
     labs: true,
-    // Once final it leaves Labs (FAE Flush to Act, Govern to its own group).
+    // Once final it leaves Labs (FAE Flush to the top of Act, Govern to Credits, after Audit).
     leavesLabsWhenFinal: true,
     name: 'FAE Flush',
     // Not for everyone: only once an activation code from the maintainer has unlocked it (feature:faeFlush).
@@ -70,7 +70,7 @@ export const FEATURES = [
     // Once final: whoever manages the Checkmarx One integration (it creates, scans and deletes projects with its key).
     permission: 'integration.cxone',
     whenFinal: [
-      'It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation); the Workbench stays the home page.',
+      'It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.',
       'Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).',
     ],
     beforeFinal: 'Keep it in Beta until a run on a few of your own projects has marked what you expected: check some of the results it marked in Checkmarx One, and that Undo puts them back.',
@@ -78,7 +78,7 @@ export const FEATURES = [
   {
     id: 'govern',
     labs: true,
-    // Once final it leaves Labs (FAE Flush to Act, Govern to its own group).
+    // Once final it leaves Labs (FAE Flush to the top of Act, Govern to Credits, after Audit).
     leavesLabsWhenFinal: true,
     name: 'Govern',
     // Not for everyone: only once an activation code from the maintainer has unlocked it (feature:govern).
@@ -89,7 +89,7 @@ export const FEATURES = [
     // Once final, for whoever holds one of Govern's own permissions (in Labs: Labs: Govern; what they may do there still follows them).
     usableWith: ['govern.view', 'govern.request'],
     whenFinal: [
-      'It moves out of Labs to its own menu group, Govern, between Prove and Plan.',
+      'It moves out of Labs to the Credits group of the menu, after Audit.',
       'Everyone holding a Govern permission uses it (no Labs permission needed).',
     ],
     beforeFinal: 'Keep it in Beta (budgets in Monitor) until the figures match what Checkmarx One shows for your own users and projects, and the Attribution queue is settled; then switch a first budget to Enforce and check that Restore puts everything back.',

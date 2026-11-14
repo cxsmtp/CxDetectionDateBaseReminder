@@ -5838,6 +5838,11 @@
   "twostep|Code": "Mã",
   "twostep|Recovery code": "Mã khôi phục",
   "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>Tín dụng",
-  "Credits given, used and left, what they achieved, and how many a customer needs": "Tín dụng đã cấp, đã dùng và còn lại, kết quả đạt được và số tín dụng khách hàng cần"
+  "Credits given, used and left, what they achieved, and how many a customer needs": "Tín dụng đã cấp, đã dùng và còn lại, kết quả đạt được và số tín dụng khách hàng cần",
+  "It moves out of Labs to the Credits group of the menu, after Audit.": "Tính năng này chuyển từ Thử nghiệm sang nhóm Tín dụng của menu, sau Kiểm tra.",
+  "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "Tính năng này chuyển từ Thử nghiệm lên đầu mục Hành động (FAE Flush, Bàn làm việc, Tự động hóa, Bảng điều khiển); Bàn làm việc vẫn là trang chủ.",
+  "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "Tiền: hãy đặt chi phí theo giờ và giá của một tín dụng trong Cài đặt → AI và hạn mức tín dụng.",
+  "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "Tiền: số giờ tiết kiệm được × chi phí theo giờ, trừ đi số tín dụng đã dùng × giá của một tín dụng (cả hai trong Cài đặt → AI và hạn mức tín dụng).",
+  "Off: add who gets it under Settings → AI & credit pool.": "Tắt: hãy thêm người nhận trong Cài đặt → AI và hạn mức tín dụng."
  }
 }

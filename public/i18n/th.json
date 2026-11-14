@@ -5838,6 +5838,11 @@
   "twostep|Code": "รหัส",
   "twostep|Recovery code": "รหัสกู้คืน",
   "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>เครดิต",
-  "Credits given, used and left, what they achieved, and how many a customer needs": "เครดิตที่จัดสรร ใช้ไป และคงเหลือ ผลลัพธ์ที่ได้ และจำนวนเครดิตที่ลูกค้าต้องใช้"
+  "Credits given, used and left, what they achieved, and how many a customer needs": "เครดิตที่จัดสรร ใช้ไป และคงเหลือ ผลลัพธ์ที่ได้ และจำนวนเครดิตที่ลูกค้าต้องใช้",
+  "It moves out of Labs to the Credits group of the menu, after Audit.": "ย้ายออกจากแล็บไปไว้ในกลุ่มเครดิตของเมนู ถัดจากการตรวจสอบ",
+  "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "ย้ายออกจากแล็บไปไว้บนสุดของเมนูดำเนินการ (FAE Flush, โต๊ะทำงาน, ระบบอัตโนมัติ, แดชบอร์ด) โดยโต๊ะทำงานยังคงเป็นหน้าแรก",
+  "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "เงิน: กำหนดค่าใช้จ่ายรายชั่วโมงและราคาต่อเครดิตได้ที่ การตั้งค่า → AI และวงเงินเครดิต",
+  "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "เงิน: ชั่วโมงที่ประหยัดได้ × ค่าใช้จ่ายรายชั่วโมง หักด้วยเครดิตที่ใช้ × ราคาต่อเครดิต (ทั้งสองค่ากำหนดได้ที่ การตั้งค่า → AI และวงเงินเครดิต)",
+  "Off: add who gets it under Settings → AI & credit pool.": "ปิด: เพิ่มผู้รับได้ที่ การตั้งค่า → AI และวงเงินเครดิต"
  }
 }

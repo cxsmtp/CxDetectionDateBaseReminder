@@ -5838,6 +5838,11 @@
   "twostep|Code": "Código",
   "twostep|Recovery code": "Código de recuperação",
   "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>Créditos",
-  "Credits given, used and left, what they achieved, and how many a customer needs": "Créditos concedidos, usados e restantes, o que eles alcançaram e de quantos um cliente precisa"
+  "Credits given, used and left, what they achieved, and how many a customer needs": "Créditos concedidos, usados e restantes, o que eles alcançaram e de quantos um cliente precisa",
+  "It moves out of Labs to the Credits group of the menu, after Audit.": "Ele sai de Labs e vai para o grupo Créditos do menu, depois de Auditoria.",
+  "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "Ele sai de Labs e vai para o topo de Agir (FAE Flush, Bancada, Automação, Painel); a Bancada continua sendo a página inicial.",
+  "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "Dinheiro: defina um custo por hora e o preço de um crédito em Configurações → AI e reserva de créditos.",
+  "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "Dinheiro: horas economizadas × o custo por hora, menos os créditos usados × o preço de um crédito (ambos em Configurações → AI e reserva de créditos).",
+  "Off: add who gets it under Settings → AI & credit pool.": "Desativado: adicione os destinatários em Configurações → AI e reserva de créditos."
  }
 }

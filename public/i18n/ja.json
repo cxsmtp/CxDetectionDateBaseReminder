@@ -5838,6 +5838,11 @@
   "twostep|Code": "コード",
   "twostep|Recovery code": "リカバリーコード",
   "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>クレジット",
-  "Credits given, used and left, what they achieved, and how many a customer needs": "割り当て・使用済み・残りのクレジット、その成果、顧客に必要なクレジット数"
+  "Credits given, used and left, what they achieved, and how many a customer needs": "割り当て・使用済み・残りのクレジット、その成果、顧客に必要なクレジット数",
+  "It moves out of Labs to the Credits group of the menu, after Audit.": "ラボからメニューの「クレジット」グループ（「監査」の次）に移動します。",
+  "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "ラボから「対応」の先頭（FAE Flush、ワークベンチ、自動化、ダッシュボード）に移動します。ホームページは引き続きワークベンチです。",
+  "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "金額：設定 → AIとクレジットプールで、時間単価と1クレジットの価格を設定してください。",
+  "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "金額：削減時間 × 時間単価から、使用済みクレジット × 1クレジットの価格を差し引いた額です（どちらも設定 → AIとクレジットプールで設定）。",
+  "Off: add who gets it under Settings → AI & credit pool.": "オフ：設定 → AIとクレジットプールで送信先を追加してください。"
  }
 }

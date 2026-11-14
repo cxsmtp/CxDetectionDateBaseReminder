@@ -3688,7 +3688,7 @@ function renderSupportNote() {
 for (const el of [...document.querySelectorAll('input[name="support-mode"]'), $('support-email')]) el.addEventListener('input', renderSupportNote);
 
 // ---------------------------------------------------------------------------
-// The credit pool (Settings → AI & credits; live while the page is open)
+// The credit pool (Settings → AI & credit pool; live while the page is open)
 // ---------------------------------------------------------------------------
 
 const CREDIT_REFRESH_MS = 15_000;
@@ -12147,7 +12147,7 @@ function renderImpact() {
   $('impact-how').innerHTML = [
     `Hours saved: Checkmarx One results triaged by AI (${num1(d.credits.triage)}) × ${s.triageMinutes} min, plus fixes with AI (${num1(d.aiFixed)}) × ${s.fixMinutes} min.`,
     'A fix counts only once Checkmarx One no longer reports the finding. Rows that share one result count once.',
-    m.value === null ? 'Money: set an hourly cost and the price of one credit under Settings → AI & credits.' : 'Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credits).',
+    m.value === null ? 'Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.' : 'Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).',
     'Security debt: open Checkmarx One results weighted by severity (critical 10, high 5, medium 2, low 1). The date it reaches zero follows the last four weeks.',
     'Time to fix: days from first detection until Checkmarx One no longer reports it. AI-fixed and fixed by hand are compared over the same period.',
   ].map((line) => `<li>${line}</li>`).join('');
@@ -12157,7 +12157,7 @@ function renderImpact() {
     // Each sentence its own piece, so each is translated whole.
     monthly.innerHTML = d.monthlyOn
       ? `<span>On: emailed on the first day of each month, for the month before.</span> <span>Recipients: ${(d.monthlyTo ?? []).length}.</span>${d.lastSent ? ` <span>Last sent: ${escapeHtml(d.lastSent)}.</span>` : ''}`
-      : '<span>Off: add who gets it under Settings → AI & credits.</span>';
+      : '<span>Off: add who gets it under Settings → AI & credit pool.</span>';
     $('impact-send').disabled = !d.monthlyOn;
   }
 }

@@ -282,3 +282,33 @@ test('Settings outside "You" still needs settings.view, except About & terms of 
   assert.ok(reload.indexOf('renderAbout();') > 0 && reload.indexOf('renderAbout();') < reload.indexOf("if (!can('settings.view')) return;"));
   assert.match(app, /const settingsToo = can\('settings\.view'\);/);
 });
+
+test('the words follow the menu, and every heading has its translation', () => {
+  const catalog = JSON.parse(read('i18n/catalog.json'));
+  // A menu heading is looked up with its dot; its tooltip and each Settings heading as plain words.
+  const piece = between('<nav class="nav" id="nav"', '</nav>');
+  const headings = [...piece.matchAll(/<p class="nav-group[^"]*"[^>]* title="([^"]+)"[^>]*>(<i aria-hidden="true"><\/i>[^<]+)<\/p>/g)];
+  assert.equal(headings.length, 5);
+  for (const [, title, inner] of headings) {
+    assert.equal(catalog[inner]?.kind, 'html', `${inner} is in the catalog`);
+    assert.equal(catalog[title]?.kind, 'attr:title', `${title} is in the catalog`);
+  }
+  for (const [, label] of between('<nav class="set-nav" id="set-nav"', '</nav>').matchAll(/<p class="set-group[^>]*>([^<]+)<\/p>/g)) assert.ok(label in catalog, `${label} is in the catalog`);
+  // What a feature does once final says where it goes now, in every language.
+  const features = read('src/features.js');
+  const said = [
+    'It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.',
+    'It moves out of Labs to the Credits group of the menu, after Audit.',
+  ];
+  for (const sentence of said) {
+    assert.ok(features.includes(`'${sentence}'`), sentence);
+    assert.ok(sentence in catalog, `in the catalog: ${sentence}`);
+  }
+  // Nothing the page or the server says names a group that is gone.
+  for (const file of ['public/app.js', 'public/index.html', 'public/mobile.js', 'src/server.js', 'src/features.js', 'src/diagnostics.js', 'src/impact-summary.js']) {
+    assert.doesNotMatch(read(file), /Settings → (?:AI & credits|Start|Security|Reports & brand|Risks endpoint|Links into Checkmarx One)\b|(?:Prove|Plan|Follow up) → (?!Prove, plus Set up)|own menu group/, file);
+  }
+  for (const sentence of ['Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.', 'Off: add who gets it under Settings → AI & credit pool.']) {
+    assert.ok(app.includes(sentence) && sentence in catalog, sentence);
+  }
+});

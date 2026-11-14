@@ -6818,7 +6818,7 @@ app.post('/api/credits/allocate', requirePermission('credits.allocate'), afterFe
     const reason = `Only ${pool.unallocated} credit${pool.unallocated === 1 ? '' : 's'} left in the credit pool to give (pool ${pool.size}${pool.period === 'month' ? ' this month' : ''}, ${pool.used.total} used, ${pool.outstanding.total} given to projects and not used yet); ${given} asked for.`;
     if (changes.length) allocations.save();
     audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { projectIds: projects.map((p) => p.projectId), pool } });
-    return res.status(409).json({ error: `${reason} Raise the pool under Settings → AI & credits.`, pool });
+    return res.status(409).json({ error: `${reason} Raise the pool under Settings → AI & credit pool.`, pool });
   }
   const beyond = await tenantRefusal(req, given, pool);
   if (beyond) {
@@ -7984,7 +7984,7 @@ async function allocateNeeded(req, projects, { wanted, extraTriage, extraRemedia
     allocations.save();
     const reason = `Only ${pool.unallocated} credit${pool.unallocated === 1 ? '' : 's'} left in the credit pool to give; ${given} needed for ${where}.`;
     audit.record({ type: 'allocation', outcome: 'refused', reason, actor, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { ...details, pool } });
-    return { error: `${reason} Raise the pool under Settings → AI & credits.`, pool, gone };
+    return { error: `${reason} Raise the pool under Settings → AI & credit pool.`, pool, gone };
   }
   const beyond = await tenantRefusal(req, given, pool);
   if (beyond) {
@@ -8523,7 +8523,7 @@ app.post('/api/credits/give', requirePermission('credits.allocate'), asyncRoute(
   if (pool.limited && given > pool.unallocated) {
     const reason = `Only ${pool.unallocated} credit${pool.unallocated === 1 ? '' : 's'} left in the credit pool to give (pool ${pool.size}${pool.period === 'month' ? ' this month' : ''}, ${pool.used.total} used, ${pool.outstanding.total} given to projects and not used yet); ${given} asked for.`;
     audit.record({ type: 'allocation', outcome: 'refused', reason, actor, project: { id: projectId, name: projectName }, credits: { kind: 'allocation', requested: given, charged: 0 }, details: { pool, from: 'credit-control' } });
-    return res.status(409).json({ error: `${reason} Raise the pool under Settings → AI & credits.`, pool });
+    return res.status(409).json({ error: `${reason} Raise the pool under Settings → AI & credit pool.`, pool });
   }
   const beyond = await tenantRefusal(req, given, pool);
   if (beyond) {

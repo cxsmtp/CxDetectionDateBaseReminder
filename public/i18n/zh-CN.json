@@ -5838,6 +5838,11 @@
   "twostep|Code": "验证码",
   "twostep|Recovery code": "恢复码",
   "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>点数",
-  "Credits given, used and left, what they achieved, and how many a customer needs": "已分配、已使用和剩余的点数，取得的成效，以及客户所需的点数"
+  "Credits given, used and left, what they achieved, and how many a customer needs": "已分配、已使用和剩余的点数，取得的成效，以及客户所需的点数",
+  "It moves out of Labs to the Credits group of the menu, after Audit.": "它将从实验室移至菜单的“点数”组，位于“审计”之后。",
+  "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "它将从实验室移至“行动”的最上方（FAE Flush、工作台、自动化、仪表板）；首页仍为工作台。",
+  "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "金额：请在“设置 → AI 与点数额度”下设置每小时成本和每点价格。",
+  "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "金额：节省工时 × 每小时成本，减去已使用点数 × 每点价格（两者均在“设置 → AI 与点数额度”下设置）。",
+  "Off: add who gets it under Settings → AI & credit pool.": "关闭：请在“设置 → AI 与点数额度”下添加收件人。"
  }
 }

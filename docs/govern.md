@@ -2,7 +2,7 @@
 
 **Govern is the credits command center for security champions.** It sets a budget of AI credits on a person, a group, a project or an application, reads what Checkmarx One reports each of them used, warns near and over the budget, lets anyone ask for more, and, only for a budget someone set to **Enforce**, takes AI away in Checkmarx One at the limit and puts it back afterwards. Everything it changes is written to the audit log and can be undone.
 
-It is in **Labs → Govern** while it is in Beta, behind its own activation code. Once an Admin makes it final, it moves to a menu group of its own, **Govern**, between Prove and Plan.
+It is in **Labs → Govern** while it is in Beta, behind its own activation code. Once an Admin makes it final, it moves to the **Credits** group of the menu, after Audit.
 
 **Contents**
 1. [What it is for](#what-it-is-for)
@@ -39,7 +39,7 @@ With the code in force, Govern in Labs is for the roles holding **See Labs** and
 
 **While the code is off** (removed, or expired): the cycles stop, nothing is read from Checkmarx One, CxMissionZero's own spend is no longer refused, and the page is gone. Restrictions already made in Checkmarx One **stay** until the code is back and someone restores them ([known limits](#known-limits)).
 
-**Making it final** (Settings → Beta features → **Make final**, permission "Make Beta features final"): it loses its Beta label and moves to its own menu group, **Govern**, between Prove and Plan. Everyone holding a Govern permission keeps using it as before. Before you do: keep every budget in Monitor until the figures match what Checkmarx One shows for your own users and projects and the Attribution queue is settled; then switch one budget to Enforce and check that Restore puts everything back.
+**Making it final** (Settings → Beta features → **Make final**, permission "Make Beta features final"): it loses its Beta label and moves to the **Credits** group of the menu, after Audit. Everyone holding a Govern permission keeps using it as before. Before you do: keep every budget in Monitor until the figures match what Checkmarx One shows for your own users and projects and the Attribution queue is settled; then switch one budget to Enforce and check that Restore puts everything back.
 
 ## Who can do what
 
