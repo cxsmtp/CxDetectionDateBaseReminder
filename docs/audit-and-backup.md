@@ -124,6 +124,42 @@ projection-reports/         Cx Credits Calculator: every projection report made,
 git-cache/                  Beta clones: a cache, never backed up
 report-files/               emailed reports for the email's download button, kept 30 days, never backed up
 backups/                    default BACKUP_DIR (better on another disk)
+<file>.bak                  the last good copy of a state file: what it held before its latest save
+<file>.damaged-<time>       a state file that could not be read, kept aside (never deleted)
+```
+
+### How state files are saved, and what happens when one is damaged (from MZ-01.01.10)
+
+Every save is written to a new file, flushed to the disk, and only then put in the place of the old one.
+A power cut or a full disk in the middle of a save leaves the old file as it was. The file from before
+the save is kept beside it as `<file>.bak`. Audit entries are flushed to the disk one by one, before the
+action they record is answered.
+
+Files that hold only secrets or that are rebuilt by themselves keep no `.bak`: the audit and
+report-signing keys, the saved sign-ins, the Govern files, the connection guard, and the network and
+watchdog files. Removing a stored
+key or password from Settings also removes it from the `.bak`.
+
+When the server starts and a state file cannot be read:
+
+| What it finds | What it does |
+| --- | --- |
+| The file is damaged and its `.bak` reads | Uses the `.bak`, moves the damaged file to `<file>.damaged-<time>`, and says so on the server's log. What was saved after the `.bak` was made is lost: at most the latest change. |
+| The file is damaged and there is no usable `.bak` | **Does not start.** It names the file, says what it holds, and stops with exit code 78. Nothing is written over the file. |
+| The file is not there at all, and neither is a `.bak` | Starts with that part empty, as on a new installation. |
+
+A server that will not start for this reason says how to go on. There are two ways:
+
+1. Restore a backup (below), with the server stopped.
+2. Or start that part afresh on purpose: move the named file and its `.bak` out of the state folder
+   (somewhere safe, not deleted), then start the server.
+
+In a container the server is tried again every few seconds and prints the same message each time; an
+update is never rolled back for this reason, because an older version would read the damaged file as
+empty and write over it. Stop the container before restoring:
+
+```
+podman stop mission-zero
 ```
 
 ## Backups
@@ -217,7 +253,24 @@ Everything comes back from the backup:
 - tracked reports;
 - the signing keys, so reports already emailed keep working.
 
-Anything already in the state folder is moved to `replaced-<time>/`, never deleted.
+Anything already in the state folder is moved to `replaced-<time>/`, never deleted. That includes
+the `.bak` copies, so an older state cannot come back after the restore.
+
+**The restore refuses while a server is running on the folder** (from MZ-01.01.10). A running server
+would write its own copy over the restored files, so the restore takes the server's lock on the state
+folder first:
+
+- A server is running: nothing is written, and the restore says which server holds the folder. Stop it and run the restore again.
+- A server crashed and left its lock: the restore watches the lock for 30 s (`INSTANCE_LOCK_STALE_SECONDS`), then goes on.
+- `--force` restores without looking at the lock. Use it only when that server is certainly not running, for example when the folder was copied from another machine.
+
+With the container, stop it and run the restore from the same image on the same volume (Windows cmd, one line; the backup is in the volume's `backups` folder):
+
+```
+podman run --rm -v mission-zero-data:/data ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest node scripts/restore.mjs /data/backups/mission-zero-2026-09-30T02-00-00.mzbackup --yes
+```
+
+Then start the container again with `podman start mission-zero`.
 
 You can also restore a running server from **Audit → Restore from backup…**:
 

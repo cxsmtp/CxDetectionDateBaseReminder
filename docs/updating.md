@@ -132,6 +132,7 @@ podman run --replace -d --name mission-zero -p 3000:3000 -v mission-zero-data:/d
 
 - **Go back to the previous version:** run the same `podman run --replace …` line with the previous version's tag instead of `:latest`, e.g. `ghcr.io/cxsmtp/cxdetectiondatebasereminder:sha-<commit>`. Every build is published with its commit tag.
 - **Before a big upgrade,** download a backup: Audit page → **Download backup**.
+- **The server says a state file is damaged and does not start** (exit code 78, from MZ-01.01.10): it has not written over the file, and it is not rolled back to the previous version. Its message names the file and the two ways to go on; see [the state folder](audit-and-backup.md#how-state-files-are-saved-and-what-happens-when-one-is-damaged-from-mz-010110).
 - **The container was killed** instead of stopped (power loss, `podman kill`): everything already written is safe, including sign-ins. The new server takes over the data folder after about 30 s. At most the last minute of changes to someone's Workbench data is lost; a refresh brings it back.
 
 ## Options
