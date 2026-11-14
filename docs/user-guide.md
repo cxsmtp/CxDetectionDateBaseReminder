@@ -137,6 +137,7 @@ What is translated, and what is not:
 - **Language:** the same choice as the globe.
 - **Time zone:** picked up from your computer by default. Untick **Use this computer's time zone** to choose another. Dates and times on every page are shown in it.
 - **Programming languages:** the languages you work in.
+- **Two-step sign-in** (for people who sign in with a password): a six-digit code from an authenticator app on your phone, after your password. **Turn on two-step sign-in**, scan the QR code with the app (or type the key), enter the code it shows, and keep the ten recovery codes. **New recovery codes** and **Turn off two-step sign-in** each ask for a current code. See [Sign in](#sign-in).
 - **Currency:** any country's currency, for money on the Impact page and in the summary you download. Choose it, then give the exchange rate from the organisation's currency, for example **1 USD = 83.2 INR**. Until you give a rate, amounts stay in the organisation's currency. Only you see your choice.
 
 Changes save as you make them and are recorded in the audit log. A time zone or first language picked up from your computer is saved without an audit entry.
@@ -187,6 +188,19 @@ Admins and Analysts can change what Security Analyst and User may do, or create 
 - The key must be for the same tenant as the server.
 - Checkmarx One then sees your actions as yours.
 
+**Two-step sign-in.** After your password, the page asks for the six-digit code your authenticator app shows for CxMissionZero.
+- Turn it on yourself under **Your profile → Two-step sign-in**. An Admin can also require it for everyone who signs in with a password: you then set it up at your next sign-in, before you get in.
+- **Use a recovery code** signs you in without the phone. Each of the ten codes works once.
+- Five wrong codes send you back to the password, and lock the account for 15 minutes, as five wrong passwords do.
+- Lost the phone and the recovery codes? An Admin takes it off under People & roles (**Reset two-step**), and you set it up again.
+- It is not asked for when you sign in with a Checkmarx One API key or with single sign-on.
+
+**Single sign-on.** When an Admin has set it up, the sign-in page has one more button (its label is theirs, such as **Sign in with Acme**). It takes you to your organisation's sign-in page and brings you back signed in, as the person in People & roles with your email address. No password and no code are asked for here.
+- If you come back to the sign-in page instead, a sentence under the button says why: for example, you have no access here yet (ask an Admin to add you), or your account is disabled.
+- An Admin may keep passwords for Admins only. Your password is then refused with *Use single sign-on*.
+
+How both work, and what keeps them safe: [Sign-in and passwords](sign-in.md).
+
 **The first administrator.** On its very first start the server creates an administrator and prints the email and password in its log:
 
 ```
@@ -212,7 +226,7 @@ podman exec mission-zero node scripts/reset-admin.mjs
 
 Nothing arrived? Check spam, or ask an Admin: at most 3 links an hour are sent to one person, and an Admin may have kept Admins, or everyone, out of resetting by email (People & roles → **Sign-in**).
 
-**Locked out?** Five wrong passwords lock an account for 15 minutes. Resetting your password by email unlocks it. An Admin or Analyst can also set a new temporary password for you on the People & roles page (**Set password**).
+**Locked out?** Five wrong passwords, or wrong two-step codes, lock an account for 15 minutes. Resetting your password by email unlocks it. An Admin or Analyst can also set a new temporary password for you on the People & roles page (**Set password**).
 
 **Connections, top right.** One look shows whether CxMissionZero can reach what it needs:
 
@@ -1124,6 +1138,7 @@ Identity and access management, in three tabs.
 | **Edit profile** | Their profile, as on Settings → Your profile: name, language, time zone, programming languages, Impact figures, look (the organisation's or one of the nine, theme, accent) and picture, and their **sign-in email** (**Change email**, after a confirmation). A new email ends any password reset link sent to the old one, and both addresses are told by email. Every change is in the audit log. For people whose permissions you hold all of, never your own (that is Your profile). **Back to People & roles** returns. |
 | Role (per person) | Change it. It applies on their next click. |
 | **Set password** | A new temporary password. |
+| **Reset two-step** | Shown for a person who has two-step sign-in on. Takes it off (a lost phone): their app and recovery codes stop working here, and they set it up again. In the audit log. |
 | **Disable / Enable** | Disabling ends their sessions at once. |
 | **Remove** | Deletes the account. |
 | **Tenants** (Super Admin, several tenants) | Choose the Checkmarx One tenants the person works in. Under each name, the tenants they work in now. |
@@ -1132,6 +1147,21 @@ Identity and access management, in three tabs.
 - **Everyone with a password** (the default), **Everyone except Admins** (people who may manage people or tenants then get a temporary password from another Admin, or with `node scripts/reset-admin.mjs`), or **Nobody**.
 - Under it, what is still missing for **Forgot your password?** to show: the email server set up and tested, and the server's https address (Settings → Server address).
 - Accounts that sign in with a Checkmarx One key only, and disabled accounts, are never sent a link.
+
+Admins see two more cards on the same tab, both for the whole server and both off by default (a Super Admin's when there are several tenants). Every change is in the audit log.
+
+- **Two-step sign-in → Require two-step sign-in for everyone who signs in with a password.** On: a person without it sets it up at their next password sign-in, before they get in, and nobody can turn their own off. People who are signed in carry on until they sign in again. Signing in with a Checkmarx One key, single sign-on and the links in emailed reports are not asked for a code.
+- **Single sign-on** (OpenID Connect: Microsoft Entra ID, Okta, Keycloak, Google and others):
+  - **Offer single sign-on on the sign-in page**: the switch.
+  - **Redirect address to register at the identity provider**: this server's address followed by `/api/session/oidc/callback` (**Copy**). Set the server's address first (Settings → Server address).
+  - **Identity provider address (issuer)**, **Client id**, **Client secret** (stored, never shown again) and **Button label**.
+  - **Who may sign in this way**: only people who are already in People & roles (the default), or everyone the identity provider signs in, added with the role you choose (never Admin).
+  - **Email domains allowed** (optional).
+  - **The identity provider must mark the email address as verified** (on by default).
+  - **Only Admins may still sign in with a password** (off by default: passwords keep working beside single sign-on).
+  - **Save single sign-on**, then **Check the identity provider**: it reads the provider's settings and keys through this server's proxy and trusted certificates, and says what it found.
+
+Step by step, with what is and is not covered: [Sign-in and passwords](sign-in.md).
 
 **Roles & permissions** is a matrix of permissions against roles.
 - **Find a permission** narrows the matrix; click a group name to fold it, or **Collapse all**. Each group row shows how many of its permissions each role has.

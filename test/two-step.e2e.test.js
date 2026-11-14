@@ -421,4 +421,23 @@ test('RESET_TWO_STEP at start-up is the way back in when no Admin is left to res
   assert.equal((await fresh('POST', '/api/session/two-step', { ticket: again.body.ticket, code: totp(again.body.setup.secret) })).status, 201);
   const entries = (await fresh('GET', '/api/audit?types=iam&limit=50')).body.entries.map((e) => e.reason).join('\n');
   assert.match(entries, /Two-step sign-in reset for admin@acme\.io from the server's environment \(RESET_TWO_STEP\)\./);
+
+  // Left in the environment, the variable does nothing more: the two-step sign-in they just set up again is kept.
+  const ended = new Promise((resolve) => second.once('exit', resolve));
+  second.kill();
+  await ended;
+  let third = '';
+  const again2 = spawn(process.execPath, ['src/server.js'], {
+    env: {
+      ...process.env, PORT: String(PORT), HOST: '127.0.0.1', HTTPS: 'off', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
+      CX_API_KEY: mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' }), CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', RESET_TWO_STEP: 'admin@acme.io',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  children.push(again2);
+  again2.stdout.on('data', (d) => (third += d));
+  again2.stderr.on('data', (d) => (third += d));
+  await until(() => /Successfully authenticated/.test(third) || again2.exitCode !== null, 20_000).catch(() => {});
+  assert.match(third, /RESET_TWO_STEP was used for this person at an earlier start, so nothing was reset now/, third.slice(-1500));
+  assert.match(fs.readFileSync(path.join(dataDir, 'iam.json'), 'utf8'), new RegExp(again.body.setup.secret), 'still on');
 });

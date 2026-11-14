@@ -286,6 +286,12 @@
 
               <p class="onprem-note">Runs on your own servers and sends your data to no one: it connects only to the services you connect it to (Checkmarx One, your email server and any code host you add; and, only when an Admin checks for or installs updates, the registry its own image comes from). No telemetry, no analytics, nothing calls home, and you can monitor its traffic to check.</p>
               <p class="hint terms-signin">Use of CxMissionZero is subject to its <a href="#" data-terms-open>terms of use</a>: an independent project, not a Checkmarx product, provided as is.</p>
+              <!-- Single sign-on (OpenID Connect), when an Admin turned it on: the button's label is theirs -->
+              <div class="sso-signin" id="sso-signin" hidden>
+                <button type="button" class="primary big block-sm" id="sso-button">Sign in with single sign-on</button>
+                <span id="sso-status" class="status" aria-live="polite"></span>
+                <p class="hint" id="sso-password-note" hidden>Here, only Admins still sign in with a password. Everyone else uses the button above.</p>
+              </div>
               <form id="password-form" autocomplete="on">
                 <label class="field"><span>Email</span><input id="signin-email" type="email" autocomplete="username" required /></label>
                 <label class="field"><span>Password</span><input id="signin-password" type="password" autocomplete="current-password" required /></label>
@@ -3500,6 +3506,47 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
               </div>
               <p class="hint">Someone lost their phone and their recovery codes? Under People, <strong>Reset two-step</strong> takes it off for them, and they set it up again. For the only Admin, start the server once with <code>RESET_TWO_STEP</code> set to their email address.</p>
               <p class="status" id="iam-twostep-status" aria-live="polite"></p>
+            </section>
+            <section class="panel" id="iam-sso-panel" hidden>
+              <h2>Single sign-on</h2>
+              <p class="hint">People sign in at your organisation's identity provider (Microsoft Entra ID, Okta, Keycloak, Google, or any other that speaks OpenID Connect) and come back signed in here, as the person in People &amp; roles with the same email address. Their role, and what they may do, are still set here. Two-step sign-in is not asked for after single sign-on: the identity provider has its own. For the whole server.</p>
+              <form id="iam-sso-form" autocomplete="off">
+                <div class="toggle-list">
+                  <label class="switch"><input type="checkbox" id="sso-enabled" /> <span><strong>Offer single sign-on on the sign-in page</strong><small>Off: the button is not shown, and nobody can sign in this way.</small></span></label>
+                </div>
+                <label class="field"><span>Redirect address to register at the identity provider</span>
+                  <span class="input-with-button"><input id="sso-redirect" class="code" readonly spellcheck="false" /><button type="button" class="sm" id="sso-redirect-copy">Copy</button></span>
+                  <small class="hint">This server's address (Settings → Server address) followed by <code>/api/session/oidc/callback</code>.</small></label>
+                <div class="grid2">
+                  <label class="field"><span>Identity provider address (issuer)</span><input id="sso-issuer" spellcheck="false" maxlength="300" placeholder="https://login.company.com/realms/main" />
+                    <small class="hint">An https address. The server reads <code>/.well-known/openid-configuration</code> under it, through the proxy and with the certificates set under Settings → Network &amp; proxy.</small></label>
+                  <label class="field"><span>Button label</span><input id="sso-label" maxlength="60" />
+                    <small class="hint">What the button on the sign-in page says.</small></label>
+                  <label class="field"><span>Client id</span><input id="sso-client-id" spellcheck="false" maxlength="300" /></label>
+                  <label class="field"><span>Client secret <span class="hint" id="sso-secret-state"></span></span><input id="sso-client-secret" type="password" autocomplete="new-password" maxlength="2000" placeholder="Leave empty to keep the stored one" />
+                    <small class="hint">Stored on the server and never shown again.</small></label>
+                </div>
+                <label class="field"><span>Who may sign in this way</span>
+                  <select id="sso-provision">
+                    <option value="existing">Only people who are already in People &amp; roles</option>
+                    <option value="create">Everyone the identity provider signs in: add them with the role below</option>
+                  </select></label>
+                <label class="field" id="sso-role-field" hidden><span>Role for people added this way</span><select id="sso-role"></select>
+                  <small class="hint">Never Admin. Also list the email domains allowed below, so that only your own people are added.</small></label>
+                <label class="field"><span>Email domains allowed (optional)</span><input id="sso-domains" spellcheck="false" placeholder="company.com, company.co.uk" />
+                  <small class="hint">Empty: any address the identity provider signs in.</small></label>
+                <div class="toggle-list">
+                  <label class="switch"><input type="checkbox" id="sso-verified" /> <span><strong>The identity provider must mark the email address as verified</strong><small>Turn this off only for a provider that never sends that mark, and whose addresses you trust.</small></span></label>
+                  <label class="switch"><input type="checkbox" id="sso-password-admins" /> <span><strong>Only Admins may still sign in with a password</strong><small>Off: everyone who has a password can still use it. On: only people with the Admin role can, so that an Admin gets in when the identity provider cannot be reached. Signing in with a Checkmarx One key is not affected.</small></span></label>
+                </div>
+                <ul class="reset-missing" id="sso-missing" hidden></ul>
+                <div class="actions">
+                  <button type="submit" class="primary" id="sso-save">Save single sign-on</button>
+                  <button type="button" id="sso-check">Check the identity provider</button>
+                  <button type="button" class="ghost" id="sso-secret-remove" hidden>Remove the stored client secret</button>
+                  <span class="status" id="sso-admin-status" aria-live="polite"></span>
+                </div>
+              </form>
             </section>
             </div>
           </div>

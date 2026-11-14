@@ -241,6 +241,8 @@ export class IamStore {
     const policy = {
       passwordReset: RESET_POLICIES.includes(raw.policy?.passwordReset) ? raw.policy.passwordReset : 'everyone',
       twoStepRequired: raw.policy?.twoStepRequired === true,
+      // Whose two-step sign-in RESET_TWO_STEP last took off (so the variable, left in the environment, works once).
+      twoStepResetFor: typeof raw.policy?.twoStepResetFor === 'string' ? raw.policy.twoStepResetFor : '',
       sso: storedSso(raw.policy?.sso),
     };
     const state = { version: 1, roles, users, migrations, policy };
@@ -557,6 +559,18 @@ export class IamStore {
     this.#state.policy = { ...(this.#state.policy ?? {}), twoStepRequired: on === true };
     this.#save();
     return { before, after: on === true };
+  }
+
+  /** The email RESET_TWO_STEP was last used for ('' once the server has started without the variable). */
+  twoStepResetFor() {
+    return this.#state.policy?.twoStepResetFor ?? '';
+  }
+
+  noteTwoStepResetFor(email) {
+    const value = norm(email);
+    if (this.twoStepResetFor() === value) return;
+    this.#state.policy = { ...(this.#state.policy ?? {}), twoStepResetFor: value };
+    this.#save();
   }
 
   /** Single sign-on as saved (src/oidc.js), client secret included: for the server only, never sent to a browser. */

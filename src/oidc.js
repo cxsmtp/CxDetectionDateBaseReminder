@@ -163,6 +163,8 @@ export function mergeSso(current, incoming = {}, { roles = [] } = {}) {
   }
   if ('enabled' in input) out.enabled = input.enabled === true;
   if ('passwordAdminsOnly' in input) out.passwordAdminsOnly = input.passwordAdminsOnly === true;
+  // Turned off: passwords are for everyone again, unless this very change asks otherwise (which is refused below).
+  if (!out.enabled && input.passwordAdminsOnly !== true) out.passwordAdminsOnly = false;
   if (out.enabled && (!out.issuer || !out.clientId)) throw refuse('Give the identity provider\'s address and the client id before turning single sign-on on.');
   if (out.passwordAdminsOnly && !out.enabled) throw refuse('Turn single sign-on on before keeping passwords for Admins only.');
   return out;
@@ -320,14 +322,19 @@ const providerCode = (body) => (typeof body?.error === 'string' && /^[a-z0-9_.-]
 export class OidcClient {
   #fetch;
   #lookup;
+  #proxy;
   #now;
   #discovery = new Map(); // issuer -> { doc, at }
   #keys = new Map(); // jwks_uri -> { keys, at }
 
-  /** `fetch`, `lookup` and `now` can be replaced in tests; by default the server's own (proxy and trusted certificates included). */
-  constructor({ fetch = (...args) => globalThis.fetch(...args), lookup = dns.promises.lookup, now = Date.now } = {}) {
+  /**
+   * `fetch`, `lookup`, `proxy` and `now` can be replaced in tests; by default the server's own: fetch goes through
+   * the proxy this server uses and trusts the certificates every other outgoing call does.
+   */
+  constructor({ fetch = (...args) => globalThis.fetch(...args), lookup = dns.promises.lookup, proxy = proxyFor, now = Date.now } = {}) {
     this.#fetch = fetch;
     this.#lookup = lookup;
+    this.#proxy = proxy;
     this.#now = now;
   }
 
@@ -343,7 +350,7 @@ export class OidcClient {
     if (problem) throw new SsoError('setup', `the ${what} ${problem}`);
     const host = new URL(address).hostname.replace(/^\[(.*)\]$/, '$1');
     // Through a proxy the proxy resolves the name; directly, every address the name resolves to is checked too.
-    if (net.isIP(host) || proxyFor(host)) return;
+    if (net.isIP(host) || this.#proxy(host)) return;
     let addresses;
     try {
       addresses = await this.#lookup(host, { all: true });
@@ -384,12 +391,13 @@ export class OidcClient {
 
   /**
    * The provider's discovery document, checked: it must name this issuer, and its endpoints must be addresses
-   * the server may call. Kept for an hour; `refresh` reads it again (not more often than every half minute).
+   * the server may call. Kept for an hour; `refresh` reads it again (not more often than every half minute);
+   * `force` reads it now whatever is kept (the Admin's own check).
    */
-  async discover(issuer, { refresh = false } = {}) {
+  async discover(issuer, { refresh = false, force = false } = {}) {
     const now = this.#now();
     const kept = this.#discovery.get(issuer);
-    if (kept && now - kept.at < (refresh || kept.failed ? REFRESH_GAP_MS : DISCOVERY_TTL_MS)) return kept.doc;
+    if (kept && !force && now - kept.at < (refresh || kept.failed ? REFRESH_GAP_MS : DISCOVERY_TTL_MS)) return kept.doc;
     const localHttp = LOOPBACK_HTTP.test(issuer);
     const base = issuer.replace(/\/+$/, '');
     const { status, body } = await this.#call(`${base}/.well-known/openid-configuration`, 'identity provider\'s discovery address', localHttp);
@@ -411,11 +419,11 @@ export class OidcClient {
     return doc;
   }
 
-  /** The provider's signing keys (JWKS). Kept for an hour; `refresh` reads them again (not more often than every half minute). */
-  async keys(doc, { refresh = false } = {}) {
+  /** The provider's signing keys (JWKS). Kept for an hour; `refresh` and `force` as for discovery. */
+  async keys(doc, { refresh = false, force = false } = {}) {
     const now = this.#now();
     const kept = this.#keys.get(doc.jwks_uri);
-    if (kept && now - kept.at < (refresh || kept.failed ? REFRESH_GAP_MS : DISCOVERY_TTL_MS)) return kept.keys;
+    if (kept && !force && now - kept.at < (refresh || kept.failed ? REFRESH_GAP_MS : DISCOVERY_TTL_MS)) return kept.keys;
     const { status, body } = await this.#call(doc.jwks_uri, 'identity provider\'s keys address', doc.localHttp);
     if (status !== 200 || !Array.isArray(body?.keys)) throw new SsoError('provider', `the identity provider's keys address answered ${status} without keys`);
     const keys = body.keys.slice(0, 100);
@@ -481,14 +489,14 @@ export class OidcClient {
   /** For the Admin's "Check" button: can the provider be reached, and what does it publish? Never throws. */
   async check(sso) {
     try {
-      const doc = await this.discover(sso.issuer, { refresh: true });
-      const keys = await this.keys(doc, { refresh: true });
+      const doc = await this.discover(sso.issuer, { force: true });
+      const keys = await this.keys(doc, { force: true });
       const usable = keys.filter((k) => ['RSA', 'EC'].includes(k?.kty)).length;
       if (!usable) return { ok: false, message: 'The identity provider answered, but publishes no RSA or EC signing key.' };
       return { ok: true, message: `The identity provider answered: ${usable} signing key${usable === 1 ? '' : 's'} found.`, issuer: doc.issuer };
     } catch (error) {
       if (!(error instanceof SsoError)) throw error;
-      return { ok: false, message: `Not reached as set: ${error.message}.` };
+      return { ok: false, message: `The identity provider could not be checked: ${error.message}.` };
     }
   }
 }

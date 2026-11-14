@@ -227,7 +227,7 @@ export async function checkRoute({ proxy = '', host, port = 443, pathname = '/',
  * Every connection this server makes or takes, for a network team: what, where, port,
  * through the proxy or not, and why. From this server's own settings.
  */
-export function requirements({ checkmarxOne = [], smtp = null, git = [], letsEncrypt = false, updates = false, inboundPort = 3000, proxy = null, backupMail = null }) {
+export function requirements({ checkmarxOne = [], smtp = null, git = [], letsEncrypt = false, updates = false, inboundPort = 3000, proxy = null, backupMail = null, sso = null }) {
   const viaProxy = proxy ? 'Through the proxy' : 'Direct';
   const rows = [];
   const add = (direction, what, host, port, route, why) => rows.push({ direction, what, host, port, route, why });
@@ -239,6 +239,7 @@ export function requirements({ checkmarxOne = [], smtp = null, git = [], letsEnc
   if (smtp?.host) add('Out', 'Email server', smtp.host, String(smtp.port || 587), 'Direct (mail does not go through a web proxy)', 'Reminders, reports and notices.');
   if (backupMail?.host) add('Out', 'Mailbox for backups', backupMail.host, String(backupMail.port || 993), 'Direct', 'Backups sent by email.');
   for (const g of git) add('Out', g.label, g.host, '443', viaProxy, 'Code authors for findings (Beta).');
+  if (sso?.host) add('Out', 'Identity provider (single sign-on)', sso.host, String(sso.port || 443), viaProxy, 'People signing in with single sign-on. The provider may keep its keys and token address on other hosts of its own: its discovery document names them.');
   if (letsEncrypt) {
     add('Out', 'Let\'s Encrypt', 'acme-v02.api.letsencrypt.org', '443', viaProxy, 'This server\'s HTTPS certificate.');
     add('In', 'Let\'s Encrypt validation', 'this server', '80', 'Direct', 'Proves the server name when the certificate is issued and renewed.');

@@ -518,15 +518,18 @@ async function prepareAccess() {
 
 /**
  * RESET_TWO_STEP=<email>: the way back in for someone whose authenticator app and recovery codes are both gone when
- * no Admin is left to reset it for them (the only Admin, say). At start-up their two-step sign-in is taken off, once;
+ * no Admin is left to reset it for them (the only Admin, say). At start-up their two-step sign-in is taken off;
  * they sign in with their password and set it up again. Whoever can set the server's environment can do this, as
- * they can run scripts/reset-admin.mjs. Recorded in the audit log.
+ * they can run scripts/reset-admin.mjs. Recorded in the audit log. It works once for a person: left in the
+ * environment it does nothing more, until the server has started without it.
  */
 function resetTwoStepFromEnvironment() {
-  const email = String(process.env.RESET_TWO_STEP ?? '').trim();
-  if (!email) return;
+  const email = String(process.env.RESET_TWO_STEP ?? '').trim().toLowerCase();
+  if (!email) return iam.noteTwoStepResetFor('');
+  if (iam.twoStepResetFor() === email) return console.warn('! [access] RESET_TWO_STEP was used for this person at an earlier start, so nothing was reset now. Take it out of the environment.');
   const user = iam.findByEmail(email);
   if (!user) return console.warn('! [access] RESET_TWO_STEP names nobody who has access here: nothing was reset. Take it out of the environment.');
+  iam.noteTwoStepResetFor(email);
   if (iam.resetTwoStep(user.id)) {
     audit.record({ type: 'iam', outcome: 'changed', reason: `Two-step sign-in reset for ${user.email} from the server's environment (RESET_TWO_STEP).`, actor: SYSTEM_ACTOR });
     console.log(`[access] Two-step sign-in was reset for ${user.email} (RESET_TWO_STEP). Take RESET_TWO_STEP out of the environment now.`);
@@ -1650,9 +1653,11 @@ const clearSsoCookie = (res) => res.append('Set-Cookie', `${SSO_COOKIE}=; Path=$
 function ssoRefused(req, res, code, why, user = null) {
   res.locals.signInRefused = true;
   if (user) res.locals.activityUser = user;
-  console.warn(`! [single sign-on] Not signed in (${code}): ${logSafe(why)}.`);
-  if (refusalListed(`address ${clientIp(req)}`, Date.now(), 'signIn')) auditAccess(req, 'refused', `Single sign-on refused${user ? ` for ${user.email}` : ''}: ${why}.`, user);
-  clearSsoCookie(res);
+  // (Listed only so many a minute, in the audit log and in the server log: nobody has signed in here.)
+  if (refusalListed(`address ${clientIp(req)}`, Date.now(), 'signIn')) {
+    console.warn(`! [single sign-on] Not signed in (${code}): ${logSafe(why)}.`);
+    auditAccess(req, 'refused', `Single sign-on refused${user ? ` for ${user.email}` : ''}: ${why}.`, user);
+  }
   res.redirect(`/#sso=${code}`);
 }
 
@@ -1662,9 +1667,13 @@ app.get(
   asyncRoute(async (req, res) => {
     res.set('Cache-Control', 'no-store');
     if (tooManySignIns(req)) return res.redirect('/#sso=busy');
-    const { sso, redirectUri, ready } = ssoState();
+    const { sso, redirectUri, ready, base } = ssoState();
     if (!sso.enabled) return res.redirect('/#sso=off');
     if (!ready) return res.redirect('/#sso=setup');
+    // Opened at another address than the server's own (an IP address, an old name): the round trip begins where it
+    // ends, or the browser would not send its cookie on the way back. Once only (`at`), so it can never go in circles.
+    const here = requestOrigin(req);
+    if (req.query.at === undefined && here && new URL(here).host.toLowerCase() !== new URL(base).host.toLowerCase()) return res.redirect(`${base}/api/session/oidc/start?at=server`);
     const flow = ssoFlows.start(readCookie(req, SSO_COOKIE));
     let url;
     try {
@@ -1684,12 +1693,13 @@ app.get(
   SSO_CALLBACK_PATH,
   asyncRoute(async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    if (tooManySignIns(req)) return ssoRefused(req, res, 'busy', 'too many sign-in attempts from this address');
+    const one = (value) => (typeof value === 'string' ? value : '');
+    const flow = ssoFlows.take(one(req.query.state), readCookie(req, SSO_COOKIE));
+    // The answer to a sign-in this browser started was counted when it started. Anything else is an attempt of its own.
+    if (!flow && tooManySignIns(req)) return res.redirect('/#sso=busy');
     const { sso, redirectUri, ready, base } = ssoState();
     if (!sso.enabled) return ssoRefused(req, res, 'off', 'single sign-on is turned off');
     if (!ready) return ssoRefused(req, res, 'setup', 'single sign-on is not set up completely');
-    const one = (value) => (typeof value === 'string' ? value : '');
-    const flow = ssoFlows.take(one(req.query.state), readCookie(req, SSO_COOKIE));
     if (!flow) return ssoRefused(req, res, 'expired', 'the answer belongs to no sign-in started from this browser in the last ten minutes (state)');
     if (req.query.error !== undefined) {
       const said = /^[a-z0-9_.-]{1,60}$/i.test(one(req.query.error)) ? one(req.query.error) : 'an error';
@@ -2634,6 +2644,18 @@ function gitHosts(settings) {
   return out;
 }
 
+/** The identity provider's host and port, while single sign-on is on: one more connection for the network team's sheet. */
+function ssoHost() {
+  const sso = iam.sso();
+  if (!sso.enabled) return null;
+  try {
+    const url = new URL(sso.issuer);
+    return { host: url.hostname, port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80) };
+  } catch {
+    return null;
+  }
+}
+
 function networkView() {
   const settings = settingsStore.get();
   const proxy = activeProxy(dataDir);
@@ -2646,6 +2668,7 @@ function networkView() {
     smtp: settings.smtp?.host ? { host: settings.smtp.host, port: settings.smtp.port } : null,
     backupMail: backupMailbox.email && backupMailbox.host ? { host: backupMailbox.host, port: backupMailbox.port } : null,
     git: gitHosts(settings),
+    sso: ssoHost(),
     letsEncrypt,
     updates: updates.supervised,
     inboundPort: Number(process.env.HTTPS_PUBLIC_PORT || process.env.PORT) || 3000,

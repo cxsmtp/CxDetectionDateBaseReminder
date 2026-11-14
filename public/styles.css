@@ -1565,6 +1565,9 @@ body.fetching [data-needs-data] { opacity: 0.45; cursor: not-allowed; }
 #iam-reset-policy { max-width: 460px; }
 .reset-missing { margin: 8px 0 0; padding-inline-start: 18px; font-size: 13px; color: var(--warn); }
 /* Two-step sign-in: the key for the authenticator app (a QR code made in the page, and the key as text), and the recovery codes. */
+/* The single sign-on button on the sign-in page, above the email and password. */
+.sso-signin { display: grid; gap: 8px; justify-items: start; margin: 0 0 18px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+.sso-signin .hint { margin: 0; }
 .twostep-steps { margin: 0 0 12px; padding-inline-start: 20px; font-size: 13.5px; line-height: 1.5; display: grid; gap: 4px; }
 .twostep-key { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 0 0 16px; }
 /* Black on white whatever the theme: that is what a phone's camera reads. */

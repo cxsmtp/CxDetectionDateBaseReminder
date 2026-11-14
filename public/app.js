@@ -2078,7 +2078,7 @@ async function showConnected(me) {
   applyProfile(me);
   applyProfileLook(me.user.profile);
   renderTenantPicker(me);
-  $('me-detail').textContent = `${user.email} · ${me.role.name} · signed in with ${me.via === 'cxone' ? 'a Checkmarx One key' : 'a password'}`;
+  $('me-detail').textContent = `${user.email} · ${me.role.name} · signed in with ${me.via === 'cxone' ? 'a Checkmarx One key' : me.via === 'sso' ? 'single sign-on' : 'a password'}`;
   $('user-menu').hidden = false;
   $('connect-panel').hidden = true;
   $('nav').hidden = false;
@@ -2282,6 +2282,7 @@ function showSignIn({ setup = false, change = false, message = '' } = {}) {
   $('reset-box').hidden = true;
   $('twostep-box').hidden = true;
   $('recovery-box').hidden = true;
+  setStatus('sso-status', '');
   if (!setup && !change) refreshForgotLink();
   $('change-cancel').hidden = change;
   $('change-current-field').hidden = false;
@@ -2335,14 +2336,51 @@ async function connect(event) {
 
 // ---- Forgotten password: a one-time link to the account's own email --------------------------
 
-/** "Forgot your password?" shows only when the server can send the link (policy, email, address). */
+/**
+ * "Forgot your password?" shows only when the server can send the link (policy, email, address); the single
+ * sign-on button only when an Admin turned it on, with the label they gave it.
+ */
 async function refreshForgotLink() {
   try {
     const session = await api('/api/session');
     $('forgot-open').hidden = !session.passwordReset;
+    // (A reason for coming back from the identity provider without a sign-in stays readable, even with the button gone.)
+    $('sso-signin').hidden = !session.sso && !$('sso-status').textContent;
+    $('sso-button').hidden = !session.sso;
+    $('sso-password-note').hidden = !session.sso?.passwordAdminsOnly;
+    if (session.sso) $('sso-button').textContent = session.sso.label;
   } catch {
     $('forgot-open').hidden = true;
+    $('sso-signin').hidden = !$('sso-status').textContent;
+    $('sso-button').hidden = true;
   }
+}
+
+// ---- Single sign-on: off to the identity provider, and what to say when it sends someone back without signing them in ----
+
+/** The server sends people back with a short code (#sso=…), never with the provider's own words: these are the sentences. */
+const SSO_REFUSALS = {
+  off: 'Single sign-on is not turned on here. Sign in with your email and password.',
+  setup: 'Single sign-on is not set up completely. Ask an administrator.',
+  provider: 'The identity provider could not be reached, or did not answer as expected. Try again in a moment, or ask an administrator.',
+  cancelled: 'The identity provider did not sign you in. Try again.',
+  expired: 'That sign-in took too long, or was started in another browser. Try again.',
+  token: "The identity provider's answer could not be verified, so nobody was signed in. Ask an administrator.",
+  email: 'The identity provider did not give a verified email address for you. Ask an administrator.',
+  domain: 'Your email address is not one that may sign in here this way.',
+  unknown: 'The identity provider signed you in, but you have no access here yet. Ask an administrator to add you.',
+  disabled: 'This account is disabled. Ask an administrator.',
+  busy: 'Too many sign-in attempts from this address. Wait a few minutes.',
+};
+const ssoRefusalCode = () => /^#sso=([a-z]{1,20})$/.exec(location.hash)?.[1] ?? '';
+
+/** Back from the identity provider without a sign-in: say why on the sign-in page, and take the code out of the address. */
+function showSsoRefusal(code) {
+  history.replaceState(null, '', location.pathname + location.search);
+  if (state.me) return;
+  showSignIn();
+  setStatus('sso-status', Object.hasOwn(SSO_REFUSALS, code) ? SSO_REFUSALS[code] : 'Single sign-on did not work. Try again, or ask an administrator.', 'error');
+  $('sso-signin').hidden = false;
 }
 
 function showForgot() {
@@ -2481,11 +2519,11 @@ function showTwoStepKey(container, setup) {
   container.append(text);
 }
 
-/** A button that copies `value`, and says so beside it. */
+/** A button that copies `value` (a text, or a function that gives it when the button is pressed), and says so beside it. */
 function copyButton(button, status, value) {
   button.addEventListener('click', async () => {
     try {
-      await navigator.clipboard.writeText(value);
+      await navigator.clipboard.writeText(typeof value === 'function' ? value() : value);
       status.textContent = 'Copied.';
       status.className = 'status ok';
     } catch {
@@ -2612,7 +2650,11 @@ function openPasswordChange() {
   $('user-menu').open = false;
   showSignIn({ change: true });
   state.pendingMe = me;
-  $('change-hint').textContent = me.user.hasPassword ? 'Enter your current password and choose a new one.' : 'You signed in with a Checkmarx One key: set a password to also sign in with your email.';
+  $('change-hint').textContent = me.user.hasPassword
+    ? 'Enter your current password and choose a new one.'
+    : me.via === 'sso'
+      ? 'You signed in with single sign-on: set a password to also sign in with your email.'
+      : 'You signed in with a Checkmarx One key: set a password to also sign in with your email.';
   $('change-current-field').hidden = !me.user.hasPassword;
   $('change-cancel').hidden = false;
 }
@@ -7459,7 +7501,12 @@ function renderSendResult(result) {
 window.addEventListener('hashchange', () => {
   const token = resetLinkToken();
   if (token) showReset(token);
+  else if (ssoRefusalCode()) showSsoRefusal(ssoRefusalCode());
   else route();
+});
+$('sso-button').addEventListener('click', () => {
+  setStatus('sso-status', 'Going to the identity provider…');
+  location.href = '/api/session/oidc/start';
 });
 
 $('connect-form').addEventListener('submit', connect);
@@ -9002,11 +9049,15 @@ document.addEventListener('keydown', (event) => {
   // Opened from an emailed reset link: that comes first, signed in or not (using it signs everyone out).
   const token = resetLinkToken();
   if (token) return showReset(token);
+  // Back from the identity provider without a sign-in: the reason, by its code, once the page knows nobody is signed in.
+  const ssoRefused = ssoRefusalCode();
+  if (ssoRefused) history.replaceState(null, '', location.pathname + location.search);
   try {
     const session = await api('/api/session');
     if (session.signedIn) await afterSignIn(session);
     else {
       showSignIn({ setup: session.setup });
+      if (ssoRefused) showSsoRefusal(ssoRefused);
       if (session.firstStart) {
         setStatus('signin-status', 'First start: sign in with the administrator email and password printed in the server (container) log.', 'ok');
       }
@@ -10971,8 +11022,99 @@ function renderSignInPolicy() {
 function renderSignInSecurity() {
   const security = access.data?.signIn?.security;
   $('iam-twostep-panel').hidden = !security;
+  $('iam-sso-panel').hidden = !security;
   if (!security) return;
   $('iam-twostep-required').checked = security.twoStepRequired;
+  renderSsoSettings(security);
+}
+
+// ---- People & roles → Sign-in → Single sign-on (Admins) ----
+
+/** What the form was last filled from, so that typing is not overwritten each time the page is drawn again. */
+let ssoFilledFrom = '';
+
+function renderSsoSettings(security) {
+  const { sso } = security;
+  $('sso-redirect').value = security.redirectUri || '';
+  $('sso-redirect').placeholder = 'Set this server\'s address first (Settings → Server address)';
+  $('sso-secret-state').textContent = sso.clientSecretSet ? '(stored)' : '(not set)';
+  $('sso-secret-remove').hidden = !sso.clientSecretSet;
+  const missing = sso.enabled ? security.missing ?? [] : [];
+  $('sso-missing').hidden = !missing.length;
+  $('sso-missing').innerHTML = missing.length ? `<li class="hint">The button is not shown on the sign-in page yet:</li>${missing.map((m) => `<li>${escapeHtml(m)}</li>`).join('')}` : '';
+  const from = JSON.stringify([sso, security.roles]);
+  if (from === ssoFilledFrom) return;
+  ssoFilledFrom = from;
+  $('sso-enabled').checked = sso.enabled;
+  $('sso-issuer').value = sso.issuer;
+  $('sso-label').value = sso.label;
+  $('sso-client-id').value = sso.clientId;
+  $('sso-client-secret').value = '';
+  $('sso-domains').value = (sso.domains ?? []).join(', ');
+  $('sso-provision').value = sso.provision;
+  $('sso-role').innerHTML = (security.roles ?? []).map((r) => `<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}</option>`).join('');
+  $('sso-role').value = (security.roles ?? []).some((r) => r.id === sso.role) ? sso.role : 'user';
+  $('sso-verified').checked = sso.requireVerifiedEmail;
+  $('sso-password-admins').checked = sso.passwordAdminsOnly;
+  syncSsoForm();
+}
+
+/** The role is chosen only when people are added; passwords can be kept for Admins only while single sign-on is on. */
+function syncSsoForm() {
+  $('sso-role-field').hidden = $('sso-provision').value !== 'create';
+  $('sso-password-admins').disabled = !$('sso-enabled').checked;
+  if (!$('sso-enabled').checked) $('sso-password-admins').checked = false;
+}
+
+async function saveSso(sso, done) {
+  setStatus('sso-admin-status', 'Saving…');
+  try {
+    access.data = await api('/api/iam/sign-in', { method: 'PUT', body: JSON.stringify({ sso }) });
+    ssoFilledFrom = '';
+    renderAccess();
+    setStatus('sso-admin-status', done, 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('sso-admin-status', error);
+  }
+}
+
+{
+  $('sso-provision').addEventListener('change', syncSsoForm);
+  $('sso-enabled').addEventListener('change', syncSsoForm);
+  $('iam-sso-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const secret = $('sso-client-secret').value;
+    saveSso(
+      {
+        enabled: $('sso-enabled').checked,
+        issuer: $('sso-issuer').value.trim(),
+        label: $('sso-label').value.trim(),
+        clientId: $('sso-client-id').value.trim(),
+        // Left empty, the stored secret is kept.
+        ...(secret ? { clientSecret: secret } : {}),
+        domains: $('sso-domains').value,
+        provision: $('sso-provision').value,
+        role: $('sso-role').value,
+        requireVerifiedEmail: $('sso-verified').checked,
+        passwordAdminsOnly: $('sso-password-admins').checked,
+      },
+      'Saved.',
+    );
+  });
+  $('sso-secret-remove').addEventListener('click', () => {
+    if (!confirm('Remove the stored client secret? Single sign-on stops working until a new one is saved, unless the identity provider needs none.')) return;
+    saveSso({ clientSecret: null }, 'The client secret was removed.');
+  });
+  $('sso-check').addEventListener('click', async () => {
+    setStatus('sso-admin-status', 'Checking the identity provider as saved…');
+    try {
+      const result = await api('/api/iam/sign-in/sso/check', { method: 'POST' });
+      setStatus('sso-admin-status', result.message, result.ok ? 'ok' : 'error');
+    } catch (error) {
+      if (!handleAuthLoss(error)) showError('sso-admin-status', error);
+    }
+  });
+  copyButton($('sso-redirect-copy'), $('sso-admin-status'), () => $('sso-redirect').value);
 }
 
 $('iam-twostep-required').addEventListener('change', async () => {
@@ -13268,7 +13410,7 @@ function renderProfile() {
   $('pf-email').textContent = user.email;
   if (other && document.activeElement !== $('pf-email-input')) $('pf-email-input').value = user.email;
   $('pf-role').textContent = other ? user.roleName : me.role.name;
-  $('pf-via').textContent = me.via === 'cxone' ? 'A Checkmarx One key' : 'A password';
+  $('pf-via').textContent = me.via === 'cxone' ? 'A Checkmarx One key' : me.via === 'sso' ? 'Single sign-on' : 'A password';
   $('pf-last').textContent = user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : '—';
   if (document.activeElement !== $('pf-name')) $('pf-name').value = user.name ?? '';
   const language = $('pf-language');
