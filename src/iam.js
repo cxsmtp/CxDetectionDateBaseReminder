@@ -561,6 +561,44 @@ export class IamStore {
     return { before, after: on === true };
   }
 
+  // -------------------------------------------------------------------------
+  // Single sign-on: who a person is at the identity provider (its issuer and subject), kept from their first sign-in
+  // -------------------------------------------------------------------------
+
+  /** The person linked to this account at the identity provider, or null. */
+  findBySso(issuer, sub) {
+    this.#fresh();
+    if (!issuer || !sub) return null;
+    return this.#state.users.find((u) => u.sso?.issuer === issuer && u.sso?.sub === sub) ?? null;
+  }
+
+  /** Link a person to their account at the identity provider (at their first single sign-on). */
+  linkSso(id, { issuer, sub }) {
+    const user = this.user(id);
+    if (!user) throw fail(404, 'No such user.');
+    user.sso = { issuer: String(issuer), sub: String(sub), linkedAt: new Date().toISOString() };
+    this.#save();
+    return publicUser(user);
+  }
+
+  /** Take the link off (their account at the provider was made anew): the next single sign-on links them again. */
+  unlinkSso(id) {
+    const user = this.user(id);
+    if (!user) throw fail(404, 'No such user.');
+    const had = Boolean(user.sso?.sub);
+    delete user.sso;
+    if (had) this.#save();
+    return had;
+  }
+
+  /** Take every link off (the identity provider was changed): how many there were. */
+  clearSsoLinks() {
+    const linked = this.#state.users.filter((u) => u.sso?.sub);
+    for (const user of linked) delete user.sso;
+    if (linked.length) this.#save();
+    return linked.length;
+  }
+
   /** The email RESET_TWO_STEP was last used for ('' once the server has started without the variable). */
   twoStepResetFor() {
     return this.#state.policy?.twoStepResetFor ?? '';
@@ -942,6 +980,8 @@ export function publicUser(user) {
     // Two-step sign-in: on or off, and since when. Never the secret or the recovery codes.
     twoStep: Boolean(user.mfa?.secret),
     twoStepSince: user.mfa?.secret ? user.mfa.enabledAt ?? '' : '',
+    // Linked to an account at the identity provider by their first single sign-on (never which one).
+    ssoLinked: Boolean(user.sso?.sub),
     mustChangePassword: Boolean(user.mustChangePassword),
     disabled: Boolean(user.disabled),
     locked: (user.lockedUntil ?? 0) > Date.now(),

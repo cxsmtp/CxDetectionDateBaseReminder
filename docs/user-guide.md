@@ -198,6 +198,8 @@ Admins and Analysts can change what Security Analyst and User may do, or create 
 **Single sign-on.** When an Admin has set it up, the sign-in page has one more button (its label is theirs, such as **Sign in with Acme**). It takes you to your organisation's sign-in page and brings you back signed in, as the person in People & roles with your email address. No password and no code are asked for here.
 - If you come back to the sign-in page instead, a sentence under the button says why: for example, you have no access here yet (ask an Admin to add you), or your account is disabled.
 - An Admin may keep passwords for Admins only. Your password is then refused with *Use single sign-on*.
+- Your first single sign-on links you to your account at the identity provider. If that account is made anew, you are sent back with *linked to another account*: an Admin resets the link under People & roles.
+- If you have no password here, **Change password** has nothing to fill in: an Admin can give you one.
 
 How both work, and what keeps them safe: [Sign-in and passwords](sign-in.md).
 
@@ -1150,6 +1152,7 @@ Identity and access management, in three tabs.
 | **Edit profile** | Their profile, as on Settings → Your profile: name, language, time zone, programming languages, Impact figures, look (the organisation's or one of the nine, theme, accent) and picture, and their **sign-in email** (**Change email**, after a confirmation). A new email ends any password reset link sent to the old one, and both addresses are told by email. Every change is in the audit log. For people whose permissions you hold all of, never your own (that is Your profile). **Back to People & roles** returns. |
 | Role (per person) | Change it. It applies on their next click. |
 | **Set password** | A new temporary password. |
+| **Reset single sign-on link** | Shown for a person linked to their account at the identity provider by a single sign-on. Use it when that account was made anew: their next single sign-on links them again, by their email address. In the audit log. |
 | **Reset two-step** | Shown for a person who has two-step sign-in on. Takes it off (a lost phone): their app and recovery codes stop working here, and they set it up again. In the audit log. |
 | **Disable / Enable** | Disabling ends their sessions at once. |
 | **Remove** | Deletes the account. |
@@ -1167,9 +1170,10 @@ Admins see two more cards on the same tab, both for the whole server and both of
   - **Offer single sign-on on the sign-in page**: the switch.
   - **Redirect address to register at the identity provider**: this server's address followed by `/api/session/oidc/callback` (**Copy**). Set the server's address first (Settings → Server address).
   - **Identity provider address (issuer)**, **Client id**, **Client secret** (stored, never shown again) and **Button label**.
-  - **Who may sign in this way**: only people who are already in People & roles (the default), or everyone the identity provider signs in, added with the role you choose (never Admin).
-  - **Email domains allowed** (optional).
-  - **The identity provider must mark the email address as verified** (on by default).
+  - **Who may sign in this way**: only people who are already in People & roles (the default), or everyone the identity provider signs in, added with the role you choose (never Admin). Adding people needs at least one email domain allowed. A person you remove is added again at their next single sign-on: disable them instead.
+  - **Email domains allowed** (optional, unless people are added).
+  - **The identity provider must mark the email address as verified** (on by default). Turned off, it still holds for people who may manage people, until they are linked.
+  - While single sign-on is on, only an Admin changes the server's address (Settings → Server address), and it must stay https.
   - **Only Admins may still sign in with a password** (off by default: passwords keep working beside single sign-on).
   - **Save single sign-on**, then **Check the identity provider**: it reads the provider's settings and keys through this server's proxy and trusted certificates, and says what it found.
 

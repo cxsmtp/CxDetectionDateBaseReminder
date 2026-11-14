@@ -49,6 +49,7 @@ function browser() {
   return call;
 }
 const admin = browser();
+const analyst = browser();
 
 async function until(check, ms = 15000) {
   const end = Date.now() + ms;
@@ -71,10 +72,13 @@ async function leave(b) {
   return { sent, query: new URL(sent.location).searchParams };
 }
 
+/** A person has one account at the provider: the same subject every time they sign in there (unless a test says otherwise). */
+const as = (grant) => ({ sub: `id-${grant.person?.email ?? grant.userinfo?.email ?? 'nobody'}`.toLowerCase(), ...grant });
+
 /** The person signs in at the provider (as `grant` says) and the browser comes back with the code. */
 async function comeBack(b, grant = {}) {
   const { query } = await leave(b);
-  const code = idp.grant(query, grant);
+  const code = idp.grant(query, as(grant));
   return b('GET', `${CALLBACK}?code=${code}&state=${query.get('state')}`);
 }
 
@@ -141,7 +145,6 @@ test('off by default: no button, and neither address does anything', async () =>
 });
 
 test('only an Admin sets it up; the client secret goes in and never comes out', async () => {
-  const analyst = browser();
   await analyst('POST', '/api/session/password', { email: 'analyst@acme.io', password: FIRST_PASSWORD });
   await analyst('POST', '/api/me/password', { current: FIRST_PASSWORD, next: `${NEXT_PASSWORD}-analyst` });
   assert.equal((await analyst('GET', '/api/iam')).body.signIn.security, null);
@@ -187,9 +190,19 @@ test('the happy path: off to the provider with PKCE, state and nonce; back with 
   assert.doesNotMatch(sent.location, new RegExp(idp.clientSecret));
   const roundTrip = sent.set.find((c) => c.startsWith('cxdr_sso='));
   assert.match(roundTrip, /; Path=\/api\/session\/oidc; HttpOnly; SameSite=Lax; Max-Age=600$/, 'kept for the round trip only, out of scripts\' reach');
+  // A new value at every start, whatever the browser holds: a cookie someone planted is never taken over.
+  const planted = randomBytes(32).toString('base64url');
+  const fixed = browser();
+  fixed.jar.set('cxdr_sso', planted);
+  const second = await leave(fixed);
+  assert.notEqual(fixed.jar.get('cxdr_sso'), planted);
+  assert.notEqual(fixed.jar.get('cxdr_sso'), b.jar.get('cxdr_sso'));
+  const planter = browser();
+  planter.jar.set('cxdr_sso', planted);
+  await assertRefused(planter, await planter('GET', `${CALLBACK}?code=${idp.grant(second.query, as({ person: dev }))}&state=${second.query.get('state')}`), 'expired');
   assert.equal(await b.signedIn(), false);
 
-  const back = await b('GET', `${CALLBACK}?code=${idp.grant(query, { person: dev })}&state=${query.get('state')}`);
+  const back = await b('GET', `${CALLBACK}?code=${idp.grant(query, as({ person: dev }))}&state=${query.get('state')}`);
   assert.equal(back.status, 302, JSON.stringify(back.body));
   assert.equal(back.location, `${BASE}/`, 'into the app, with nothing in the address');
   const session = back.set.find((c) => c.startsWith('cxdr_sid='));
@@ -222,6 +235,68 @@ test('the happy path: off to the provider with PKCE, state and nonce; back with 
   assert.ok(activity.some((e) => e.user === 'dev@acme.io' && e.action === 'Signed in with single sign-on'), JSON.stringify(activity.slice(0, 3)));
 });
 
+test('the first single sign-on links the person to their account at the provider; another account with their email is refused', async () => {
+  const person = () => admin('GET', '/api/iam').then((r) => r.body.users.find((u) => u.id === devId));
+  assert.equal((await person()).ssoLinked, true);
+  assert.match(await reasons(), /changed: dev@acme\.io was linked to their account at the identity provider at their first single sign-on\./);
+  assert.doesNotMatch(JSON.stringify((await admin('GET', '/api/iam')).body), /id-dev@acme\.io/, 'which account it is stays on the server');
+
+  // The address was given to a new account at the provider (a leaver's address reused, an account made anew): not the same person.
+  const other = browser();
+  await assertRefused(other, await comeBack(other, { person: dev, sub: 'another-account' }), 'link', /refused: Single sign-on refused for dev@acme\.io: dev@acme\.io is linked to another account at the identity provider/);
+  // Their own account, whatever its address is called now, is still them.
+  const renamed = browser();
+  assert.equal((await comeBack(renamed, { person: { email: 'dev.renamed@acme.io', email_verified: true }, sub: 'id-dev@acme.io' })).location, `${BASE}/`);
+  assert.equal((await renamed('GET', '/api/me')).body.user.email, 'dev@acme.io');
+
+  // An Admin resets the link when the account at the provider really was made anew; nobody without the permission does.
+  assert.equal((await renamed('DELETE', `/api/iam/users/${devId}/sso-link`)).status, 403);
+  const reset = await admin('DELETE', `/api/iam/users/${devId}/sso-link`);
+  assert.equal(reset.status, 200);
+  assert.equal(reset.body.users.find((u) => u.id === devId).ssoLinked, false);
+  assert.match(await reasons(), /changed: Reset the single sign-on link of dev@acme\.io\./);
+  const anew = browser();
+  assert.equal((await comeBack(anew, { person: dev, sub: 'another-account' })).location, `${BASE}/`, 'linked again, by their email address');
+  const old = browser();
+  await assertRefused(old, await comeBack(old, { person: dev }), 'link');
+  // (Back to the account the other tests sign in with.)
+  await admin('DELETE', `/api/iam/users/${devId}/sso-link`);
+  assert.equal((await comeBack(browser(), { person: dev })).location, `${BASE}/`);
+  assert.equal((await person()).ssoLinked, true);
+});
+
+test('someone who may manage people is never linked on an unverified address, whatever the switch says', async () => {
+  assert.equal((await setSso({ requireVerifiedEmail: false })).status, 200);
+  const unverified = (email) => ({ person: { email, email_verified: false } });
+  for (const email of ['analyst@acme.io', 'admin@acme.io']) {
+    const b = browser();
+    await assertRefused(b, await comeBack(b, unverified(email)), 'email', new RegExp(`refused: Single sign-on refused for ${email.replace('.', '\\.')}: the identity provider does not mark ${email.replace('.', '\\.')} as verified, and someone who may manage people is not signed in on such an address until they are linked\\.`));
+  }
+  const user = browser();
+  assert.equal((await comeBack(user, unverified('dev@acme.io'))).location, `${BASE}/`, 'someone who manages nobody follows the switch');
+  // Linked on a verified address, the same account is them from then on.
+  const verified = browser();
+  assert.equal((await comeBack(verified, { person: { email: 'analyst@acme.io', email_verified: true } })).location, `${BASE}/`);
+  const later = browser();
+  assert.equal((await comeBack(later, unverified('analyst@acme.io'))).location, `${BASE}/`);
+  // Nor is anyone added, on an unverified address, with a role that may manage people.
+  assert.equal((await setSso({ provision: 'create', role: 'analyst', domains: 'acme.io' })).status, 200);
+  const newcomer = browser();
+  await assertRefused(newcomer, await comeBack(newcomer, unverified('newcomer@acme.io')), 'email', /nobody is added with a role that may manage people on such an address/);
+  assert.equal((await admin('GET', '/api/iam')).body.users.some((u) => u.email === 'newcomer@acme.io'), false);
+  assert.equal((await setSso({ provision: 'existing', role: 'user', domains: '', requireVerifiedEmail: true })).status, 200);
+});
+
+test('another identity provider: the links to the old one are reset', async () => {
+  const moved = await setSso({ issuer: `${idp.issuer}/moved` });
+  assert.equal(moved.status, 200);
+  assert.equal(moved.body.users.some((u) => u.ssoLinked), false);
+  assert.equal(moved.body.signIn.security.sso.clientSecretSet, true, 'the same host keeps the secret');
+  assert.match(await reasons(), /changed: The identity provider changed: the single sign-on links of 2 people were reset\. Each is linked again at their next single sign-on\./);
+  assert.equal((await setSso({ issuer: idp.issuer })).status, 200);
+  assert.equal((await comeBack(browser(), { person: dev })).location, `${BASE}/`);
+});
+
 test('two-step sign-in is not asked for after single sign-on', async () => {
   const withPassword = browser();
   assert.equal((await withPassword('POST', '/api/session/password', { email: 'dev@acme.io', password: DEV_PASSWORD })).status, 201);
@@ -243,7 +318,7 @@ test('wrong state: an answer that belongs to no sign-in from this browser signs 
   // Someone else's: a link to the way back, made in one browser and opened in another (how a person would be signed in as someone else).
   const attacker = browser();
   const { query } = await leave(attacker);
-  const link = `${CALLBACK}?code=${idp.grant(query, { person: dev })}&state=${query.get('state')}`;
+  const link = `${CALLBACK}?code=${idp.grant(query, as({ person: dev }))}&state=${query.get('state')}`;
   const victim = browser();
   await assertRefused(victim, await victim('GET', link), 'expired');
   const started = browser();
@@ -332,7 +407,12 @@ test('an unknown person is refused; added only when an Admin chose that, with th
   await assertRefused(b, await comeBack(b, { person: stranger }), 'unknown', /refused: Single sign-on refused: stranger@acme\.io is not in People & roles\./);
   assert.equal((await admin('GET', '/api/iam')).body.users.some((u) => u.email === 'stranger@acme.io'), false, 'nobody was added');
 
+  // Adding people by themselves needs an email domain to hold them to.
+  const open = await setSso({ provision: 'create', role: 'user' });
+  assert.equal(open.status, 400);
+  assert.match(open.body.error, /List at least one email domain allowed before adding people at their first single sign-on/);
   assert.equal((await setSso({ provision: 'create', role: 'user', domains: 'acme.io' })).status, 200);
+  assert.equal((await setSso({ domains: '' })).status, 400, 'nor can the last domain be taken out while people are added');
   const outsider = browser();
   await assertRefused(outsider, await comeBack(outsider, { person: { email: 'stranger@other.example', email_verified: true } }), 'domain', /refused: Single sign-on refused: stranger@other\.example is not in an allowed email domain\./);
   const added = browser();
@@ -343,6 +423,30 @@ test('an unknown person is refused; added only when an Admin chose that, with th
   assert.match(said, /changed: Added stranger@acme\.io as User at their first single sign-on\./);
   assert.match(said, /info: stranger@acme\.io signed in with single sign-on\./);
   assert.equal((await browser()('POST', '/api/session/password', { email: 'stranger@acme.io', password: '' })).status, 401, 'no password was set for them');
+
+  // Signed in by single sign-on, they cannot give themselves a password: it would keep them in after they are gone at the provider.
+  const own = `own-${randomBytes(12).toString('base64url')}`;
+  const tried = await added('POST', '/api/me/password', { next: own });
+  assert.equal(tried.status, 403);
+  assert.match(tried.body.error, /You signed in with single sign-on and have no password here, so you cannot set one yourself\. An administrator can give you one under People & roles\./);
+  assert.equal((await added('POST', '/api/me/password', { current: '', next: own })).status, 403);
+  assert.equal((await added('GET', '/api/me')).body.user.hasPassword, false);
+  assert.equal((await browser()('POST', '/api/session/password', { email: 'stranger@acme.io', password: own })).status, 401);
+  // Someone who has a password still changes it with the current one, as always; and an Admin can give the stranger one.
+  const known = browser();
+  await comeBack(known, { person: dev });
+  assert.equal((await known('POST', '/api/me/password', { next: own })).status, 400, 'the current password is asked for');
+  const strangerId = (await admin('GET', '/api/iam')).body.users.find((u) => u.email === 'stranger@acme.io').id;
+  assert.equal((await admin('POST', `/api/iam/users/${strangerId}/password`, { password: own })).status, 200);
+
+  // Removed, they are added again at their next single sign-on: disabling is what keeps someone out.
+  assert.equal((await admin('DELETE', `/api/iam/users/${strangerId}`)).status, 200);
+  const again = browser();
+  assert.equal((await comeBack(again, { person: stranger })).location, `${BASE}/`, 'added again');
+  const againId = (await admin('GET', '/api/iam')).body.users.find((u) => u.email === 'stranger@acme.io').id;
+  assert.equal((await admin('PATCH', `/api/iam/users/${againId}`, { disabled: true })).status, 200);
+  const out = browser();
+  await assertRefused(out, await comeBack(out, { person: stranger }), 'disabled');
   assert.equal((await setSso({ provision: 'existing', domains: '' })).status, 200);
 });
 
@@ -385,6 +489,42 @@ test('with single sign-on on, passwords still work; "only Admins" keeps them for
   assert.equal((await browser()('POST', '/api/session/password', { email: 'dev@acme.io', password: DEV_PASSWORD })).status, 201);
 });
 
+test('while single sign-on is on, only an Admin changes the server address, and never into one that breaks it', async () => {
+  assert.equal((await setSso({ passwordAdminsOnly: true })).status, 200);
+  const address = (b, value) => b('PUT', '/api/settings', { links: { reportServerUrl: value } });
+  // Someone who may set links but is not an Admin (the Security Analyst): no change at all.
+  for (const value of ['http://mz.example', 'https://mz.example', 'http://127.0.0.1:1']) {
+    const r = await address(analyst, value);
+    assert.equal(r.status, 400, value);
+    assert.match(r.body.error, /Single sign-on is on, and the identity provider sends people back to this server's address, so only an Admin changes it\./);
+  }
+  // An Admin: not into an address the way back cannot use. They turn single sign-on off first.
+  const broken = await address(admin, 'http://mz.example');
+  assert.equal(broken.status, 400);
+  assert.match(broken.body.error, /it must stay an https address\. Give an https address, or turn single sign-on off first \(People & roles → Sign-in\)\./);
+  const uploaded = await admin('POST', '/api/settings/import-env', { text: 'REPORT_SERVER_URL=http://mz.example\n' });
+  assert.equal(uploaded.status, 400, 'nor with an uploaded .env file');
+  assert.equal((await admin('GET', '/api/settings')).body.links.reportServerUrl ?? '', '');
+  // Nothing changed: the button is there, and a password is still not enough for someone who is not an Admin.
+  assert.deepEqual((await browser()('GET', '/api/session')).body.sso, { label: 'Sign in with Acme', passwordAdminsOnly: true });
+  assert.equal((await browser()('POST', '/api/session/password', { email: 'dev@acme.io', password: DEV_PASSWORD })).status, 403);
+  // An https address is the Admin's to give; taking it out again goes back to the deployment's own (REPORT_SERVER_URL).
+  assert.equal((await address(admin, 'https://mz.example')).status, 200);
+  assert.equal((await admin('GET', '/api/iam')).body.signIn.security.redirectUri, `https://mz.example${CALLBACK}`);
+  assert.equal((await address(admin, '')).status, 200);
+  assert.equal((await admin('GET', '/api/iam')).body.signIn.security.redirectUri, `${BASE}${CALLBACK}`);
+
+  // An address saved while single sign-on was off, and not https: the deployment's own is used, so turning it on works.
+  assert.equal((await setSso({ enabled: false })).status, 200);
+  assert.equal((await address(analyst, 'http://mz.example')).status, 200, 'with single sign-on off, the address is theirs to change as before');
+  assert.equal((await setSso({ enabled: true, passwordAdminsOnly: true })).status, 200);
+  assert.equal((await admin('GET', '/api/iam')).body.signIn.security.redirectUri, `${BASE}${CALLBACK}`);
+  assert.equal((await comeBack(browser(), { person: dev })).location, `${BASE}/`);
+  assert.equal((await browser()('POST', '/api/session/password', { email: 'dev@acme.io', password: DEV_PASSWORD })).status, 403);
+  assert.equal((await address(admin, '')).status, 200);
+  assert.equal((await setSso({ passwordAdminsOnly: false })).status, 200);
+});
+
 test('nothing secret reaches the audit log or the server log: no token, no code, no client secret', async () => {
   const text = `${JSON.stringify(await auditLog())}\n${log}`;
   assert.doesNotMatch(text, new RegExp(idp.clientSecret));
@@ -400,7 +540,7 @@ test('nothing secret reaches the audit log or the server log: no token, no code,
 test('turned off again: the button goes, and an answer on its way back is refused', async () => {
   const b = browser();
   const { query } = await leave(b);
-  const code = idp.grant(query, { person: dev });
+  const code = idp.grant(query, as({ person: dev }));
   const off = await setSso({ enabled: false });
   assert.equal(off.status, 200);
   assert.equal(off.body.signIn.security.sso.enabled, false);

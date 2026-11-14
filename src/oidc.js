@@ -123,6 +123,8 @@ export function storedSso(raw = {}) {
   };
   if (!out.issuer || !out.clientId) out.enabled = false;
   if (!out.enabled) out.passwordAdminsOnly = false;
+  // People are never added by themselves without a domain to hold them to.
+  if (!out.domains.length) out.provision = 'existing';
   return out;
 }
 
@@ -158,6 +160,8 @@ export function mergeSso(current, incoming = {}, { roles = [] } = {}) {
   }
   if ('role' in input) out.role = text(input.role, 80);
   if (out.provision === 'create') {
+    // Without a domain, everyone the identity provider signs in (a guest, another organisation's account) would be added.
+    if (!out.domains.length) throw refuse('List at least one email domain allowed before adding people at their first single sign-on. Otherwise everyone the identity provider signs in would be added.');
     if (out.role === 'admin') throw refuse('People added by single sign-on cannot be given the Admin role. Choose another role, and make someone an Admin under People & roles.');
     if (!roles.includes(out.role)) throw refuse('Choose the role people added by single sign-on get.');
   }
@@ -187,6 +191,7 @@ export function ssoChanges(before, after) {
  * provider (unless the Admin turned that check off), and be in one of the allowed domains (when any are listed).
  */
 export function identityProblem(sso, identity) {
+  if (!identity?.sub || String(identity.sub).length > 255) return new SsoError('token', 'the identity provider names no subject this server can keep');
   if (!identity?.email) return new SsoError('email', 'the identity provider gave no email address');
   if (sso.requireVerifiedEmail && !identity.verified) return new SsoError('email', `the identity provider does not mark ${identity.email} as verified`);
   const domain = identity.email.split('@').pop();
@@ -215,16 +220,18 @@ export class SsoFlows {
     this.#max = max;
   }
 
-  /** Start one. `cookie`: the browser's SSO cookie when it has one already (a second tab), else a new one is made. */
-  start(cookie = '', now = Date.now()) {
+  /**
+   * Start one, with a cookie value made here for it: never one the browser presents, which someone else could
+   * have put there to finish the round trip in their own browser.
+   */
+  start(now = Date.now()) {
     for (const [key, flow] of this.#flows) if (flow.exp <= now) this.#flows.delete(key);
     for (const key of this.#flows.keys()) {
       if (this.#flows.size < this.#max) break;
       this.#flows.delete(key);
     }
-    const browser = RANDOM.test(String(cookie)) ? String(cookie) : random();
-    const flow = { state: random(), nonce: random(), verifier: random(), cookie: browser };
-    this.#flows.set(flow.state, { nonce: flow.nonce, verifier: flow.verifier, browser: b64url(sha256(browser)), exp: now + this.#ttlMs });
+    const flow = { state: random(), nonce: random(), verifier: random(), cookie: random() };
+    this.#flows.set(flow.state, { nonce: flow.nonce, verifier: flow.verifier, browser: b64url(sha256(flow.cookie)), exp: now + this.#ttlMs });
     return { ...flow, challenge: b64url(sha256(flow.verifier)) };
   }
 
@@ -442,7 +449,7 @@ export class OidcClient {
   }
 
   /**
-   * The way back: exchange the code, verify the ID token, and say who signed in: { email, verified, name, sub }.
+   * The way back: exchange the code, verify the ID token, and say who signed in: { email, verified, name, sub, issuer }.
    * The email comes from the ID token, or from userinfo when the token carries none. Throws an SsoError otherwise.
    */
   async finish(sso, redirectUri, flow) {
@@ -475,12 +482,12 @@ export class OidcClient {
       if (!(error instanceof SsoError) || !error.keys) throw error;
       claims = check(await this.keys(doc, { refresh: true }));
     }
-    let identity = { email: emailOf(claims.email), verified: verifiedOf(claims.email_verified), name: text(claims.name, 120), sub: claims.sub };
+    let identity = { email: emailOf(claims.email), verified: verifiedOf(claims.email_verified), name: text(claims.name, 120), sub: claims.sub, issuer: doc.issuer };
     if (!identity.email && doc.userinfo_endpoint && typeof answer.body.access_token === 'string') {
       const info = await this.#call(doc.userinfo_endpoint, 'identity provider\'s userinfo address', doc.localHttp, { headers: { Authorization: `Bearer ${answer.body.access_token}` } });
       // Userinfo is believed only when it is about the same person as the verified ID token.
       if (info.status === 200 && info.body?.sub === claims.sub) {
-        identity = { email: emailOf(info.body.email), verified: verifiedOf(info.body.email_verified), name: text(info.body.name, 120) || identity.name, sub: claims.sub };
+        identity = { ...identity, email: emailOf(info.body.email), verified: verifiedOf(info.body.email_verified), name: text(info.body.name, 120) || identity.name };
       }
     }
     return identity;

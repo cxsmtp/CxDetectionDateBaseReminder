@@ -106,7 +106,8 @@ ID, Okta, Keycloak, Google and any other provider that speaks OpenID Connect.
 **Setting it up** (an Admin, People & roles → **Sign-in** → **Single sign-on**; for the whole server):
 
 1. Set this server's own address first (Settings → Server address). It must be https, unless it is the computer the
-   server runs on.
+   server runs on. While single sign-on is on, only an Admin changes that address, and never into one that is not
+   https: turn single sign-on off first. After a change, give the provider the new redirect address.
 2. At the identity provider, register CxMissionZero as a web application. Give it the **Redirect address** the page
    shows: the server address followed by `/api/session/oidc/callback`. Ask for the `openid`, `email` and `profile`
    scopes.
@@ -121,20 +122,29 @@ ID, Okta, Keycloak, Google and any other provider that speaks OpenID Connect.
 | **Identity provider address (issuer)** | An https address. The server reads `/.well-known/openid-configuration` under it to find the rest. Plain http is accepted only for a provider on the same computer. |
 | **Client id**, **Client secret** | From the provider. The secret is stored on the server and never shown again: the page says only **(stored)** or **(not set)**. Leave the field empty to keep the stored one. A new provider address on another host needs it typed again. |
 | **Button label** | What the button on the sign-in page says. |
-| **Who may sign in this way** | **Only people who are already in People & roles** (the default), or **Everyone the identity provider signs in: add them with the role below**. A person added this way gets the role you choose, never Admin, and no password. |
-| **Email domains allowed** | Optional. Listed: only addresses in those domains. Give them when people are added by themselves. |
-| **The identity provider must mark the email address as verified** | On by default. Turn it off only for a provider that never sends that mark. |
-| **Only Admins may still sign in with a password** | Off by default: passwords keep working beside single sign-on. On: only people with the Admin role can still use theirs, so that an Admin gets in when the provider cannot be reached. |
+| **Who may sign in this way** | **Only people who are already in People & roles** (the default), or **Everyone the identity provider signs in: add them with the role below**. A person added this way gets the role you choose, never Admin, and no password. It needs at least one email domain allowed. A person you remove is added again at their next single sign-on: to keep someone out, disable them instead. |
+| **Email domains allowed** | Optional, unless people are added by themselves. Listed: only addresses in those domains. |
+| **The identity provider must mark the email address as verified** | On by default. Turn it off only for a provider that never sends that mark. Even then, someone who may manage people is not signed in on an unverified address, unless they are already linked (below). |
+| **Only Admins may still sign in with a password** | Off by default: passwords keep working beside single sign-on. On: only people with the Admin role can still use theirs, so that an Admin gets in when the provider cannot be reached. Only this switch and the first one decide it, both an Admin's. |
 
 **Microsoft Entra ID.** The issuer is `https://login.microsoftonline.com/<tenant id>/v2.0`. In the app registration,
 add the optional claim `email` to the ID token. Entra ID does not usually send the "verified" mark: if sign-in is
 refused for that reason, keep the app registration to your own tenant and turn **The identity provider must mark the
-email address as verified** off.
+email address as verified** off. People who may manage people (Admins, Security Analysts) are then not signed in this
+way: they use their password, or are linked while the mark is still required.
 
-**Who is signed in.** The person in People & roles whose email address is the one the provider gives. Their role, and
-what they may do, are set here, not at the provider. A disabled person is refused. The session is the one a password
-sign-in gives: the same cookie, the same 8 idle hours, the same entry in the audit log, which says it was single
-sign-on. Two-step sign-in is not asked for.
+**Who is signed in.** The first time, the person in People & roles whose email address is the one the provider gives.
+That sign-in links them to their account at the provider (the provider's own address and its id for the account, in
+`iam.json`). From then on they are that account, whatever its email address is called, and another account with the
+same email address is refused. Their role, and what they may do, are set here, not at the provider. A disabled person
+is refused. The session is the one a password sign-in gives: the same cookie, the same 8 idle hours, the same entry in
+the audit log, which says it was single sign-on. Two-step sign-in is not asked for.
+
+- **Reset single sign-on link** (People & roles → People, for a linked person): for someone whose account at the
+  provider was made anew. Their next single sign-on links them again, by their email address. In the audit log.
+- Changing the **Identity provider address** to another provider resets everyone's link.
+- **No password of their own.** Someone who signed in with single sign-on and has no password here cannot set one
+  themselves: it would keep them in after they are gone at the provider. An Admin gives them one (**Set password**).
 
 **What is and is not covered.** Single sign-on is one more way in. Signing in with a Checkmarx One API key, and the
 links in emailed reports, work as before. Removing someone at the provider stops them signing in this way; to end a
@@ -146,7 +156,8 @@ What keeps it safe:
 | --- | --- |
 | **The standard flow** | The authorization code flow with PKCE (S256), a `state` and a `nonce`. They are kept on the server for ten minutes, used once, and tied to the browser that started by an HttpOnly, SameSite=Lax cookie: a link made in someone else's browser signs nobody in. |
 | **The token is verified here** | The ID token's signature is checked against the provider's published keys with Node's own crypto. Only RS256, PS256 and ES256 are accepted: never `none`, never a shared-secret algorithm. Then its issuer, audience (and authorized party), expiry, issue time and nonce. |
-| **A verified email** | From the ID token, or from the provider's userinfo address when the token has none, and only when the provider marks it verified (unless an Admin turned that off). |
+| **A verified email, then the account itself** | The email comes from the ID token, or from the provider's userinfo address when the token has none, and only when the provider marks it verified (unless an Admin turned that off; never for someone who may manage people). After the first sign-in the person is the provider's account, not the address. |
+| **A cookie nobody else chose** | Every start makes a new cookie for the round trip. One the browser already holds is never taken over. |
 | **Outgoing calls follow the server's rules** | https only, never a link-local or cloud metadata address, through the proxy and with the certificates set under Settings → Network & proxy. Redirects are not followed. The provider is on the sheet under **What your network team needs to allow**. |
 | **Plain words, no secrets** | When it does not work, the person reads one plain sentence. Tokens, the client secret and the provider's own error text are never shown, and never written to the audit log or the server log. The server log has one line that says what was wrong, for the Admin. |
 | **Limited** | The same limit as every sign-in: 30 attempts in ten minutes from one address. |

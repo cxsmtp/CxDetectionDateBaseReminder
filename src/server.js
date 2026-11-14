@@ -1644,17 +1644,39 @@ const ssoFlows = new SsoFlows();
 /** Single sign-on as set, the address the identity provider sends people back to, and whether it can work now (and if not, why). */
 function ssoState() {
   const sso = iam.sso();
-  const base = tenancy.run(DEFAULT_TENANT, () => resetLinkBase(settingsStore.get()));
+  // The address set under Settings, or, when that one is not an https address, the deployment's own (REPORT_SERVER_URL).
+  const base = tenancy.run(DEFAULT_TENANT, () => resetLinkBase(settingsStore.get())) || resetLinkBase({ links: {} });
   const missing = [];
   if (!sso.issuer || !sso.clientId) missing.push('The identity provider\'s address and the client id are not set.');
   if (!base) missing.push('No https address for this server is set (Settings → Server address).');
   return { sso, base, redirectUri: base ? `${base}${SSO_CALLBACK_PATH}` : '', missing, ready: sso.enabled && missing.length === 0 };
 }
 
-/** With single sign-on on and "only Admins may still sign in with a password": a correct password is not enough for anyone else. */
+/**
+ * With single sign-on on and "only Admins may still sign in with a password": a correct password is not enough for
+ * anyone else. Only those two switches decide, both an Admin's. Whether single sign-on can work right now (the
+ * server's address, which others may change) never does: it could otherwise be used to bring passwords back.
+ */
 function passwordNotEnough(user) {
-  const { sso, ready } = ssoState();
-  return ready && sso.passwordAdminsOnly && user.role !== 'admin';
+  const sso = iam.sso();
+  return sso.enabled && sso.passwordAdminsOnly && user.role !== 'admin';
+}
+
+const SSO_ADDRESS_ADMIN = 'Single sign-on is on, and the identity provider sends people back to this server\'s address, so only an Admin changes it.';
+const SSO_NEEDS_ADDRESS = 'Single sign-on is on, and people come back from the identity provider to this server\'s address, so it must stay an https address. Give an https address, or turn single sign-on off first (People & roles → Sign-in).';
+/**
+ * Why the server's address may not be changed as asked ('' when it may): while single sign-on is on, only an Admin
+ * changes it, and a change that would leave no https address for the way back is refused for everyone, Admins too
+ * (they turn single sign-on off first). (The first tenant's address: the one sign-in uses.)
+ */
+function ssoAddressProblem(req, links) {
+  if (!links || !('reportServerUrl' in links) || (req.tenantId ?? DEFAULT_TENANT) !== DEFAULT_TENANT || !iam.sso().enabled) return '';
+  const current = settingsStore.get();
+  const next = mergeSettings(current, { links: { reportServerUrl: links.reportServerUrl } }).links.reportServerUrl;
+  if (next === current.links.reportServerUrl) return '';
+  // Any change moves the way back from the identity provider: that is for an Admin, who can change it there too.
+  if (req.user?.role !== 'admin') return SSO_ADDRESS_ADMIN;
+  return resetLinkBase({ links: { reportServerUrl: next } }) || (!next && resetLinkBase({ links: {} })) ? '' : SSO_NEEDS_ADDRESS;
 }
 
 /** One cookie by name, as readSessionCookie reads the session's. */
@@ -1698,7 +1720,7 @@ app.get(
     // ends, or the browser would not send its cookie on the way back. Once only (`at`), so it can never go in circles.
     const here = requestOrigin(req);
     if (req.query.at === undefined && here && new URL(here).host.toLowerCase() !== new URL(base).host.toLowerCase()) return res.redirect(`${base}/api/session/oidc/start?at=server`);
-    const flow = ssoFlows.start(readCookie(req, SSO_COOKIE));
+    const flow = ssoFlows.start();
     let url;
     try {
       url = await oidc.authorizationUrl(sso, redirectUri, flow);
@@ -1740,8 +1762,22 @@ app.get(
       if (!(error instanceof SsoError)) throw error;
       return ssoRefused(req, res, error.code, error.message);
     }
-    let user = iam.findByEmail(identity.email);
+    // Someone who has signed in this way before is the person linked to that account at the provider, whatever
+    // its email address says now. Anyone else is found by email, once, and linked from then on.
+    const linked = iam.findBySso(identity.issuer, identity.sub);
+    let user = linked ?? iam.findByEmail(identity.email);
+    if (user && !linked) {
+      if (user.sso?.sub) return ssoRefused(req, res, 'link', `${user.email} is linked to another account at the identity provider (reset the single sign-on link under People & roles if that account was made anew)`, user);
+      // Whatever the "verified" switch says: people who may manage people are never linked on an address the provider does not vouch for.
+      if (!identity.verified && iam.permissionsOf({ ...user, disabled: false }).has('iam.manage')) {
+        return ssoRefused(req, res, 'email', `the identity provider does not mark ${identity.email} as verified, and someone who may manage people is not signed in on such an address until they are linked`, user);
+      }
+    }
     if (!user && sso.provision === 'create') {
+      // (The same rule for someone about to be added with a role that may manage people.)
+      if (!identity.verified && iam.permissionsOf({ role: sso.role, disabled: false }).has('iam.manage')) {
+        return ssoRefused(req, res, 'email', `the identity provider does not mark ${identity.email} as verified, and nobody is added with a role that may manage people on such an address`);
+      }
       // An Admin chose to add people the identity provider signs in, with this role (never Admin: src/oidc.js).
       const added = await iam.createUser({ email: identity.email, name: identity.name, role: sso.role, mustChangePassword: false });
       audit.record({ type: 'iam', outcome: 'changed', reason: `Added ${added.email} as ${iam.role(added.role)?.name ?? added.role} at their first single sign-on.`, actor: SYSTEM_ACTOR, details: { user: added } });
@@ -1749,6 +1785,11 @@ app.get(
     }
     if (!user) return ssoRefused(req, res, 'unknown', `${identity.email} is not in People & roles`);
     if (user.disabled) return ssoRefused(req, res, 'disabled', 'the account is disabled', user);
+    if (!linked) {
+      iam.linkSso(user.id, identity);
+      audit.record({ type: 'iam', outcome: 'changed', reason: `${user.email} was linked to their account at the identity provider at their first single sign-on.`, actor: resetActor(req, user.email) });
+      user = iam.user(user.id);
+    }
     iam.recordSignIn(user);
     openPasswordSession(req, res, user, 'signed in with single sign-on', 'sso');
     clearSsoCookie(res);
@@ -1966,6 +2007,11 @@ app.put(
         // (The client secret is never part of the log: only that it changed, and whether one is set.)
         await auditIam(req, `Changed single sign-on: ${changed.join(', ')}.`, { before: publicSso(before), after: publicSso(after) });
       }
+      // Another identity provider: the links to people's accounts at the old one mean nothing there.
+      if (before.issuer.replace(/\/+$/, '') !== after.issuer.replace(/\/+$/, '')) {
+        const cleared = iam.clearSsoLinks();
+        if (cleared) await auditIam(req, `The identity provider changed: the single sign-on links of ${cleared} ${cleared === 1 ? 'person' : 'people'} were reset. Each is linked again at their next single sign-on.`);
+      }
     }
     res.json(iamView(req));
   }),
@@ -1981,6 +2027,23 @@ app.post(
     if (!sso.issuer) return res.json({ ok: false, message: 'Give the identity provider\'s address first, and save.' });
     const result = await oidc.check(sso);
     res.json({ ok: result.ok && !missing.length, message: [result.message, ...(result.ok ? missing : [])].join(' ') });
+  }),
+);
+
+/**
+ * Reset someone's link to their account at the identity provider (it was made anew there, so its subject changed):
+ * their next single sign-on links them again, by their email address. One's own included.
+ */
+app.delete(
+  '/api/iam/users/:id/sso-link',
+  requirePermission('iam.manage'),
+  asyncRoute(async (req, res) => {
+    const target = visibleUser(req, req.params.id);
+    if (!iam.canGrant(req.permissions, iam.permissionsOf({ ...target, disabled: false }))) {
+      return res.status(403).json({ error: 'You cannot reset this person\'s single sign-on link: their role holds permissions you do not have.' });
+    }
+    if (iam.unlinkSso(target.id)) await auditIam(req, `Reset the single sign-on link of ${target.email}.`);
+    res.json(iamView(req));
   }),
 );
 
@@ -2169,6 +2232,11 @@ app.post(
   requireSession,
   asyncRoute(async (req, res) => {
     const user = req.user;
+    // Signed in by single sign-on, with no password here: they cannot give themselves one (it would outlast
+    // their account at the identity provider). An Admin sets one for them under People & roles.
+    if (!user.passwordHash && req.session.via === 'sso') {
+      return res.status(403).json({ error: 'You signed in with single sign-on and have no password here, so you cannot set one yourself. An administrator can give you one under People & roles.' });
+    }
     if (user.passwordHash) {
       try {
         await iam.signIn(user.email, String(req.body?.current ?? ''));
@@ -3087,6 +3155,8 @@ app.post(
         applied, refused, ignored, findings,
       });
     }
+    const addressProblem = ssoAddressProblem(req, changes.links);
+    if (addressProblem) return res.status(400).json({ error: addressProblem, applied: [], refused, ignored, findings });
     if (changes.cxone) {
       const current = settingsStore.get();
       const { apiKey, ...endpoints } = changes.cxone;
@@ -3230,6 +3300,8 @@ app.put(
         return res.status(400).json({ error: `The credit pool (${size.toLocaleString('en')}) cannot be more than the ${tenant.available.toLocaleString('en')} credits this tenant has left in Checkmarx One (${(tenant.total ?? tenant.available).toLocaleString('en')} in all, ${(tenant.used ?? 0).toLocaleString('en')} used).`, tenant });
       }
     }
+    const addressProblem = ssoAddressProblem(req, allowed.links);
+    if (addressProblem) return res.status(400).json({ error: addressProblem });
     const smtpBefore = smtpFingerprint(settingsStore.get().smtp);
     const saved = settingsStore.save(allowed);
     // A changed mail server is checked (and rolled back if it fails) when the editor leaves Settings, or after a while.

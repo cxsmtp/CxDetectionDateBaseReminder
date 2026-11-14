@@ -407,6 +407,8 @@
                   <span id="change-status" class="status"></span>
                 </div>
               </form>
+              <!-- Signed in with single sign-on and no password here: nothing to fill in, an Admin gives one -->
+              <div class="actions" id="change-none" hidden><button type="button" class="primary" id="change-none-back">Back</button></div>
             </div>
           </section>
 
@@ -3536,7 +3538,7 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                     <option value="create">Everyone the identity provider signs in: add them with the role below</option>
                   </select></label>
                 <label class="field" id="sso-role-field" hidden><span>Role for people added this way</span><select id="sso-role"></select>
-                  <small class="hint">Never Admin. Also list the email domains allowed below, so that only your own people are added.</small></label>
+                  <small class="hint">Never Admin. List at least one email domain allowed below: without one, this cannot be saved. A person you remove is added again at their next single sign-on: to keep someone out, disable them instead.</small></label>
                 <label class="field"><span>Email domains allowed (optional)</span><input id="sso-domains" spellcheck="false" placeholder="company.com, company.co.uk" />
                   <small class="hint">Empty: any address the identity provider signs in.</small></label>
                 <div class="toggle-list">

@@ -236,6 +236,7 @@ const ACTIVITIES = [
   ['POST', /^\/api\/iam\/sign-in\/sso\/check$/, '', '', { quiet: true }],
   ['POST', /^\/api\/me\/two-step\//, '', '', { quiet: true }],
   ['DELETE', /^\/api\/iam\/users\/[^/]+\/two-step$/, 'Resetting two-step sign-in…', 'Two-step sign-in reset'],
+  ['DELETE', /^\/api\/iam\/users\/[^/]+\/sso-link$/, 'Resetting the single sign-on link…', 'Single sign-on link reset'],
   ['POST', /^\/api\/iam\//, 'Saving people and roles…', 'Saved'],
   ['PATCH', /^\/api\/iam\//, 'Saving people and roles…', 'Saved'],
   ['PUT', /^\/api\/iam\//, 'Saving people and roles…', 'Saved'],
@@ -2283,6 +2284,8 @@ function showSignIn({ setup = false, change = false, message = '' } = {}) {
   $('reset-box').hidden = true;
   $('twostep-box').hidden = true;
   $('recovery-box').hidden = true;
+  $('change-form').hidden = false;
+  $('change-none').hidden = true;
   setStatus('sso-status', '');
   if (!setup && !change) refreshForgotLink();
   $('change-cancel').hidden = change;
@@ -2370,6 +2373,7 @@ const SSO_REFUSALS = {
   email: 'The identity provider did not give a verified email address for you. Ask an administrator.',
   domain: 'Your email address is not one that may sign in here this way.',
   unknown: 'The identity provider signed you in, but you have no access here yet. Ask an administrator to add you.',
+  link: 'Your account here is linked to another account at the identity provider. Ask an administrator.',
   disabled: 'This account is disabled. Ask an administrator.',
   busy: 'Too many sign-in attempts from this address. Wait a few minutes.',
 };
@@ -2654,8 +2658,12 @@ function openPasswordChange() {
   $('change-hint').textContent = me.user.hasPassword
     ? 'Enter your current password and choose a new one.'
     : me.via === 'sso'
-      ? 'You signed in with single sign-on: set a password to also sign in with your email.'
+      ? 'You signed in with single sign-on and have no password here. An administrator can give you one under People & roles.'
       : 'You signed in with a Checkmarx One key: set a password to also sign in with your email.';
+  // Signed in with single sign-on, without a password: they cannot set one themselves, so there is no form.
+  const none = !me.user.hasPassword && me.via === 'sso';
+  $('change-form').hidden = none;
+  $('change-none').hidden = !none;
   $('change-current-field').hidden = !me.user.hasPassword;
   $('change-cancel').hidden = false;
 }
@@ -7547,6 +7555,9 @@ $('change-form').addEventListener('submit', changePassword);
 $('change-cancel').addEventListener('click', () => {
   if (state.pendingMe) showConnected(state.pendingMe);
 });
+$('change-none-back').addEventListener('click', () => {
+  if (state.pendingMe) showConnected(state.pendingMe);
+});
 $('me-password').addEventListener('click', openPasswordChange);
 $('disconnect').addEventListener('click', disconnect);
 $('api-key').addEventListener('input', renderDetected);
@@ -11323,10 +11334,11 @@ function renderAccess() {
         ? `<button type="button" class="link" data-iam-profile="${u.id}">Edit profile</button>
            <button type="button" class="link" data-iam-reset="${u.id}">Set password</button>
            ${u.twoStep ? `<button type="button" class="link" data-iam-twostep="${u.id}">Reset two-step</button>` : ''}
+           ${u.ssoLinked ? ssoLinkButton(u) : ''}
            <button type="button" class="link" data-iam-ids="${u.id}">Identities</button>
            <button type="button" class="link" data-iam-toggle="${u.id}">${u.disabled ? 'Enable' : 'Disable'}</button>
            <button type="button" class="link danger" data-iam-delete="${u.id}">Remove</button>`
-        : me ? '<span class="hint">You</span>' : '';
+        : me ? `<span class="hint">You</span>${u.ssoLinked && can('iam.manage') ? ` ${ssoLinkButton(u)}` : ''}` : '';
       // Several tenants: where each person works, chosen by a Super Admin.
       const tenants = access.data.tenants;
       const theirs = u.tenants?.length ? u.tenants : ['default'];
@@ -11350,6 +11362,9 @@ function renderAccess() {
 }
 
 const IAM_PAGE = 20;
+
+/** For a person linked to their account at the identity provider by a single sign-on: take the link off (the account there was made anew). */
+const ssoLinkButton = (u) => `<button type="button" class="link" data-iam-ssolink="${u.id}">Reset single sign-on link</button>`;
 
 /**
  * Labs → Consolidated view: the Admin's tick, one person at a time (never through a role). Shown once its activation
@@ -11678,7 +11693,7 @@ $('iam-users').addEventListener('change', (event) => {
 $('iam-users').addEventListener('click', (event) => {
   const button = event.target.closest('button');
   if (!button) return;
-  const id = button.dataset.iamProfile || button.dataset.iamReset || button.dataset.iamTwostep || button.dataset.iamIds || button.dataset.iamToggle || button.dataset.iamDelete || button.dataset.iamTenants;
+  const id = button.dataset.iamProfile || button.dataset.iamReset || button.dataset.iamTwostep || button.dataset.iamSsolink || button.dataset.iamIds || button.dataset.iamToggle || button.dataset.iamDelete || button.dataset.iamTenants;
   const user = access.data.users.find((u) => u.id === id);
   if (!user) return;
   if (button.dataset.iamProfile) {
@@ -11694,6 +11709,9 @@ $('iam-users').addEventListener('click', (event) => {
   } else if (button.dataset.iamTwostep) {
     if (!confirm(`Reset two-step sign-in for ${user.email}? Their authenticator app and recovery codes stop working here, and they set it up again.`)) return;
     iamCall(`/api/iam/users/${id}/two-step`, { method: 'DELETE' }, `Two-step sign-in was reset for ${user.email}.`);
+  } else if (button.dataset.iamSsolink) {
+    if (!confirm(`Reset the single sign-on link of ${user.email}? Do this when their account at the identity provider was made anew. Their next single sign-on links them again, by their email address.`)) return;
+    iamCall(`/api/iam/users/${id}/sso-link`, { method: 'DELETE' }, `The single sign-on link of ${user.email} was reset.`);
   } else if (button.dataset.iamIds) {
     const value = prompt(`Checkmarx One identities that sign in as ${user.email} — Checkmarx One usernames, comma separated (their email always counts):`, user.cxoneIdentities.join(', '));
     if (value === null) return;
