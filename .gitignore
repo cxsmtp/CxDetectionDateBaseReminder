@@ -16,3 +16,6 @@ data/
 *.cram
 *.p12
 *.pfx
+
+# Worktrees of builders working beside this checkout
+.claude/worktrees/
