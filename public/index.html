@@ -378,24 +378,16 @@
             <div class="dash-top" id="dash-top">
             <section class="panel scope">
               <div class="controls scope-row">
+                <!-- One question about time: how long the findings have been open. (Which projects are skipped for not
+                     having been scanned lately is under Narrow down.) -->
                 <fieldset class="scope-field">
-                  <label class="scope-label" for="activity-preset">Projects last scanned in</label>
-                  <select id="activity-preset"></select>
-                  <div class="range" id="activity-range" hidden>
-                    <label data-i18n-ctx="date"><span>From</span><input type="date" id="activity-from" /></label>
-                    <label data-i18n-ctx="date"><span>To</span><input type="date" id="activity-to" /></label>
-                  </div>
-                  <p class="hint" id="activity-hint" hidden>Projects not scanned in this time are skipped.</p>
-                </fieldset>
-
-                <fieldset class="scope-field">
-                  <label class="scope-label" for="detection-preset">Findings first found in</label>
+                  <label class="scope-label" for="detection-preset">Findings open for</label>
                   <select id="detection-preset"></select>
                   <div class="range" id="detection-range" hidden>
-                    <label data-i18n-ctx="date"><span>From</span><input type="date" id="detection-from" /></label>
+                    <label data-i18n-ctx="date"><span>First found from</span><input type="date" id="detection-from" /></label>
                     <label data-i18n-ctx="date"><span>To</span><input type="date" id="detection-to" /></label>
                   </div>
-                  <p class="hint" id="detection-hint" hidden>Only findings first found in this time are loaded.</p>
+                  <p class="hint" id="detection-hint" hidden>Every open finding, whatever its age.</p>
                 </fieldset>
 
                 <fieldset class="scope-field">
@@ -448,6 +440,15 @@
               <fieldset class="scope-pick" id="scope-pick">
                 <legend>Only these applications, projects, people or vulnerabilities <span class="muted">— optional</span></legend>
                 <div class="scope-pick-grid">
+                  <div class="field">
+                    <label for="activity-preset">Skip projects not scanned in</label>
+                    <select id="activity-preset"></select>
+                    <div class="range" id="activity-range" hidden>
+                      <label data-i18n-ctx="date"><span>From</span><input type="date" id="activity-from" /></label>
+                      <label data-i18n-ctx="date"><span>To</span><input type="date" id="activity-to" /></label>
+                    </div>
+                    <p class="hint" id="activity-hint" hidden>Projects not scanned in this time are skipped.</p>
+                  </div>
                   <div class="field">
                     <label for="scope-application-input">Applications</label>
                     <div class="chip-input" id="scope-applications">
@@ -506,12 +507,6 @@
                     <option value="HIGH">High</option>
                     <option value="MEDIUM">Medium</option>
                     <option value="LOW">Low</option>
-                  </select>
-                  <select id="bucket-filter" aria-label="Age">
-                    <option value="">Any age</option>
-                    <option value="0-30">Has ≤ 30d</option>
-                    <option value="31-60">Has 31–60d</option>
-                    <option value="60+">Has &gt; 60d</option>
                   </select>
                   <select id="scan-type-filter" aria-label="Latest scan" title="What each project's latest scan was: a Fusion scan (gold), a LAST scan (pink), or one without the AI engine">
                     <option value="">Any scan type</option>

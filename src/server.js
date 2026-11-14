@@ -102,7 +102,7 @@ import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supp
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
 import { PasswordResets, RESET_TTL_MS, maskEmail, resetAllowed } from './password-reset.js';
 import { FaeFlushRunner, FaeFlushStore, FaeHistory, NE, cleanOptions, markState, previewTenant, summaryOf, testProject, valueOf } from './fae-flush.js';
-import { WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
+import { AGE_PRESETS, WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
 // Govern (beta): credit governance, per tenant (src/govern/).
 import { GovernService } from './govern/cycle.js';
 import { registerGovernRoutes } from './govern/routes.js';
@@ -1146,6 +1146,8 @@ app.get('/api/health', (req, res) => {
     riskSource: config.risks.source,
     buckets: AGE_BUCKETS.map(({ id, label }) => ({ id, label })),
     windowPresets: WINDOW_PRESETS.map(({ id, label }) => ({ id, label })),
+    // The Workbench's "Findings open for": by age, beside new in the last week or month.
+    agePresets: AGE_PRESETS.map(({ id, label }) => ({ id, label })),
     templateVariables: TEMPLATE_VARIABLES,
     defaultTemplate: DEFAULT_TEMPLATE,
     // The page's languages available here (Hebrew only once activated, and only for the people chosen).
