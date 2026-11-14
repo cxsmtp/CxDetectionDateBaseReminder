@@ -9,8 +9,9 @@
  * reports. Nothing is ever trimmed or rewritten.
  *
  * Every entry is flushed to the disk (fdatasync) before record() returns, so a machine that loses
- * power just after still has it. The month's file is kept open between entries: one flush per entry,
- * not an open, a flush and a close.
+ * power just after still has it. The month's file is opened by its path for each entry and closed
+ * again: a file made read-only, moved aside or replaced under a running server is seen at the next
+ * entry (which is then held, or goes to the file that is really there), never written to unseen.
  *
  * Entry shape (fields present when they apply):
  *   seq, id, at, type, outcome, reason
@@ -32,7 +33,7 @@ import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { readState, syncDir, writeState } from './state-file.js';
+import { appendDurable, readState, writeState } from './state-file.js';
 
 const GENESIS = 'genesis';
 export const OUTCOMES = ['charged', 'not-charged', 'refused', 'failed', 'changed', 'info'];
@@ -85,8 +86,6 @@ export class AuditLog {
   #lastMac = GENESIS;
   #unwritten = [];
   #lastError = '';
-  /** The month file being written, kept open between entries: {file, fd, dev, ino}. */
-  #out = null;
   #flushError = '';
 
   constructor({ dir, keyFile }) {
@@ -192,54 +191,23 @@ export class AuditLog {
     }
   }
 
-  /**
-   * Add `text` to the end of a month file and flush it to the disk. The file stays open for the next
-   * entry; it is opened again when the month changes, or when the file on disk is no longer the one
-   * held open (moved aside by a restore, removed, replaced).
-   */
-  #append(file, text) {
-    const onDisk = fs.statSync(file, { throwIfNoEntry: false });
-    if (!this.#out || this.#out.file !== file || !onDisk || onDisk.ino !== this.#out.ino || onDisk.dev !== this.#out.dev) {
-      this.close();
-      const fd = fs.openSync(file, 'a', 0o600);
-      const stat = fs.fstatSync(fd);
-      this.#out = { file, fd, dev: stat.dev, ino: stat.ino };
-    }
-    try {
-      fs.appendFileSync(this.#out.fd, text);
-    } catch (error) {
-      // Opened afresh the next time, in case it is the open file that went wrong.
-      this.close();
-      throw error;
-    }
-    try {
-      fs.fdatasyncSync(this.#out.fd);
-      // A month file made just now: its name has to reach the disk too.
-      if (!onDisk) syncDir(this.#dir);
-      this.#flushError = '';
-    } catch (error) {
-      // The entry is in the file (writing it again would break the chain); only the flush failed. Said once.
-      if (this.#flushError !== error.message) console.error(`[audit] an entry was written but could not be flushed to the disk: ${error.message}`);
-      this.#flushError = error.message;
-    }
-  }
-
-  /** Let go of the month file held open (it is opened again by the next entry). */
-  close() {
-    if (!this.#out) return;
-    try {
-      fs.closeSync(this.#out.fd);
-    } catch {}
-    this.#out = null;
-  }
-
   /** Write held entries, in order. */
   flushSync() {
     while (this.#unwritten.length) {
       const e = this.#unwritten[0];
       try {
-        this.#append(path.join(this.#dir, `audit-${monthOf(e.at)}.jsonl`), `${JSON.stringify(e)}\n`);
+        // By its path, every time: opened, written, flushed, closed (src/state-file.js).
+        appendDurable(path.join(this.#dir, `audit-${monthOf(e.at)}.jsonl`), `${JSON.stringify(e)}\n`);
+        this.#flushError = '';
       } catch (error) {
+        if (error.written) {
+          // The entry is in the file; only the flush failed. It is not held: written again it would be
+          // there twice and break the chain. Said once.
+          if (this.#flushError !== error.message) console.error(`[audit] an entry was written but could not be flushed to the disk: ${error.message}`);
+          this.#flushError = error.message;
+          this.#unwritten.shift();
+          continue;
+        }
         if (this.#lastError !== error.message) console.error(`[audit] could not write the audit log (${this.#unwritten.length} entries held): ${error.message}`);
         this.#lastError = error.message;
         return false;

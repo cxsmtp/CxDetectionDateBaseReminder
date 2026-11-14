@@ -161,11 +161,10 @@ test('a key file cut short is refused, never replaced by a new key without a wor
   assert.throws(() => new ReportGrants({ file: signing }), { code: 'STATE_FILE_DAMAGED' });
 });
 
-test('audit entries go on being written and verified with the month file kept open: across months, and when the file is moved away', (t) => {
+test('audit entries are written by the file\'s path every time: across months, after another process, and when the file is moved away', (t) => {
   const dir = folder(t);
   const auditDir = path.join(dir, 'audit');
   const log = new AuditLog({ dir: auditDir, keyFile: path.join(dir, 'audit.key') });
-  t.after(() => log.close());
   for (let i = 0; i < 5; i += 1) log.record({ type: 'system', outcome: 'info', details: { i } }, new Date('2026-09-30T23:59:00Z'));
   log.record({ type: 'system', outcome: 'info' }, new Date('2026-10-01T00:00:01Z'));
   log.record({ type: 'system', outcome: 'info' }, new Date('2026-10-01T00:00:02Z'));

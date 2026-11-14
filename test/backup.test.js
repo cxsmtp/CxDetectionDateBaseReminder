@@ -201,3 +201,16 @@ test('a damaged file is named in the refusal exactly as the backup lists it', as
   plain.files[month].size += 1;
   assert.throws(() => readBackup(zlib.gzipSync(JSON.stringify(plain))), { message: `Backup file ${month} is damaged (checksum mismatch).` });
 });
+
+test('restoring moves a last good copy aside too, so an older state cannot come back after the restore', async () => {
+  const source = tmpDir();
+  await seed(source);
+  const { buffer } = createBackup({ dataDir: source });
+  const target = tmpDir();
+  fs.writeFileSync(path.join(target, 'settings.json'), '{"newer":true}');
+  fs.writeFileSync(path.join(target, 'settings.json.bak'), '{"older":true}');
+  const { replacedDir } = restoreBackup(readBackup(buffer), { dataDir: target });
+  assert.ok(!fs.existsSync(path.join(target, 'settings.json.bak')), 'no last good copy from before the restore is left beside the restored file');
+  assert.equal(fs.readFileSync(path.join(replacedDir, 'settings.json.bak'), 'utf8'), '{"older":true}');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(target, 'settings.json'), 'utf8')).smtp.host, 'mail.acme.io');
+});

@@ -41,7 +41,7 @@ test('a good file is read as what it holds', (t) => {
   fs.writeFileSync(file, JSON.stringify({ smtp: { host: 'mail.example' } }));
   assert.deepEqual(readState(file, { fallback: {} }), { smtp: { host: 'mail.example' } });
   // A byte-order mark an editor put in front is not damage.
-  fs.writeFileSync(file, `﻿${JSON.stringify([1, 2])}`);
+  fs.writeFileSync(file, `\uFEFF${JSON.stringify([1, 2])}`);
   assert.deepEqual(readState(file, { fallback: {} }), [1, 2]);
 });
 
@@ -135,6 +135,20 @@ test('damaged, and the last good copy damaged too: refused, both left as they ar
   assert.throws(() => readState(file, { fallback: {} }), (error) => error instanceof StateFileError && /move iam\.json and iam\.json\.bak out of/.test(error.message));
   assert.deepEqual(fs.readdirSync(dir).sort(), ['iam.json', 'iam.json.bak']);
   assert.equal(fs.readFileSync(file, 'utf8'), '{');
+});
+
+// Root reads a file whatever its mode, so this can only be shown as another user (as CI runs).
+test('a file this server may not read is refused and left where it is, even with a last good copy beside it', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, (t) => {
+  const dir = folder(t);
+  const file = path.join(dir, 'iam.json');
+  writeState(file, { users: ['ada'] });
+  writeState(file, { users: ['ada', 'grace'] });
+  fs.chmodSync(file, 0o000);
+  // Not damage, and not for the server to put aside: whoever runs it puts the permissions right.
+  assert.throws(() => readState(file, { fallback: {} }), (error) => error instanceof StateFileError && /cannot be read/.test(error.message));
+  assert.deepEqual(fs.readdirSync(dir).sort(), ['iam.json', 'iam.json.bak'], 'nothing moved aside');
+  fs.chmodSync(file, 0o600);
+  assert.deepEqual(readState(file, { fallback: {} }), { users: ['ada', 'grace'] });
 });
 
 test('a save keeps the version before it as the last good copy, and only that one', (t) => {

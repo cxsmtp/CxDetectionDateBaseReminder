@@ -83,6 +83,7 @@ import { addSla, slaSummary } from './sla.js';
 import { INSTANCE_VARS, extraInstanceNumbers, instanceSource, numberedVariable, providersIn, setForRepo } from './scm/instances.js';
 import { SessionPersistence, sessionKey } from './handover.js';
 import { InstanceLock } from './instance-lock.js';
+import { StateFileError } from './state-file.js';
 import { inlineScriptHashes, pruneAttempts, sameOriginGuard, securityHeaders, trustProxySetting, viaTrustedProxy } from './security.js';
 import { describeCertificate } from './tls.js';
 import { HSTS_AGES, HttpsManager } from './https-manager.js';
@@ -133,6 +134,26 @@ const projectDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
  */
 const { dir: dataDir, source: dataDirSource } = resolveDataDir(process.env, { cwd: process.cwd() });
 prepareDataDir(dataDir);
+/**
+ * A state file that is damaged, with no last good copy, stops the start (src/state-file.js). Whoever runs the
+ * server reads what to do in plain words, not a stack trace; the lock on the data folder is let go; and the exit
+ * code (78) tells the launcher not to go back to the version before, which would read the damaged file as empty
+ * and write over it. Only while starting: once the server runs, the handler further down takes over.
+ */
+const STATE_DAMAGED_EXIT = 78;
+const stopAtStart = (error) => {
+  if (!(error instanceof StateFileError)) {
+    console.error(error);
+    process.exit(1);
+  }
+  console.error(`\n! [data] ${error.message}\n`);
+  try {
+    instanceLock.release();
+  } catch {}
+  process.exit(STATE_DAMAGED_EXIT);
+};
+process.on('uncaughtException', stopAtStart);
+
 // The certificate authorities outgoing HTTPS trusts, with the ones an Admin added: before anything connects.
 const trust = new TrustStore({ dir: dataDir, log: (line) => console.log(line) });
 // One server per data folder: wait for the previous one (an update) to finish, or refuse.
@@ -8696,6 +8717,7 @@ process.on('unhandledRejection', (error) => {
   diagnostics.error('unhandled-rejection', error);
   console.warn(`! Unhandled rejection: ${logSafe(error?.message ?? String(error))}`);
 });
+process.off('uncaughtException', stopAtStart);
 process.on('uncaughtException', (error) => {
   diagnostics.error('uncaught-exception', error);
   diagnostics.flush();

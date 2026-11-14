@@ -63,7 +63,7 @@ export class StateFileError extends Error {
 
 /** JSON text, as a state file holds it. A byte-order mark an editor added in front is not damage. */
 function parseJson(buffer) {
-  const value = JSON.parse(buffer.toString('utf8').replace(/^﻿/, ''));
+  const value = JSON.parse(buffer.toString('utf8').replace(/^\uFEFF/, ''));
   // Every state file holds an object (or a list): a bare null, number or text is not one a store wrote.
   if (value === null || typeof value !== 'object') throw new Error('it holds no JSON object');
   return value;
@@ -182,15 +182,27 @@ export function writeState(file, data, { mode = 0o600, space, keepLast = true } 
     } finally {
       fs.closeSync(fd);
     }
+    let kept = false;
     if (keepLast) {
       try {
         fs.renameSync(file, lastGoodCopy(file));
+        kept = true;
       } catch (error) {
         // Nothing to keep: the first save of this file.
         if (error.code !== 'ENOENT') throw error;
       }
     }
-    fs.renameSync(tmp, file);
+    try {
+      fs.renameSync(tmp, file);
+    } catch (error) {
+      // The new file could not take its place: the one just set aside goes back, so the file is not left missing.
+      if (kept) {
+        try {
+          fs.renameSync(lastGoodCopy(file), file);
+        } catch {}
+      }
+      throw error;
+    }
     // Only once the new file is in place: there is never a moment with neither.
     if (!keepLast) fs.rmSync(lastGoodCopy(file), { force: true });
   } catch (error) {
@@ -210,20 +222,31 @@ export function removeState(file) {
 }
 
 /**
- * Add text to the end of an append-only log and have it on the disk before returning. For a log
- * written now and then; one written on every request keeps its file open instead (src/audit-log.js).
+ * Add text to the end of an append-only log and have it on the disk before returning: the file is opened
+ * by its path, written, flushed and closed, every time. No descriptor is kept between appends, so a log
+ * that was made read-only, moved aside or replaced is seen at the next append, not written to behind
+ * the folder's back.
+ *
+ * Throws when it cannot. The error's `written` says how far it got: false, nothing was added (try again
+ * later); true, the text is in the file and only the flush failed (adding it again would repeat it).
  */
 export function appendDurable(file, text) {
   const dir = path.dirname(file);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const isNew = !fs.existsSync(file);
   const fd = fs.openSync(file, 'a', 0o600);
+  let written = false;
   try {
-    fs.appendFileSync(fd, text);
-    fs.fdatasyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
+    try {
+      fs.appendFileSync(fd, text);
+      written = true;
+      fs.fdatasyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    // A log made just now: its name has to reach the disk too.
+    if (isNew) syncDir(dir);
+  } catch (error) {
+    throw Object.assign(error, { written });
   }
-  // A log made just now: its name has to reach the disk too.
-  if (isNew) syncDir(dir);
 }

@@ -20,8 +20,9 @@
  * the public half is ISSUER_KEYS below. Codes are made with scripts/activation.mjs.
  */
 import { createPublicKey, verify } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { existsSync } from 'node:fs';
+
+import { readState, writeState } from './state-file.js';
 
 /** The maintainer's public key(s), base64 SPKI DER. Empty: no code is valid yet. */
 export const ISSUER_KEYS = [
@@ -134,12 +135,9 @@ export class ActivationStore {
     this.#file = file;
     // The keys kept codes are checked with: the trusted ones, unless given (tests).
     this.#keys = keys;
-    try {
-      const raw = JSON.parse(readFileSync(file, 'utf8'));
-      this.#state = { tenants: raw.tenants ?? null, features: raw.features && typeof raw.features === 'object' ? raw.features : {}, product: raw.product ?? null, seenAt: String(raw.seenAt ?? ''), history: Array.isArray(raw.history) ? raw.history : [] };
-    } catch {
-      this.#state = { tenants: null, features: {}, product: null, seenAt: '', history: [] };
-    }
+    // A damaged file is never read as "no codes": the last good copy is used, or the server stops (src/state-file.js).
+    const raw = readState(file, { fallback: {}, holds: 'the activation codes entered and the licence\'s clock' });
+    this.#state = { tenants: raw.tenants ?? null, features: raw.features && typeof raw.features === 'object' ? raw.features : {}, product: raw.product ?? null, seenAt: String(raw.seenAt ?? ''), history: Array.isArray(raw.history) ? raw.history : [] };
     this.#seal();
   }
 
@@ -166,10 +164,8 @@ export class ActivationStore {
   }
 
   #save() {
-    mkdirSync(dirname(this.#file), { recursive: true, mode: 0o700 });
-    const tmp = `${this.#file}.${process.pid}.tmp`;
-    writeFileSync(tmp, JSON.stringify(this.#state, null, 2), { mode: 0o600 });
-    renameSync(tmp, this.#file);
+    // Flushed to the disk, the file it replaces kept as its last good copy.
+    writeState(this.#file, this.#state, { space: 2 });
   }
 
   /** Record an accepted code (the result of checkCode) and who entered it. */

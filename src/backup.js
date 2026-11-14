@@ -247,7 +247,12 @@ export function restoreBackup(bundle, { dataDir, settingsFile = '', now = new Da
   fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   // Everything the backup replaces goes aside — including audit months the
   // backup does not have, so the restored audit chain is exactly the backup's.
-  for (const [name, file] of Object.entries(targets)) moveAside(file, name);
+  for (const [name, file] of Object.entries(targets)) {
+    moveAside(file, name);
+    // Its last good copy too (src/state-file.js): left behind, a file the backup does not hold would come back
+    // from the copy made before the restore.
+    moveAside(`${file}.bak`, `${name}.bak`);
+  }
   for (const dir of STATE_DIRS) {
     const folder = path.join(dataDir, dir);
     if (!fs.existsSync(folder)) continue;
