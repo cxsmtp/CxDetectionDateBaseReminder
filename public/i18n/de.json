@@ -5638,6 +5638,19 @@
   "Anyone who may send reminders can find and email code authors (no Labs permission needed).": "Jeder, der Erinnerungen senden darf, kann Code-Autoren finden und ihnen schreiben (keine Labs-Berechtigung nötig).",
   "Anyone who may change initiator addresses can run and apply the matching (no Labs permission needed).": "Jeder, der Initiator-Adressen ändern darf, kann die Zuordnung ausführen und übernehmen (keine Labs-Berechtigung nötig).",
   "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Labs permission needed).": "Jeder, der Funde lädt, sieht die Fusion-Seite, bei jedem Abruf im Workbench neu gelesen (keine Labs-Berechtigung nötig).",
-  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "Jeder, der die Checkmarx One-Integration verwaltet, kann es ausführen (keine Labs-Berechtigung nötig)."
+  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "Jeder, der die Checkmarx One-Integration verwaltet, kann es ausführen (keine Labs-Berechtigung nötig).",
+  "The Cx Credits Calculator has its own address": "Der Cx-Credit-Rechner hat eine eigene Adresse",
+  "It no longer opens inside CxMissionZero. Open it at its own address, in a new tab:": "Er öffnet sich nicht mehr in CxMissionZero. Öffnen Sie ihn unter seiner eigenen Adresse, in einem neuen Tab:",
+  "Open the Cx Credits Calculator": "Cx-Credit-Rechner öffnen",
+  "Cx Credits Calculator at its own address": "Cx-Credit-Rechner unter eigener Adresse",
+  "The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.": "Der Rechner kann außerhalb von CxMissionZero laufen, unter einer eigenen Adresse. Eingeschaltet öffnet Cx-Credit-Rechner im Menü diese Adresse in einem neuen Tab, für die Rollen, die den Rechner nutzen dürfen, und die eingebaute Seite wird weggeräumt.",
+  "Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.": "Ausgeschaltet ist der eingebaute Rechner mit seinen gespeicherten Kunden und Berichten wieder da: Nichts wird gelöscht. CxMissionZero verlinkt nur auf die Adresse; wer sie öffnen darf, wird dort entschieden.",
+  "The calculator's address": "Adresse des Rechners",
+  "Open the Cx Credits Calculator at this address": "Den Cx-Credit-Rechner unter dieser Adresse öffnen",
+  "Opens at its own address, in a new tab": "Öffnet sich unter eigener Adresse, in einem neuen Tab",
+  "Saved. Cx Credits Calculator in the menu now opens this address.": "Gespeichert. Cx-Credit-Rechner im Menü öffnet jetzt diese Adresse.",
+  "Saved. The calculator opens in CxMissionZero.": "Gespeichert. Der Rechner öffnet sich in CxMissionZero.",
+  "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "Die Adresse des Rechners muss mit http:// oder https:// beginnen und einen Server nennen, zum Beispiel http://server:8333/.",
+  "Give the calculator's address before turning this on.": "Geben Sie die Adresse des Rechners an, bevor Sie dies einschalten."
  }
 }

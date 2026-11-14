@@ -5638,6 +5638,19 @@
   "Anyone who may send reminders can find and email code authors (no Labs permission needed).": "يمكن لأي شخص مسموح له بإرسال التذكيرات أن يجد مؤلفي الكود ويراسلهم بالبريد الإلكتروني (دون الحاجة إلى صلاحية المختبر).",
   "Anyone who may change initiator addresses can run and apply the matching (no Labs permission needed).": "يمكن لأي شخص مسموح له بتغيير عناوين المُطلِقين أن يشغّل المطابقة ويطبّقها (دون الحاجة إلى صلاحية المختبر).",
   "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Labs permission needed).": "كل من يحمّل الاكتشافات يرى صفحة Fusion، وتُقرأ من جديد مع كل جلب في Workbench (دون الحاجة إلى صلاحية المختبر).",
-  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "يمكن لأي شخص يدير التكامل مع Checkmarx One تشغيلها (دون الحاجة إلى صلاحية المختبر)."
+  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "يمكن لأي شخص يدير التكامل مع Checkmarx One تشغيلها (دون الحاجة إلى صلاحية المختبر).",
+  "The Cx Credits Calculator has its own address": "حاسبة أرصدة Cx لها عنوان خاص بها",
+  "It no longer opens inside CxMissionZero. Open it at its own address, in a new tab:": "لم تعد تُفتح داخل CxMissionZero. افتحها على عنوانها الخاص، في علامة تبويب جديدة:",
+  "Open the Cx Credits Calculator": "فتح حاسبة أرصدة Cx",
+  "Cx Credits Calculator at its own address": "حاسبة أرصدة Cx على عنوانها الخاص",
+  "The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.": "يمكن تشغيل الحاسبة خارج CxMissionZero، على عنوان خاص بها. عند التفعيل، يفتح عنصر حاسبة أرصدة Cx في القائمة ذلك العنوان في علامة تبويب جديدة، للأدوار المسموح لها باستخدام الحاسبة، وتُطوى الصفحة المضمّنة.",
+  "Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.": "عند الإيقاف، تعود الحاسبة المضمّنة مع عملائها وتقاريرها المحفوظة: لا يُحذف شيء. يكتفي CxMissionZero بالربط بالعنوان؛ ومن يمكنه فتحه يُحدَّد هناك.",
+  "The calculator's address": "عنوان الحاسبة",
+  "Open the Cx Credits Calculator at this address": "فتح حاسبة أرصدة Cx على هذا العنوان",
+  "Opens at its own address, in a new tab": "تُفتح على عنوانها الخاص، في علامة تبويب جديدة",
+  "Saved. Cx Credits Calculator in the menu now opens this address.": "تم الحفظ. عنصر حاسبة أرصدة Cx في القائمة يفتح الآن هذا العنوان.",
+  "Saved. The calculator opens in CxMissionZero.": "تم الحفظ. تُفتح الحاسبة داخل CxMissionZero.",
+  "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "يجب أن يبدأ عنوان الحاسبة بـ http:// أو https:// وأن يسمّي خادمًا، مثل http://server:8333/.",
+  "Give the calculator's address before turning this on.": "أدخل عنوان الحاسبة قبل تفعيل هذا الخيار."
  }
 }

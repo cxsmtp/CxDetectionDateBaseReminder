@@ -114,6 +114,8 @@ export const DEFAULT_SETTINGS = {
   support: { mode: '', email: '' },
   /** Hands-off mode (src/hands-off.js): the weekly status, pausing, and replies by email. */
   handsOff: { ...DEFAULT_HANDS_OFF },
+  // The Cx Credits Calculator at an address of its own (an Admin's switch): off, the built-in page is used.
+  calculator: { external: false, url: '' },
   /** SLAs (Beta, src/sla.js): days to fix each severity, and escalation of overdue findings. */
   sla: structuredClone(DEFAULT_SLA),
   /**
@@ -176,6 +178,36 @@ export const DEFAULT_SETTINGS = {
  * https (and data: for a pasted inline image) is accepted -- never javascript:
  * or a plain-http URL that would trip mixed-content warnings.
  */
+/** An http(s) address naming a server, without a username or password in it; '' when it is not one. */
+function calculatorAddress(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw || raw.length > 300) return '';
+  try {
+    const url = new URL(raw);
+    return ['http:', 'https:'].includes(url.protocol) && url.hostname && !url.username && !url.password ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Where the Cx Credits Calculator opens: the built-in page, or (turned on by an Admin) an address of its own.
+ * Turned on, it needs an address; turned off, the address is kept for the next time.
+ */
+export function mergeCalculator(current, incoming = null) {
+  const out = { external: current?.external === true, url: calculatorAddress(current?.url) };
+  if (!out.url) out.external = false;
+  if (!incoming) return out;
+  if ('url' in incoming) {
+    const url = calculatorAddress(incoming.url);
+    if (String(incoming.url ?? '').trim() && !url) throw Object.assign(new Error('The calculator\'s address must start with http:// or https:// and name a server, such as http://server:8333/.'), { status: 400 });
+    out.url = url;
+  }
+  if ('external' in incoming) out.external = incoming.external === true;
+  if (out.external && !out.url) throw Object.assign(new Error('Give the calculator\'s address before turning this on.'), { status: 400 });
+  return out;
+}
+
 /** Get help, checked: the portal or email; email needs one valid address. Empty values fall back to SUPPORT_MODE / SUPPORT_EMAIL. */
 export function mergeSupport(current, incoming = null) {
   const out = { ...DEFAULT_SETTINGS.support, ...(current ?? {}) };
@@ -504,8 +536,9 @@ export function mergeSettings(current, incoming = {}) {
   const impact = mergeImpact(current.impact, incoming.impact);
   const support = mergeSupport(current.support, incoming.support);
   const handsOff = mergeHandsOff(current.handsOff, incoming.handsOff);
+  const calculator = mergeCalculator(current.calculator, incoming.calculator);
 
-  const next = { ...current, smtp, recipients, initiators, template, reminderEmail, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders, impact, support, handsOff };
+  const next = { ...current, smtp, recipients, initiators, template, reminderEmail, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders, impact, support, handsOff, calculator };
 
   // The automation credential is set through its own route, not this form.
   if (typeof incoming.automationApiKey === 'string') next.automationApiKey = incoming.automationApiKey.trim();
@@ -750,6 +783,7 @@ export class SettingsStore {
         impact: mergeImpact(raw.impact),
         support: mergeSupport(raw.support),
         handsOff: mergeHandsOff(raw.handsOff),
+        calculator: mergeCalculator(raw.calculator),
         // One choice for who gets reminders; before, scheduled runs had their own (keep what they did).
         reminders: raw.reminders?.audience && AUDIENCES.includes(raw.reminders.audience)
           ? { audience: raw.reminders.audience }

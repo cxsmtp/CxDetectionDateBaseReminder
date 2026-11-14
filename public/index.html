@@ -111,7 +111,7 @@
           </a>
           <p class="nav-group" data-stage="govern" id="nav-group-govern" data-perm="feature.govern" title="Who may use how many AI credits, and what happens at the limit" hidden><i aria-hidden="true"></i>Govern</p>
           <p class="nav-group" data-stage="plan" data-perm="projections.use" title="Work out the Checkmarx One credits a customer needs"><i aria-hidden="true"></i>Plan</p>
-          <a href="#/calculator" data-route="calculator" class="tab" data-stage="plan" data-perm="projections.use">
+          <a href="#/calculator" data-route="calculator" class="tab" id="nav-calculator" data-stage="plan" data-perm="projections.use">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 7h8" /><path d="M8 11h2" /><path d="M14 11h2" /><path d="M8 15h2" /><path d="M14 15h2" /><path d="M8 18h2" /><path d="M14 18h2" /></svg>
             <span>Cx Credits Calculator</span>
           </a>
@@ -1810,6 +1810,20 @@
               <p class="hint wide">While in Beta, each feature in Labs is for the roles holding See Labs and its own Labs permission (People &amp; roles). Make it final to give it to everyone whose role allows it. You can undo it, and every change is logged.</p>
               <div class="feat-list" id="feat-list"><p class="hint">Loading…</p></div>
               <p class="status" id="feat-status"></p>
+              <article class="feat-card" id="calc-address">
+                <div class="feat-head">
+                  <h3>Cx Credits Calculator at its own address <span class="badge muted" id="calc-address-badge">Off</span></h3>
+                </div>
+                <p>The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.</p>
+                <p class="hint">Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.</p>
+                <label class="field">
+                  <span>The calculator's address</span>
+                  <input id="calc-address-url" type="url" inputmode="url" spellcheck="false" autocomplete="off" placeholder="http://server:8333/" />
+                </label>
+                <label class="check"><input type="checkbox" id="calc-address-on" /> Open the Cx Credits Calculator at this address</label>
+                <div class="actions"><button type="button" class="primary" id="calc-address-save">Save</button></div>
+                <p class="status" id="calc-address-status" aria-live="polite"></p>
+              </article>
             </section>
             <section class="panel" id="set-activation" data-perm="activation.manage activation.view">
               <h2>Activation codes</h2>
@@ -3420,6 +3434,14 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
             </section>
             </div>
           </div>
+
+          <!-- The calculator at an address of its own (an Admin's switch): shown in place of the built-in page. -->
+          <section class="panel calc-moved" id="calc-moved" hidden>
+            <h2>The Cx Credits Calculator has its own address</h2>
+            <p class="hint wide">It no longer opens inside CxMissionZero. Open it at its own address, in a new tab:</p>
+            <p><a class="button-like primary" id="calc-moved-open" href="#/calculator" target="_blank" rel="noopener noreferrer">Open the Cx Credits Calculator</a></p>
+            <p class="hint" id="calc-moved-url" translate="no"></p>
+          </section>
 
           <!-- ================= Cx Credits Calculator ================= -->
           <div id="page-calculator" class="page calc-page calc-future" hidden>

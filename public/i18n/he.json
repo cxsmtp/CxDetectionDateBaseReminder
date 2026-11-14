@@ -5638,6 +5638,19 @@
   "Anyone who may send reminders can find and email code authors (no Labs permission needed).": "כל מי שמורשה לשלוח תזכורות יכול למצוא את מחברי הקוד ולשלוח להם דוא״ל (אין צורך בהרשאת מעבדה).",
   "Anyone who may change initiator addresses can run and apply the matching (no Labs permission needed).": "כל מי שמורשה לשנות כתובות של יוזמים יכול להריץ את ההתאמה ולהחיל אותה (אין צורך בהרשאת מעבדה).",
   "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Labs permission needed).": "כל מי שטוען ממצאים רואה את דף Fusion, שנקרא מחדש בכל שליפה ב-Workbench (אין צורך בהרשאת מעבדה).",
-  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "כל מי שמנהל את האינטגרציה עם Checkmarx One יכול להפעיל אותה (אין צורך בהרשאת מעבדה)."
+  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "כל מי שמנהל את האינטגרציה עם Checkmarx One יכול להפעיל אותה (אין צורך בהרשאת מעבדה).",
+  "The Cx Credits Calculator has its own address": "למחשבון קרדיטים Cx יש כתובת משלו",
+  "It no longer opens inside CxMissionZero. Open it at its own address, in a new tab:": "הוא כבר לא נפתח בתוך CxMissionZero. פתחו אותו בכתובת שלו, בלשונית חדשה:",
+  "Open the Cx Credits Calculator": "פתיחת מחשבון קרדיטים Cx",
+  "Cx Credits Calculator at its own address": "מחשבון קרדיטים Cx בכתובת משלו",
+  "The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.": "המחשבון יכול לרוץ מחוץ ל-CxMissionZero, בכתובת משלו. כשהאפשרות מופעלת, מחשבון קרדיטים Cx בתפריט פותח את הכתובת הזו בלשונית חדשה, לתפקידים שמורשים להשתמש במחשבון, והדף המובנה מוסתר.",
+  "Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.": "כשהאפשרות כבויה, המחשבון המובנה חוזר עם הלקוחות והדוחות השמורים שלו: דבר לא נמחק. CxMissionZero רק מקשר לכתובת; מי רשאי לפתוח אותה נקבע שם.",
+  "The calculator's address": "כתובת המחשבון",
+  "Open the Cx Credits Calculator at this address": "פתיחת מחשבון קרדיטים Cx בכתובת הזו",
+  "Opens at its own address, in a new tab": "נפתח בכתובת משלו, בלשונית חדשה",
+  "Saved. Cx Credits Calculator in the menu now opens this address.": "נשמר. מחשבון קרדיטים Cx בתפריט פותח עכשיו את הכתובת הזו.",
+  "Saved. The calculator opens in CxMissionZero.": "נשמר. המחשבון נפתח בתוך CxMissionZero.",
+  "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "כתובת המחשבון חייבת להתחיל ב-http:// או ב-https:// ולציין שרת, למשל http://server:8333/.",
+  "Give the calculator's address before turning this on.": "יש להזין את כתובת המחשבון לפני ההפעלה."
  }
 }

@@ -5638,6 +5638,19 @@
   "Anyone who may send reminders can find and email code authors (no Labs permission needed).": "ทุกคนที่ส่งการแจ้งเตือนได้สามารถค้นหาผู้เขียนโค้ดและส่งอีเมลถึงพวกเขาได้ (ไม่ต้องมีสิทธิ์แล็บ)",
   "Anyone who may change initiator addresses can run and apply the matching (no Labs permission needed).": "ทุกคนที่เปลี่ยนที่อยู่ของผู้เริ่มสแกนได้สามารถเรียกใช้และนำการจับคู่ไปใช้ได้ (ไม่ต้องมีสิทธิ์แล็บ)",
   "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Labs permission needed).": "ทุกคนที่โหลดผลการตรวจพบจะเห็นหน้า Fusion ซึ่งอ่านใหม่ทุกครั้งที่ดึงข้อมูลใน Workbench (ไม่ต้องมีสิทธิ์แล็บ)",
-  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "ทุกคนที่จัดการการเชื่อมต่อ Checkmarx One สามารถเรียกใช้ได้ (ไม่ต้องมีสิทธิ์แล็บ)"
+  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "ทุกคนที่จัดการการเชื่อมต่อ Checkmarx One สามารถเรียกใช้ได้ (ไม่ต้องมีสิทธิ์แล็บ)",
+  "The Cx Credits Calculator has its own address": "เครื่องมือคำนวณเครดิต Cx มีที่อยู่ของตัวเอง",
+  "It no longer opens inside CxMissionZero. Open it at its own address, in a new tab:": "เครื่องมือนี้ไม่ได้เปิดภายใน CxMissionZero อีกต่อไป เปิดที่ที่อยู่ของมันเองในแท็บใหม่:",
+  "Open the Cx Credits Calculator": "เปิดเครื่องมือคำนวณเครดิต Cx",
+  "Cx Credits Calculator at its own address": "เครื่องมือคำนวณเครดิต Cx ที่ที่อยู่ของตัวเอง",
+  "The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.": "เครื่องมือคำนวณทำงานนอก CxMissionZero ได้ที่ที่อยู่ของตัวเอง เมื่อเปิดใช้ เครื่องมือคำนวณเครดิต Cx ในเมนูจะเปิดที่อยู่นั้นในแท็บใหม่ สำหรับบทบาทที่ใช้เครื่องมือคำนวณได้ และหน้าที่มีมาในตัวจะถูกเก็บไว้",
+  "Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.": "เมื่อปิด เครื่องมือคำนวณที่มีมาในตัวจะกลับมาพร้อมลูกค้าและรายงานที่บันทึกไว้: ไม่มีอะไรถูกลบ CxMissionZero เพียงลิงก์ไปยังที่อยู่นั้น ส่วนใครเปิดได้นั้นกำหนดที่ปลายทาง",
+  "The calculator's address": "ที่อยู่ของเครื่องมือคำนวณ",
+  "Open the Cx Credits Calculator at this address": "เปิดเครื่องมือคำนวณเครดิต Cx ที่ที่อยู่นี้",
+  "Opens at its own address, in a new tab": "เปิดที่ที่อยู่ของตัวเองในแท็บใหม่",
+  "Saved. Cx Credits Calculator in the menu now opens this address.": "บันทึกแล้ว เครื่องมือคำนวณเครดิต Cx ในเมนูจะเปิดที่อยู่นี้",
+  "Saved. The calculator opens in CxMissionZero.": "บันทึกแล้ว เครื่องมือคำนวณเปิดใน CxMissionZero",
+  "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "ที่อยู่ของเครื่องมือคำนวณต้องขึ้นต้นด้วย http:// หรือ https:// และระบุเซิร์ฟเวอร์ เช่น http://server:8333/",
+  "Give the calculator's address before turning this on.": "กรอกที่อยู่ของเครื่องมือคำนวณก่อนเปิดใช้"
  }
 }

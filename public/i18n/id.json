@@ -5638,6 +5638,19 @@
   "Anyone who may send reminders can find and email code authors (no Labs permission needed).": "Siapa pun yang boleh mengirim pengingat dapat menemukan penulis kode dan mengirimi mereka email (tidak memerlukan izin Lab).",
   "Anyone who may change initiator addresses can run and apply the matching (no Labs permission needed).": "Siapa pun yang boleh mengubah alamat inisiator dapat menjalankan dan menerapkan pencocokan (tidak memerlukan izin Lab).",
   "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Labs permission needed).": "Semua yang memuat temuan melihat halaman Fusion, dibaca ulang pada setiap pengambilan Workbench (tidak memerlukan izin Lab).",
-  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "Siapa pun yang mengelola integrasi Checkmarx One dapat menjalankannya (tidak memerlukan izin Lab)."
+  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "Siapa pun yang mengelola integrasi Checkmarx One dapat menjalankannya (tidak memerlukan izin Lab).",
+  "The Cx Credits Calculator has its own address": "Kalkulator kredit Cx punya alamat sendiri",
+  "It no longer opens inside CxMissionZero. Open it at its own address, in a new tab:": "Kalkulator tidak lagi dibuka di dalam CxMissionZero. Buka di alamatnya sendiri, di tab baru:",
+  "Open the Cx Credits Calculator": "Buka Kalkulator kredit Cx",
+  "Cx Credits Calculator at its own address": "Kalkulator kredit Cx di alamatnya sendiri",
+  "The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.": "Kalkulator dapat berjalan di luar CxMissionZero, di alamatnya sendiri. Jika diaktifkan, Kalkulator kredit Cx di menu membuka alamat itu di tab baru, untuk peran yang boleh memakai kalkulator, dan halaman bawaan disimpan.",
+  "Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.": "Jika dimatikan, kalkulator bawaan kembali dengan pelanggan dan laporan yang tersimpan: tidak ada yang dihapus. CxMissionZero hanya menautkan ke alamat itu; siapa yang boleh membukanya ditentukan di sana.",
+  "The calculator's address": "Alamat kalkulator",
+  "Open the Cx Credits Calculator at this address": "Buka Kalkulator kredit Cx di alamat ini",
+  "Opens at its own address, in a new tab": "Dibuka di alamatnya sendiri, di tab baru",
+  "Saved. Cx Credits Calculator in the menu now opens this address.": "Disimpan. Kalkulator kredit Cx di menu kini membuka alamat ini.",
+  "Saved. The calculator opens in CxMissionZero.": "Disimpan. Kalkulator dibuka di CxMissionZero.",
+  "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "Alamat kalkulator harus diawali http:// atau https:// dan menyebut sebuah server, misalnya http://server:8333/.",
+  "Give the calculator's address before turning this on.": "Isi alamat kalkulator sebelum mengaktifkan ini."
  }
 }

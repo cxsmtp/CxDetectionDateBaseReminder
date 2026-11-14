@@ -5638,6 +5638,19 @@
   "Anyone who may send reminders can find and email code authors (no Labs permission needed).": "リマインダーを送信できるユーザーであれば誰でもコード作成者を見つけてメールできます（ラボ権限は不要）。",
   "Anyone who may change initiator addresses can run and apply the matching (no Labs permission needed).": "イニシエーターのアドレスを変更できるユーザーであれば誰でも照合を実行して適用できます（ラボ権限は不要）。",
   "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Labs permission needed).": "検出結果を読み込むすべてのユーザーがFusionページを表示でき、Workbenchで取得するたびに読み直されます（ラボ権限は不要）。",
-  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "Checkmarx One連携を管理できるユーザーであれば誰でも実行できます（ラボ権限は不要）。"
+  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "Checkmarx One連携を管理できるユーザーであれば誰でも実行できます（ラボ権限は不要）。",
+  "The Cx Credits Calculator has its own address": "Cx クレジット計算ツールには専用のアドレスがあります",
+  "It no longer opens inside CxMissionZero. Open it at its own address, in a new tab:": "CxMissionZero の中では開かなくなりました。専用のアドレスを新しいタブで開いてください：",
+  "Open the Cx Credits Calculator": "Cx クレジット計算ツールを開く",
+  "Cx Credits Calculator at its own address": "専用アドレスの Cx クレジット計算ツール",
+  "The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.": "計算ツールは CxMissionZero の外で、専用のアドレスで動かせます。オンにすると、計算ツールを使えるロールに対して、メニューの Cx クレジット計算ツールがそのアドレスを新しいタブで開き、組み込みのページはしまわれます。",
+  "Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.": "オフにすると、組み込みの計算ツールが保存済みの顧客とレポートとともに戻ります。何も削除されません。CxMissionZero はそのアドレスにリンクするだけで、誰が開けるかはそちら側で決まります。",
+  "The calculator's address": "計算ツールのアドレス",
+  "Open the Cx Credits Calculator at this address": "Cx クレジット計算ツールをこのアドレスで開く",
+  "Opens at its own address, in a new tab": "専用のアドレスを新しいタブで開きます",
+  "Saved. Cx Credits Calculator in the menu now opens this address.": "保存しました。メニューの Cx クレジット計算ツールはこのアドレスを開くようになりました。",
+  "Saved. The calculator opens in CxMissionZero.": "保存しました。計算ツールは CxMissionZero の中で開きます。",
+  "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "計算ツールのアドレスは http:// または https:// で始まり、サーバーを指定する必要があります（例：http://server:8333/）。",
+  "Give the calculator's address before turning this on.": "オンにする前に計算ツールのアドレスを入力してください。"
  }
 }

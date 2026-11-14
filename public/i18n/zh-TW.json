@@ -5638,6 +5638,19 @@
   "Anyone who may send reminders can find and email code authors (no Labs permission needed).": "任何可以傳送提醒的人員都能找到程式碼作者並寄電子郵件給他們（不需要實驗室權限）。",
   "Anyone who may change initiator addresses can run and apply the matching (no Labs permission needed).": "任何可以變更發起者地址的人員都能執行並套用比對（不需要實驗室權限）。",
   "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Labs permission needed).": "所有載入檢測結果的人員都能看到 Fusion 頁面，每次在 Workbench 取得時都會重新讀取（不需要實驗室權限）。",
-  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "任何管理 Checkmarx One 整合的人員都能執行（不需要實驗室權限）。"
+  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "任何管理 Checkmarx One 整合的人員都能執行（不需要實驗室權限）。",
+  "The Cx Credits Calculator has its own address": "Cx 點數計算工具有自己的位址",
+  "It no longer opens inside CxMissionZero. Open it at its own address, in a new tab:": "它不再於 CxMissionZero 內開啟。請在新分頁中開啟它自己的位址：",
+  "Open the Cx Credits Calculator": "開啟 Cx 點數計算工具",
+  "Cx Credits Calculator at its own address": "使用獨立位址的 Cx 點數計算工具",
+  "The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.": "計算工具可以在 CxMissionZero 之外、以自己的位址執行。開啟後，對於可以使用計算工具的角色，選單中的 Cx 點數計算工具會在新分頁中開啟該位址，內建頁面則會收起。",
+  "Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.": "關閉後，內建計算工具會連同已儲存的客戶和報告一起回來：不會刪除任何內容。CxMissionZero 只是連結到該位址；誰可以開啟它由那邊決定。",
+  "The calculator's address": "計算工具的位址",
+  "Open the Cx Credits Calculator at this address": "在此位址開啟 Cx 點數計算工具",
+  "Opens at its own address, in a new tab": "在新分頁中開啟它自己的位址",
+  "Saved. Cx Credits Calculator in the menu now opens this address.": "已儲存。選單中的 Cx 點數計算工具現在會開啟此位址。",
+  "Saved. The calculator opens in CxMissionZero.": "已儲存。計算工具在 CxMissionZero 中開啟。",
+  "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "計算工具的位址必須以 http:// 或 https:// 開頭並指明伺服器，例如 http://server:8333/。",
+  "Give the calculator's address before turning this on.": "請先填寫計算工具的位址，再開啟此項。"
  }
 }

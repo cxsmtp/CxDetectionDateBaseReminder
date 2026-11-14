@@ -804,12 +804,65 @@ function renderFeatureStages() {
   STAGES.govern = governFinal ? 'govern' : 'labs';
   PAGE_TITLES.govern[1] = governFinal ? 'Who may use how many AI credits, and what happens at the limit' : 'Labs: who may use how many AI credits, and what happens at the limit';
   if (state.page === 'govern') setPageTitle('govern');
+  applyCalculatorAddress();
 }
+
+/** The calculator's own address, when an Admin turned it on (it then opens there, not in CxMissionZero). */
+const calculatorMoved = () => state.me?.calculator?.url ?? '';
+
+/** The menu's Cx Credits Calculator: the built-in page, or its own address in a new tab. */
+function applyCalculatorAddress() {
+  const url = calculatorMoved();
+  const link = document.querySelector('#nav > a.tab[data-route="calculator"]');
+  link.href = url || '#/calculator';
+  if (url) {
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.title = 'Opens at its own address, in a new tab';
+  } else {
+    link.removeAttribute('target');
+    link.removeAttribute('rel');
+    link.removeAttribute('title');
+  }
+  // A pinned copy of the menu item follows it.
+  renderNavPins();
+  $('calc-moved-open').href = url || '#/calculator';
+  $('calc-moved-url').textContent = url;
+  if (state.page === 'calculator') {
+    $('calc-moved').hidden = !url;
+    $('page-calculator').hidden = Boolean(url);
+    if (!url) calculator.load({ reopen: false });
+  }
+}
+
+/** Settings → Beta features: where the calculator opens. The address typed is suggested from this server's own, port 8333. */
+function renderCalculatorAddress({ external, url }) {
+  $('calc-address-url').value = url;
+  $('calc-address-url').placeholder = `http://${location.hostname}:8333/`;
+  $('calc-address-on').checked = external;
+  const badge = $('calc-address-badge');
+  badge.textContent = external ? 'On' : 'Off';
+  badge.className = `badge ${external ? 'ok' : 'muted'}`;
+}
+
+$('calc-address-save').addEventListener('click', async () => {
+  setStatus('calc-address-status', 'Saving…');
+  try {
+    const { calculator: saved } = await api('/api/calculator/address', { method: 'PUT', body: JSON.stringify({ url: $('calc-address-url').value, external: $('calc-address-on').checked }) });
+    renderCalculatorAddress(saved);
+    state.me = { ...state.me, calculator: saved.external && saved.url && can('projections.use') ? { url: saved.url } : null };
+    applyCalculatorAddress();
+    setStatus('calc-address-status', saved.external ? 'Saved. Cx Credits Calculator in the menu now opens this address.' : 'Saved. The calculator opens in CxMissionZero.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('calc-address-status', error);
+  }
+});
 
 async function loadFeatures() {
   if (!can('features.manage')) return;
   try {
     renderFeatures(await api('/api/features'));
+    renderCalculatorAddress((await api('/api/calculator/address')).calculator);
   } catch (error) {
     if (!handleAuthLoss(error)) showError('feat-status', error);
   }
@@ -1305,7 +1358,7 @@ const PAGE_LOADERS = {
   audit: () => renderAudit(),
   access: () => loadAccess(),
   help: () => loadHelp(),
-  calculator: () => calculator.load(),
+  calculator: () => calculatorMoved() || calculator.load(),
 };
 
 /**
@@ -1335,7 +1388,7 @@ const PAGE_RETURN = {
   beta: () => renderBetaScope(),
   fusion: () => loadFusion(),
   help: () => loadHelp(),
-  calculator: () => calculator.load({ reopen: false }),
+  calculator: () => calculatorMoved() || calculator.load({ reopen: false }),
 };
 
 function route() {
@@ -1350,6 +1403,9 @@ function route() {
   const previous = state.page;
   if (previous && previous !== target) scrollMemory.set(previous, window.scrollY);
   for (const page of Object.keys(PAGE_PERMS)) $(`page-${page}`).hidden = page !== target;
+  // The calculator at an address of its own: its page says where it went, the built-in one stays put away.
+  $('calc-moved').hidden = !(target === 'calculator' && calculatorMoved());
+  if (target === 'calculator' && calculatorMoved()) $('page-calculator').hidden = true;
   for (const tab of document.querySelectorAll('.tab')) {
     tab.classList.toggle('active', tab.dataset.route === target);
     if (tab.dataset.route === target) tab.setAttribute('aria-current', 'page');
@@ -1608,6 +1664,7 @@ function renderNavPins() {
       copy.dataset.stage = 'pinned';
       copy.classList.add('tab-pinned');
       copy.classList.remove('nav-folded');
+      copy.removeAttribute('id');
       for (const el of copy.querySelectorAll('[id]')) el.removeAttribute('id');
       return copy;
     }),

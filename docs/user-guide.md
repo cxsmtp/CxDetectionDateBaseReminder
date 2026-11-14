@@ -504,6 +504,8 @@ A feature starts in Beta: in Labs, only the roles holding **See Labs** and its o
 | **FAE Flush** | It moves out of Labs to the top of **Act** (FAE Flush, Workbench, Automation); the Workbench stays the home page. Anyone who manages the Checkmarx One integration can run it. |
 | **Govern** | It moves out of Labs to its own menu group, **Govern**, between Prove and Plan. Everyone holding a Govern permission uses it, without a Labs permission. |
 
+**Cx Credits Calculator at its own address** (from MZ-01.01.09), at the end of the same page, is a switch for moving the calculator out of CxMissionZero. Type **The calculator's address** (where it runs on its own, such as `http://server:8333/`; it must start with `http://` or `https://`), tick **Open the Cx Credits Calculator at this address** and **Save**. From then on **Cx Credits Calculator** in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page only says where it went. Untick it and save to bring the built-in calculator back, with its saved customers and reports: nothing is deleted either way. CxMissionZero only links to the address: who may open the calculator there is decided there, so put it behind its own sign-in or your network's rules. Only an Admin can change it, and each change is in the audit log.
+
 ### Hands-off (set it up once)
 
 For teams that would rather not sign in to one more tool. **Settings → Hands-off** asks four questions:

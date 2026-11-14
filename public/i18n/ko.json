@@ -5638,6 +5638,19 @@
   "Anyone who may send reminders can find and email code authors (no Labs permission needed).": "알림을 보낼 수 있는 사용자는 누구나 코드 작성자를 찾아 이메일을 보낼 수 있습니다(실험실 권한 불필요).",
   "Anyone who may change initiator addresses can run and apply the matching (no Labs permission needed).": "시작자 주소를 변경할 수 있는 사용자는 누구나 매칭을 실행하고 적용할 수 있습니다(실험실 권한 불필요).",
   "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Labs permission needed).": "탐지 결과를 불러오는 모든 사용자가 Fusion 페이지를 보며, Workbench에서 가져올 때마다 다시 읽습니다(실험실 권한 불필요).",
-  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "Checkmarx One 연동을 관리하는 사용자는 누구나 실행할 수 있습니다(실험실 권한 불필요)."
+  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "Checkmarx One 연동을 관리하는 사용자는 누구나 실행할 수 있습니다(실험실 권한 불필요).",
+  "The Cx Credits Calculator has its own address": "Cx 크레딧 계산기에 자체 주소가 있습니다",
+  "It no longer opens inside CxMissionZero. Open it at its own address, in a new tab:": "더 이상 CxMissionZero 안에서 열리지 않습니다. 자체 주소에서 새 탭으로 여세요:",
+  "Open the Cx Credits Calculator": "Cx 크레딧 계산기 열기",
+  "Cx Credits Calculator at its own address": "자체 주소의 Cx 크레딧 계산기",
+  "The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.": "계산기는 CxMissionZero 밖에서 자체 주소로 실행할 수 있습니다. 켜면 계산기를 사용할 수 있는 역할에 대해 메뉴의 Cx 크레딧 계산기가 그 주소를 새 탭으로 열고, 기본 제공 페이지는 치워집니다.",
+  "Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.": "끄면 기본 제공 계산기가 저장된 고객 및 보고서와 함께 돌아옵니다. 아무것도 삭제되지 않습니다. CxMissionZero는 그 주소로 연결만 하며, 누가 열 수 있는지는 그쪽에서 정합니다.",
+  "The calculator's address": "계산기 주소",
+  "Open the Cx Credits Calculator at this address": "이 주소에서 Cx 크레딧 계산기 열기",
+  "Opens at its own address, in a new tab": "자체 주소에서 새 탭으로 열립니다",
+  "Saved. Cx Credits Calculator in the menu now opens this address.": "저장되었습니다. 이제 메뉴의 Cx 크레딧 계산기가 이 주소를 엽니다.",
+  "Saved. The calculator opens in CxMissionZero.": "저장되었습니다. 계산기는 CxMissionZero에서 열립니다.",
+  "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "계산기 주소는 http:// 또는 https://로 시작하고 서버를 지정해야 합니다(예: http://server:8333/).",
+  "Give the calculator's address before turning this on.": "켜기 전에 계산기 주소를 입력하세요."
  }
 }

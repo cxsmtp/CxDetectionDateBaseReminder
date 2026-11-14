@@ -37635,5 +37635,83 @@
   "seen": [
    "settings › Beta features"
   ]
+ },
+ "The Cx Credits Calculator has its own address": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › moved"
+  ]
+ },
+ "It no longer opens inside CxMissionZero. Open it at its own address, in a new tab:": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › moved"
+  ]
+ },
+ "Open the Cx Credits Calculator": {
+  "kind": "text",
+  "seen": [
+   "Cx Credits Calculator › moved"
+  ]
+ },
+ "Cx Credits Calculator at its own address": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "The calculator's address": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "Open the Cx Credits Calculator at this address": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "Opens at its own address, in a new tab": {
+  "kind": "attr:title",
+  "seen": [
+   "menu › Cx Credits Calculator"
+  ]
+ },
+ "Saved. Cx Credits Calculator in the menu now opens this address.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features › status"
+  ]
+ },
+ "Saved. The calculator opens in CxMissionZero.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features › status"
+  ]
+ },
+ "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features › status"
+  ]
+ },
+ "Give the calculator's address before turning this on.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features › status"
+  ]
  }
 }

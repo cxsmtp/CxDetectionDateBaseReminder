@@ -1255,6 +1255,8 @@ function describeMe(session, user) {
     role: { id: user.role, name: iam.role(user.role)?.name ?? user.role },
     permissions,
     features: Object.fromEntries(featureList(settings).map((f) => [f.id, f.stage])),
+    // The Cx Credits Calculator at an address of its own (an Admin's switch): the menu opens it there, for whoever may use the calculator.
+    calculator: held.has('projections.use') && settings.calculator?.external && settings.calculator.url ? { url: settings.calculator.url } : null,
     via: session.via,
     // The organisation's Impact figures: what Your profile → Your Impact figures falls back to.
     organisationImpact: (({ currency, hourlyRate, creditPrice, triageMinutes, fixMinutes }) => ({ currency, hourlyRate, creditPrice, triageMinutes, fixMinutes }))(settings.impact),
@@ -9710,6 +9712,33 @@ app.put('/api/features/:id', requirePermission('features.manage'), (req, res) =>
   const settings = settingsStore.get();
   res.json({ features: featureList(settings).filter((f) => !featureLocked(f)).map(({ unlockedBy, ...f }) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })), canManage: true });
 });
+
+/**
+ * The Cx Credits Calculator at an address of its own (Settings → Beta features): an Admin's switch and the address.
+ * Turned on, the menu opens the calculator there and the built-in page is put away; its saved customers and reports
+ * stay, and come back when it is turned off.
+ */
+app.get('/api/calculator/address', requirePermission('features.manage'), (req, res) => {
+  res.json({ calculator: settingsStore.get().calculator });
+});
+
+app.put('/api/calculator/address', requirePermission('features.manage'), asyncRoute(async (req, res) => {
+  const before = settingsStore.get().calculator;
+  const incoming = {};
+  if (req.body && 'url' in req.body) incoming.url = req.body.url;
+  if (req.body && 'external' in req.body) incoming.external = req.body.external === true;
+  const after = settingsStore.save({ calculator: incoming }).calculator;
+  if (before.external !== after.external || before.url !== after.url) {
+    audit.record({
+      type: 'system',
+      outcome: 'changed',
+      reason: after.external ? `The Cx Credits Calculator now opens at its own address, ${after.url}.` : before.external ? 'The Cx Credits Calculator opens in CxMissionZero again (the built-in page).' : `The Cx Credits Calculator's own address was ${after.url ? `set to ${after.url}` : 'cleared'} (not turned on).`,
+      actor: { kind: 'user', user: req.user?.email ?? '' },
+      details: { calculator: { before, after } },
+    });
+  }
+  res.json({ calculator: after });
+}));
 
 /** Everything worth knowing when something is wrong, without secrets: for the Admin, or to send to whoever helps. */
 app.get('/api/system/report', requirePermission('system.update'), (req, res) => {

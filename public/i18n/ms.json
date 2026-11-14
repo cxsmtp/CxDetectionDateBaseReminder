@@ -5638,6 +5638,19 @@
   "Anyone who may send reminders can find and email code authors (no Labs permission needed).": "Sesiapa yang boleh menghantar peringatan boleh mencari pengarang kod dan menghantar e-mel kepada mereka (tiada kebenaran Makmal diperlukan).",
   "Anyone who may change initiator addresses can run and apply the matching (no Labs permission needed).": "Sesiapa yang boleh mengubah alamat pemula boleh menjalankan dan menggunakan padanan (tiada kebenaran Makmal diperlukan).",
   "Everyone who loads findings sees the Fusion page, read again with each Workbench fetch (no Labs permission needed).": "Semua yang memuatkan penemuan melihat halaman Fusion, dibaca semula dengan setiap pengambilan Workbench (tiada kebenaran Makmal diperlukan).",
-  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "Sesiapa yang mengurus integrasi Checkmarx One boleh menjalankannya (tiada kebenaran Makmal diperlukan)."
+  "Anyone who manages the Checkmarx One integration can run it (no Labs permission needed).": "Sesiapa yang mengurus integrasi Checkmarx One boleh menjalankannya (tiada kebenaran Makmal diperlukan).",
+  "The Cx Credits Calculator has its own address": "Pengira kredit Cx mempunyai alamat sendiri",
+  "It no longer opens inside CxMissionZero. Open it at its own address, in a new tab:": "Ia tidak lagi dibuka di dalam CxMissionZero. Buka di alamatnya sendiri, dalam tab baharu:",
+  "Open the Cx Credits Calculator": "Buka Pengira kredit Cx",
+  "Cx Credits Calculator at its own address": "Pengira kredit Cx di alamatnya sendiri",
+  "The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.": "Pengira boleh berjalan di luar CxMissionZero, di alamatnya sendiri. Apabila dihidupkan, Pengira kredit Cx dalam menu membuka alamat itu dalam tab baharu, untuk peranan yang boleh menggunakan pengira, dan halaman terbina dalam disimpan.",
+  "Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.": "Apabila dimatikan, pengira terbina dalam kembali dengan pelanggan dan laporan yang disimpan: tiada apa-apa dipadam. CxMissionZero hanya memaut ke alamat itu; siapa yang boleh membukanya ditentukan di sana.",
+  "The calculator's address": "Alamat pengira",
+  "Open the Cx Credits Calculator at this address": "Buka Pengira kredit Cx di alamat ini",
+  "Opens at its own address, in a new tab": "Dibuka di alamatnya sendiri, dalam tab baharu",
+  "Saved. Cx Credits Calculator in the menu now opens this address.": "Disimpan. Pengira kredit Cx dalam menu kini membuka alamat ini.",
+  "Saved. The calculator opens in CxMissionZero.": "Disimpan. Pengira dibuka dalam CxMissionZero.",
+  "The calculator's address must start with http:// or https:// and name a server, such as http://server:8333/.": "Alamat pengira mesti bermula dengan http:// atau https:// dan menamakan pelayan, contohnya http://server:8333/.",
+  "Give the calculator's address before turning this on.": "Berikan alamat pengira sebelum menghidupkan ini."
  }
 }
