@@ -72,7 +72,7 @@ function parseJson(buffer) {
 /** A short reason a person can act on, from whatever reading or parsing threw. */
 const reasonOf = (error) => String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 160);
 
-/** Try one file: {state: 'ok', value} | {state: 'missing'} | {state: 'damaged' | 'unreadable', reason, cause}. */
+/** Try one file: {state: 'ok', value} | {state: 'missing'} | {state: 'damaged' | 'unreadable', reason}. */
 function attempt(file, parse) {
   let buffer;
   try {
@@ -80,13 +80,13 @@ function attempt(file, parse) {
   } catch (error) {
     if (error.code === 'ENOENT') return { state: 'missing' };
     // There, but this server may not read it (permissions, a folder in its place, a failing disk).
-    return { state: 'unreadable', reason: `it cannot be read: ${reasonOf(error)}`, cause: error };
+    return { state: 'unreadable', reason: `it cannot be read: ${reasonOf(error)}` };
   }
   if (!buffer.length) return { state: 'damaged', reason: 'it is empty: zero bytes, as a crash in the middle of a save leaves it' };
   try {
     return { state: 'ok', value: parse(buffer) };
   } catch (error) {
-    return { state: 'damaged', reason: `its contents are not valid: ${reasonOf(error)}`, cause: error };
+    return { state: 'damaged', reason: `its contents are not valid: ${reasonOf(error)}` };
   }
 }
 
@@ -127,7 +127,9 @@ export function readState(file, { fallback = null, parse = parseJson, holds = ''
     console.error(`! [data] ${file} is damaged (${main.reason}): the last good copy ${bak} was used instead. Anything saved after that copy was made is lost. ${kept}`);
     return copy.value;
   }
-  throw new StateFileError(file, main.state === 'missing' ? '' : main.reason, { holds, copy: copy.state === 'missing' ? '' : copy.reason, cause: main.cause ?? copy.cause });
+  // The reasons are in the message; no `cause` is attached, so what Node prints for an error nobody caught
+  // (the server's stores are made as it starts) is the message and where it was thrown, not two stack traces.
+  throw new StateFileError(file, main.state === 'missing' ? '' : main.reason, { holds, copy: copy.state === 'missing' ? '' : copy.reason });
 }
 
 /** Flush a folder, so a file just created in it or renamed into it is still there after a crash. Does nothing where folders cannot be flushed. */
