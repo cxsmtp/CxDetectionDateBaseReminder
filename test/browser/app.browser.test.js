@@ -8,6 +8,8 @@
 //   npm run test:browser
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
 import { MEMBER_NEXT_PASSWORD, MEMBER_PASSWORD, NEXT_PASSWORD } from '../test-credentials.js';
 import { openBrowser, startServer } from './harness.js';
@@ -64,17 +66,22 @@ async function open(page, route, pageId) {
   await page.locator(`#${pageId}`).waitFor({ state: 'visible' });
 }
 
+/** The first visit to a server nobody has set up: the setup code from its log makes the first administrator. */
+async function createFirstAdmin(page, setupCode) {
+  await page.goto('/');
+  await page.locator('#setup-box').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#nav').isVisible(), false, 'nothing to use before there is an administrator');
+  await page.fill('#setup-code', setupCode);
+  await page.fill('#setup-name', ADMIN.name);
+  await page.fill('#setup-email', ADMIN.email);
+  await page.fill('#setup-password', ADMIN.password);
+  await page.fill('#setup-password2', ADMIN.password);
+  await page.locator('#setup-form button[type="submit"]').click();
+  await signedInAs(page, ADMIN.name);
+}
+
 test('first start: the first administrator is created with the setup code from the server log', async () => {
-  await admin.goto('/');
-  await admin.locator('#setup-box').waitFor({ state: 'visible' });
-  assert.equal(await admin.locator('#nav').isVisible(), false, 'nothing to use before there is an administrator');
-  await admin.fill('#setup-code', server.setupCode);
-  await admin.fill('#setup-name', ADMIN.name);
-  await admin.fill('#setup-email', ADMIN.email);
-  await admin.fill('#setup-password', ADMIN.password);
-  await admin.fill('#setup-password2', ADMIN.password);
-  await admin.locator('#setup-form button[type="submit"]').click();
-  await signedInAs(admin, ADMIN.name);
+  await createFirstAdmin(admin, server.setupCode);
   assert.equal((await admin.locator('#me-role').textContent()).trim(), 'Admin');
   nothingWentWrong();
 });
@@ -206,6 +213,39 @@ test('signing out ends the visit: the menu goes, and the server no longer answer
   await admin.locator('#signin-box').waitFor({ state: 'visible' });
   assert.equal(await admin.locator('#nav').isVisible(), false);
   nothingWentWrong();
+});
+
+test('an existing installation: the Admin is told its backups are not encrypted, turns encryption on, and is shown the key to save', async () => {
+  // A server of its own, on a data folder an earlier version left something in.
+  const existing = await startServer({ projects: 1, risks: 1, prepare: (dataDir) => fs.writeFileSync(path.join(dataDir, 'tracked-reports.json'), JSON.stringify({ reports: [] })) });
+  const visit = await openBrowser(existing.base);
+  try {
+    const { page } = await visit.person('the Admin of an existing installation');
+    await createFirstAdmin(page, existing.setupCode);
+    const banner = page.locator('#backup-banner');
+    await banner.waitFor({ state: 'visible' });
+    assert.match(await banner.textContent(), /Backups of this server are not encrypted/);
+    await banner.getByRole('link').click();
+    const panel = page.locator('#backup-key-panel');
+    await panel.getByText('Backups are not encrypted.').waitFor();
+    assert.match(await page.locator('#backup-facts').innerText(), /off — each backup holds the keys and passwords in the clear/);
+    // Turning it on asks first, then shows the key at once and asks for it to be saved.
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.locator('#backup-encrypt-on').click();
+    const key = (await page.locator('#backup-key-value').textContent()).trim();
+    assert.match(key, /^([A-HJ-NP-Z2-9]{4}-){7}[A-HJ-NP-Z2-9]{4}$/);
+    await banner.filter({ hasText: 'nobody has confirmed saving the key somewhere else yet' }).waitFor();
+    await page.locator('#backup-facts').getByText("on, with this server's backup key").waitFor();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.locator('#backup-key-confirm').click();
+    await banner.waitFor({ state: 'hidden' });
+    await panel.getByText('Saved somewhere else: confirmed').waitFor();
+    assert.ok(!existing.log().includes(key), 'the key is not in the server log');
+    assert.deepEqual(visit.problems(), []);
+  } finally {
+    await visit.close();
+    await existing.stop();
+  }
 });
 
 test('the watch itself works: an error nobody caught and a refused request are both noticed', async () => {

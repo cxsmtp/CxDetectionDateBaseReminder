@@ -202,8 +202,9 @@ half-restored. There are three ways to make one:
 ## Backups are encrypted
 
 A backup holds the Checkmarx One key, the mail password and the signing keys. So a
-backup is encrypted wherever it goes: downloaded, written to the backup folder, or
-emailed. The encryption is AES-256-GCM, with the key derived by scrypt.
+new installation encrypts every backup, wherever it goes: downloaded, written to the
+backup folder, or emailed. An installation that already existed turns this on first
+(below). The encryption is AES-256-GCM, with the key derived by scrypt.
 
 **What encrypts a backup.** One of three things, in this order:
 
@@ -211,7 +212,7 @@ emailed. The encryption is AES-256-GCM, with the key derived by scrypt.
 | --- | --- |
 | `BACKUP_PASSPHRASE` set | Encrypted with that passphrase. Nothing else on this page changes that. |
 | No passphrase, encryption on | Encrypted with **the server's own backup key**. |
-| No passphrase, encryption off | Not encrypted. Admins see a notice on every page. |
+| No passphrase, encryption off | Not encrypted. Admins see a notice on every page, unless it is off on purpose (`BACKUP_ENCRYPTION=off`). |
 
 **A new installation encrypts from its first backup.** At its first start the server
 makes a backup key of its own: eight groups of four letters and digits, such as
@@ -279,6 +280,11 @@ format a passphrase gives. Give the key wherever a passphrase is asked for:
   restore as they always did.
 
 `npm run backup` follows the same rules as the server's own backups.
+
+**Going back to an older version.** A version from before backups were encrypted by
+default does not know the backup key. While it runs, with no `BACKUP_PASSPHRASE`, the
+backups it makes are plain. The key stays in the state folder, and the newer version
+uses it again when it is back.
 
 ## The backup mailbox: rebuilding without touching anything
 

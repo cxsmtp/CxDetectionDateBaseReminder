@@ -34,15 +34,17 @@ function stopChild(child, signal = 'SIGTERM') {
 
 /**
  * Start the mock Checkmarx One and the server (a new installation: an empty data folder, the first
- * administrator still to be created with the setup code from the log).
+ * administrator still to be created with the setup code from the log). `prepare(dataDir)` puts something
+ * in the data folder first: an installation that already existed.
  * Returns { base, setupCode, log(), stop() }.
  */
-export async function startServer({ projects = 3, risks = 4, env = {} } = {}) {
+export async function startServer({ projects = 3, risks = 4, env = {}, prepare = null } = {}) {
   const mockPort = await freePort();
   const port = await freePort();
   const mock = `http://127.0.0.1:${mockPort}`;
   const base = `http://127.0.0.1:${port}`;
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-'));
+  prepare?.(dataDir);
   let log = '';
   const children = [];
   const stop = async () => {
