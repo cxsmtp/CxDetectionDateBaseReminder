@@ -97,7 +97,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.01.10 — 2026-11-14 09:05 UTC · [#131](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/131)
+## MZ-01.01.10 — 2026-11-14 09:55 UTC · [#131](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/131)
 
 - **Works until 31 March 2027.** CxMissionZero now stops at the end of 31 March 2027 (UTC), not 31 December 2026, until the product activation code is entered; the code is checked again from its signature at every start, so a code entered on an older release is entered once more after updating.
 - **A crash or a full disk can no longer empty a state file.** Every save is written beside the file, flushed to the disk and then put in place, with the file before it kept as `.bak`; a damaged file is put right from its `.bak`, and with none the server names the file and does not start, where it used to carry on as if the file were empty and write over it.
