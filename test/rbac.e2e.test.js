@@ -339,3 +339,27 @@ test('pages carry the security headers, and a state change from another site is 
   });
   assert.equal(same.status, 201);
 });
+
+test('nobody signed in can fill the disk: forged report requests are bounded in size and in what the audit log keeps of them', async () => {
+  const post = (path, body, headers = {}) => fetch(`${BASE}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+  const forged = { projectId: 'p0', projectName: 'Project 0', riskId: 'p0-r9', scanId: 'scan-p0', scanner: 'SAST', alternateId: 'alt', groupId: 'g', exp: Date.now() + 60_000, grant: 'not-a-grant' };
+  const refusedCount = async () => (await as.admin('GET', '/api/audit?limit=500')).body.entries.filter((e) => /did not verify \(altered or forged request\)/.test(e.reason)).length;
+  const before = await refusedCount();
+
+  // A name far longer than any report sends is refused before it is looked at, and nothing is written.
+  const long = await post('/api/relay/triage', { findings: [{ ...forged, projectName: 'x'.repeat(5000) }] });
+  assert.equal(long.status, 400);
+  assert.equal((await long.json()).error, 'This request is not from a report.');
+  assert.equal(await refusedCount(), before);
+
+  // A body larger than a report's request is refused outright (413), on the report routes and at sign-in.
+  assert.equal((await post('/api/relay/triage', JSON.stringify({ findings: [], pad: 'x'.repeat(600_000) }))).status, 413);
+  assert.equal((await post('/api/session/password', JSON.stringify({ email: 'a@acme.io', password: 'x'.repeat(100_000) }))).status, 413);
+  // The calculator's large requests are read only for someone signed in who may use it: 5 MB from nobody is refused.
+  assert.equal((await post('/api/projections', JSON.stringify({ pad: 'x'.repeat(5_000_000) }))).status, 413);
+
+  // Forty forged requests in a row: all refused, but the audit log lists only the first few from one address.
+  for (let i = 0; i < 40; i += 1) assert.equal((await post('/api/relay/triage', { findings: [{ ...forged, riskId: `p0-forged-${i}` }] })).status, 403);
+  const listed = (await refusedCount()) - before;
+  assert.ok(listed >= 1 && listed <= 10, `${listed} listed of 40`);
+});

@@ -12,7 +12,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test test/*.test.js",
+    "test": "node scripts/run-tests.mjs",
     "backup": "node scripts/backup.mjs",
     "restore": "node scripts/restore.mjs",
     "reset-admin": "node scripts/reset-admin.mjs"

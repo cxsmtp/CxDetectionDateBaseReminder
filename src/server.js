@@ -811,8 +811,20 @@ app.use('/api/diagnostics/client-error', express.json({ limit: '16kb' }));
 // Govern (beta): small JSON bodies, except a CSV import (at most 1 MiB of CSV, in JSON).
 app.use('/api/govern/csv', express.json({ limit: '2mb' }));
 app.use('/api/govern', express.json({ limit: '64kb' }));
-// A calculator customer or report with tens of thousands of projects (MAX_PROFILE_BYTES, MAX_REPORT_BYTES).
-app.use('/api/projections', express.json({ limit: '40mb' }));
+// Where nobody has signed in yet, a request is small: an emailed report's actions, a sign-in, a licence code.
+// (Up to RELAY_MAX_FINDINGS findings a request, a few hundred bytes each.)
+app.use('/api/relay', express.json({ limit: '512kb' }));
+app.use(['/api/session', '/api/licence'], express.json({ limit: '64kb' }));
+// A calculator customer or report with tens of thousands of projects (MAX_PROFILE_BYTES, MAX_REPORT_BYTES): read
+// only for someone signed in who may use the calculator. Anyone else's request falls to the limit below, and is
+// refused by the route (401 or 403) without 40 MB having been read for them.
+const calculatorJson = express.json({ limit: '40mb' });
+app.use('/api/projections', (req, res, next) => {
+  const session = currentSession(req);
+  const user = session ? iam.user(session.userId) : null;
+  if (user && !user.disabled && permissionsFor(user).has('projections.use')) return calculatorJson(req, res, next);
+  next();
+});
 app.use(express.json({ limit: '4mb' }));
 
 /**
@@ -1337,7 +1349,8 @@ app.post(
   '/api/session/password',
   asyncRoute(async (req, res) => {
     if (throttleSignIn(req, res)) return;
-    const email = String(req.body?.email ?? '').trim();
+    // (An email address is at most 254 characters: nothing longer is looked up, or written to the audit log.)
+    const email = String(req.body?.email ?? '').trim().slice(0, 254);
     let user;
     try {
       user = await iam.signIn(email, String(req.body?.password ?? ''));
@@ -4008,10 +4021,49 @@ function relayError(error) {
   return 'Checkmarx One could not be reached. Try again later.';
 }
 
+/**
+ * What a report sends to name a finding is short: ids, a project's name, the engine. Anything longer is not from a
+ * report, and is refused before it is looked at (or written anywhere).
+ */
+const RELAY_FIELD_MAX = { projectId: 200, projectName: 512, riskId: 512, scanId: 200, scanner: 40, alternateId: 512, groupId: 512, grant: 512 };
+const relayFieldsFit = (raw) => Object.entries(RELAY_FIELD_MAX).every(([field, max]) => String(raw?.[field] ?? '').length <= max) && String(raw?.exp ?? '').length <= 40;
+
+/**
+ * Refused report requests are written to the audit log, but only so many: nobody has signed in on these routes, so
+ * without a limit anyone who can reach the server could fill the disk with them. Past REFUSED_AUDIT_PER_MINUTE
+ * from one address (or four times that from everyone) in a minute, the rest are counted, and one line says how
+ * many were left out.
+ */
+const REFUSED_AUDIT_PER_MINUTE = 10;
+const refusedAudits = { since: 0, total: 0, byAddress: new Map(), leftOut: 0 };
+function mayAuditRefusal(req, now = Date.now()) {
+  if (now - refusedAudits.since >= 60_000) {
+    if (refusedAudits.leftOut) {
+      audit.record({ type: 'access', outcome: 'refused', reason: `${refusedAudits.leftOut} more refused report requests in the minute before were not listed one by one (too many at once).`, actor: SYSTEM_ACTOR });
+    }
+    Object.assign(refusedAudits, { since: now, total: 0, leftOut: 0 });
+    refusedAudits.byAddress.clear();
+  }
+  const address = clientIp(req);
+  const seen = refusedAudits.byAddress.get(address) ?? 0;
+  if (seen >= REFUSED_AUDIT_PER_MINUTE || refusedAudits.total >= REFUSED_AUDIT_PER_MINUTE * 4) {
+    refusedAudits.leftOut += 1;
+    return false;
+  }
+  // (The map cannot grow past the total allowed in a minute.)
+  refusedAudits.byAddress.set(address, seen + 1);
+  refusedAudits.total += 1;
+  return true;
+}
+
 function grantedFindings(req, res, { type = '', actor = null, list: given = req.body?.findings } = {}) {
   const list = Array.isArray(given) ? given : [];
   if (list.length === 0 || list.length > RELAY_MAX_FINDINGS) {
     res.status(400).json({ error: `Send between 1 and ${RELAY_MAX_FINDINGS} findings.` });
+    return null;
+  }
+  if (!list.every(relayFieldsFit)) {
+    res.status(400).json({ error: 'This request is not from a report.' });
     return null;
   }
   const findings = [];
@@ -4028,7 +4080,7 @@ function grantedFindings(req, res, { type = '', actor = null, list: given = req.
       grant: raw?.grant,
     };
     const problem = reportGrants.verify(finding);
-    if (problem && type) {
+    if (problem && type && mayAuditRefusal(req)) {
       audit.record({
         type,
         outcome: 'refused',

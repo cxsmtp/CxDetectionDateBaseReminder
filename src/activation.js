@@ -1,9 +1,14 @@
 /**
  * Activation codes for multi-tenant mode's Super Admin tasks (docs/multi-tenant.md), and the product licence.
  *
- * The product licence: CxMissionZero works until the end of 31 December 2026 (UTC). After that every page shows
+ * The product licence: CxMissionZero works until the end of 31 March 2027 (UTC). After that every page shows
  * that it has been deactivated, until a product activation code from the maintainer is entered; the code says
  * until when it works (docs/activation-codes.md). Data is never deleted, and backups go on.
+ *
+ * What is kept of an accepted code is the signed code itself, and it is checked again each time this starts:
+ * a date changed by hand in activation.json counts for nothing. A product entry kept by a version before
+ * MZ-01.01.10 has no code with it, so it no longer counts until the code is entered again (the built-in date
+ * still applies); entries of the other scopes kept by those versions stay as they were.
  *
  * Multi-tenant mode itself works on every installation. Adding tenants, switching between
  * them and approving a tenant's own email server need an activation code issued by the
@@ -29,8 +34,8 @@ const HOUR_MS = 60 * 60 * 1000;
 /** Admins are told this long before a code expires. */
 export const WARN_DAYS = 30;
 
-/** Without a product activation code, CxMissionZero works until this moment: the end of 31 December 2026, UTC. */
-export const PRODUCT_DEADLINE = '2027-01-01T00:00:00.000Z';
+/** Without a product activation code, CxMissionZero works until this moment: the end of 31 March 2027, UTC. */
+export const PRODUCT_DEADLINE = '2027-04-01T00:00:00.000Z';
 /** What every page says once it has stopped. */
 export const DEACTIVATED_MESSAGE = 'The product has been deactivated. Please reach out to Bhawani Singh.';
 
@@ -106,6 +111,8 @@ export function checkCode(code, { now = Date.now(), keys = trustedKeys() } = {})
     issued: String(p.issued ?? ''),
     expires: new Date(expires).toISOString(),
     daysLeft,
+    // The signed code itself: what the store keeps, and checks again when it starts.
+    code: String(code).trim(),
   };
   if (expires <= now) return { ...info, valid: false, expired: true, reason: `This activation code expired on ${info.expires.slice(0, 10)}.` };
   return { ...info, valid: true, warn: daysLeft <= WARN_DAYS };
@@ -119,15 +126,43 @@ export function checkCode(code, { now = Date.now(), keys = trustedKeys() } = {})
 export class ActivationStore {
   #file;
   #state;
+  /** The entries that count: each as its signed code says (see #seal). */
+  #sealed = { tenants: null, product: null, features: {} };
+  #keys = null;
 
-  constructor({ file }) {
+  constructor({ file, keys = null }) {
     this.#file = file;
+    // The keys kept codes are checked with: the trusted ones, unless given (tests).
+    this.#keys = keys;
     try {
       const raw = JSON.parse(readFileSync(file, 'utf8'));
       this.#state = { tenants: raw.tenants ?? null, features: raw.features && typeof raw.features === 'object' ? raw.features : {}, product: raw.product ?? null, seenAt: String(raw.seenAt ?? ''), history: Array.isArray(raw.history) ? raw.history : [] };
     } catch {
       this.#state = { tenants: null, features: {}, product: null, seenAt: '', history: [] };
     }
+    this.#seal();
+  }
+
+  /**
+   * Each kept entry as its signed code says it: the scope, the action, the date and the tenant count are read from
+   * the code, not from the file. An entry whose code does not verify (edited, or from another key) counts for
+   * nothing. An entry without a code is from a version before MZ-01.01.10: kept as it is, except the product
+   * licence, which needs its code.
+   */
+  #seal() {
+    const sealed = (entry, scope) => {
+      if (!entry || typeof entry !== 'object') return null;
+      if (!entry.code) return scope === 'product' ? null : entry;
+      // now: 0, so an expired code still reads (its date then says it is over).
+      const checked = checkCode(entry.code, { now: 0, ...(this.#keys ? { keys: this.#keys } : {}) });
+      if (!checked.valid || checked.scope !== scope) return null;
+      return { ...entry, org: checked.org, action: checked.action || 'activate', expires: checked.expires, ...(scope === 'tenants' ? { maxTenants: checked.maxTenants } : {}) };
+    };
+    this.#sealed = {
+      tenants: sealed(this.#state.tenants, 'tenants'),
+      product: sealed(this.#state.product, 'product'),
+      features: Object.fromEntries(Object.entries(this.#state.features).map(([name, entry]) => [name, sealed(entry, `feature:${name}`)]).filter(([, entry]) => entry)),
+    };
   }
 
   #save() {
@@ -140,17 +175,20 @@ export class ActivationStore {
   /** Record an accepted code (the result of checkCode) and who entered it. */
   record(result, by = '') {
     const entry = { id: result.id, org: result.org, scope: result.scope, action: result.action || 'activate', expires: result.expires, at: new Date().toISOString(), by: String(by ?? '') };
-    if (result.scope === 'tenants') this.#state.tenants = { ...entry, maxTenants: result.maxTenants };
-    if (result.scope.startsWith('feature:')) this.#state.features[result.scope.slice(8)] = entry;
-    if (result.scope === 'product') this.#state.product = entry;
+    // Kept with the signed code, so what it says can be checked again and never taken from this file alone.
+    const kept = { ...entry, ...(result.code ? { code: result.code } : {}) };
+    if (result.scope === 'tenants') this.#state.tenants = { ...kept, maxTenants: result.maxTenants };
+    if (result.scope.startsWith('feature:')) this.#state.features[result.scope.slice(8)] = kept;
+    if (result.scope === 'product') this.#state.product = kept;
     this.#state.history = [entry, ...this.#state.history].slice(0, 50);
     this.#save();
+    this.#seal();
     return entry;
   }
 
   /** The multi-tenant activation in force: { org, maxTenants, expires, daysLeft, warn } or null. */
   tenants(now = Date.now()) {
-    const t = this.#state.tenants;
+    const t = this.#sealed.tenants;
     if (!t) return null;
     const daysLeft = Math.ceil((Date.parse(t.expires) - now) / DAY_MS);
     return { org: t.org, maxTenants: t.maxTenants, expires: t.expires, at: t.at, by: t.by, daysLeft, valid: daysLeft > 0, warn: daysLeft > 0 && daysLeft <= WARN_DAYS };
@@ -158,7 +196,7 @@ export class ActivationStore {
 
   /** A held-back feature: on while its last code turned it on and is in date. { on, expired, org, expires } or null. */
   feature(name, now = Date.now()) {
-    const f = this.#state.features[name];
+    const f = this.#sealed.features[name];
     if (!f) return null;
     const inDate = Date.parse(f.expires) > now;
     return { on: f.action === 'activate' && inDate, expired: f.action === 'activate' && !inDate, org: f.org, expires: f.expires, at: f.at };
@@ -184,12 +222,12 @@ export class ActivationStore {
   }
 
   /**
-   * Whether CxMissionZero may work: until the end of 31 December 2026 (UTC), or a product code's date if later.
+   * Whether CxMissionZero may work: until the end of 31 March 2027 (UTC), or a product code's date if later.
    * { active, until, daysLeft, warn, activation: { org, expires, at } | null, message }.
    */
   product(now = Date.now()) {
     const t = this.now(now);
-    const code = this.#state.product;
+    const code = this.#sealed.product;
     const coded = code?.action === 'activate' ? Date.parse(code.expires) || 0 : 0;
     const until = Math.max(Date.parse(PRODUCT_DEADLINE), coded);
     const active = t < until;

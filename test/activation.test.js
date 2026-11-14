@@ -91,11 +91,11 @@ test('the calculator’s Impact tab: off until a feature code turns it on, off a
   assert.equal(r.scope, 'feature:impact');
   assert.equal(r.action, 'activate');
   assert.equal(checkCode(off, { keys: [publicKey] }).action, 'deactivate');
-  const store = new ActivationStore({ file: path.join(dir, 'activation.json') });
+  const store = new ActivationStore({ file: path.join(dir, 'activation.json'), keys: [publicKey] });
   assert.equal(store.feature('impact'), null, 'off by default');
   store.record(r, 'admin');
   assert.equal(store.feature('impact').on, true);
-  assert.equal(new ActivationStore({ file: path.join(dir, 'activation.json') }).feature('impact').on, true, 'kept');
+  assert.equal(new ActivationStore({ file: path.join(dir, 'activation.json'), keys: [publicKey] }).feature('impact').on, true, 'kept');
   const later = Date.parse(r.expires) + 1000;
   assert.deepEqual([store.feature('impact', later).on, store.feature('impact', later).expired], [false, true], 'off once it runs out');
   store.record(checkCode(off, { keys: [publicKey] }), 'admin');
