@@ -221,6 +221,7 @@ export const ACTIONS = {
   'PUT /api/iam/sign-in': 'Changed two-step sign-in for everyone or single sign-on',
   'POST /api/iam/sign-in/sso/check': 'Checked single sign-on',
   'DELETE /api/iam/users/:id/two-step': 'Reset a person\'s two-step sign-in',
+  'DELETE /api/iam/users/:id/sso-link': 'Reset a person\'s single sign-on link',
   'POST /api/iam/roles': 'Added a role',
   'PUT /api/iam/roles/:id': 'Changed a role',
   'DELETE /api/iam/roles/:id': 'Removed a role',

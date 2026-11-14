@@ -101,14 +101,15 @@ test('issuer, audience, authorized party, expiry, issue time and nonce are each 
 
 test('who may come in: an email, verified by the provider, in an allowed domain', () => {
   const sso = storedSso({ issuer: ISSUER, clientId: CLIENT });
-  assert.equal(identityProblem(sso, { email: 'ada@acme.io', verified: true }), null);
-  assert.equal(identityProblem(sso, { email: '', verified: true }).code, 'email');
-  assert.equal(identityProblem(sso, { email: 'ada@acme.io', verified: false }).code, 'email');
-  assert.equal(identityProblem({ ...sso, requireVerifiedEmail: false }, { email: 'ada@acme.io', verified: false }), null, 'only when an Admin turned the check off');
+  assert.equal(identityProblem(sso, { sub: 'ada', email: 'ada@acme.io', verified: true }), null);
+  assert.equal(identityProblem(sso, { email: 'ada@acme.io', verified: true }).code, 'token', 'nobody without a subject at the provider');
+  assert.equal(identityProblem(sso, { sub: 'ada', email: '', verified: true }).code, 'email');
+  assert.equal(identityProblem(sso, { sub: 'ada', email: 'ada@acme.io', verified: false }).code, 'email');
+  assert.equal(identityProblem({ ...sso, requireVerifiedEmail: false }, { sub: 'ada', email: 'ada@acme.io', verified: false }), null, 'only when an Admin turned the check off');
   const limited = { ...sso, domains: ['acme.io'] };
-  assert.equal(identityProblem(limited, { email: 'ada@acme.io', verified: true }), null);
-  assert.equal(identityProblem(limited, { email: 'ada@acme.io.evil.example', verified: true }).code, 'domain');
-  assert.equal(identityProblem(limited, { email: 'ada@sub.acme.io', verified: true }).code, 'domain', 'a domain is itself, not what is under it');
+  assert.equal(identityProblem(limited, { sub: 'ada', email: 'ada@acme.io', verified: true }), null);
+  assert.equal(identityProblem(limited, { sub: 'ada', email: 'ada@acme.io.evil.example', verified: true }).code, 'domain');
+  assert.equal(identityProblem(limited, { sub: 'ada', email: 'ada@sub.acme.io', verified: true }).code, 'domain', 'a domain is itself, not what is under it');
 });
 
 // --- Settings ---------------------------------------------------------------------------------
@@ -136,6 +137,11 @@ test('off by default; what an Admin saves is checked field by field', () => {
   bad({ provision: 'create', role: 'admin' }, /cannot be given the Admin role/);
   bad({ provision: 'create', role: 'no-such-role' }, /Choose the role/);
   assert.equal(mergeSso(saved, { provision: 'create', role: 'user' }, { roles }).provision, 'create');
+  // Adding people by themselves needs a domain to hold them to: with none, everyone the provider signs in would be added.
+  bad({ provision: 'create', role: 'user', domains: '' }, /at least one email domain/);
+  bad({ provision: 'create', role: 'user' }, /at least one email domain/, mergeSso(saved, { domains: '' }, { roles }));
+  bad({ domains: '' }, /at least one email domain/, mergeSso(saved, { provision: 'create', role: 'user' }, { roles }));
+  assert.equal(storedSso({ issuer: ISSUER, clientId: CLIENT, provision: 'create', role: 'user' }).provision, 'existing', 'a file saved without a domain does not add people');
   bad({ enabled: true }, /before turning single sign-on on/, null);
   bad({ enabled: true, issuer: ISSUER }, /client id/, null);
   bad({ passwordAdminsOnly: true }, /Turn single sign-on on/, null);
@@ -193,36 +199,69 @@ test('saved in iam.json, owner only; replacing or removing the secret leaves no 
   assert.equal(iam.passwordResetPolicy(), 'everyone');
 });
 
+test('a person is linked to their account at the provider (issuer and subject), and the page learns only that they are', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sso-link-'));
+  const file = path.join(dir, 'iam.json');
+  const iam = new IamStore({ file });
+  const ada = await iam.createUser({ email: 'ada@acme.io', role: 'admin' });
+  const bob = await iam.createUser({ email: 'bob@acme.io', role: 'user' });
+  assert.equal(iam.findBySso(ISSUER, 'sub-ada'), null);
+  assert.equal(iam.linkSso(ada.id, { issuer: ISSUER, sub: 'sub-ada' }).ssoLinked, true);
+  assert.equal(iam.findBySso(ISSUER, 'sub-ada').id, ada.id);
+  assert.equal(iam.findBySso('https://login.other.example', 'sub-ada'), null, 'the same subject at another provider is someone else');
+  assert.equal(iam.findBySso(ISSUER, ''), null);
+  assert.equal(new IamStore({ file }).findBySso(ISSUER, 'sub-ada').id, ada.id, 'kept across a restart');
+  assert.doesNotMatch(JSON.stringify(iam.users()), /sub-ada/, 'the subject itself stays on the server');
+  assert.deepEqual(iam.users().map((u) => u.ssoLinked), [true, false]);
+  assert.equal(iam.unlinkSso(ada.id), true);
+  assert.equal(iam.unlinkSso(ada.id), false);
+  assert.equal(iam.findBySso(ISSUER, 'sub-ada'), null);
+  iam.linkSso(ada.id, { issuer: ISSUER, sub: 'sub-ada' });
+  iam.linkSso(bob.id, { issuer: ISSUER, sub: 'sub-bob' });
+  assert.equal(iam.clearSsoLinks(), 2, 'another provider: every link goes');
+  assert.equal(iam.clearSsoLinks(), 0);
+  assert.deepEqual(iam.users().map((u) => u.ssoLinked), [false, false]);
+});
+
 // --- The round trip ---------------------------------------------------------------------------
 
 test('a round trip is found by its state, once, and only by the browser that started it', () => {
   const flows = new SsoFlows();
   const t0 = 1_000_000;
-  const flow = flows.start('', t0);
+  const flow = flows.start(t0);
   for (const value of [flow.state, flow.nonce, flow.verifier, flow.cookie, flow.challenge]) assert.match(value, /^[A-Za-z0-9_-]{43}$/);
   assert.equal(new Set([flow.state, flow.nonce, flow.verifier, flow.cookie]).size, 4);
   assert.equal(flows.take(flow.state, '', t0), null, 'no cookie: another browser');
   assert.equal(flows.take(flow.state, flow.cookie, t0), null, 'and the state is used up by the try');
 
-  const second = flows.start(flow.cookie, t0);
-  assert.equal(second.cookie, flow.cookie, 'a second tab keeps the browser\'s cookie');
-  assert.equal(flows.take(second.state, flows.start('', t0).cookie, t0), null, 'someone else\'s cookie');
-  const third = flows.start(flow.cookie, t0);
-  assert.deepEqual(flows.take(third.state, flow.cookie, t0 + 1000), { nonce: third.nonce, verifier: third.verifier });
-  assert.equal(flows.take(third.state, flow.cookie, t0 + 1000), null, 'once');
-  const late = flows.start(flow.cookie, t0);
-  assert.equal(flows.take(late.state, flow.cookie, t0 + 11 * 60_000), null, 'ten minutes at most');
+  const second = flows.start(t0);
+  assert.equal(flows.take(second.state, flows.start(t0).cookie, t0), null, 'someone else\'s cookie');
+  const third = flows.start(t0);
+  assert.deepEqual(flows.take(third.state, third.cookie, t0 + 1000), { nonce: third.nonce, verifier: third.verifier });
+  assert.equal(flows.take(third.state, third.cookie, t0 + 1000), null, 'once');
+  const late = flows.start(t0);
+  assert.equal(flows.take(late.state, late.cookie, t0 + 11 * 60_000), null, 'ten minutes at most');
   for (const state of ['', 'x', null, undefined, ['a'], { length: 43 }]) assert.equal(flows.take(state, flow.cookie, t0), null);
-  assert.equal(flows.start('not a cookie this server made', t0).cookie.length, 43);
+});
+
+test('every start makes its own cookie: one the browser already holds is never taken over', () => {
+  const flows = new SsoFlows();
+  // Someone plants a cookie they know in another person's browser, hoping to finish that person's round trip themselves.
+  const planted = randomBytes(32).toString('base64url');
+  const victim = flows.start(planted);
+  assert.notEqual(victim.cookie, planted, 'what the browser presents is not used');
+  assert.equal(flows.take(victim.state, planted), null, 'so the planted one opens nothing');
+  const cookies = new Set(Array.from({ length: 50 }, () => flows.start().cookie));
+  assert.equal(cookies.size, 50, 'a new one at every start');
 });
 
 test('round trips never pile up', () => {
   const flows = new SsoFlows({ max: 20 });
-  for (let i = 0; i < 200; i += 1) flows.start('');
+  for (let i = 0; i < 200; i += 1) flows.start();
   assert.ok(flows.size <= 20, `${flows.size} kept`);
   const old = new SsoFlows();
-  old.start('', 0);
-  old.start('', 11 * 60_000);
+  old.start(0);
+  old.start(11 * 60_000);
   assert.equal(old.size, 1, 'the ones that are over go when the next starts');
 });
 
@@ -249,7 +288,7 @@ const ssoError = (code, pattern) => (error) => error instanceof SsoError && erro
 test('the sign-in address carries the code flow with PKCE, state and nonce; discovery is read once', async () => {
   const provider = fakeProvider({ [WELL_KNOWN]: discoveryDoc() });
   const client = new OidcClient({ fetch: provider.fetch, lookup: publicLookup, proxy: () => '' });
-  const flow = new SsoFlows().start('');
+  const flow = new SsoFlows().start();
   const url = new URL(await client.authorizationUrl(sso, REDIRECT, flow));
   assert.equal(`${url.origin}${url.pathname}`, `${ISSUER}/authorize`);
   assert.deepEqual(Object.fromEntries(url.searchParams), { response_type: 'code', client_id: CLIENT, redirect_uri: REDIRECT, scope: 'openid email profile', state: flow.state, nonce: flow.nonce, code_challenge: flow.challenge, code_challenge_method: 'S256' });
@@ -294,7 +333,7 @@ test('the way back: code exchanged with the secret and the PKCE verifier, the to
   });
   const client = new OidcClient({ fetch: provider.fetch, lookup: publicLookup, proxy: () => '' });
   const identity = await client.finish(sso, REDIRECT, { code: 'the-code', nonce: NONCE, verifier: 'the-verifier' });
-  assert.deepEqual(identity, { email: 'ada@acme.io', verified: true, name: 'Ada', sub: 'ada' });
+  assert.deepEqual(identity, { email: 'ada@acme.io', verified: true, name: 'Ada', sub: 'ada', issuer: ISSUER });
   const call = provider.calls.find((c) => c.address === `${ISSUER}/token`);
   assert.equal(call.method, 'POST');
   assert.deepEqual(Object.fromEntries(new URLSearchParams(call.body)), { grant_type: 'authorization_code', code: 'the-code', redirect_uri: REDIRECT, client_id: CLIENT, code_verifier: 'the-verifier' });
@@ -314,7 +353,7 @@ test('no email in the token: userinfo is asked, and believed only for the same p
   const token = signToken({ iss: ISSUER, aud: CLIENT, sub: 'ada', iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 300, nonce: NONCE }, rsa);
   const provider = (info) => fakeProvider({ [WELL_KNOWN]: discoveryDoc(), [`${ISSUER}/keys`]: { keys: [rsa.jwk] }, [`${ISSUER}/token`]: { id_token: token, access_token: 'the-access-token' }, [`${ISSUER}/userinfo`]: info });
   const same = provider({ sub: 'ada', email: 'ada@acme.io', email_verified: 'true', name: 'Ada' });
-  assert.deepEqual(await new OidcClient({ fetch: same.fetch, lookup: publicLookup, proxy: () => '' }).finish(sso, REDIRECT, { code: 'c', nonce: NONCE, verifier: 'v' }), { email: 'ada@acme.io', verified: true, name: 'Ada', sub: 'ada' });
+  assert.deepEqual(await new OidcClient({ fetch: same.fetch, lookup: publicLookup, proxy: () => '' }).finish(sso, REDIRECT, { code: 'c', nonce: NONCE, verifier: 'v' }), { email: 'ada@acme.io', verified: true, name: 'Ada', sub: 'ada', issuer: ISSUER });
   assert.equal(same.calls.at(-1).headers.Authorization, 'Bearer the-access-token');
   const other = provider({ sub: 'someone-else', email: 'admin@acme.io', email_verified: true });
   assert.equal((await new OidcClient({ fetch: other.fetch, lookup: publicLookup, proxy: () => '' }).finish(sso, REDIRECT, { code: 'c', nonce: NONCE, verifier: 'v' })).email, '', 'another subject\'s userinfo is not this person\'s email');
