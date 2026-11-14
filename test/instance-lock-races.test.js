@@ -21,10 +21,28 @@ const lockFile = (dir) => path.join(dir, LOCK_FILE);
 const readLock = (dir) => JSON.parse(fs.readFileSync(lockFile(dir), 'utf8'));
 const leftovers = (dir) => fs.readdirSync(dir).filter((name) => name !== LOCK_FILE);
 
+/**
+ * What a test leaves behind, tidied when it ends, pass or fail: first its other
+ * processes are stopped (they write into the folders), then its folders go.
+ */
+const tidying = new WeakMap();
+function tidy(t) {
+  if (!tidying.has(t)) {
+    const made = { children: [], dirs: [] };
+    tidying.set(t, made);
+    t.after(async () => {
+      for (const proc of made.children) proc.kill('SIGKILL');
+      await Promise.all(made.children.map((proc) => proc.exited));
+      for (const dir of made.dirs) fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+    });
+  }
+  return tidying.get(t);
+}
+
 /** A temporary folder, removed when the test ends. */
 function folder(t, name = 'lock-') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), name));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  tidy(t).dirs.push(dir);
   return dir;
 }
 
@@ -54,7 +72,7 @@ function child(t, code, args = []) {
   proc.stderr.on('data', (d) => (proc.err += d));
   proc.on('message', (m) => proc.messages.push(m));
   proc.exited = new Promise((resolve) => proc.on('exit', (code, signal) => resolve({ code, signal })));
-  t.after(() => proc.kill('SIGKILL'));
+  tidy(t).children.push(proc);
   proc.next = (type) => until(`"${type}" from a child process (${proc.err})`, () => proc.messages.find((m) => m.type === type));
   return proc;
 }
