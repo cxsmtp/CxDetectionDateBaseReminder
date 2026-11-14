@@ -305,3 +305,20 @@ test('taking back unused credits returns them to the pool, never below what was 
   assert.equal(after.triage.allocated, after.triage.used, 'down to what was used, not below');
   assert.equal(after.extraTriage, 0);
 });
+
+test('findings open for: by age, only the ones first found before then; the health check lists the choices', async () => {
+  const health = await (await fetch(`${BASE}/api/health`)).json();
+  assert.deepEqual(health.agePresets.map((p) => p.id), ['gt30', 'gt60', 'gt90']);
+  // Every finding of the mock tenant was first found 40 days ago.
+  const any = await admin('GET', '/api/scan?project=p1');
+  const total = any.body.projects[0].totalRisks;
+  assert.ok(total > 0);
+  const old = await admin('GET', '/api/scan?project=p1&detectionPreset=gt30');
+  assert.equal(old.body.projects[0].totalRisks, total, 'open for more than 30 days: all of them');
+  assert.deepEqual([old.body.windows.detection.label, old.body.windows.detection.from], ['More than 30 days', null]);
+  const older = await admin('GET', '/api/scan?project=p1&detectionPreset=gt60');
+  assert.equal(older.body.projects[0].totalRisks, 0, 'none has been open for more than 60 days');
+  const recent = await admin('GET', '/api/scan?project=p1&detectionPreset=30d');
+  assert.equal(recent.body.projects[0].totalRisks, 0, 'and none is new this month');
+  assert.equal((await admin('GET', '/api/scan?project=p1&detectionPreset=gt45')).status, 400, 'only the ages offered');
+});

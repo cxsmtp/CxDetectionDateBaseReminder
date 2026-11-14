@@ -16,12 +16,12 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 
 import { AI_SCANNERS } from './cxone/ai-assist.js';
 import { billingUnit, remediable } from './credit-allocations.js';
 import { inEngines } from './engines.js';
+import { readState, writeState } from './state-file.js';
 import { withinWindow } from './window.js';
 
 export const OUTCOMES = ['awaiting', 'confirmed', 'notExploitable', 'resolved'];
@@ -171,12 +171,9 @@ export class TrackedReports {
 
   constructor({ file } = {}) {
     this.#file = file ?? path.join(process.cwd(), 'data', 'tracked-reports.json');
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      this.#reports = Array.isArray(raw.reports) ? raw.reports : [];
-    } catch {
-      this.#reports = [];
-    }
+    // No file yet: no tracked reports. A damaged file is never "no reports" (src/state-file.js).
+    const raw = readState(this.#file, { fallback: {}, holds: 'the tracked reports, their baselines and history' });
+    this.#reports = Array.isArray(raw.reports) ? raw.reports : [];
   }
 
   list() {
@@ -238,10 +235,7 @@ export class TrackedReports {
   }
 
   save() {
-    fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-    const tmp = `${this.#file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify({ reports: this.#reports }), { mode: 0o600 });
-    fs.renameSync(tmp, this.#file);
+    writeState(this.#file, { reports: this.#reports });
   }
 }
 

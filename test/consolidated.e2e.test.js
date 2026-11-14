@@ -156,9 +156,15 @@ test('an Admin ticks it for one person (audited); a Security Analyst cannot', as
   const granted = await admin('PUT', `/api/iam/users/${caraId}/consolidated`, { on: true });
   assert.equal(granted.status, 200, JSON.stringify(granted.body));
   assert.equal(granted.body.users.find((u) => u.id === caraId).consolidated, true);
+  // Ticked, but her role (User) does not hold Labs: Consolidated view yet: not for her until it does.
+  const ticked = (await cara('GET', '/api/me')).body;
+  assert.ok(ticked.permissions.includes('consolidated.view'));
+  assert.ok(!ticked.permissions.includes('feature.consolidated'));
+  const userRole = view.body.roles.find((r) => r.id === 'user');
+  assert.equal((await admin('PUT', '/api/iam/roles/user', { name: userRole.name, description: userRole.description, permissions: [...userRole.permissions, 'labs.consolidated'] })).status, 200);
   const me = (await cara('GET', '/api/me')).body;
-  assert.ok(me.permissions.includes('consolidated.view'));
   assert.ok(me.permissions.includes('feature.consolidated'));
+  assert.ok(me.permissions.includes('labs.active'));
   // The switcher knows when each tenant last fetched.
   assert.deepEqual(me.tenancy.tenants.map((t) => Boolean(t.fetchedAt)), [true, true]);
   // Cara's own role is unchanged, and the Admin still manages her.

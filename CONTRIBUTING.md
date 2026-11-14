@@ -7,7 +7,7 @@ Improvements are welcome: bug reports, ideas, documentation and code.
 1. **Open an issue** describing the problem or the improvement. For a larger change, agree the approach there first.
 2. **Fork, branch and change.** Keep each pull request to one purpose.
 3. **Check it.**
-   - `npm test` must pass, and new behaviour comes with a test.
+   - `npm test` must pass, and new behaviour comes with a test. It runs every test with a temporary folder of its own, removed at the end (`npm test -- test/one.test.js` runs some of them). The same tests and `npm audit --omit=dev` run on every push and pull request, and nothing is published unless they pass.
    - For speed-related changes, run `loadtest/benchmark.sh` (see docs/performance.md).
 4. **Keep the docs in step:**
    - README.md;

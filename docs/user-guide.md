@@ -156,9 +156,11 @@ Everyone signs in and has one role. Tabs and buttons you are not allowed to use 
 | Role | Can |
 | --- | --- |
 | **Admin** | Everything, including the Checkmarx One integration, the email server, the credit pool and backups. |
-| **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, beta; in Govern, see everything and ask for credits. |
-| **Security Champion** | Govern (once its activation code is applied): budgets, Enforce, credit requests, restores and attribution, but not Govern's settings; also fetch findings and see tracked reports and credits. No people and roles. |
+| **Security Analyst** | Everything else: fetch, remind, allocate credits, triage and remediate, tracked reports, audit, people and roles, every Labs item; in Govern, see everything and ask for credits. |
+| **Security Champion** | Govern (once its activation code is applied): budgets, Enforce, credit requests, restores and attribution, but not Govern's settings; also fetch findings and see tracked reports and credits; in Labs, the Status board and Govern. No people and roles. |
 | **User** | Fetch findings, send reminders, follow tracked reports, see credits. Settings are read-only. No Access or Audit. In Labs, once their codes are applied, the Status board and Govern (their own AI credits, and asking for more). |
+
+**Labs** is a permission of its own, and so is every item in it (from MZ-01.01.09): **See Labs**, then **Labs: Code authors**, **Labs: Match usernames**, **Labs: Fusion results**, **Labs: FAE Flush**, **Labs: Status board**, **Labs: Consolidated view** and **Labs: Govern**, in the **Labs** group on People & roles. A role sees a Labs item while it is in Beta only with See Labs and that item's own permission, and only once the item's activation code is in force where it needs one. **Labs** appears in the menu only while at least one of its items is turned on for you; with none, there is no Labs. Updating kept every role's access as it was; untick what a role should not see.
 
 **Cx Credits Calculator** is for Admins; give it to any other role by ticking **Cx Credits Calculator** on People & roles.
 
@@ -488,7 +490,7 @@ Install a new version, go back to any version, turn on auto-update, restart the 
 
 ### Beta features (Admin)
 
-A feature starts in Beta: only roles holding **Beta features** see it. When you trust it, **Make final**:
+A feature starts in Beta: in Labs, only the roles holding **See Labs** and its own **Labs:** permission see it; SLAs (in Settings), only the roles holding **Beta features**. When you trust it, **Make final**:
 - it loses its Beta label, and anyone holding the feature's own permission can use it;
 - what it adds elsewhere turns on.
 
@@ -500,7 +502,9 @@ A feature starts in Beta: only roles holding **Beta features** see it. When you 
 | **Match usernames to email addresses** | Anyone who may change **initiator addresses** can run and apply the matching. |
 | **Fusion results** | Everyone who loads findings sees **Labs → Fusion results**, with its own line to load Fusion's results, and the Workbench's **Fusion** column. |
 | **FAE Flush** | It moves out of Labs to the top of **Act** (FAE Flush, Workbench, Automation); the Workbench stays the home page. Anyone who manages the Checkmarx One integration can run it. |
-| **Govern** | It moves out of Labs to its own menu group, **Govern**, between Prove and Plan. Everyone holding a Govern permission keeps using it as before. |
+| **Govern** | It moves out of Labs to its own menu group, **Govern**, between Prove and Plan. Everyone holding a Govern permission uses it, without a Labs permission. |
+
+**Cx Credits Calculator at its own address** (from MZ-01.01.09), at the end of the same page, is a switch for moving the calculator out of CxMissionZero. Type **The calculator's address** (where it runs on its own, such as `http://server:8333/`; it must start with `http://` or `https://`), tick **Open the Cx Credits Calculator at this address** and **Save**. From then on **Cx Credits Calculator** in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page only says where it went. Untick it and save to bring the built-in calculator back, with its saved customers and reports: nothing is deleted either way. CxMissionZero only links to the address: who may open the calculator there is decided there, so put it behind its own sign-in or your network's rules. Only an Admin can change it, and each change is in the audit log.
 
 ### Hands-off (set it up once)
 
@@ -516,7 +520,7 @@ For teams that would rather not sign in to one more tool. **Settings → Hands-o
 
 ### Activation codes (Admin)
 
-**CxMissionZero itself** works until the end of 31 December 2026 (UTC). From 1 December, Admins see a banner with the date; the first line here shows it too. After that date every page says **The product has been deactivated. Please reach out to Bhawani Singh.** until a product activation code from the maintainer is entered, here before the date or on that page after it. Nothing is deleted and backups go on ([the product licence](activation-codes.md#the-product-licence-cxmissionzero-stops-after-31-december-2026)).
+**CxMissionZero itself** works until the end of 31 March 2027 (UTC). From 2 March, Admins see a banner with the date; the first line here shows it too. After that date every page says **The product has been deactivated. Please reach out to Bhawani Singh.** until a product activation code from the maintainer is entered, here before the date or on that page after it. Nothing is deleted and backups go on ([the product licence](activation-codes.md#the-product-licence-cxmissionzero-stops-after-31-december-2026)).
 
 Some add-ons are unlocked with a code from the maintainer of CxMissionZero:
 - **Hebrew:** an activation code switches Hebrew on; a deactivation code removes it. Who sees it is a role permission: **Hebrew** on People & roles (listed while Hebrew is on). Admins always have it; tick it for Security Analyst or any other role.
@@ -726,8 +730,8 @@ Everything you do with the projects is in the **action panel**, with four tabs:
 ### 1. Scope: what to fetch
 | Option | Meaning |
 | --- | --- |
-| Projects last scanned in | Skips projects with no scan in this window, so fewer calls are made. **Last week** by default; choose any time, last week, month, 90 days or year, or a custom range. After a load, the page keeps the scope you used. |
-| Findings first detected in | Only findings first detected in this window. Checkmarx One filters them. **Last week** by default. |
+| Findings open for | The one question about time (from MZ-01.01.10). **Any age** by default: every open finding, however old. **More than 30 / 60 / 90 days**: only the ones first found before then and still open. **New this week** / **New this month**: only the ones first found in the last 7 or 30 days. **Custom dates…**: first found between two dates. Checkmarx One filters them. After a load, the page keeps the scope you used. |
+| Skip projects not scanned in (in **Narrow down**) | Projects with no scan in this time are skipped, so fewer calls are made. **Last 90 days** by default; choose any time (never skip), last week, month, 90 days or year, or a custom range. The line under the scope says how many were skipped. Not used while applications, projects or people are named. |
 | Engines | Which Checkmarx One engines' findings are loaded. **SAST** and **SCA** are ticked by default: they are the engines AI Triage and AI Remediation work on. Tick **IaC**, **Containers**, **API Security** or **Secrets** to add theirs (marked **No AI**), or untick SCA to focus on code only. At least one stays ticked; the choice is remembered in this browser. Changed after a load, it says so: **Load findings** again applies it. Everything that follows works on these engines only: the totals and the projects table, reports and reminders (a report says **Engines: SAST, SCA** at its top), tracked reports saved from here, and AI credits (allocate, triage, remediate, verified twice on these engines' findings). |
 | Branch | Which branch's findings count. A project is usually scanned on several branches (main, release, feature branches), and counting each would count the same vulnerability several times. By default (**Primary branch**) only each project's primary branch counts: the one set for the project in Checkmarx One, else **main**, else **master**; a project with none of those set or scanned counts the branch of its latest scan. Its latest completed scan there is the one used, findings from other branches' scans are left out, and the projects table, reports, reminders, tracked reports, credits and verification rescans follow it. Tick **Every branch** to count every branch's findings, as before. Two more boxes: **Leave out projects with no lines of code** (ticked by default: a project whose scan counted no code has nothing to analyse) and **Leave out projects with no open findings** (off by default: keep them in for a compliance report that must list every project). After a load, a line under the row says how many projects were left out and why: a primary branch with no completed scan, no lines of code, or no open findings. The choice is remembered in this browser. |
 | Only these applications, projects, people or vulnerabilities | Optional; open it with **Narrow down** (it reads **Narrowed (N)** while something is chosen). **Applications**: the applications defined in Checkmarx One; type to pick one, and every project in it is fetched (the list says how many each holds). **Projects, by name**: type to pick, or press Enter to add every project whose name contains the text. **People who ran the latest scan**: a username or an email. Any mix works: an application and two more projects fetch all of them. Only those projects are fetched, which is the fastest fetch. |
@@ -745,7 +749,7 @@ Everything you do with the projects is in the **action panel**, with four tabs:
 - An **amber flare** (bottom-right) says the fetch is in progress, with how many projects are in so far. It turns **green, Data fetch complete**, when the last one arrives.
 - Until then, triage, remediation and credit allocation are switched off, so nothing is decided on half the data.
 - **Stop** (beside the button, while it loads) ends the load early. Projects already being read finish, the rest are not read, and the projects loaded so far are kept: the totals, the projects list, reminders, AI checks and fixes and reports all work on them, as after a full load. The flare turns green with **Stopped — kept 6 of 20 project(s)**, and the note under the button says how many were left out. **Load findings** again reads them all. Closing or leaving the page while it loads stops it the same way.
-- **How long it takes** depends mostly on how many pages of findings Checkmarx One has to send (200 findings a page) and how fast it answers each: 24 projects are read at once, as many calls as the connection allows. Narrowing to applications, projects or people, a shorter **Findings first found in**, or a vulnerability search reads fewer. Changing the **Engines** and loading again is quick: projects read in the last couple of minutes are reused, and only their findings are picked again. **Primary branch** costs a little more on the first load only: a project whose latest scan is on another branch has its recent scans looked through once (one call), and the branch of each scan its findings name is read once (50 scans a call); scans never change branch, so both are remembered. **Leave out projects with no lines of code** reads each scan's line count once, for the same reason.
+- **How long it takes** depends mostly on how many pages of findings Checkmarx One has to send (200 findings a page) and how fast it answers each: 24 projects are read at once, as many calls as the connection allows. Narrowing to applications, projects or people, a narrower **Findings open for** (for example *More than 60 days*), or a vulnerability search reads fewer. Changing the **Engines** and loading again is quick: projects read in the last couple of minutes are reused, and only their findings are picked again. **Primary branch** costs a little more on the first load only: a project whose latest scan is on another branch has its recent scans looked through once (one call), and the branch of each scan its findings name is read once (50 scans a call); scans never change branch, so both are remembered. **Leave out projects with no lines of code** reads each scan's line count once, for the same reason.
 - **Faster when someone just fetched.** A project read by anyone in the last couple of minutes is reused, unless it was rescanned or triaged from CxMissionZero since. Under the button it says how many were reused. Tick **Read everything fresh from Checkmarx One** to read every project again, for example right after changing findings directly in Checkmarx One.
 
 Each finding falls into an age bucket by when it was **first detected**:
@@ -759,7 +763,7 @@ Each finding falls into an age bucket by when it was **first detected**:
 ### 3. Projects table
 | Control | Meaning |
 | --- | --- |
-| Search, Severity, Age, Scan type, Hide empty | Filter the table. **Scan type**: projects whose latest scan was a Fusion scan (gold rows), a LAST scan (pink rows) or neither; the legend under the table says how many of each. |
+| Search, Severity, Scan type, Hide empty | Filter the table (age is chosen before loading, with **Findings open for**; the age columns' headings still sort and filter). **Scan type**: projects whose latest scan was a Fusion scan (gold rows), a LAST scan (pink rows) or neither; the legend under the table says how many of each. |
 | Click a column header | Sort by that column. |
 | **Columns** | Add the age-bucket and per-severity columns, and (with SLAs) **Past SLA** and **Due ≤ 7d**. Your choice is remembered in this browser. |
 | **Export CSV** | Every shown project, every column, with credits. |
@@ -1146,7 +1150,7 @@ Identity and access management, in three tabs.
 
 ## Labs: Code authors
 
-Early features, in their own **Labs** section at the bottom of the menu (it was the **Beta** item under Act): check what they find before relying on them. A feature an Admin made final ([Settings → Beta features](#beta-features-admin)) loses its Beta label. Details are in [beta-features.md](beta-features.md). Three tabs: **Code authors**, **Match usernames**, **Source-code hosts** (the connections: GitHub, GitLab, Azure DevOps, Bitbucket).
+Early features, in their own **Labs** section at the bottom of the menu (it was the **Beta** item under Act): check what they find before relying on them. Each is for the roles holding **See Labs** and its own **Labs:** permission ([roles](#people--roles)), and **Labs** shows only while one of them is turned on for you. A feature an Admin made final ([Settings → Beta features](#beta-features-admin)) loses its Beta label. Details are in [beta-features.md](beta-features.md). Three tabs: **Code authors**, **Match usernames**, **Source-code hosts** (the connections: GitHub, GitLab, Azure DevOps, Bitbucket).
 - **Email the authors of vulnerable code.** Finds who last changed the vulnerable line, and emails them.
   - **Where the code is:** GitHub, GitLab, Azure DevOps or Bitbucket.
   - **Through the host's API** where it has one: GitHub, GitLab and Bitbucket Data Center, one request per file.
@@ -1239,7 +1243,7 @@ It has two tabs, **Run** and **Value**.
 
 ## Labs: Status board
 
-Every project the Workbench loaded, at a glance: its last scan and its results. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)); then for everyone who may load findings. It shows what the Workbench loaded: load findings there first (it says so when nothing is loaded).
+Every project the Workbench loaded, at a glance: its last scan and its results. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)); then for the roles holding **See Labs** and **Labs: Status board** (and Fetch findings). It shows what the Workbench loaded: load findings there first (it says so when nothing is loaded).
 
 - **The figures line**: projects, scanned in the last 30 days, failed scans in the last 7 days, not scanned for 30+ days, open critical + high.
 - **Bar shows**: **Results** (open results by severity from the left, numbers inside, the total and critical + high at the end; gold outline for a Fusion scan, pink for LAST) or **Scan health** (days since the latest scan, up to 60: green under 7, amber under 30, red after, striped when a newer scan failed; the engines it ran, a failed one in red).
@@ -1250,7 +1254,7 @@ Every project the Workbench loaded, at a glance: its last scan and its results. 
 
 ## Labs: Consolidated view
 
-Every connected tenant on one page, read only, for the people an Admin ticks (**People & roles → May see the consolidated view (all connected tenants)**; no role holds it, not even Admin). Held back until its own activation code turns it on. It is **Consolidated** in the menu and the first entry of the tenant switcher.
+Every connected tenant on one page, read only, for the people an Admin ticks (**People & roles → May see the consolidated view (all connected tenants)**; no role holds the tick, not even Admin) whose role also holds **See Labs** and **Labs: Consolidated view**. Held back until its own activation code turns it on. It is **Consolidated** in the menu and the first entry of the tenant switcher.
 
 - **Overview**: a card per tenant (its colour at the top): projects, overdue, open results, AI credits used and available, Fusion and LAST, Govern's budgets, when it last loaded findings, and its health (**Healthy**, **Last fetch failed**, **Not fetched for a day**, or **Not loaded — open it once** for a tenant nobody has loaded findings in since the server started). Then the tenants side by side.
 - **Projects**, **Fusion**, **Credits**, **Status board**: the same across tenants, each row naming its tenant; a tenant filter above every table; search, sort, filter, Columns, CSV and HTML report.
@@ -1258,7 +1262,7 @@ Every connected tenant on one page, read only, for the people an Admin ticks (**
 
 ## Labs: Govern
 
-Budgets of AI credits, and what happens at the limit: the credits command center for security champions. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)); then for the roles holding its own permissions, in Beta too. Once an Admin makes it final ([Settings → Beta features](#beta-features-admin)) it has its own menu group, **Govern**, between Prove and Plan. Everything about it is in [Govern](govern.md).
+Budgets of AI credits, and what happens at the limit: the credits command center for security champions. Held back until an **activation code** turns it on ([activation codes](activation-codes.md)); then, while it is in Labs, for the roles holding **See Labs** and **Labs: Govern**, each doing what its Govern permissions allow. Once an Admin makes it final ([Settings → Beta features](#beta-features-admin)) it has its own menu group, **Govern**, between Prove and Plan. Everything about it is in [Govern](govern.md).
 
 - **Who**: **Admin** everything; **Security Champion** (a built-in role) budgets, Enforce, requests, restores and attribution, not Govern's settings; **Security Analyst** sees it all and asks for credits; **User** sees their own AI credits and asks for more. Each is a permission on People & roles (group *Govern*).
 - **The top**: the last cycle and the next, **Run now**, and the figures line: tenant credits, in the pool, assigned to budgets, used this period, near limit, restricted.
@@ -1387,6 +1391,8 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
+| **MZ-01.01.10** | 501–515/s, 0 failed (main 493–510/s, 0; five pairs) | 1.0–5.6 s (main 0.2–2.0 s; 0.2–0.5 s inside the server on both) | 128–262 ms (main 119–206 ms) | 1,112 pass | 0 vulnerabilities | Scan dc0b5c87 of the final code, every engine but the AI ones: 31 open (1 / 4 / 9 / 16, 1 info), none new, all judged before; the release's own code has no result; an independent review's 6 fixes are in ([review](security/mz-01.01.10-review.md)) |
+| **MZ-01.01.09** | 507/s, 0 failed (main 502/s, 0) | 4.1 s (main 6.3 s) | 115 ms (main 288 ms) | 1,055 pass | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, e4657d28 of MZ-01.01.08's final code: 75 open (7 / 23 / 27 / 17, 1 info), 15 to verify |
 | **MZ-01.01.08** | 509/s, 0 failed (main 521/s, 0) | 412 ms (main 563 ms) | 97 ms (main 70 ms) | 1,037 pass | 0 vulnerabilities | Scan e4657d28 of the final code: 75 open (7 / 23 / 27 / 17, 1 info), none new; nodemailer CVE-2026-125755 and the launcher's timing fixed in the release, 15 to verify (by design, not shipped, or unchanged code under newer rules) |
 | **MZ-01.01.07** | 446/s, 192 failed (connection failures on the host; main 435/s, 303) | 17.5 s | 3.2 s | 1028 pass | 0 vulnerabilities (qs 6.16.2) | Rescan 9477a871 of the final code (cad438d): 70 open (1 / 32 / 21 / 15, 1 info), none new; the qs SCA result fixed (6.16.2, CVE-2026-110910), the other 69 SAST + 1 KICS judged not exploitable before ([review](security/mz-01.01.07-review.md)) |
 | MZ-01.01.06 | — (browser code only: the calculator's PDF) | — | — | 1022 pass | 0 vulnerabilities | Scan 3ce920fc of MZ-01.01.05's final code: 72 open (1 critical, 33 high, 22 medium, 15 low, 1 info); its 10 new results checked: 1 fixed (a test password built at run time), 9 not exploitable ([review](security/mz-01.01.05-review.md#the-scan-of-the-final-code-reviewed-in-mz-010106)) |
@@ -1456,7 +1462,7 @@ How fast and how safe the version you run is. Each release is measured with 3000
 ## Everyday recipes
 
 **Weekly reminder to every developer, their own projects only**
-1. Workbench → Scope: *Projects last scanned in* = last month.
+1. Workbench → **Narrow down**: *Skip projects not scanned in* = last month.
 2. **Load findings** and wait for the green flare.
 3. Send reminder: **Each developer**, **One summary**, attachment on. **Preview email**, then **Send reminder**.
 

@@ -221,7 +221,7 @@ export function describeBackup(bundle) {
  * Write a backup's files into the state folder. Files already there are moved
  * to <dataDir>/replaced-<time>/ first. Returns {restored, replacedDir}.
  */
-export function restoreBackup(bundle, { dataDir, settingsFile = '', now = new Date() }) {
+export function restoreBackup(bundle, { dataDir, settingsFile = '', now = new Date(), onFile = null }) {
   const targets = statePaths(dataDir, settingsFile);
   // Every name is checked before anything is touched — here too, not only in readBackup — so
   // whatever hands this a bundle, no name leads out of the state folder.
@@ -247,7 +247,12 @@ export function restoreBackup(bundle, { dataDir, settingsFile = '', now = new Da
   fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   // Everything the backup replaces goes aside — including audit months the
   // backup does not have, so the restored audit chain is exactly the backup's.
-  for (const [name, file] of Object.entries(targets)) moveAside(file, name);
+  for (const [name, file] of Object.entries(targets)) {
+    moveAside(file, name);
+    // Its last good copy too (src/state-file.js): left behind, a file the backup does not hold would come back
+    // from the copy made before the restore.
+    moveAside(`${file}.bak`, `${name}.bak`);
+  }
   for (const dir of STATE_DIRS) {
     const folder = path.join(dataDir, dir);
     if (!fs.existsSync(folder)) continue;
@@ -262,6 +267,8 @@ export function restoreBackup(bundle, { dataDir, settingsFile = '', now = new Da
     fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
     writePrivately(target, Buffer.from(file.data, 'base64'));
     restored.push(name);
+    // (The restore script keeps its lock on the folder alive here: this loop gives its timer no turn.)
+    onFile?.(name);
   }
   return { restored, replacedDir: movedAny ? replacedDir : null };
 }

@@ -57,6 +57,23 @@ cannot spend credits under someone else's name. Reports emailed before auditing
 existed carry no token. They still work, and their entries are marked "report
 without identity".
 
+Requests that do not carry a report's permission at all (forged or altered) are
+refused, and listed here only so often (from MZ-01.01.10): at most 10 a minute
+from one address and 40 a minute from everyone, with one line saying how many
+more were left out. Nobody has signed in on those routes, so without that limit
+anyone who can reach the server could fill the disk with refusals. A request
+naming a finding with ids or names longer than a report sends is refused without
+being listed.
+
+The same holds for someone who does hold a report: a request of theirs that is
+refused as a whole (an altered report identity, AI Triage switched off, a triage
+already under way) is listed at most 10 times a minute for one report and 40
+times a minute in all, and each entry lists the first 20 findings and counts the
+rest. Refused product activation codes and refused sign-ins have limits of
+their own (10 and 30 a minute from one address, 40 and 120 in all), each with
+its line saying how many were left out, so a flood of one kind never hides
+another.
+
 ## User activity
 
 Next to the audit log, each tenant keeps `activity.jsonl` in its state folder: what each person did, one line each — when, who (email, name, role), the IP address, the page or action, the item it was about, the **names** of the fields a change touched (never their values), the status and how long it took. Pages and tabs opened are reported by the browser; everything else is recorded by the server as it answers, including refused sign-ins. Reads that change nothing are not recorded, except downloads and exports. The file moves to `activity.1.jsonl` past 20 MB; entries older than a year are not shown. **Logs → User activity** shows it (with the **audit.view** permission), filtered by person, kind, dates or text, and exports it as CSV. It is not hash-chained: the audit log stays the record of credits and access.
@@ -116,6 +133,44 @@ projection-reports/         Cx Credits Calculator: every projection report made,
 git-cache/                  Beta clones: a cache, never backed up
 report-files/               emailed reports for the email's download button, kept 30 days, never backed up
 backups/                    default BACKUP_DIR (better on another disk)
+<file>.bak                  the last good copy of a state file: what it held before its latest save
+<file>.damaged-<time>       a state file that could not be read, kept aside (never deleted)
+```
+
+### How state files are saved, and what happens when one is damaged (from MZ-01.01.10)
+
+Every save is written to a new file, flushed to the disk, and only then put in the place of the old one.
+A power cut or a full disk in the middle of a save leaves the old file as it was. The file from before
+the save is kept beside it as `<file>.bak`. An audit entry is in the log's file before the action it
+records is answered, so it survives the server crashing or being killed; its flush to the disk, which
+makes it survive a power cut, follows a few milliseconds later, one flush for the entries written
+meanwhile.
+
+Files that hold only secrets or that are rebuilt by themselves keep no `.bak`: the audit and
+report-signing keys, the saved sign-ins, the Govern files, the connection guard, and the network and
+watchdog files. Removing a stored
+key or password from Settings also removes it from the `.bak`.
+
+When the server starts and a state file cannot be read:
+
+| What it finds | What it does |
+| --- | --- |
+| The file is damaged and its `.bak` reads | Uses the `.bak`, moves the damaged file to `<file>.damaged-<time>`, and says so on the server's log. What was saved after the `.bak` was made is lost: at most the latest change. |
+| The file is damaged and there is no usable `.bak` | **Does not start.** It names the file, says what it holds, and stops with exit code 78. Nothing is written over the file. |
+| The file is not there at all, and neither is a `.bak` | Starts with that part empty, as on a new installation. |
+
+A server that will not start for this reason says how to go on. There are two ways:
+
+1. Restore a backup (below), with the server stopped.
+2. Or start that part afresh on purpose: move the named file and its `.bak` out of the state folder
+   (somewhere safe, not deleted), then start the server.
+
+In a container the server is tried again every few seconds and prints the same message each time; an
+update is never rolled back for this reason, because an older version would read the damaged file as
+empty and write over it. Stop the container before restoring:
+
+```
+podman stop mission-zero
 ```
 
 ## Backups
@@ -209,7 +264,24 @@ Everything comes back from the backup:
 - tracked reports;
 - the signing keys, so reports already emailed keep working.
 
-Anything already in the state folder is moved to `replaced-<time>/`, never deleted.
+Anything already in the state folder is moved to `replaced-<time>/`, never deleted. That includes
+the `.bak` copies, so an older state cannot come back after the restore.
+
+**The restore refuses while a server is running on the folder** (from MZ-01.01.10). A running server
+would write its own copy over the restored files, so the restore takes the server's lock on the state
+folder first:
+
+- A server is running: nothing is written, and the restore says which server holds the folder. Stop it and run the restore again.
+- A server crashed and left its lock: the restore watches the lock for 30 s (`INSTANCE_LOCK_STALE_SECONDS`), then goes on.
+- `--force` restores without looking at the lock. Use it only when that server is certainly not running, for example when the folder was copied from another machine.
+
+With the container, stop it and run the restore from the same image on the same volume (Windows cmd, one line; the backup is in the volume's `backups` folder):
+
+```
+podman run --rm -v mission-zero-data:/data ghcr.io/cxsmtp/cxdetectiondatebasereminder:latest node scripts/restore.mjs /data/backups/mission-zero-2026-09-30T02-00-00.mzbackup --yes
+```
+
+Then start the container again with `podman start mission-zero`.
 
 You can also restore a running server from **Audit → Restore from backup…**:
 

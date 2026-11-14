@@ -11,6 +11,8 @@ Both tabs come from the **Checkmarx One tenant this server is connected to**, in
 
 It is in the side menu under **Plan**, after Act, Follow up and Prove. On a phone, open it with **Jump to** (Ctrl K) → *Cx Credits Calculator*.
 
+**At its own address (from MZ-01.01.09).** An Admin can point the menu's Cx Credits Calculator at a calculator running outside CxMissionZero: **Settings → Beta features → Cx Credits Calculator at its own address**, the address (such as `http://server:8333/`) and the switch. Turned on, the menu opens that address in a new tab for the roles holding the Cx Credits Calculator permission and the built-in page is put away; turned off, the built-in page is back with what it had saved. `PUT /api/calculator/address` (`{ url, external }`, permission "Make Beta features final") saves it; `/api/me` carries `calculator.url` for whoever may use the calculator. CxMissionZero does not sign anyone in there: the standalone calculator has no accounts of its own, so restrict who can reach its address.
+
 ## Who can use it
 
 It is a permission, with no activation code: **Cx Credits Calculator** (`projections.use`, in the *AI & credits* group on People & roles).

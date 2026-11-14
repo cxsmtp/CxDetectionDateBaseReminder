@@ -91,14 +91,47 @@ test('the calculator’s Impact tab: off until a feature code turns it on, off a
   assert.equal(r.scope, 'feature:impact');
   assert.equal(r.action, 'activate');
   assert.equal(checkCode(off, { keys: [publicKey] }).action, 'deactivate');
-  const store = new ActivationStore({ file: path.join(dir, 'activation.json') });
+  const store = new ActivationStore({ file: path.join(dir, 'activation.json'), keys: [publicKey] });
   assert.equal(store.feature('impact'), null, 'off by default');
   store.record(r, 'admin');
   assert.equal(store.feature('impact').on, true);
-  assert.equal(new ActivationStore({ file: path.join(dir, 'activation.json') }).feature('impact').on, true, 'kept');
+  assert.equal(new ActivationStore({ file: path.join(dir, 'activation.json'), keys: [publicKey] }).feature('impact').on, true, 'kept');
   const later = Date.parse(r.expires) + 1000;
   assert.deepEqual([store.feature('impact', later).on, store.feature('impact', later).expired], [false, true], 'off once it runs out');
   store.record(checkCode(off, { keys: [publicKey] }), 'admin');
   assert.equal(store.feature('impact').on, false);
   assert.equal(store.tenants(), null, 'no tenants unlocked by it');
+});
+
+test('a code issued before the one in force is not taken again: an older "on" cannot undo a later "off"', () => {
+  const file = path.join(dir, 'replay.json');
+  const store = new ActivationStore({ file, keys: [publicKey] });
+  const on = checkCode(script('feature', keyFile, 'Acme', 'govern', 'on'), { keys: [publicKey] });
+  const off = checkCode(script('feature', keyFile, 'Acme', 'govern', 'off'), { keys: [publicKey] });
+  assert.equal(store.refusal(on), '', 'nothing in force yet');
+  store.record(on, 'admin');
+  assert.equal(store.refusal(on), '', 'the same code again changes nothing, and is not refused');
+  assert.equal(store.refusal(off), '');
+  store.record(off, 'admin');
+  assert.equal(store.feature('govern').on, false);
+  assert.match(store.refusal(on), /issued before the one in force/);
+  // A new "on", issued after the "off", is what turns it back on.
+  assert.equal(store.refusal(checkCode(script('feature', keyFile, 'Acme', 'govern', 'on'), { keys: [publicKey] })), '');
+  // Another scope is not compared with this one.
+  assert.equal(store.refusal(checkCode(script('feature', keyFile, 'Acme', 'impact', 'on'), { keys: [publicKey] })), '');
+});
+
+test('the product licence, where anyone may enter a code: only one that runs longer than the code in force', () => {
+  const file = path.join(dir, 'product-replay.json');
+  const store = new ActivationStore({ file, keys: [publicKey] });
+  const long = checkCode(script('product', keyFile, '2029-01-01'), { keys: [publicKey] });
+  const short = checkCode(script('product', keyFile, '2027-07-01'), { keys: [publicKey] });
+  const longer = checkCode(script('product', keyFile, '2030-01-01'), { keys: [publicKey] });
+  store.record(long, 'deactivation page');
+  assert.match(store.refusal(short, { mustExtend: true }), /already in force: this one does not run longer/);
+  assert.match(store.refusal(long, { mustExtend: true }), /does not run longer/, 'the same code again is not needed either');
+  assert.equal(store.refusal(longer, { mustExtend: true }), '');
+  // An Admin, signed in, may enter a newer code that ends sooner (the maintainer shortened it on purpose).
+  assert.equal(store.refusal(short), '');
+  assert.equal(new ActivationStore({ file, keys: [publicKey] }).product(Date.parse('2028-06-01')).active, true, 'the long code is still the one in force');
 });

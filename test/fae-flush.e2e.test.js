@@ -260,7 +260,7 @@ test('a run that keeps the _FAE copies, then "Delete all _FAE projects" with one
 });
 
 test('Not exploitable is for Admins alone: another role that may run FAE Flush is refused it', async () => {
-  const role = await admin('POST', '/api/iam/roles', { name: 'FAE operator', permissions: ['beta.use', 'integration.cxone', 'settings.view'] });
+  const role = await admin('POST', '/api/iam/roles', { name: 'FAE operator', permissions: ['labs.view', 'labs.faeFlush', 'integration.cxone', 'settings.view'] });
   assert.equal(role.status, 201, JSON.stringify(role.body));
   const people = (await admin('GET', '/api/iam')).body.users;
   const id = role.body.roles.find((r) => r.name === 'FAE operator').id;

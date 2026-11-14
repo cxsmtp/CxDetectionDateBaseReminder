@@ -15,8 +15,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
+
+import { readState, writeState } from './state-file.js';
 
 const MAX_NOTICES = 50;
 
@@ -53,23 +53,20 @@ export class ConnectionGuard {
   }
 
   #load() {
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      return {
-        lkg: { cxone: raw.lkg?.cxone ?? null, smtp: raw.lkg?.smtp ?? null },
-        notices: Array.isArray(raw.notices) ? raw.notices : [],
-        changedAt: raw.changedAt ?? null,
-      };
-    } catch {
-      return { lkg: { cxone: null, smtp: null }, notices: [], changedAt: null };
-    }
+    // No file yet: nothing known to work so far. A damaged file is never "nothing known": the last
+    // configuration that worked is what a bad change is undone with (src/state-file.js).
+    const raw = readState(this.#file, { fallback: {}, holds: 'the last Checkmarx One and mail server settings known to work' });
+    return {
+      lkg: { cxone: raw.lkg?.cxone ?? null, smtp: raw.lkg?.smtp ?? null },
+      notices: Array.isArray(raw.notices) ? raw.notices : [],
+      changedAt: raw.changedAt ?? null,
+    };
   }
 
   #save() {
-    fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-    const tmp = `${this.#file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 2), { mode: 0o600 });
-    fs.renameSync(tmp, this.#file);
+    // Flushed to the disk (src/state-file.js). No .bak of the state before: this file is the integration key
+    // and the SMTP password, and one that was replaced must not stay on the disk in a second copy.
+    writeState(this.#file, this.#state, { space: 2, keepLast: false });
   }
 
   /** The last configuration of `part` ('cxone' | 'smtp') that worked, or null. */

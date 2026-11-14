@@ -6,39 +6,39 @@
 //
 // The check opens the same tunnel by hand, step by step, so it can say where it stopped:
 // the proxy, the tunnel to the host, the certificate, or the host's answer.
-import { randomBytes } from 'node:crypto';
-import fs from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
 import path from 'node:path';
 import tls from 'node:tls';
 
+import { readState, removeState, writeState } from './state-file.js';
+
 export const NETWORK_FILE = 'network.json';
+/** The last damaged-file message shown, so it is said once and not at every read. */
+let damagedReported = '';
 const ALWAYS_DIRECT = ['localhost', '127.0.0.1', '::1'];
 
 /** The saved proxy (password included: server side only), or null. */
 export function readNetwork(dataDir) {
   try {
-    const saved = JSON.parse(fs.readFileSync(path.join(dataDir, NETWORK_FILE), 'utf8'));
+    const saved = readState(path.join(dataDir, NETWORK_FILE), { fallback: null, holds: 'the proxy this server goes out through' });
     return saved?.proxy?.url ? saved : null;
-  } catch {
+  } catch (error) {
+    // Damaged, and no copy is kept of this file (saveNetwork): the server (and its launcher) still start,
+    // without the saved proxy, and say why. The damaged file is not touched until a proxy is saved again.
+    if (damagedReported !== error.message) console.error(`! [network] The saved proxy cannot be read, so none is used. ${String(error.message).split('\n')[0]}`);
+    damagedReported = error.message;
     return null;
   }
 }
 
 export function saveNetwork(dataDir, value) {
   const file = path.join(dataDir, NETWORK_FILE);
-  if (!value) return fs.rmSync(file, { force: true });
-  // A fresh, unguessable name created exclusively ('wx'): never an existing file or a link planted there.
-  const tmp = `${file}.${randomBytes(8).toString('hex')}.tmp`;
-  try {
-    fs.writeFileSync(tmp, JSON.stringify(value, null, 1), { mode: 0o600, flag: 'wx' });
-    fs.renameSync(tmp, file);
-  } catch (error) {
-    if (error.code !== 'EEXIST') fs.rmSync(tmp, { force: true });
-    throw error;
-  }
+  if (!value) return removeState(file);
+  // Flushed to the disk (src/state-file.js). No .bak of the settings before: they hold the proxy's password,
+  // and one changed or taken out on purpose must not stay on the disk.
+  writeState(file, value, { space: 1, keepLast: false });
 }
 
 /** A proxy address as typed: http(s)://host:port, no path. Throws with a reason. */

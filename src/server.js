@@ -83,6 +83,7 @@ import { addSla, slaSummary } from './sla.js';
 import { INSTANCE_VARS, extraInstanceNumbers, instanceSource, numberedVariable, providersIn, setForRepo } from './scm/instances.js';
 import { SessionPersistence, sessionKey } from './handover.js';
 import { InstanceLock } from './instance-lock.js';
+import { clearHalfSaved, flushPendingNow, StateFileError } from './state-file.js';
 import { inlineScriptHashes, pruneAttempts, sameOriginGuard, securityHeaders, trustProxySetting, viaTrustedProxy } from './security.js';
 import { describeCertificate } from './tls.js';
 import { HSTS_AGES, HttpsManager } from './https-manager.js';
@@ -93,7 +94,7 @@ import { DEFAULT_TENANT, Tenancy, scoped, scopedState } from './tenancy.js';
 import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
 import { SUPPORTING_NOTICE, Terms, cleanName } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
-import { featureById, featureList, isFinal, mayUse } from './features.js';
+import { featureById, featureList, inLabs, isFinal, labsPermission, LABS_VIEW, mayUse } from './features.js';
 import { PROBE_DEFAULTS, probeFusion } from './fusion.js';
 import { aiFindings, cleanEngines as cleanFusionEngines, readRiskFusion } from './fusion-ai.js';
 import { DEFAULT_PERIOD as FUSION_PERIOD, USAGE_PERIODS, fusionUsage, projectFacts, scanLanguages, scanTypeOf, scanTypes, tenantAi, tenantCredits } from './fusion-usage.js';
@@ -102,7 +103,7 @@ import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supp
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
 import { PasswordResets, RESET_TTL_MS, maskEmail, resetAllowed } from './password-reset.js';
 import { FaeFlushRunner, FaeFlushStore, FaeHistory, NE, cleanOptions, markState, previewTenant, summaryOf, testProject, valueOf } from './fae-flush.js';
-import { WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
+import { AGE_PRESETS, WINDOW_PRESETS, describeWindow, resolveWindow, withinWindow } from './window.js';
 // Govern (beta): credit governance, per tenant (src/govern/).
 import { GovernService } from './govern/cycle.js';
 import { registerGovernRoutes } from './govern/routes.js';
@@ -133,6 +134,26 @@ const projectDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
  */
 const { dir: dataDir, source: dataDirSource } = resolveDataDir(process.env, { cwd: process.cwd() });
 prepareDataDir(dataDir);
+/**
+ * A state file that is damaged, with no last good copy, stops the start (src/state-file.js). Whoever runs the
+ * server reads what to do in plain words, not a stack trace; the lock on the data folder is let go; and the exit
+ * code (78) tells the launcher not to go back to the version before, which would read the damaged file as empty
+ * and write over it. Only while starting: once the server runs, the handler further down takes over.
+ */
+const STATE_DAMAGED_EXIT = 78;
+const stopAtStart = (error) => {
+  if (!(error instanceof StateFileError)) {
+    console.error(error);
+    process.exit(1);
+  }
+  console.error(`\n! [data] ${error.message}\n`);
+  try {
+    instanceLock.release();
+  } catch {}
+  process.exit(STATE_DAMAGED_EXIT);
+};
+process.on('uncaughtException', stopAtStart);
+
 // The certificate authorities outgoing HTTPS trusts, with the ones an Admin added: before anything connects.
 const trust = new TrustStore({ dir: dataDir, log: (line) => console.log(line) });
 // One server per data folder: wait for the previous one (an update) to finish, or refuse.
@@ -142,6 +163,11 @@ try {
 } catch (error) {
   console.error(`! ${error.message}`);
   process.exit(1);
+}
+// What a crash in the middle of a save left: never put in place, and holding a copy of what was being saved.
+{
+  const halfSaved = clearHalfSaved(dataDir);
+  if (halfSaved.length) console.log(`[data] Removed ${halfSaved.length} unfinished save file(s) a crash left in ${dataDir}.`);
 }
 const migrated = migrateLegacyData(dataDir, { legacyDir: path.join(projectDir, 'data') });
 if (migrated.length) {
@@ -811,12 +837,24 @@ app.use('/api/diagnostics/client-error', express.json({ limit: '16kb' }));
 // Govern (beta): small JSON bodies, except a CSV import (at most 1 MiB of CSV, in JSON).
 app.use('/api/govern/csv', express.json({ limit: '2mb' }));
 app.use('/api/govern', express.json({ limit: '64kb' }));
-// A calculator customer or report with tens of thousands of projects (MAX_PROFILE_BYTES, MAX_REPORT_BYTES).
-app.use('/api/projections', express.json({ limit: '40mb' }));
+// Where nobody has signed in yet, a request is small: an emailed report's actions, a sign-in, a licence code.
+// (Up to RELAY_MAX_FINDINGS findings a request, a few hundred bytes each.)
+app.use('/api/relay', express.json({ limit: '512kb' }));
+app.use(['/api/session', '/api/licence'], express.json({ limit: '64kb' }));
+// A calculator customer or report with tens of thousands of projects (MAX_PROFILE_BYTES, MAX_REPORT_BYTES): read
+// only for someone signed in who may use the calculator. Anyone else's request falls to the limit below, and is
+// refused by the route (401 or 403) without 40 MB having been read for them.
+const calculatorJson = express.json({ limit: '40mb' });
+app.use('/api/projections', (req, res, next) => {
+  const session = currentSession(req);
+  const user = session ? iam.user(session.userId) : null;
+  if (user && !user.disabled && permissionsFor(user).has('projections.use')) return calculatorJson(req, res, next);
+  next();
+});
 app.use(express.json({ limit: '4mb' }));
 
 /**
- * The product licence (src/activation.js, docs/activation-codes.md): after the end of 31 December 2026 (UTC), or a product
+ * The product licence (src/activation.js, docs/activation-codes.md): after the end of 31 March 2027 (UTC), or a product
  * code's date if later, CxMissionZero stops. Every page shows that it has been deactivated, with a field for the
  * activation code; every other request is refused. Only the health check (the container's), the licence itself
  * and what its page needs stay open. Nothing is deleted.
@@ -897,6 +935,8 @@ function recordActivity(req, res, route, ms) {
 process.on('exit', () => {
   for (const id of tenancy.ids?.() ?? []) tenancy.context(id)?.activity?.flush();
 });
+// However the server ends: what was written and still waits for its flush to the disk is flushed first.
+process.on('exit', flushPendingNow);
 
 // The page's files; API calls never touch the disk looking for one (a stat per request, under load).
 // A language behind an activation code (Hebrew) is not served until it is activated here.
@@ -1092,15 +1132,15 @@ function requirePermission(...permissions) {
     });
 }
 
-/**
- * A Beta feature: for people with Beta access, and, once an Admin made it final,
- * for everyone holding the feature's own permission too (src/features.js).
- */
 /** A feature held back for those an activation code has unlocked it for (features.js `unlockedBy`), while it has not. */
 function featureLocked(feature) {
   return Boolean(feature?.unlockedBy) && !activations.feature(feature.unlockedBy)?.on;
 }
 
+/**
+ * A Beta feature: in Labs, for roles holding Labs and the item's own permission; SLAs with Beta features; once an
+ * Admin made it final, for everyone holding the feature's own permission too (src/features.js).
+ */
 function requireFeature(id) {
   return (req, res, next) =>
     requireSession(req, res, (error) => {
@@ -1108,6 +1148,11 @@ function requireFeature(id) {
       if (featureLocked(featureById(id))) return res.status(403).json({ error: `“${featureById(id).name}” needs its activation code (Settings → Activation codes).`, locked: true });
       if (mayUse(settingsStore.get(), id, req.permissions)) return next();
       const feature = featureById(id);
+      if (feature?.labs) {
+        const needs = [LABS_VIEW, labsPermission(id)].filter((p) => !req.permissions.has(p));
+        const labels = needs.map((p) => PERMISSIONS.find((x) => x.id === p)?.label ?? p);
+        return res.status(403).json({ error: `“${feature.name}” is in Labs: your role needs “${labels.join('” and “') || 'its permission'}”${isFinal(settingsStore.get(), id) ? '' : ' until an Admin makes it final'}.`, permission: needs[0] ?? labsPermission(id) });
+      }
       res.status(403).json({ error: `“${feature?.name ?? id}” is a Beta feature: your role needs “Beta features”${isFinal(settingsStore.get(), id) ? '' : ' until an Admin makes it final'}.`, permission: 'beta.use' });
     });
 }
@@ -1129,6 +1174,8 @@ app.get('/api/health', (req, res) => {
     riskSource: config.risks.source,
     buckets: AGE_BUCKETS.map(({ id, label }) => ({ id, label })),
     windowPresets: WINDOW_PRESETS.map(({ id, label }) => ({ id, label })),
+    // The Workbench's "Findings open for": by age, beside new in the last week or month.
+    agePresets: AGE_PRESETS.map(({ id, label }) => ({ id, label })),
     templateVariables: TEMPLATE_VARIABLES,
     defaultTemplate: DEFAULT_TEMPLATE,
     // The page's languages available here (Hebrew only once activated, and only for the people chosen).
@@ -1176,7 +1223,7 @@ app.get('/app-icon', (req, res) => {
  * are used, where errors and discrepancies happen, and recommended fixes.
  * Holds no personal data, keys, findings or code (see src/diagnostics.js).
  */
-app.get('/api/diagnostics/download', requirePermission('diagnostics.export'), async (req, res) => {
+app.get('/api/diagnostics/download', requirePermission('diagnostics.export'), asyncRoute(async (req, res) => {
   const actor = await adminActor(req);
   const report = diagnostics.report({
     extra: {
@@ -1194,7 +1241,7 @@ app.get('/api/diagnostics/download', requirePermission('diagnostics.export'), as
   audit.record({ type: 'audit', outcome: 'changed', reason: 'Troubleshooting log downloaded (no personal data, keys or findings).', actor });
   const name = `mission-zero-troubleshooting-${APP_VERSION}-${new Date().toISOString().slice(0, 10)}.json`;
   res.set('Content-Disposition', `attachment; filename="${name}"`).type('application/json').send(JSON.stringify(report, null, 2));
-});
+}));
 
 /** Script errors in the page, so bugs in the browser show up in the troubleshooting log too. */
 app.post('/api/diagnostics/client-error', requireSession, (req, res) => {
@@ -1211,7 +1258,7 @@ app.post('/api/diagnostics/client-error', requireSession, (req, res) => {
   res.status(204).end();
 });
 
-app.get('/api/metrics', requirePermission('system.metrics'), async (req, res) => {
+app.get('/api/metrics', requirePermission('system.metrics'), asyncRoute(async (req, res) => {
   const session = await resolveAutomationSession();
   const memory = process.memoryUsage();
   res.json({
@@ -1222,14 +1269,16 @@ app.get('/api/metrics', requirePermission('system.metrics'), async (req, res) =>
     projectReads: projectReads.stats,
     checkmarxOne: session?.client?.load ?? null,
   });
-});
+}));
 
 /** What this browser may see about itself: who is signed in, what they may do, and the connection. */
 function describeMe(session, user) {
   const held = permissionsFor(user);
   const settings = settingsStore.get();
   // "feature.<id>": what the page shows for each Beta feature this person may use (never checked by the server).
-  const permissions = [...held, ...featureList(settings).filter((f) => !featureLocked(f) && mayUse(settings, f.id, held)).map((f) => `feature.${f.id}`)];
+  const usable = featureList(settings).filter((f) => !featureLocked(f) && mayUse(settings, f.id, held));
+  // "labs.active": Labs shows in the menu only while one of its items is turned on for this person.
+  const permissions = [...held, ...usable.map((f) => `feature.${f.id}`), ...(usable.some((f) => inLabs(settings, f.id)) ? ['labs.active'] : [])];
   const integration = integrationSession();
   let tenant = '';
   try {
@@ -1248,6 +1297,8 @@ function describeMe(session, user) {
     role: { id: user.role, name: iam.role(user.role)?.name ?? user.role },
     permissions,
     features: Object.fromEntries(featureList(settings).map((f) => [f.id, f.stage])),
+    // The Cx Credits Calculator at an address of its own (an Admin's switch): the menu opens it there, for whoever may use the calculator.
+    calculator: held.has('projections.use') && settings.calculator?.external && settings.calculator.url ? { url: settings.calculator.url } : null,
     via: session.via,
     // The organisation's Impact figures: what Your profile → Your Impact figures falls back to.
     organisationImpact: (({ currency, hourlyRate, creditPrice, triageMinutes, fixMinutes }) => ({ currency, hourlyRate, creditPrice, triageMinutes, fixMinutes }))(settings.impact),
@@ -1328,14 +1379,16 @@ app.post(
   '/api/session/password',
   asyncRoute(async (req, res) => {
     if (throttleSignIn(req, res)) return;
-    const email = String(req.body?.email ?? '').trim();
+    // (An email address is at most 254 characters: nothing longer is looked up, or written to the audit log.)
+    const email = String(req.body?.email ?? '').trim().slice(0, 254);
     let user;
     try {
       user = await iam.signIn(email, String(req.body?.password ?? ''));
     } catch (error) {
       const known = error.userId ? iam.user(error.userId) : null;
       res.locals.activityUser = known ?? { email };
-      auditAccess(req, 'refused', `Sign-in refused for ${email || '(no email)'}: ${error.message}${error.locked ? ' Account locked.' : ''}`, known);
+      // (Listed only so many a minute, by address and in all: nobody has signed in here, and the log is never trimmed.)
+      if (refusalListed(`address ${clientIp(req)}`, Date.now(), 'signIn')) auditAccess(req, 'refused', `Sign-in refused for ${email || '(no email)'}: ${error.message}${error.locked ? ' Account locked.' : ''}`, known);
       throw error;
     }
     const session = sessions.createLinked(integrationSession);
@@ -3999,10 +4052,69 @@ function relayError(error) {
   return 'Checkmarx One could not be reached. Try again later.';
 }
 
+/**
+ * What a report sends to name a finding is short: ids, a project's name, the engine. Anything longer is not from a
+ * report, and is refused before it is looked at (or written anywhere).
+ */
+const RELAY_FIELD_MAX = { projectId: 200, projectName: 512, riskId: 512, scanId: 200, scanner: 40, alternateId: 512, groupId: 512, grant: 512 };
+const RELAY_FIELDS = [...Object.entries(RELAY_FIELD_MAX), ['exp', 40]];
+/** (Run for every finding of every report request: a plain loop, nothing made along the way.) */
+function relayFieldsFit(raw) {
+  if (raw === null || typeof raw !== 'object') return true;
+  for (let i = 0; i < RELAY_FIELDS.length; i += 1) {
+    const value = raw[RELAY_FIELDS[i][0]];
+    if (value === undefined || value === null) continue;
+    if ((typeof value === 'string' ? value : String(value)).length > RELAY_FIELDS[i][1]) return false;
+  }
+  return true;
+}
+
+/**
+ * Refused report requests are written to the audit log, but only so many: nobody has signed in on these routes, so
+ * without a limit anyone who can reach the server could fill the disk with them. Past REFUSED_AUDIT_PER_MINUTE
+ * from one address (or four times that from everyone) in a minute, the rest are counted, and one line says how
+ * many were left out.
+ */
+const REFUSED_AUDIT_PER_MINUTE = 10;
+/** One count per kind of refusal, so a flood of one kind never hides another: kind -> { since, total, byKey, leftOut }. */
+const refusedAudits = new Map();
+const REFUSED_KINDS = {
+  report: { perKey: REFUSED_AUDIT_PER_MINUTE, total: REFUSED_AUDIT_PER_MINUTE * 4, what: 'refused report requests' },
+  licence: { perKey: REFUSED_AUDIT_PER_MINUTE, total: REFUSED_AUDIT_PER_MINUTE * 4, what: 'refused product activation codes' },
+  signIn: { perKey: 30, total: 120, what: 'refused sign-ins' },
+};
+/** May one more refusal from `key` (an address, a report) be listed in the audit log this minute? */
+function refusalListed(key, now = Date.now(), kind = 'report') {
+  const limits = REFUSED_KINDS[kind];
+  let state = refusedAudits.get(kind);
+  if (!state) refusedAudits.set(kind, (state = { since: 0, total: 0, byKey: new Map(), leftOut: 0 }));
+  if (now - state.since >= 60_000) {
+    if (state.leftOut) {
+      audit.record({ type: 'access', outcome: 'refused', reason: `${state.leftOut} more ${limits.what} in the minute before were not listed one by one (too many at once).`, actor: SYSTEM_ACTOR });
+    }
+    Object.assign(state, { since: now, total: 0, leftOut: 0 });
+    state.byKey.clear();
+  }
+  const seen = state.byKey.get(key) ?? 0;
+  if (seen >= limits.perKey || state.total >= limits.total) {
+    state.leftOut += 1;
+    return false;
+  }
+  // (The map cannot grow past the total allowed in a minute.)
+  state.byKey.set(key, seen + 1);
+  state.total += 1;
+  return true;
+}
+const mayAuditRefusal = (req, now = Date.now()) => refusalListed(`address ${clientIp(req)}`, now);
+
 function grantedFindings(req, res, { type = '', actor = null, list: given = req.body?.findings } = {}) {
   const list = Array.isArray(given) ? given : [];
   if (list.length === 0 || list.length > RELAY_MAX_FINDINGS) {
     res.status(400).json({ error: `Send between 1 and ${RELAY_MAX_FINDINGS} findings.` });
+    return null;
+  }
+  if (!list.every(relayFieldsFit)) {
+    res.status(400).json({ error: 'This request is not from a report.' });
     return null;
   }
   const findings = [];
@@ -4019,7 +4131,7 @@ function grantedFindings(req, res, { type = '', actor = null, list: given = req.
       grant: raw?.grant,
     };
     const problem = reportGrants.verify(finding);
-    if (problem && type) {
+    if (problem && type && mayAuditRefusal(req)) {
       audit.record({
         type,
         outcome: 'refused',
@@ -4274,17 +4386,37 @@ if (allocations.migrated?.length) {
   console.log(`[credits] ${allocations.migrated.length} project allocation(s) made automatically by an earlier release were removed; allocate on the Workbench.`);
 }
 
-/** A whole request turned away before anything was sent: one entry per project. */
+/** How many findings a refused request's audit entry lists; the rest are counted. */
+const REFUSED_FINDINGS_LISTED = 20;
+
+/**
+ * A whole request turned away before anything was sent: one entry per project. From a report (nobody signed in)
+ * only so many a minute are listed, by the report and the address it came from, and each lists a few of its
+ * findings and counts the rest: a report's holder could otherwise repeat a refused request with hundreds of
+ * findings until the audit log, which is never trimmed, filled the disk.
+ */
 function auditRefusedRequest(type, actor, findings, reason, outcome = 'refused') {
   const kind = type === 'remediation' ? 'remediation' : 'triage';
   const perFinding = kind === 'remediation' ? CREDIT_COST.remediation : 1;
+  const fromReport = actor?.kind === 'report';
   const byProject = new Map();
   for (const f of findings) {
     if (!byProject.has(f.projectId)) byProject.set(f.projectId, []);
     byProject.get(f.projectId).push(f);
   }
   for (const group of byProject.values()) {
-    auditCredit({ type, outcome, reason, actor, findings: group, kind, requested: new Set(group.map((f) => f.alternateId)).size * perFinding });
+    if (fromReport && !refusalListed(`report ${actor.reportId || actor.ip || ''}`)) continue;
+    const listed = fromReport ? group.slice(0, REFUSED_FINDINGS_LISTED) : group;
+    auditCredit({
+      type,
+      outcome,
+      reason,
+      actor,
+      findings: listed,
+      kind,
+      requested: new Set(group.map((f) => f.alternateId)).size * perFinding,
+      ...(listed.length < group.length ? { details: { findingsInRequest: group.length, findingsListed: listed.length } } : {}),
+    });
   }
 }
 
@@ -4897,9 +5029,11 @@ app.post('/api/licence/activate', (req, res) => {
   const result = checkCode(String(req.body?.code ?? '').trim().slice(0, 4000));
   // In date by the licence's own clock too (never earlier than the latest time it has seen).
   const passed = result.valid && Date.parse(result.expires) <= activations.now();
-  if (!result.valid || result.scope !== 'product' || passed) {
-    const reason = !result.valid ? result.reason || 'This activation code is not valid.' : result.scope !== 'product' ? 'This is not a CxMissionZero activation code.' : `This activation code ended on ${result.expires.slice(0, 10)}.`;
-    audit.record({ type: 'settings', outcome: 'refused', reason: `Product activation code refused: ${reason}`, actor: { kind: 'system', user: `deactivation page (${ip})` } });
+  // Open to everyone: only a code that runs longer than the one in force, and was not issued before it, is taken.
+  const stale = result.valid && result.scope === 'product' && !passed ? activations.refusal(result, { mustExtend: true }) : '';
+  if (!result.valid || result.scope !== 'product' || passed || stale) {
+    const reason = !result.valid ? result.reason || 'This activation code is not valid.' : result.scope !== 'product' ? 'This is not a CxMissionZero activation code.' : passed ? `This activation code ended on ${result.expires.slice(0, 10)}.` : stale;
+    if (refusalListed(`address ${ip}`, now, 'licence')) audit.record({ type: 'settings', outcome: 'refused', reason: `Product activation code refused: ${reason}`, actor: { kind: 'system', user: `deactivation page (${ip})` } });
     return res.status(400).json({ error: reason });
   }
   activations.record(result, `deactivation page (${ip})`);
@@ -4939,6 +5073,12 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
     audit.record({ type: 'settings', outcome: 'refused', reason: `Activation code refused: ${result.reason}`, actor });
     return res.status(400).json({ error: result.reason || 'This activation code is not valid.' });
   }
+  // An older code entered again would undo the one in force (a feature turned off, a shorter date).
+  const stale = result.scope.startsWith('lang:') ? '' : activations.refusal(result);
+  if (stale) {
+    audit.record({ type: 'settings', outcome: 'refused', reason: `Activation code refused: ${stale}`, actor });
+    return res.status(400).json({ error: stale });
+  }
   let what;
   if (result.scope.startsWith('lang:')) {
     const applied = languageAccess.apply(result, { by: req.user.id });
@@ -4946,13 +5086,13 @@ app.post('/api/activation', requirePermission('activation.manage'), asyncRoute(a
   } else if (result.scope === 'feature:impact') {
     what = `the Cx Credits Calculator's Impact tab ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}` : 'turned off'}`;
   } else if (result.scope === 'feature:faeFlush') {
-    what = `FAE Flush (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with Beta access` : 'turned off: a run under way pauses'}`;
+    what = `FAE Flush (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with Labs: FAE Flush` : 'turned off: a run under way pauses'}`;
   } else if (result.scope === 'feature:statusBoard') {
-    what = `the Status board (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for everyone who may load findings` : 'turned off'}`;
+    what = `the Status board (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with Labs: Status board` : 'turned off'}`;
   } else if (result.scope === 'feature:consolidated') {
-    what = `the Consolidated view (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the people an Admin ticks under People & roles` : 'turned off'}`;
+    what = `the Consolidated view (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the people an Admin ticks under People & roles whose role has Labs: Consolidated view` : 'turned off'}`;
   } else if (result.scope === 'feature:govern') {
-    what = `Govern (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with a Govern permission or Beta access` : 'turned off: its cycles stop, restrictions already made stay until restored'}`;
+    what = `Govern (Labs) ${result.action === 'activate' ? `turned on until ${result.expires.slice(0, 10)}, for the roles with Labs: Govern` : 'turned off: its cycles stop, restrictions already made stay until restored'}`;
   } else if (result.scope === 'product') {
     what = `CxMissionZero activated for ${result.org} until ${result.expires.slice(0, 10)}`;
   } else {
@@ -7498,7 +7638,7 @@ function portfolioCredits(reports) {
   return creditLedger.usedSinceEach(since);
 }
 
-app.get('/api/tracked-reports', requirePermission('reports.view'), async (req, res) => {
+app.get('/api/tracked-reports', requirePermission('reports.view'), asyncRoute(async (req, res) => {
   const reports = trackedReports.list();
   res.json({
     timeZone: serverTimeZone(),
@@ -7506,7 +7646,7 @@ app.get('/api/tracked-reports', requirePermission('reports.view'), async (req, r
     portfolio: { aiActions: portfolioCredits(reports) },
     autoRefresh: Boolean(sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId) ?? settingsStore.get().automationApiKey),
   });
-});
+}));
 
 app.post('/api/tracked-reports', requirePermission('reports.manage'), (req, res) => {
   const { lastScan } = req.session;
@@ -8633,6 +8773,7 @@ process.on('unhandledRejection', (error) => {
   diagnostics.error('unhandled-rejection', error);
   console.warn(`! Unhandled rejection: ${logSafe(error?.message ?? String(error))}`);
 });
+process.off('uncaughtException', stopAtStart);
 process.on('uncaughtException', (error) => {
   diagnostics.error('uncaught-exception', error);
   diagnostics.flush();
@@ -9313,10 +9454,10 @@ function auditFilters(query) {
   };
 }
 
-app.get('/api/audit', requirePermission('audit.view'), async (req, res) => {
+app.get('/api/audit', requirePermission('audit.view'), asyncRoute(async (req, res) => {
   await audit.settled();
   res.json({ ...audit.query(auditFilters(req.query)), writeError: audit.writeError });
-});
+}));
 
 const CSV_COLUMNS = [
   ['seq', (e) => e.seq],
@@ -9354,7 +9495,7 @@ const csvCell = (v) => {
 };
 
 /** Everything matching the filters, as CSV (for spreadsheets) or JSON Lines (complete, verifiable). */
-app.get('/api/audit/export', requirePermission('audit.export'), async (req, res) => {
+app.get('/api/audit/export', requirePermission('audit.export'), asyncRoute(async (req, res) => {
   await audit.settled();
   const filters = { ...auditFilters(req.query), limit: 1_000_000, before: 0 };
   const format = req.query.format === 'jsonl' ? 'jsonl' : 'csv';
@@ -9368,10 +9509,10 @@ app.get('/api/audit/export', requirePermission('audit.export'), async (req, res)
   }
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.send([csvCell(`Notice: ${SUPPORTING_NOTICE}`), CSV_COLUMNS.map(([name]) => name).join(','), ...entries.map((e) => CSV_COLUMNS.map(([, get]) => csvCell(get(e))).join(','))].join('\n') + '\n');
-});
+}));
 
 /** Walk the hash chain: any edited, removed or reordered entry is found. */
-app.get('/api/audit/verify', requirePermission('audit.view'), async (req, res) => {
+app.get('/api/audit/verify', requirePermission('audit.view'), asyncRoute(async (req, res) => {
   await audit.settled();
   const result = audit.verify();
   audit.record({
@@ -9382,14 +9523,14 @@ app.get('/api/audit/verify', requirePermission('audit.view'), async (req, res) =
     details: { verify: { ok: result.ok, entries: result.entries, problems: result.problems.slice(0, 10) } },
   });
   res.json(result);
-});
+}));
 
 /**
  * Do the credits the audit log says were charged match the ledger the
  * balances are computed from? Per month and per project, plus ledger entries
  * with no audit entry (spent before auditing began).
  */
-app.get('/api/audit/reconcile', requirePermission('audit.view'), async (req, res) => {
+app.get('/api/audit/reconcile', requirePermission('audit.view'), asyncRoute(async (req, res) => {
   await audit.settled();
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month ?? '')) ? String(req.query.month) : monthOf();
   const audited = new Map();
@@ -9422,7 +9563,7 @@ app.get('/api/audit/reconcile', requirePermission('audit.view'), async (req, res
     unlinked: { entries: unlinked.length, credits: unlinked.reduce((n, e) => n + e.credits, 0), note: 'Spent before the audit log existed.' },
     missing: missing.map((e) => ({ at: e.at, projectId: e.projectId, credits: e.credits, auditId: e.auditId })),
   });
-});
+}));
 
 // ---------------------------------------------------------------------------
 // Backup and restore: one file rebuilds the whole server
@@ -9703,6 +9844,33 @@ app.put('/api/features/:id', requirePermission('features.manage'), (req, res) =>
   const settings = settingsStore.get();
   res.json({ features: featureList(settings).filter((f) => !featureLocked(f)).map(({ unlockedBy, ...f }) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })), canManage: true });
 });
+
+/**
+ * The Cx Credits Calculator at an address of its own (Settings → Beta features): an Admin's switch and the address.
+ * Turned on, the menu opens the calculator there and the built-in page is put away; its saved customers and reports
+ * stay, and come back when it is turned off.
+ */
+app.get('/api/calculator/address', requirePermission('features.manage'), (req, res) => {
+  res.json({ calculator: settingsStore.get().calculator });
+});
+
+app.put('/api/calculator/address', requirePermission('features.manage'), asyncRoute(async (req, res) => {
+  const before = settingsStore.get().calculator;
+  const incoming = {};
+  if (req.body && 'url' in req.body) incoming.url = req.body.url;
+  if (req.body && 'external' in req.body) incoming.external = req.body.external === true;
+  const after = settingsStore.save({ calculator: incoming }).calculator;
+  if (before.external !== after.external || before.url !== after.url) {
+    audit.record({
+      type: 'system',
+      outcome: 'changed',
+      reason: after.external ? `The Cx Credits Calculator now opens at its own address, ${after.url}.` : before.external ? 'The Cx Credits Calculator opens in CxMissionZero again (the built-in page).' : `The Cx Credits Calculator's own address was ${after.url ? `set to ${after.url}` : 'cleared'} (not turned on).`,
+      actor: { kind: 'user', user: req.user?.email ?? '' },
+      details: { calculator: { before, after } },
+    });
+  }
+  res.json({ calculator: after });
+}));
 
 /** Everything worth knowing when something is wrong, without secrets: for the Admin, or to send to whoever helps. */
 app.get('/api/system/report', requirePermission('system.update'), (req, res) => {
@@ -10399,7 +10567,7 @@ app.post(
 
 // ---- FAE Flush (Labs, then Act): Findings Analysis on the backlog, for the whole tenant at once ----------
 // Runs on the server with its own Checkmarx One connection (the integration key), a few scans at a time; the run
-// is kept on disk and carries on after a restart. Who may: Beta access (later everyone with the feature's
+// is kept on disk and carries on after a restart. Who may: Labs and Labs: FAE Flush on their role (later everyone with the feature's
 // permission), and the Checkmarx One integration permission, since it creates, scans and deletes projects.
 const faeRunners = new WeakMap();
 /** The running tenant's FAE Flush runner. */
@@ -11469,6 +11637,8 @@ const shutdown = async (signal) => {
   await lastWords(signal === 'SIGTERM' ? 'the service was stopped' : `${signal}`, deadline);
   for (const tenant of tenancy.loaded()) tenant.audit.flushSync();
   diagnostics.flush();
+  // What was written and is still waiting for its flush to the disk: now, before the folder is let go.
+  flushPendingNow();
   instanceLock.release();
   console.log('[update] Stopped cleanly.');
   process.exit(0);

@@ -641,11 +641,12 @@ const PAGE_PERMS = {
   audit: 'audit.view backup.view',
   settings: '', // everyone has Your profile; the rest needs settings.view
   access: 'iam.view',
-  beta: 'beta.use feature.codeAuthors feature.identityMatching',
-  fusion: 'beta.use feature.fusionResults',
+  // Labs: each item for the roles holding Labs and its own permission (the server gives feature.<id> to them).
+  beta: 'feature.codeAuthors feature.identityMatching',
+  fusion: 'feature.fusionResults',
   // Only once its activation code has unlocked it: the server then gives feature.faeFlush to whoever may use it.
   flush: 'feature.faeFlush',
-  // Labs, once their activation codes are applied: the board for whoever loads findings; the consolidated view
+  // Labs, once their activation codes are applied, for the roles holding Labs and the item's permission; the consolidated view
   // only for the people an Admin ticked (People & roles).
   status: 'feature.statusBoard',
   consolidated: 'feature.consolidated',
@@ -803,12 +804,65 @@ function renderFeatureStages() {
   STAGES.govern = governFinal ? 'govern' : 'labs';
   PAGE_TITLES.govern[1] = governFinal ? 'Who may use how many AI credits, and what happens at the limit' : 'Labs: who may use how many AI credits, and what happens at the limit';
   if (state.page === 'govern') setPageTitle('govern');
+  applyCalculatorAddress();
 }
+
+/** The calculator's own address, when an Admin turned it on (it then opens there, not in CxMissionZero). */
+const calculatorMoved = () => state.me?.calculator?.url ?? '';
+
+/** The menu's Cx Credits Calculator: the built-in page, or its own address in a new tab. */
+function applyCalculatorAddress() {
+  const url = calculatorMoved();
+  const link = document.querySelector('#nav > a.tab[data-route="calculator"]');
+  link.href = url || '#/calculator';
+  if (url) {
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.title = 'Opens at its own address, in a new tab';
+  } else {
+    link.removeAttribute('target');
+    link.removeAttribute('rel');
+    link.removeAttribute('title');
+  }
+  // A pinned copy of the menu item follows it.
+  renderNavPins();
+  $('calc-moved-open').href = url || '#/calculator';
+  $('calc-moved-url').textContent = url;
+  if (state.page === 'calculator') {
+    $('calc-moved').hidden = !url;
+    $('page-calculator').hidden = Boolean(url);
+    if (!url) calculator.load({ reopen: false });
+  }
+}
+
+/** Settings → Beta features: where the calculator opens. The address typed is suggested from this server's own, port 8333. */
+function renderCalculatorAddress({ external, url }) {
+  $('calc-address-url').value = url;
+  $('calc-address-url').placeholder = `http://${location.hostname}:8333/`;
+  $('calc-address-on').checked = external;
+  const badge = $('calc-address-badge');
+  badge.textContent = external ? 'On' : 'Off';
+  badge.className = `badge ${external ? 'ok' : 'muted'}`;
+}
+
+$('calc-address-save').addEventListener('click', async () => {
+  setStatus('calc-address-status', 'Saving…');
+  try {
+    const { calculator: saved } = await api('/api/calculator/address', { method: 'PUT', body: JSON.stringify({ url: $('calc-address-url').value, external: $('calc-address-on').checked }) });
+    renderCalculatorAddress(saved);
+    state.me = { ...state.me, calculator: saved.external && saved.url && can('projections.use') ? { url: saved.url } : null };
+    applyCalculatorAddress();
+    setStatus('calc-address-status', saved.external ? 'Saved. Cx Credits Calculator in the menu now opens this address.' : 'Saved. The calculator opens in CxMissionZero.', 'ok');
+  } catch (error) {
+    if (!handleAuthLoss(error)) showError('calc-address-status', error);
+  }
+});
 
 async function loadFeatures() {
   if (!can('features.manage')) return;
   try {
     renderFeatures(await api('/api/features'));
+    renderCalculatorAddress((await api('/api/calculator/address')).calculator);
   } catch (error) {
     if (!handleAuthLoss(error)) showError('feat-status', error);
   }
@@ -839,7 +893,7 @@ document.addEventListener('click', async (event) => {
   if (!button) return;
   const to = button.dataset.to;
   const name = button.closest('.feat-card')?.querySelector('h3')?.firstChild?.textContent?.trim() ?? 'this feature';
-  if (!confirm(to === 'final' ? `Make “${name}” final for everyone in your organisation?` : `Put “${name}” back in Beta? People without “Beta features” lose access to it.`)) return;
+  if (!confirm(to === 'final' ? `Make “${name}” final for everyone in your organisation?` : `Put “${name}” back in Beta? Only the roles holding its Beta or Labs permission keep access to it.`)) return;
   button.disabled = true;
   setStatus('feat-status', 'Saving…');
   try {
@@ -1304,7 +1358,7 @@ const PAGE_LOADERS = {
   audit: () => renderAudit(),
   access: () => loadAccess(),
   help: () => loadHelp(),
-  calculator: () => calculator.load(),
+  calculator: () => calculatorMoved() || calculator.load(),
 };
 
 /**
@@ -1334,7 +1388,7 @@ const PAGE_RETURN = {
   beta: () => renderBetaScope(),
   fusion: () => loadFusion(),
   help: () => loadHelp(),
-  calculator: () => calculator.load({ reopen: false }),
+  calculator: () => calculatorMoved() || calculator.load({ reopen: false }),
 };
 
 function route() {
@@ -1349,6 +1403,9 @@ function route() {
   const previous = state.page;
   if (previous && previous !== target) scrollMemory.set(previous, window.scrollY);
   for (const page of Object.keys(PAGE_PERMS)) $(`page-${page}`).hidden = page !== target;
+  // The calculator at an address of its own: its page says where it went, the built-in one stays put away.
+  $('calc-moved').hidden = !(target === 'calculator' && calculatorMoved());
+  if (target === 'calculator' && calculatorMoved()) $('page-calculator').hidden = true;
   for (const tab of document.querySelectorAll('.tab')) {
     tab.classList.toggle('active', tab.dataset.route === target);
     if (tab.dataset.route === target) tab.setAttribute('aria-current', 'page');
@@ -1607,6 +1664,7 @@ function renderNavPins() {
       copy.dataset.stage = 'pinned';
       copy.classList.add('tab-pinned');
       copy.classList.remove('nav-folded');
+      copy.removeAttribute('id');
       for (const el of copy.querySelectorAll('[id]')) el.removeAttribute('id');
       return copy;
     }),
@@ -4117,6 +4175,30 @@ function windowParams() {
 
 const presetLabel = (id) => state.health?.windowPresets.find((p) => p.id === id)?.label ?? id;
 
+/**
+ * "Findings open for": the one question about time on the Workbench. Any age; open for more than so many days
+ * (the server's age presets); or new in the last week or month. The ids are the server's window presets.
+ */
+function fillAgePresets(defaultId = 'any') {
+  const options = [
+    { id: 'any', label: 'Any age' },
+    ...(state.health?.agePresets ?? []),
+    { id: '7d', label: 'New this week' },
+    { id: '30d', label: 'New this month' },
+    { id: 'custom', label: 'Custom dates…' },
+  ];
+  $('detection-preset').innerHTML = options.map((p) => `<option value="${escapeHtml(p.id)}"${p.id === defaultId ? ' selected' : ''}>${escapeHtml(p.label)}</option>`).join('');
+}
+const ageLabel = () => $('detection-preset').selectedOptions[0]?.textContent ?? '';
+/** What the choice loads, in a sentence (the control's tooltip). */
+function ageHint(id) {
+  if (id === 'any') return 'Every open finding, whatever its age.';
+  if (id === '7d' || id === '30d') return `Only findings first found in the last ${id === '7d' ? '7' : '30'} days: older ones are not loaded.`;
+  if (id === 'custom') return 'Only findings first found between these dates.';
+  if (/^gt\d+$/.test(id)) return `Only findings first found more than ${id.slice(2)} days ago and still open.`;
+  return 'Only findings first found in this time are loaded.';
+}
+
 function updateScopeSummary() {
   const detection = $('detection-preset').value;
   const named = scopeNamed();
@@ -4128,7 +4210,7 @@ function updateScopeSummary() {
         scopePick.initiators.size && `${scopePick.initiators.size === 1 ? '1 person' : `${scopePick.initiators.size} people`}'s projects`,
       ].filter(Boolean).join(' + ')
     : presetLabel($('activity-preset').value);
-  $('scope-summary').textContent = `Projects: ${projectsPart} · Findings: ${presetLabel(detection)}`;
+  $('scope-summary').textContent = `Projects: ${projectsPart} · Findings: ${ageLabel()}`;
   // Naming projects or people replaces the "last scanned in" window.
   $('activity-preset').disabled = Boolean(named);
   $('activity-preset').title = named ? 'Named applications, projects and people are fetched whatever their last scan date.' : '';
@@ -4136,9 +4218,7 @@ function updateScopeSummary() {
     ? 'Not used while applications, projects or people are named below: those are fetched whatever their last scan date.'
     : 'Skips projects with no scan in this window.';
 
-  $('detection-hint').textContent = ['7d', '30d'].includes(detection)
-    ? `Only findings first seen in the ${presetLabel(detection).toLowerCase()} are counted, so the older age buckets will be empty.`
-    : 'Sent to the API as fromDate/toDate, so it is filtered server-side.';
+  $('detection-hint').textContent = ageHint(detection);
   // The compact scope row shows these as the choices' tooltips.
   if (!named) $('activity-preset').title = $('activity-hint').textContent;
   $('detection-preset').title = $('detection-hint').textContent;
@@ -4447,7 +4527,6 @@ const scanTypeOf = (p) => p.scanType || fusion.data?.projects?.[p.projectId]?.sc
 function visibleProjects() {
   const text = $('filter').value.trim().toLowerCase();
   const severity = $('severity-filter').value;
-  const bucket = $('bucket-filter').value;
   const scanType = $('scan-type-filter')?.value ?? '';
   const hideEmpty = $('hide-empty').checked;
 
@@ -4456,7 +4535,6 @@ function visibleProjects() {
   const rows = state.projects.filter((p) => {
     if (text && !p.projectName.toLowerCase().includes(text)) return false;
     if (severity && !(p.bySeverity?.[severity] > 0)) return false;
-    if (bucket && !(p.counts?.[bucket] > 0)) return false;
     if (scanType && (scanTypeOf(p) || 'none') !== scanType) return false;
     if (picked.size > 0 && !picked.has(p.initiator || p.initiatorEmail || '')) return false;
     if (hideEmpty && p.totalRisks === 0) return false;
@@ -4875,7 +4953,7 @@ function renderProjects() {
   const body = $('projects-body');
   $('export-projects').disabled = !rows.length;
   // A new search, filter or sort starts again at the first page; a fetch filling in keeps it.
-  const view = JSON.stringify([$('filter').value.trim().toLowerCase(), $('severity-filter').value, $('bucket-filter').value, $('scan-type-filter')?.value ?? '', $('hide-empty').checked, [...state.pickedInitiators], state.sort, rows.length]);
+  const view = JSON.stringify([$('filter').value.trim().toLowerCase(), $('severity-filter').value, $('scan-type-filter')?.value ?? '', $('hide-empty').checked, [...state.pickedInitiators], state.sort, rows.length]);
   if (view !== state.rowView) {
     state.rowView = view;
     state.rowLimit = ROW_PAGE;
@@ -5035,13 +5113,13 @@ async function saveProjectCredits(projectId) {
 
 function trackScope() {
   const severity = $('severity-filter').value;
-  const bucket = $('bucket-filter').value;
+  // (How old the findings are is part of what was loaded, "Findings open for": the table no longer narrows by age.)
+  const bucket = '';
   const projects = allocationScope();
   const parts = [
     $('scope-summary').textContent,
     severity ? `${severity.toLowerCase()} only` : 'all severities',
     describeEngines(state.lastScan?.engines ?? []),
-    bucket ? `age ${$('bucket-filter').selectedOptions[0].textContent.toLowerCase()}` : '',
     `${projects.length} project${projects.length === 1 ? '' : 's'}`,
   ].filter(Boolean);
   return { severity, bucket, projects, label: parts.join(' · ') };
@@ -6834,6 +6912,10 @@ function restoreScope(request, projects) {
   for (const prefix of ['activity', 'detection']) {
     const select = $(`${prefix}-preset`);
     const preset = request[`${prefix}Preset`];
+    // A load made before "Findings open for" (first found in the last 90 days, or year): shown as what it was.
+    if (preset && prefix === 'detection' && ![...select.options].some((o) => o.value === preset) && state.health?.windowPresets.some((p) => p.id === preset)) {
+      select.add(new Option(`First found: ${presetLabel(preset).toLowerCase()}`, preset));
+    }
     if (preset && [...select.options].some((o) => o.value === preset)) select.value = preset;
     $(`${prefix}-from`).value = request[`${prefix}From`] || '';
     $(`${prefix}-to`).value = request[`${prefix}To`] || '';
@@ -7304,7 +7386,7 @@ $('filter').addEventListener('input', () => {
   clearTimeout(filterTimer);
   filterTimer = setTimeout(renderProjects, 150);
 });
-for (const id of ['severity-filter', 'bucket-filter', 'scan-type-filter', 'hide-empty']) {
+for (const id of ['severity-filter', 'scan-type-filter', 'hide-empty']) {
   $(id).addEventListener('input', renderProjects);
 }
 
@@ -8757,9 +8839,10 @@ document.addEventListener('keydown', (event) => {
     applyAppBranding(state.health.app);
     for (const problem of state.health.problems) console.warn(problem);
     syncNarrow();
-    // Last week by default: quick on a large tenant; widen it when you need more.
-    fillPresets('activity-preset', '7d');
-    fillPresets('detection-preset', '7d');
+    // Every open finding, whatever its age, in the projects scanned in the last 90 days: the old findings are
+    // what this is for, and a project nobody scans any more is skipped (Narrow down changes that).
+    fillPresets('activity-preset', '90d');
+    fillAgePresets('any');
     renderEnginePick();
     renderFocusPick();
     updateScopeSummary();
@@ -10825,7 +10908,7 @@ const IAM_PAGE = 20;
  */
 function consolidatedTick(u, me) {
   if (access.data.consolidatedGrant && (u.canManage || me)) {
-    return `<label class="check cv-grant" title="Labs → Consolidated view: every tenant they work in, read only. Each visit is written to each tenant's audit log."><input type="checkbox" data-iam-consolidated="${escapeHtml(u.id)}" ${u.consolidated ? 'checked' : ''} /> <span>May see the consolidated view (all connected tenants)</span></label>`;
+    return `<label class="check cv-grant" title="Labs → Consolidated view: every tenant they work in, read only. Each visit is written to each tenant's audit log. Their role also needs See Labs and Labs: Consolidated view."><input type="checkbox" data-iam-consolidated="${escapeHtml(u.id)}" ${u.consolidated ? 'checked' : ''} /> <span>May see the consolidated view (all connected tenants)</span></label>`;
   }
   return u.consolidated ? '<span class="badge gv-info" title="May see the consolidated view (all connected tenants)">Consolidated view</span>' : '';
 }

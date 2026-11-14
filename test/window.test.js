@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { WindowError, describeWindow, resolveWindow, withinWindow } from '../src/window.js';
+import { AGE_PRESETS, WindowError, describeWindow, resolveWindow, withinWindow } from '../src/window.js';
 import { candidatesFor, isProbeMiss } from '../src/cxone/discovery.js';
 import { CxApiError } from '../src/cxone/client.js';
 import { lastScanDate } from '../src/cxone/projects.js';
@@ -17,6 +17,20 @@ test('presets resolve to a start date and no end date', () => {
   assert.equal(week.to, null);
 
   assert.equal(resolveWindow({ preset: '365d' }, 'x', NOW).from.toISOString(), '2025-09-15T12:00:00.000Z');
+});
+
+test('by age: "more than 60 days" is everything first found before 60 days ago, with no start', () => {
+  assert.deepEqual(AGE_PRESETS.map((p) => p.id), ['gt30', 'gt60', 'gt90']);
+  const old = resolveWindow({ preset: 'gt60' }, 'x', new Date('2026-09-15T12:34:56Z'));
+  assert.equal(old.from, null);
+  assert.equal(old.to.toISOString(), '2026-07-17T12:00:00.000Z', '60 days before, to the hour (so a repeated load asks for the same window)');
+  assert.equal(old.label, 'More than 60 days');
+  assert.equal(withinWindow(old, '2026-07-01T00:00:00Z'), true, 'found 76 days ago: in');
+  assert.equal(withinWindow(old, '2026-08-01T00:00:00Z'), false, 'found 45 days ago: out');
+  assert.equal(withinWindow(old, null), false, 'a finding with no date cannot be shown to be that old');
+  // Worked out again each time: saved with a tracked report, it still means 60 days before then.
+  assert.equal(resolveWindow({ preset: 'gt60' }, 'x', new Date('2026-10-15T12:00:00Z')).to.toISOString(), '2026-08-16T12:00:00.000Z');
+  assert.deepEqual(describeWindow(resolveWindow({ preset: 'gt90' }, 'x', NOW)), { active: true, label: 'More than 90 days', from: null, to: '2026-06-17T12:00:00.000Z' });
 });
 
 test('a custom range covers the whole of its end day', () => {

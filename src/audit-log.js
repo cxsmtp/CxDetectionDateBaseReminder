@@ -8,6 +8,13 @@
  * reordering any entry breaks the chain from that point on, which verify()
  * reports. Nothing is ever trimmed or rewritten.
  *
+ * Every entry is in its month's file before record() returns, so a server that crashes or is killed
+ * just after still has it; the flush to the disk (fdatasync) that makes it last through a power cut
+ * follows in the background a few milliseconds later, one flush for the entries written meanwhile
+ * (src/state-file.js). The month's file is opened by its path for each entry and closed
+ * again: a file made read-only, moved aside or replaced under a running server is seen at the next
+ * entry (which is then held, or goes to the file that is really there), never written to unseen.
+ *
  * Entry shape (fields present when they apply):
  *   seq, id, at, type, outcome, reason
  *   actor:    {kind: report|admin|automation|system, user, recipient, reportId, ip, userAgent}
@@ -28,6 +35,8 @@ import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { appendDurable, flushesSettled, readState, writeState } from './state-file.js';
+
 const GENESIS = 'genesis';
 export const OUTCOMES = ['charged', 'not-charged', 'refused', 'failed', 'changed', 'info'];
 export const TYPES = ['triage', 'remediation', 'allocation', 'settings', 'report', 'verification', 'backup', 'audit', 'access', 'iam', 'system', 'govern'];
@@ -38,14 +47,23 @@ const monthOf = (iso) => {
   return month;
 };
 
+/** A key file's bytes: a key is at least 32 of them (fewer is a file cut short, not a key). */
+const keyBytes = (buffer) => {
+  if (buffer.length < 32) throw new Error(`it holds ${buffer.length} bytes, and a key is at least 32`);
+  return buffer;
+};
+
+/**
+ * The key the chain is signed with, made when there is none. A key file that is there and cut short is
+ * never replaced by a new key without a word (nothing written so far could be verified any more):
+ * readState() stops and says what to do (src/state-file.js).
+ */
 function loadOrCreateKey(file) {
-  try {
-    const key = fs.readFileSync(file);
-    if (key.length >= 32) return key;
-  } catch {}
+  const existing = readState(file, { fallback: null, parse: keyBytes, holds: 'the key the audit log is signed with' });
+  if (existing) return existing;
   const key = randomBytes(32);
-  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(file, key, { mode: 0o600 });
+  // Flushed to the disk: a crash just after must not leave an empty key file behind.
+  writeState(file, key);
   return key;
 }
 
@@ -70,6 +88,7 @@ export class AuditLog {
   #lastMac = GENESIS;
   #unwritten = [];
   #lastError = '';
+  #flushError = '';
 
   constructor({ dir, keyFile }) {
     this.#dir = dir;
@@ -179,8 +198,18 @@ export class AuditLog {
     while (this.#unwritten.length) {
       const e = this.#unwritten[0];
       try {
-        fs.appendFileSync(path.join(this.#dir, `audit-${monthOf(e.at)}.jsonl`), `${JSON.stringify(e)}\n`, { mode: 0o600 });
+        // By its path, every time: opened, written, closed; flushed in the background (src/state-file.js).
+        appendDurable(path.join(this.#dir, `audit-${monthOf(e.at)}.jsonl`), `${JSON.stringify(e)}\n`, { flush: 'soon' });
+        this.#flushError = '';
       } catch (error) {
+        if (error.written) {
+          // The entry is in the file; only the flush failed. It is not held: written again it would be
+          // there twice and break the chain. Said once.
+          if (this.#flushError !== error.message) console.error(`[audit] an entry was written but could not be flushed to the disk: ${error.message}`);
+          this.#flushError = error.message;
+          this.#unwritten.shift();
+          continue;
+        }
         if (this.#lastError !== error.message) console.error(`[audit] could not write the audit log (${this.#unwritten.length} entries held): ${error.message}`);
         this.#lastError = error.message;
         return false;
@@ -192,9 +221,10 @@ export class AuditLog {
     return true;
   }
 
-  /** Kept for callers that wait for writes: entries are written synchronously. */
+  /** For callers that wait for writes: entries are written at once, and this waits for their flush to the disk. */
   async settled() {
     this.flushSync();
+    await flushesSettled();
   }
 
   /**

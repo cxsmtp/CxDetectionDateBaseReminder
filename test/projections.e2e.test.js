@@ -275,3 +275,43 @@ test('unticked again, the calculator is gone for that role; the customers stay f
   await analystsGetCalculator(true);
   assert.equal((await ana('GET', '/api/projections')).body.customers.length, 1);
 });
+
+test('the calculator at its own address: an Admin\'s switch and address; the menu follows it for whoever may use the calculator', async () => {
+  // Off from the start: nobody is sent anywhere.
+  assert.equal((await admin('GET', '/api/me')).body.calculator, null);
+  assert.deepEqual((await admin('GET', '/api/calculator/address')).body.calculator, { external: false, url: '' });
+  // Only an Admin (Make Beta features final) sets it; a Security Analyst, even with the calculator, does not.
+  assert.equal((await ana('PUT', '/api/calculator/address', { url: 'http://calc.acme.io:8333/', external: true })).status, 403);
+  assert.equal((await ana('GET', '/api/calculator/address')).status, 403);
+  // It needs an address, and a real one: http or https, a server, no password in it.
+  assert.equal((await admin('PUT', '/api/calculator/address', { external: true })).status, 400);
+  // (An address with a username and a password in it, put together here so that none is written in this file.)
+  const withPassword = Object.assign(new URL('http://calc.acme.io/'), { username: 'someone', password: 'x'.repeat(9) }).href;
+  for (const url of ['javascript:alert(1)', 'ftp://calc.acme.io/', 'calc.acme.io:8333', withPassword]) {
+    const refused = await admin('PUT', '/api/calculator/address', { url, external: true });
+    assert.equal(refused.status, 400, url);
+    assert.match(refused.body.error, /must start with http:\/\/ or https:\/\//);
+  }
+  assert.equal((await admin('GET', '/api/me')).body.calculator, null, 'a refused address changes nothing');
+  // The address alone, not turned on: still the built-in page.
+  assert.deepEqual((await admin('PUT', '/api/calculator/address', { url: 'http://calc.acme.io:8333' })).body.calculator, { external: false, url: 'http://calc.acme.io:8333/' });
+  assert.equal((await admin('GET', '/api/me')).body.calculator, null);
+  // Turned on: whoever may use the calculator is told where it is; a role without it is told nothing.
+  const on = await admin('PUT', '/api/calculator/address', { external: true });
+  assert.deepEqual(on.body.calculator, { external: true, url: 'http://calc.acme.io:8333/' });
+  assert.deepEqual((await admin('GET', '/api/me')).body.calculator, { url: 'http://calc.acme.io:8333/' });
+  assert.deepEqual((await ana('GET', '/api/me')).body.calculator, { url: 'http://calc.acme.io:8333/' });
+  assert.equal((await uma('GET', '/api/me')).body.calculator, null);
+  // The whole-settings form cannot slip it through, whoever sends it.
+  const slipped = await admin('PUT', '/api/settings', { calculator: { external: false, url: '' } });
+  assert.equal(slipped.status, 403);
+  assert.deepEqual(slipped.body.ignored, ['calculator']);
+  // Nothing is deleted: the saved customers are still there, and turning it off brings the built-in page back.
+  assert.equal((await admin('GET', '/api/projections')).body.customers.length, 1);
+  assert.deepEqual((await admin('PUT', '/api/calculator/address', { external: false })).body.calculator, { external: false, url: 'http://calc.acme.io:8333/' });
+  assert.equal((await admin('GET', '/api/me')).body.calculator, null);
+  // Each change is in the audit log, with who made it.
+  const reasons = (await admin('GET', '/api/audit?limit=50')).body.entries.map((e) => e.reason).join('\n');
+  assert.match(reasons, /The Cx Credits Calculator now opens at its own address, http:\/\/calc\.acme\.io:8333\//);
+  assert.match(reasons, /opens in CxMissionZero again/);
+});

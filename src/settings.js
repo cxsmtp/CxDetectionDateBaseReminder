@@ -1,5 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
-import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 /** A Checkmarx One API path to call on the tenant's own address: /api/…, letters, digits, - _ . / and {appId}; no query, no "..". Else null. */
@@ -20,6 +19,7 @@ import { DEFAULT_LOOK, LOOKS } from '../public/look.js';
 import { TOKEN_NAMES, cleanStoredInstances, mergeStoredInstances } from './scm/instances.js';
 import { DEFAULT_SLA, mergeSla } from './sla.js';
 import { azureOrgKey, normalizeAzureOrgUrl } from './scm/azure-url.js';
+import { readState, writeState } from './state-file.js';
 
 /**
  * Administrator settings: SMTP, recipients and the mail template.
@@ -30,7 +30,6 @@ import { azureOrgKey, normalizeAzureOrgUrl } from './scm/azure-url.js';
  */
 
 const FILE_MODE = 0o600;
-const DIR_MODE = 0o700;
 const EMAIL_RE = /^(?=[^]{3,254}$)[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const int = (value, fallback) => {
@@ -114,6 +113,8 @@ export const DEFAULT_SETTINGS = {
   support: { mode: '', email: '' },
   /** Hands-off mode (src/hands-off.js): the weekly status, pausing, and replies by email. */
   handsOff: { ...DEFAULT_HANDS_OFF },
+  // The Cx Credits Calculator at an address of its own (an Admin's switch): off, the built-in page is used.
+  calculator: { external: false, url: '' },
   /** SLAs (Beta, src/sla.js): days to fix each severity, and escalation of overdue findings. */
   sla: structuredClone(DEFAULT_SLA),
   /**
@@ -176,6 +177,36 @@ export const DEFAULT_SETTINGS = {
  * https (and data: for a pasted inline image) is accepted -- never javascript:
  * or a plain-http URL that would trip mixed-content warnings.
  */
+/** An http(s) address naming a server, without a username or password in it; '' when it is not one. */
+function calculatorAddress(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw || raw.length > 300) return '';
+  try {
+    const url = new URL(raw);
+    return ['http:', 'https:'].includes(url.protocol) && url.hostname && !url.username && !url.password ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Where the Cx Credits Calculator opens: the built-in page, or (turned on by an Admin) an address of its own.
+ * Turned on, it needs an address; turned off, the address is kept for the next time.
+ */
+export function mergeCalculator(current, incoming = null) {
+  const out = { external: current?.external === true, url: calculatorAddress(current?.url) };
+  if (!out.url) out.external = false;
+  if (!incoming) return out;
+  if ('url' in incoming) {
+    const url = calculatorAddress(incoming.url);
+    if (String(incoming.url ?? '').trim() && !url) throw Object.assign(new Error('The calculator\'s address must start with http:// or https:// and name a server, such as http://server:8333/.'), { status: 400 });
+    out.url = url;
+  }
+  if ('external' in incoming) out.external = incoming.external === true;
+  if (out.external && !out.url) throw Object.assign(new Error('Give the calculator\'s address before turning this on.'), { status: 400 });
+  return out;
+}
+
 /** Get help, checked: the portal or email; email needs one valid address. Empty values fall back to SUPPORT_MODE / SUPPORT_EMAIL. */
 export function mergeSupport(current, incoming = null) {
   const out = { ...DEFAULT_SETTINGS.support, ...(current ?? {}) };
@@ -504,8 +535,9 @@ export function mergeSettings(current, incoming = {}) {
   const impact = mergeImpact(current.impact, incoming.impact);
   const support = mergeSupport(current.support, incoming.support);
   const handsOff = mergeHandsOff(current.handsOff, incoming.handsOff);
+  const calculator = mergeCalculator(current.calculator, incoming.calculator);
 
-  const next = { ...current, smtp, recipients, initiators, template, reminderEmail, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders, impact, support, handsOff };
+  const next = { ...current, smtp, recipients, initiators, template, reminderEmail, links, branding, automation, endpoints, aiTriage, beta, features, sla, reminders, impact, support, handsOff, calculator };
 
   // The automation credential is set through its own route, not this form.
   if (typeof incoming.automationApiKey === 'string') next.automationApiKey = incoming.automationApiKey.trim();
@@ -710,13 +742,30 @@ export function applyEnvironmentSmtp(settings) {
   return { ...settings, smtp };
 }
 
+/**
+ * Every secret a settings object holds (a password, a token, a key or a secret, wherever it sits), so a
+ * save can tell when one was replaced or taken out.
+ */
+function secretsIn(value, found = new Set(), name = '') {
+  if (typeof value === 'string') {
+    if (value && /password|token|secret|apikey|passphrase/i.test(name)) found.add(value);
+  } else if (value && typeof value === 'object') {
+    // Inside a list or an object, a text keeps the name it sits under ({GITHUB_TOKEN: …}, {tokens: [...]}).
+    for (const [key, inner] of Object.entries(value)) secretsIn(inner, found, Array.isArray(value) ? name : key);
+  }
+  return found;
+}
+
 export class SettingsStore {
   #file;
   #settings;
+  /** The secrets in the file as it was last read or saved (see #persist). */
+  #savedSecrets;
 
   constructor({ file } = {}) {
     this.#file = file ?? path.join(process.cwd(), 'data', 'settings.json');
     this.#settings = this.#load();
+    this.#savedSecrets = secretsIn(this.#settings);
   }
 
   get file() {
@@ -724,8 +773,12 @@ export class SettingsStore {
   }
 
   #load() {
+    // No file yet: a new installation, on the defaults. A settings file that is there and cannot be
+    // read is never "the defaults": readState() uses its last good copy, or stops (src/state-file.js),
+    // so the connection, the mail server and the schedule are not saved over with empty ones.
+    const raw = readState(this.#file, { fallback: null, holds: 'the settings: the Checkmarx One connection, the mail server, schedules and branding' });
+    if (!raw) return structuredClone(DEFAULT_SETTINGS);
     try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
       // Merge over the defaults so a settings file written by an older
       // version still loads with every newer field present.
       return {
@@ -750,13 +803,17 @@ export class SettingsStore {
         impact: mergeImpact(raw.impact),
         support: mergeSupport(raw.support),
         handsOff: mergeHandsOff(raw.handsOff),
+        calculator: mergeCalculator(raw.calculator),
         // One choice for who gets reminders; before, scheduled runs had their own (keep what they did).
         reminders: raw.reminders?.audience && AUDIENCES.includes(raw.reminders.audience)
           ? { audience: raw.reminders.audience }
           : { audience: raw.automation?.groupBy === 'none' ? 'list' : 'initiator' },
       };
-    } catch {
-      return structuredClone(DEFAULT_SETTINGS);
+    } catch (error) {
+      // It is whole, and still not settings this version can load (saved by another version, or edited by hand).
+      // Stop, and leave the file as it is. Not as a damaged file (src/state-file.js): after an update the launcher
+      // then goes back to the version before, which reads it, where a damaged file would keep this one trying.
+      throw Object.assign(new Error(`The settings file ${this.#file} holds settings this version cannot load (${error.message}). It has not been changed. Go back to the version that saved it, or restore a backup: node scripts/restore.mjs <backup file> --yes`, { cause: error }), { code: 'SETTINGS_NOT_LOADABLE', file: this.#file });
     }
   }
 
@@ -799,14 +856,14 @@ export class SettingsStore {
   }
 
   #persist() {
-    const dir = path.dirname(this.#file);
-    fs.mkdirSync(dir, { recursive: true, mode: DIR_MODE });
-    // Write-then-rename so a crash cannot leave a half-written settings file.
-    const temp = `${this.#file}.${randomUUID()}.tmp`;
-    // Created only if nothing has that name yet, so never written through a link left in its place.
-    fs.writeFileSync(temp, JSON.stringify(this.#settings, null, 2), { mode: FILE_MODE, flag: 'wx' });
-    fs.renameSync(temp, this.#file);
-    fs.chmodSync(this.#file, FILE_MODE);
+    // Written beside the file, flushed to the disk, then put in its place, so a crash cannot leave half a
+    // settings file; the one it replaces is kept as its last good copy, settings.json.bak (src/state-file.js).
+    // Not when this save replaces or takes out a secret (the mail password, a token): the copy would keep
+    // the old one on the disk, so no copy is kept that time. The next save keeps one again.
+    const secrets = secretsIn(this.#settings);
+    const forgets = [...this.#savedSecrets].some((secret) => !secrets.has(secret));
+    writeState(this.#file, this.#settings, { mode: FILE_MODE, space: 2, keepLast: !forgets });
+    this.#savedSecrets = secrets;
   }
 }
 

@@ -99,9 +99,13 @@ test('held back until its activation code is applied, even for Admins', async ()
   assert.equal(me.features.statusBoard, 'beta');
 });
 
-test('for whoever may load findings: a User sees it, a role without findings is refused', async () => {
-  assert.ok((await user('GET', '/api/me')).body.permissions.includes('feature.statusBoard'), 'a User (findings.fetch) has it in Beta');
-  assert.ok(!(await reader('GET', '/api/me')).body.permissions.includes('feature.statusBoard'));
+test('for the roles holding Labs and Labs: Status board: a User has both by default, a role without them is refused', async () => {
+  const me = (await user('GET', '/api/me')).body.permissions;
+  assert.ok(me.includes('feature.statusBoard'), 'a User has Labs: Status board by default');
+  assert.ok(me.includes('labs.active'), 'and so Labs shows');
+  const readerMe = (await reader('GET', '/api/me')).body.permissions;
+  assert.ok(!readerMe.includes('feature.statusBoard'));
+  assert.ok(!readerMe.includes('labs.active'), 'no Labs item for this role: no Labs in the menu');
   assert.equal((await reader('GET', '/api/status-board')).status, 403);
   assert.equal((await reader('GET', '/api/status-board/projects/p3/scans')).status, 403);
 });
@@ -150,4 +154,29 @@ test('the side panel: a project\'s last scans, with the failed one first and why
   assert.equal((await user('GET', '/api/status-board/projects/p3/scans')).status, 200);
   assert.equal(total(await stats()) - total(before), 0);
   assert.equal((await user('GET', '/api/status-board/projects/nope/scans')).status, 404);
+});
+
+test('Labs per role: taking an item off a role takes it away, and Labs goes with the last one', async () => {
+  const users = (await admin('GET', '/api/iam')).body;
+  const userRole = users.roles.find((r) => r.id === 'user');
+  assert.ok(userRole.permissions.includes('labs.view') && userRole.permissions.includes('labs.statusBoard'));
+  const without = userRole.permissions.filter((p) => p !== 'labs.statusBoard');
+  assert.equal((await admin('PUT', '/api/iam/roles/user', { name: userRole.name, description: userRole.description, permissions: without })).status, 200);
+  const me = (await user('GET', '/api/me')).body.permissions;
+  assert.ok(!me.includes('feature.statusBoard'));
+  assert.ok(!me.includes('labs.active'), 'Govern, its other item, is not turned on: Labs is hidden');
+  const refused = await user('GET', '/api/status-board');
+  assert.equal(refused.status, 403);
+  assert.match(refused.body.error, /in Labs: your role needs “Labs: Status board”/);
+  // The item back but not Labs itself: still refused.
+  const noLabs = [...without.filter((p) => p !== 'labs.view'), 'labs.statusBoard'];
+  assert.equal((await admin('PUT', '/api/iam/roles/user', { name: userRole.name, description: userRole.description, permissions: noLabs })).status, 200);
+  assert.match((await user('GET', '/api/status-board')).body.error, /needs “See Labs”/);
+  assert.equal((await admin('PUT', '/api/iam/roles/user', { name: userRole.name, description: userRole.description, permissions: userRole.permissions })).status, 200);
+  assert.equal((await user('GET', '/api/status-board')).status, 200, 'both back: in again');
+  // A role can be given Labs items one by one.
+  const roles = await admin('POST', '/api/iam/roles', { name: 'Board watcher', permissions: ['reports.view', 'findings.fetch', 'labs.view', 'labs.statusBoard'] });
+  assert.equal(roles.status, 201, JSON.stringify(roles.body));
+  const watcher = roles.body.roles.find((r) => r.name === 'Board watcher');
+  assert.deepEqual(watcher.permissions.filter((p) => p.startsWith('labs.')).sort(), ['labs.statusBoard', 'labs.view']);
 });

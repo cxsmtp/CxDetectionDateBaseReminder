@@ -19,6 +19,7 @@ import { BRANCH_HOW, branchOf, primaryScans } from './cxone/branches.js';
 import { CRITICALITIES, DEFAULT_READ_PROJECTS, amount, frequencyOf, modelsNamed, readLimit, wholeNumber } from '../public/calculator/model.js';
 import { modelChoices } from './fusion-usage.js';
 import { MAX_PROFILES, MAX_REPORTS, cleanFusion, cleanReportData, cleanTr, fail, finite, iso, migrate, newProfile, newReport, patchProfile, reportMeta, summary, text } from '../public/calculator/profiles.js';
+import { readState, writeState } from './state-file.js';
 
 // The rules for customers and reports are shared with the standalone calculator (public/calculator/profiles.js).
 export { MAX_PROFILES, MAX_PROFILE_BYTES, MAX_REPORTS, MAX_REPORT_BYTES, cleanFusion, cleanReportData, cleanTr } from '../public/calculator/profiles.js';
@@ -26,6 +27,7 @@ export { MAX_PROFILES, MAX_PROFILE_BYTES, MAX_REPORTS, MAX_REPORT_BYTES, cleanFu
 const SEVERITIES = ['Critical', 'High', 'Medium', 'Low', 'Info'];
 const DAY = 86400000;
 
+/** For the last read of the tenant only (TenantReadStore): made again by the next read, so not flushed and no copy kept. */
 function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const tmp = `${file}.${process.pid}.${randomUUID().slice(0, 8)}.tmp`;
@@ -43,16 +45,13 @@ export class ProjectionStore {
   }
 
   #load() {
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      return Array.isArray(raw.profiles) ? raw.profiles.filter((p) => p && typeof p.id === 'string').map(migrate) : [];
-    } catch {
-      return [];
-    }
+    // No file yet: no customers. A damaged file is never "no customers" (src/state-file.js).
+    const raw = readState(this.#file, { fallback: {}, holds: 'the Cx Credits Calculator\'s customers and their projections' });
+    return Array.isArray(raw.profiles) ? raw.profiles.filter((p) => p && typeof p.id === 'string').map(migrate) : [];
   }
 
   #save() {
-    writeJson(this.#file, { version: 2, profiles: this.#profiles });
+    writeState(this.#file, { version: 2, profiles: this.#profiles });
   }
 
   list() {
@@ -136,7 +135,9 @@ export class ReportStore {
 
   add({ customerId, customer, by, data }) {
     const report = newReport({ customerId, customer, by, data });
-    writeJson(this.#file(report.id), report);
+    // Written once, under a new id, and flushed to the disk. No last good copy: there is no report before it,
+    // and a backup takes every file in this folder.
+    writeState(this.#file(report.id), report, { keepLast: false });
     for (const old of this.#all().slice(MAX_REPORTS)) fs.rmSync(this.#file(old.id), { force: true });
     return reportMeta(report);
   }

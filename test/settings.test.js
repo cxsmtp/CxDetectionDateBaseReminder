@@ -110,13 +110,15 @@ test('settings round-trip through the file and are written owner-only', () => {
   assert.equal(reloaded.template.html, DEFAULT_SETTINGS.template.html);
 });
 
-test('a missing or corrupt settings file falls back to defaults', () => {
+test('a missing settings file is the defaults; a corrupt one is refused and left as it is, never taken for the defaults', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cxdr-'));
   assert.deepEqual(new SettingsStore({ file: path.join(dir, 'nope.json') }).get(), DEFAULT_SETTINGS);
 
+  // Taken for the defaults, the next save wrote them over the connection and the mail server (src/state-file.js).
   const corrupt = path.join(dir, 'corrupt.json');
   fs.writeFileSync(corrupt, '{ not json');
-  assert.deepEqual(new SettingsStore({ file: corrupt }).get(), DEFAULT_SETTINGS);
+  assert.throws(() => new SettingsStore({ file: corrupt }), { code: 'STATE_FILE_DAMAGED', file: corrupt });
+  assert.equal(fs.readFileSync(corrupt, 'utf8'), '{ not json');
 });
 
 test('the product is CxMissionZero; an earlier default name saved by auto-save becomes it, a chosen name stays', () => {

@@ -9,8 +9,8 @@
  */
 
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
+
+import { readState, writeState } from './state-file.js';
 
 export const GRANT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -28,16 +28,24 @@ const tenantPart = (finding) => {
 };
 const grantMessage = (finding, exp) => [...FIELDS.map((field) => String(finding[field] ?? '')), String(exp)].join('\n') + tenantPart(finding);
 
-/** A key that survives restarts, so reports stay usable until they expire. */
+/** A key file's bytes: a key is at least 32 of them (fewer is a file cut short, not a key). */
+const keyBytes = (buffer) => {
+  if (buffer.length < 32) throw new Error(`it holds ${buffer.length} bytes, and a key is at least 32`);
+  return buffer;
+};
+
+/**
+ * A key that survives restarts, so reports stay usable until they expire. Made when there is none. A key
+ * file that is there and cut short is never replaced by a new key without a word (every report already
+ * sent would stop working): readState() stops and says what to do (src/state-file.js).
+ */
 function loadOrCreateKey(file) {
   if (!file) return randomBytes(32);
-  try {
-    const existing = fs.readFileSync(file);
-    if (existing.length >= 32) return existing;
-  } catch {}
+  const existing = readState(file, { fallback: null, parse: keyBytes, holds: 'the key that signs the links in every report sent' });
+  if (existing) return existing;
   const key = randomBytes(32);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, key, { mode: 0o600 });
+  // Flushed to the disk: a crash just after must not leave an empty key file behind.
+  writeState(file, key);
   return key;
 }
 

@@ -20,6 +20,7 @@ import https from 'node:https';
 import { X509Certificate } from 'node:crypto';
 
 import { openTunnel, proxyFor } from './network.js';
+import { readState, writeState } from './state-file.js';
 
 const UNTRUSTED = new Set(['UNABLE_TO_GET_ISSUER_CERT_LOCALLY', 'UNABLE_TO_GET_ISSUER_CERT', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'SELF_SIGNED_CERT_IN_CHAIN', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'CERT_UNTRUSTED']);
 /** Whether a TLS error code means "issued by someone not trusted here" (not expired, not the wrong name). */
@@ -254,17 +255,17 @@ export class TrustStore {
     this.#file = path.join(this.dir, 'certificates.json');
     this.#log = log;
     this.#base = baseCertificates();
-    try {
-      const list = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      this.#saved = (Array.isArray(list) ? list : []).filter((e) => {
-        try {
-          new X509Certificate(e.pem);
-          return true;
-        } catch {
-          return false;
-        }
-      });
-    } catch {}
+    // No file yet: no certificate added. A damaged file is never "none added": the connections that
+    // rely on those certificates would stop working, and the next one added would save over the rest.
+    const list = readState(this.#file, { fallback: [], holds: 'the certificates an Admin added to trust' });
+    this.#saved = (Array.isArray(list) ? list : []).filter((e) => {
+      try {
+        new X509Certificate(e.pem);
+        return true;
+      } catch {
+        return false;
+      }
+    });
     this.apply();
   }
 
@@ -305,10 +306,7 @@ export class TrustStore {
   }
 
   #save() {
-    fs.mkdirSync(this.dir, { recursive: true, mode: 0o700 });
-    const tmp = `${this.#file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.#saved, null, 1), { mode: 0o600 });
-    fs.renameSync(tmp, this.#file);
+    writeState(this.#file, this.#saved, { space: 1 });
     this.apply();
   }
 

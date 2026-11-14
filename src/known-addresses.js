@@ -7,8 +7,7 @@
  * settings so it survives a restart.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
+import { readState, writeState } from './state-file.js';
 
 const EMAIL_RE = /^(?=[^]{3,254}$)[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_ENTRIES = 20_000;
@@ -31,12 +30,11 @@ export class KnownAddresses {
     this.#file = file;
     this.#entries = Object.create(null);
     if (!file) return;
-    try {
-      const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-      if (raw && typeof raw.addresses === 'object') {
-        for (const [key, value] of Object.entries(raw.addresses)) if (!UNSAFE_KEYS.has(key)) this.#entries[key] = value;
-      }
-    } catch {}
+    // No file yet: no addresses known. A damaged file is never "none known" (src/state-file.js).
+    const raw = readState(file, { fallback: {}, holds: 'the addresses scan initiators resolved to, and those given by hand' });
+    if (raw.addresses && typeof raw.addresses === 'object') {
+      for (const [key, value] of Object.entries(raw.addresses)) if (!UNSAFE_KEYS.has(key)) this.#entries[key] = value;
+    }
   }
 
   get(username) {
@@ -65,10 +63,7 @@ export class KnownAddresses {
     if (!this.#dirty || !this.#file) return;
     this.#dirty = false;
     try {
-      fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-      const tmp = `${this.#file}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({ addresses: this.#entries }), { mode: 0o600 });
-      fs.renameSync(tmp, this.#file);
+      writeState(this.#file, { addresses: this.#entries });
     } catch (error) {
       console.warn(`[initiators] could not save known addresses: ${error.message}`);
     }

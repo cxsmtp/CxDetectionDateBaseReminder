@@ -37,6 +37,8 @@ const say = (message) => console.log(`[launch] ${message}`);
 
 let child = null;
 let current = null; // {version, dir, source}
+/** The server's exit code for "a state file is damaged" (src/server.js): never answered by a rollback. */
+const STATE_DAMAGED_EXIT = 78;
 let previous = null; // what ran before a switch, while the new one is on trial
 let trialUntil = 0;
 let stopping = false;
@@ -114,7 +116,11 @@ function start(target, { trial = false } = {}) {
     const now = Date.now();
     crashes = [...crashes.filter((t) => now - t < 10 * 60_000), now];
     store.record({ type: 'crash', version: current.version, code, signal: signal ?? '' });
-    if (trialUntil && now < trialUntil && previous) return rollBack(`stopped with code ${code ?? signal} ${Math.round((now - started) / 1000)} s after starting`);
+    // A damaged state file (the server said which, and stopped with code 78): the version before would not do
+    // better, and one from before MZ-01.01.10 would read the damaged file as empty and write over it. No going
+    // back for that: this version is tried again, and its message says what to do.
+    const damagedState = code === STATE_DAMAGED_EXIT;
+    if (!damagedState && trialUntil && now < trialUntil && previous) return rollBack(`stopped with code ${code ?? signal} ${Math.round((now - started) / 1000)} s after starting`);
     const pause = Math.min(30_000, 1000 * 2 ** Math.max(0, crashes.length - 1));
     say(`MZ-${current.version} stopped unexpectedly (code ${code ?? signal}); starting it again in ${pause / 1000} s.`);
     setTimeout(() => !stopping && !child && exited && start(current), pause).unref?.();

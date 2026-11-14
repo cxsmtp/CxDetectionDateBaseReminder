@@ -16,9 +16,7 @@
  *    An outage on the far side (5xx, timeouts, unreachable) is not blamed on it.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { readState, writeState } from './state-file.js';
 
 export const NOTIFY_AFTER = 2;
 export const CASE_AFTER = 3;
@@ -36,7 +34,9 @@ export class Watchdog {
 
   #load() {
     try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
+      // A file that cannot be read starts the self-check from nothing, as it always did: what it keeps is its
+      // own notes, made again as it runs, and the self-check never breaks the app (so no StateFileError here).
+      const raw = readState(this.#file, { fallback: {} });
       return {
         problems: raw.problems && typeof raw.problems === 'object' ? raw.problems : {},
         events: Array.isArray(raw.events) ? raw.events.slice(0, EVENTS_KEPT) : [],
@@ -51,16 +51,9 @@ export class Watchdog {
 
   #save() {
     try {
-      fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-      // A fresh, unguessable name created exclusively ('wx'): never an existing file or a link planted there.
-      const tmp = `${this.#file}.${randomBytes(8).toString('hex')}.tmp`;
-      try {
-        fs.writeFileSync(tmp, JSON.stringify(this.#state, null, 1), { mode: 0o600, flag: 'wx' });
-        fs.renameSync(tmp, this.#file);
-      } catch (error) {
-        if (error.code !== 'EEXIST') fs.rmSync(tmp, { force: true });
-        throw error;
-      }
+      // A fresh, unguessable name created exclusively, flushed to the disk, then put in place (src/state-file.js).
+      // No last good copy is kept: these notes are made again as the self-check runs.
+      writeState(this.#file, this.#state, { space: 1, keepLast: false });
     } catch {
       /* the self-check never breaks the app */
     }

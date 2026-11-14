@@ -4,11 +4,13 @@
  * Two independent windows are supported:
  *   activity  - which PROJECTS are fetched, by last completed scan date.
  *               Narrowing this genuinely reduces API calls.
- *   detection - which FINDINGS are counted, by first-detection date.
- *               Narrowing this focuses the reminder on a period of interest.
+ *   detection - which FINDINGS are counted, by first-detection date: new ones
+ *               (first found in the last week or month), or, by age, the ones
+ *               open for longer than so many days (AGE_PRESETS).
  */
 
 const MS_PER_DAY = 86_400_000;
+const MS_PER_HOUR = 3_600_000;
 
 export const WINDOW_PRESETS = [
   { id: 'any', label: 'Any time', days: null },
@@ -17,6 +19,13 @@ export const WINDOW_PRESETS = [
   { id: '90d', label: 'Last 90 days', days: 90 },
   { id: '365d', label: 'Last year', days: 365 },
   { id: 'custom', label: 'Custom range…', days: null },
+];
+
+/** Findings by age: still open after more than so many days (first found before then). */
+export const AGE_PRESETS = [
+  { id: 'gt30', label: 'More than 30 days', olderThanDays: 30 },
+  { id: 'gt60', label: 'More than 60 days', olderThanDays: 60 },
+  { id: 'gt90', label: 'More than 90 days', olderThanDays: 90 },
 ];
 
 export class WindowError extends Error {
@@ -59,6 +68,12 @@ export function resolveWindow(input, label, now = new Date()) {
     const end = to ? new Date(to.getTime() + (/T/.test(String(input.to)) ? 0 : MS_PER_DAY - 1)) : null;
     return { from, to: end, label: `${from ? from.toISOString().slice(0, 10) : 'any'} → ${end ? end.toISOString().slice(0, 10) : 'now'}` };
   }
+
+  // By age: everything first found before so many days ago. Worked out again each time it is used, so a saved
+  // "more than 60 days" keeps meaning 60 days before now.
+  const age = AGE_PRESETS.find((entry) => entry.id === preset);
+  // (To the hour: a load repeated within the hour asks for the same window, so what was just read can be reused.)
+  if (age) return { from: null, to: new Date(Math.floor(now.getTime() / MS_PER_HOUR) * MS_PER_HOUR - age.olderThanDays * MS_PER_DAY), label: age.label };
 
   const found = WINDOW_PRESETS.find((entry) => entry.id === preset);
   if (!found || found.days === null) throw new WindowError(`Unknown ${label} window "${preset}".`);

@@ -9,8 +9,9 @@
  * overrun the monthly limit.
  */
 
-import fs from 'node:fs';
 import path from 'node:path';
+
+import { readState, writeState } from './state-file.js';
 
 /** Shared empties for projects with no history (callers only read them). */
 const EMPTY_MAP = new Map();
@@ -42,12 +43,10 @@ export class CreditLedger {
   constructor({ file, writeDelayMs = 200 } = {}) {
     this.#file = file ?? path.join(process.cwd(), 'data', 'triage-credits.json');
     this.#writeDelay = writeDelayMs;
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.#file, 'utf8'));
-      this.#entries = Array.isArray(raw.entries) ? raw.entries : [];
-    } catch {
-      this.#entries = [];
-    }
+    // No file yet: nothing spent. A ledger that is there and cannot be read is never "nothing spent":
+    // readState() uses its last good copy, or stops (src/state-file.js).
+    const raw = readState(this.#file, { fallback: {}, holds: 'the credit ledger: every credit spent' });
+    this.#entries = Array.isArray(raw.entries) ? raw.entries : [];
     this.#reindex();
   }
 
@@ -295,9 +294,7 @@ export class CreditLedger {
   flush() {
     clearTimeout(this.#writeTimer);
     this.#writeTimer = null;
-    fs.mkdirSync(path.dirname(this.#file), { recursive: true, mode: 0o700 });
-    const tmp = `${this.#file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify({ entries: this.#entries }), { mode: 0o600 });
-    fs.renameSync(tmp, this.#file);
+    // Flushed to the disk, the file it replaces kept as its last good copy (src/state-file.js).
+    writeState(this.#file, { entries: this.#entries });
   }
 }

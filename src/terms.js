@@ -8,9 +8,10 @@
  * this installation (for automated setups), recorded with that name.
  */
 
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
-import path from 'node:path';
+
+import { readState, writeState } from './state-file.js';
 
 /** First, in green, wherever the terms or the report's notice appear: what the utility talks to, and nothing else. */
 export const ON_PREMISE_NOTICE =
@@ -36,19 +37,14 @@ export class Terms {
     this.text = fs.readFileSync(textFile, 'utf8');
     this.version = this.text.match(/^Version ([\w.]+)/m)?.[1] ?? '1';
     this.hash = createHash('sha256').update(this.text).digest('hex').slice(0, 16);
-    try {
-      this.#state = JSON.parse(fs.readFileSync(file, 'utf8'));
-    } catch {
-      this.#state = { organisation: null, users: {} };
-    }
+    // No file yet: nobody accepted so far. A damaged file is never "nobody accepted": readState() uses
+    // its last good copy, or stops (src/state-file.js), so the record of who accepted is not saved over.
+    this.#state = readState(file, { fallback: { organisation: null, users: {} }, holds: 'who accepted the terms of use, and when' });
     this.#state.users ??= {};
   }
 
   #save() {
-    fs.mkdirSync(path.dirname(this.#file), { recursive: true });
-    const temp = `${this.#file}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
-    fs.writeFileSync(temp, JSON.stringify(this.#state, null, 2), { mode: 0o600, flag: 'wx' });
-    fs.renameSync(temp, this.#file);
+    writeState(this.#file, this.#state, { space: 2 });
   }
 
   /** The organisation's acceptance of the current terms, or null. */

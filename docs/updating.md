@@ -126,12 +126,24 @@ podman run --replace -d --name mission-zero -p 3000:3000 -v mission-zero-data:/d
 
 **Never two at once.** Two servers on one data folder would corrupt credits and the audit log, so the second one waits for the first to let go of the folder (up to 45 s), and refuses to start if it does not. A side-by-side "blue/green" copy on the same volume is therefore not possible, and not needed.
 
+How the folder is held (from MZ-01.01.10):
+
+- **A running server marks the folder every 10 s.** A starting server watches that mark. While it keeps changing, the folder is in use, and the start waits and then refuses.
+- **A server that crashed** leaves a mark that no longer changes. After 30 s without a change the starting server takes the folder over. So a start after a crash or `podman kill` takes about 30 s longer than a start after a clean stop.
+- **Only one of several starting servers gets the folder.** The others wait or refuse.
+- **A server that finds another one has taken its folder stops at once**, without saving, so it writes nothing over the other's work. This can happen to a machine that was suspended for longer than 30 s and then woke up. Under the launcher it is started again and then waits or refuses like any other.
+- **A lock that cannot be read is never taken over.** If the lock file belongs to another user, or the disk does not answer, the starting server waits and then refuses, and says why.
+- **A restore from the command line holds the folder too**, and refuses while a server is running ([backups](audit-and-backup.md#rebuilding-a-server-from-scratch)).
+- Not tested on network file systems (NFS, SMB): keep the data folder on a local disk or a container volume.
+
 **The first update to MZ-01.00.10 or later** (from MZ-01.00.09 or older) signs people out once, because the old version did not save sign-ins yet. Every update after that keeps them signed in.
 
 ## If something goes wrong
 
 - **Go back to the previous version:** run the same `podman run --replace …` line with the previous version's tag instead of `:latest`, e.g. `ghcr.io/cxsmtp/cxdetectiondatebasereminder:sha-<commit>`. Every build is published with its commit tag.
 - **Before a big upgrade,** download a backup: Audit page → **Download backup**.
+- **The new version cannot load the settings the old one saved**: it stops without changing the file, and the launcher goes back to the previous version by itself, as for any version that does not start.
+- **The server says a state file is damaged and does not start** (exit code 78, from MZ-01.01.10): it has not written over the file, and it is not rolled back to the previous version. Its message names the file and the two ways to go on; see [the state folder](audit-and-backup.md#how-state-files-are-saved-and-what-happens-when-one-is-damaged-from-mz-010110).
 - **The container was killed** instead of stopped (power loss, `podman kill`): everything already written is safe, including sign-ins. The new server takes over the data folder after about 30 s. At most the last minute of changes to someone's Workbench data is lost; a refresh brings it back.
 
 ## Options
@@ -140,3 +152,4 @@ podman run --replace -d --name mission-zero -p 3000:3000 -v mission-zero-data:/d
 | --- | --- | --- |
 | `SHUTDOWN_DRAIN_SECONDS` | 8 | How long requests in progress may finish when stopping. Keep it below the container's stop timeout (10 s by default; raise both together with `--stop-timeout`). |
 | `INSTANCE_LOCK_WAIT_SECONDS` | 45 | How long a starting server waits for the previous one to let go of the data folder. |
+| `INSTANCE_LOCK_STALE_SECONDS` | 30 | How long the previous server's mark on the data folder must stay unchanged before a starting server takes the folder over. |

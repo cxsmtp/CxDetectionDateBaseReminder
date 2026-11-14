@@ -472,7 +472,8 @@ test('the run and its history are saved through a fresh temporary name, readable
   store.save();
   const history = new FaeHistory({ file: path.join(own, 'fae-history.json') });
   history.put({ runId: 'r1', projectId: 'p1', marked: 2 });
-  assert.deepEqual(fs.readdirSync(own).sort(), ['fae-flush.json', 'fae-history.json']);
+  // No temporary file is left; the run saved before the last is kept as its last good copy (src/state-file.js).
+  assert.deepEqual(fs.readdirSync(own).sort(), ['fae-flush.json', 'fae-flush.json.bak', 'fae-history.json']);
   for (const name of fs.readdirSync(own)) assert.equal(fs.statSync(path.join(own, name)).mode & 0o777, 0o600, name);
   assert.equal(JSON.parse(fs.readFileSync(path.join(own, 'fae-flush.json'), 'utf8')).runId, 'r1');
 });
