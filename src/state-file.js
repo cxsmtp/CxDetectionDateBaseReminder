@@ -160,8 +160,10 @@ export function syncDir(dir) {
  * @param {object} [options]
  * @param {number} [options.mode]   the file's permissions (0600)
  * @param {number|string} [options.space]  JSON indentation, as JSON.stringify takes it
- * @param {boolean} [options.keepLast]  false: no <file>.bak is kept (a key or certificate, where the one
- *   before is of no use; a folder a backup takes every file of). The write is flushed all the same.
+ * @param {boolean} [options.keepLast]  false: no <file>.bak is kept, and one left by an earlier save is
+ *   removed. For what must not linger once it is replaced (sign-ins that ended, a secret taken out on
+ *   purpose), for a key or certificate where the one before is of no use, and for a folder a backup takes
+ *   every file of. The write is flushed all the same.
  */
 export function writeState(file, data, { mode = 0o600, space, keepLast = true } = {}) {
   const body = typeof data === 'string' || Buffer.isBuffer(data) ? data : JSON.stringify(data, null, space);
@@ -189,6 +191,8 @@ export function writeState(file, data, { mode = 0o600, space, keepLast = true } 
       }
     }
     fs.renameSync(tmp, file);
+    // Only once the new file is in place: there is never a moment with neither.
+    if (!keepLast) fs.rmSync(lastGoodCopy(file), { force: true });
   } catch (error) {
     fs.rmSync(tmp, { force: true });
     throw error;

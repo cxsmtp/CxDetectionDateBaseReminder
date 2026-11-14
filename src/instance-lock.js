@@ -22,6 +22,9 @@
  * - A dead server's lock is taken by renaming it aside, which only one of
  *   several starting servers can do, and then creating the new lock
  *   exclusively; the others find it gone or already replaced and wait.
+ *   Only one starting server at a time may try: it holds a second file,
+ *   created exclusively, for those few steps, so none of them ever moves
+ *   aside the new lock another has just made.
  * - Before every heartbeat the holder reads the lock. If it no longer names
  *   this server, this server has lost it: it stops beating and onLost runs.
  *   By default that ends the process at once, without the usual clean stop,
@@ -61,7 +64,7 @@ function parse(raw) {
 }
 
 /**
- * What a lock file looks like now: {there, sig, held, error}.
+ * What a lock file looks like now: {there, sig, raw, held, error}.
  * `sig` changes whenever the file's content or its modified time does; `held`
  * is its content when that is a whole lock, else null.
  */
@@ -71,10 +74,10 @@ function look(file) {
     fd = fs.openSync(file, 'r');
     const { mtimeMs } = fs.fstatSync(fd);
     const raw = fs.readFileSync(fd, 'utf8');
-    return { there: true, sig: `${mtimeMs} ${raw}`, held: parse(raw), error: null };
+    return { there: true, sig: `${mtimeMs} ${raw}`, raw, held: parse(raw), error: null };
   } catch (error) {
-    if (error.code === 'ENOENT') return { there: false, sig: '!ENOENT', held: null, error: null };
-    return { there: true, sig: `!${error.code}`, held: null, error };
+    if (error.code === 'ENOENT') return { there: false, sig: '!ENOENT', raw: '', held: null, error: null };
+    return { there: true, sig: `!${error.code}`, raw: '', held: null, error };
   } finally {
     if (fd !== undefined) {
       try {
@@ -102,6 +105,7 @@ function stopAtOnce(reason) {
 export class InstanceLock {
   #file;
   #tmp;
+  #gate;
   #id = randomUUID();
   #staleMs;
   #beatMs;
@@ -124,6 +128,7 @@ export class InstanceLock {
   constructor(dataDir, { staleMs = 30_000, beatMs = 10_000, pollMs, retryMs = 50, onLost = stopAtOnce } = {}) {
     this.#file = path.join(dataDir, LOCK_FILE);
     this.#tmp = `${this.#file}.${this.#id}.tmp`;
+    this.#gate = `${this.#file}.takeover`;
     this.#staleMs = staleMs;
     // At least three beats per stale window, or a live server's lock looks dead between beats.
     this.#beatMs = Math.max(10, Math.min(beatMs, Math.floor(staleMs / 3)));
@@ -183,21 +188,35 @@ export class InstanceLock {
 
   /**
    * Take a dead server's lock, the one that looked like `staleSig` for the whole stale time.
-   * Renaming it aside is the step only one starting server can win. True if the lock is now ours.
+   * Renaming it aside is the step only one starting server can win. True if the lock is now
+   * ours, false if not, 'busy' if another starting server is in the middle of taking it.
    */
   #takeOver(staleSig) {
-    const aside = `${this.#file}.stale-${this.#id}`;
-    if (look(this.#file).sig !== staleSig) return false; // it moved on at the last moment
+    // One at a time. Without this, a second server could move aside the lock the first has
+    // just made, and a third could make its own in that instant.
+    let gate;
     try {
-      fs.renameSync(this.#file, aside);
+      gate = fs.openSync(this.#gate, 'wx', 0o600);
     } catch (error) {
-      if (error.code === 'ENOENT') return false; // another starting server took it first
+      if (error.code === 'EEXIST') return 'busy';
       throw error;
     }
+    const aside = `${this.#file}.stale-${this.#id}`;
     try {
+      try {
+        fs.writeSync(gate, this.#id);
+      } catch {}
+      fs.closeSync(gate);
+      if (look(this.#file).sig !== staleSig) return false; // it moved on at the last moment
+      try {
+        fs.renameSync(this.#file, aside);
+      } catch (error) {
+        if (error.code === 'ENOENT') return false; // let go, or taken by an older version, just now
+        throw error;
+      }
       if (look(aside).sig !== staleSig) {
-        // Between our last look and the rename the lock was replaced, so what we moved is a
-        // live server's: put it back, unless a new one has been made meanwhile.
+        // Its server beat between our last look and the rename: it is alive, only slow.
+        // Put its lock back, unless a new one has been made meanwhile.
         try {
           fs.linkSync(aside, this.#file);
         } catch (error) {
@@ -211,8 +230,32 @@ export class InstanceLock {
       }
       return this.#create(); // false: a server starting at this very moment made its own first
     } finally {
+      for (const file of [aside, this.#gate]) {
+        try {
+          fs.rmSync(file, { force: true, recursive: true });
+        } catch {}
+      }
+    }
+  }
+
+  /**
+   * A takeover somebody began and never finished (it was killed in the middle) would keep
+   * every later server out. One that looked like `deadSig` for a whole stale time is cleared.
+   */
+  #clearTakeOver(deadSig) {
+    const seen = look(this.#gate);
+    if (seen.sig !== deadSig) return;
+    const aside = `${this.#gate}.dead-${this.#id}`;
+    try {
+      fs.renameSync(this.#gate, aside);
+    } catch {
+      return; // another starting server cleared it first
+    }
+    // What that server had moved aside, if it got that far: the file carries its name.
+    const leftover = /^[0-9a-f-]{36}$/.test(seen.raw) ? [`${this.#file}.stale-${seen.raw}`] : [];
+    for (const file of [aside, ...leftover]) {
       try {
-        fs.rmSync(aside, { force: true, recursive: true });
+        fs.rmSync(file, { force: true, recursive: true });
       } catch {}
     }
   }
@@ -226,6 +269,7 @@ export class InstanceLock {
     let alive = false; // it changed while we watched: its server is running
     let told = false;
     let retried = false;
+    let gate = null; // {sig, since}: a takeover by another starting server that is in our way
     for (;;) {
       if (this.#create()) break; // created only if nobody holds it
       const seen = await this.#read();
@@ -242,7 +286,16 @@ export class InstanceLock {
       }
       // Never sooner than three of the holder's own beats, should it beat more slowly than we expect.
       const staleMs = Math.max(this.#staleMs, 3 * Math.min(Number(seen.held?.beatMs) || 0, MAX_FOREIGN_BEAT_MS));
-      if (now - since >= staleMs && this.#takeOver(sig)) break; // a server that died: taken over
+      if (now - since >= staleMs) {
+        const took = this.#takeOver(sig);
+        if (took === true) break; // a server that died: taken over
+        const busy = took === 'busy' ? look(this.#gate).sig : null;
+        if (busy === null || busy !== gate?.sig) gate = busy === null ? null : { sig: busy, since: now };
+        else if (now - gate.since >= staleMs) {
+          this.#clearTakeOver(gate.sig);
+          gate = null;
+        }
+      }
       const holder = seen.held ?? { host: 'unknown', startedAt: 'unknown' };
       // Refused only on evidence that it is alive. A lock that never changes is taken over
       // above once it is stale, even when waitMs is shorter than the stale time.

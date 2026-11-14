@@ -22,12 +22,11 @@ const ALWAYS_DIRECT = ['localhost', '127.0.0.1', '::1'];
 /** The saved proxy (password included: server side only), or null. */
 export function readNetwork(dataDir) {
   try {
-    // A damaged file is put right from its last good copy (src/state-file.js).
     const saved = readState(path.join(dataDir, NETWORK_FILE), { fallback: null, holds: 'the proxy this server goes out through' });
     return saved?.proxy?.url ? saved : null;
   } catch (error) {
-    // No copy to use: the server (and its launcher) still start, without the saved proxy, and say why.
-    // The damaged file is not touched until a proxy is saved again; it is then kept as network.json.bak.
+    // Damaged, and no copy is kept of this file (saveNetwork): the server (and its launcher) still start,
+    // without the saved proxy, and say why. The damaged file is not touched until a proxy is saved again.
     if (damagedReported !== error.message) console.error(`! [network] The saved proxy cannot be read, so none is used. ${String(error.message).split('\n')[0]}`);
     damagedReported = error.message;
     return null;
@@ -36,9 +35,10 @@ export function readNetwork(dataDir) {
 
 export function saveNetwork(dataDir, value) {
   const file = path.join(dataDir, NETWORK_FILE);
-  // Removed with its last good copy: left behind, the copy would be read as the proxy the next time.
   if (!value) return removeState(file);
-  writeState(file, value, { space: 1 });
+  // Flushed to the disk (src/state-file.js). No .bak of the settings before: they hold the proxy's password,
+  // and one changed or taken out on purpose must not stay on the disk.
+  writeState(file, value, { space: 1, keepLast: false });
 }
 
 /** A proxy address as typed: http(s)://host:port, no path. Throws with a reason. */

@@ -68,8 +68,9 @@ export class SessionPersistence {
   load() {
     const entries = new Map();
     try {
-      // A damaged index is put right from its last good copy (src/state-file.js). With no copy to use, nobody
-      // is carried over and people sign in again: sign-ins are not worth keeping the server from starting.
+      // No copy of the index is kept (saveIndex), so a damaged one cannot be put right: it means "no saved
+      // sign-ins" and people sign in again. Nothing of value is lost, and sign-ins are not worth keeping
+      // the server from starting; the damaged file is replaced by the next save.
       const index = readState(path.join(this.#dir, 'index.json'), { fallback: null, holds: 'who is signed in' });
       for (const s of index?.sessions ?? []) if (s && typeof s.key === 'string' && /^[0-9a-f]{64}$/.test(s.key) && s.userId) entries.set(s.key, meta(s));
     } catch (error) {
@@ -100,8 +101,9 @@ export class SessionPersistence {
   /** Who is signed in, now: [{key, userId, via, createdAt, lastUsedAt}]. Written at once, atomically. Unknown scan files are removed. */
   saveIndex(entries) {
     const file = path.join(this.#dir, 'index.json');
-    // Flushed to the disk, the index it replaces kept as its last good copy (src/state-file.js).
-    writeState(file, { version: 1, savedAt: Date.now(), sessions: entries.map(meta) });
+    // Flushed to the disk (src/state-file.js). The index it replaces is NOT kept as a .bak: sign-ins that
+    // ended leave nothing behind, and a copy would keep their (hashed) ids on the disk.
+    writeState(file, { version: 1, savedAt: Date.now(), sessions: entries.map(meta) }, { keepLast: false });
     const keep = new Set(entries.map((e) => `${e.key}.scan.json.gz`));
     for (const name of fs.readdirSync(this.#dir)) {
       if (name.endsWith('.scan.json.gz') && !keep.has(name) && !this.#pending.has(name.slice(0, 64)) && !this.#latest.has(name.slice(0, 64))) fs.rmSync(path.join(this.#dir, name), { force: true });

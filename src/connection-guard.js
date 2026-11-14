@@ -64,7 +64,9 @@ export class ConnectionGuard {
   }
 
   #save() {
-    writeState(this.#file, this.#state, { space: 2 });
+    // Flushed to the disk (src/state-file.js). No .bak of the state before: this file is the integration key
+    // and the SMTP password, and one that was replaced must not stay on the disk in a second copy.
+    writeState(this.#file, this.#state, { space: 2, keepLast: false });
   }
 
   /** The last configuration of `part` ('cxone' | 'smtp') that worked, or null. */

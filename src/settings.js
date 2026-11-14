@@ -742,13 +742,30 @@ export function applyEnvironmentSmtp(settings) {
   return { ...settings, smtp };
 }
 
+/**
+ * Every secret a settings object holds (a password, a token, a key or a secret, wherever it sits), so a
+ * save can tell when one was replaced or taken out.
+ */
+function secretsIn(value, found = new Set(), name = '') {
+  if (typeof value === 'string') {
+    if (value && /password|token|secret|apikey|passphrase/i.test(name)) found.add(value);
+  } else if (value && typeof value === 'object') {
+    // Inside a list or an object, a text keeps the name it sits under ({GITHUB_TOKEN: …}, {tokens: [...]}).
+    for (const [key, inner] of Object.entries(value)) secretsIn(inner, found, Array.isArray(value) ? name : key);
+  }
+  return found;
+}
+
 export class SettingsStore {
   #file;
   #settings;
+  /** The secrets in the file as it was last read or saved (see #persist). */
+  #savedSecrets;
 
   constructor({ file } = {}) {
     this.#file = file ?? path.join(process.cwd(), 'data', 'settings.json');
     this.#settings = this.#load();
+    this.#savedSecrets = secretsIn(this.#settings);
   }
 
   get file() {
@@ -838,8 +855,13 @@ export class SettingsStore {
 
   #persist() {
     // Written beside the file, flushed to the disk, then put in its place, so a crash cannot leave half a
-    // settings file; the one it replaces is kept as its last good copy (src/state-file.js).
-    writeState(this.#file, this.#settings, { mode: FILE_MODE, space: 2 });
+    // settings file; the one it replaces is kept as its last good copy, settings.json.bak (src/state-file.js).
+    // Not when this save replaces or takes out a secret (the mail password, a token): the copy would keep
+    // the old one on the disk, so no copy is kept that time. The next save keeps one again.
+    const secrets = secretsIn(this.#settings);
+    const forgets = [...this.#savedSecrets].some((secret) => !secrets.has(secret));
+    writeState(this.#file, this.#settings, { mode: FILE_MODE, space: 2, keepLast: !forgets });
+    this.#savedSecrets = secrets;
   }
 }
 

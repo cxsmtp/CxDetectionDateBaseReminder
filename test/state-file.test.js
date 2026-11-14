@@ -188,12 +188,18 @@ test('text and bytes are written as they are; a key file is checked by its own r
   assert.equal(fs.readFileSync(text, 'utf8'), 'line one\n');
 });
 
-test('keepLast: false leaves no copy; removeState takes the copy with the file', (t) => {
+test('keepLast: false leaves no copy, and removes one an earlier save left; removeState takes the copy with the file', (t) => {
   const dir = folder(t);
   const file = path.join(dir, 'server.key');
   writeState(file, 'one', { keepLast: false });
   writeState(file, 'two', { keepLast: false });
   assert.deepEqual(fs.readdirSync(dir), ['server.key']);
+  // What must not linger: a save that keeps no copy takes away the one that is there.
+  writeState(file, 'three');
+  assert.equal(fs.readFileSync(`${file}.bak`, 'utf8'), 'two');
+  writeState(file, 'four', { keepLast: false });
+  assert.deepEqual(fs.readdirSync(dir), ['server.key']);
+  assert.equal(fs.readFileSync(file, 'utf8'), 'four');
 
   const proxy = path.join(dir, 'network.json');
   writeState(proxy, { proxy: { url: 'http://a' } });

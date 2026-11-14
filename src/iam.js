@@ -255,9 +255,13 @@ export class IamStore {
     return state;
   }
 
-  #save() {
-    // Flushed to the disk, the file it replaces kept as iam.json.bak (src/state-file.js).
-    writeState(this.#file, this.#state, { space: 2 });
+  /**
+   * Flushed to the disk, the file it replaces kept as iam.json.bak, the last good copy (src/state-file.js).
+   * `forget`: this save takes something out on purpose (a person removed, a password replaced), so the copy
+   * of the file before is not kept; the next save keeps one again.
+   */
+  #save({ forget = false } = {}) {
+    writeState(this.#file, this.#state, { space: 2, keepLast: !forget });
     this.#mtime = fs.statSync(this.#file).mtimeMs;
   }
 
@@ -519,7 +523,7 @@ export class IamStore {
       throw fail(400, 'There must always be at least one active Admin.');
     }
     this.#state.users = this.#state.users.filter((u) => u.id !== id);
-    this.#save();
+    this.#save({ forget: true });
     return publicUser(user);
   }
 
@@ -555,7 +559,7 @@ export class IamStore {
     user.mustChangePassword = mustChange;
     user.failedLogins = 0;
     user.lockedUntil = 0;
-    this.#save();
+    this.#save({ forget: true });
     return publicUser(user);
   }
 

@@ -245,9 +245,7 @@ test('the proxy settings are written through a fresh private file, never one alr
   saveNetwork(dir, value);
   saveNetwork(dir, value);
   assert.deepEqual(readNetwork(dir), value);
-  // The settings saved before the last are kept as the last good copy (src/state-file.js), as private as the file itself.
-  assert.deepEqual(fs.readdirSync(dir).sort(), ['network.json', 'network.json.bak'], 'no temporary file left behind');
-  if (process.platform !== 'win32') assert.equal(fs.statSync(path.join(dir, 'network.json.bak')).mode & 0o777, 0o600);
+  assert.deepEqual(fs.readdirSync(dir), ['network.json'], 'no temporary file left behind');
   if (process.platform !== 'win32') assert.equal(fs.statSync(path.join(dir, 'network.json')).mode & 0o777, 0o600);
   saveNetwork(dir, null);
   assert.deepEqual(fs.readdirSync(dir), []);

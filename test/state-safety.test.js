@@ -13,6 +13,7 @@ import { SessionPersistence } from '../src/handover.js';
 import { IamStore } from '../src/iam.js';
 import { readNetwork, saveNetwork } from '../src/network.js';
 import { ReportGrants } from '../src/report-grants.js';
+import { SettingsStore } from '../src/settings.js';
 import { StateFileError } from '../src/state-file.js';
 import { Tenancy } from '../src/tenancy.js';
 import { TrackedReports } from '../src/tracked-reports.js';
@@ -189,24 +190,23 @@ test('audit entries go on being written and verified with the month file kept op
   assert.ok(!fs.readFileSync(path.join(dir, 'moved-away.jsonl'), 'utf8').includes(entry.id));
 });
 
-test('the saved proxy: a damaged file does not stop the server, and removing the proxy removes its last good copy', (t) => {
+test('the saved proxy: no copy of it is kept (it holds a password), and a damaged file does not stop the server', (t) => {
   const dir = folder(t);
-  saveNetwork(dir, { proxy: { url: 'http://proxy-a:3128' } });
-  saveNetwork(dir, { proxy: { url: 'http://proxy-b:3128' } });
+  saveNetwork(dir, { proxy: { url: 'http://proxy-a:3128', password: 'old-one' } });
+  saveNetwork(dir, { proxy: { url: 'http://proxy-b:3128', password: 'new-one' } });
   assert.equal(readNetwork(dir).proxy.url, 'http://proxy-b:3128');
+  assert.deepEqual(fs.readdirSync(dir), ['network.json'], 'the password before is not left on the disk');
 
-  // Damaged: put right from the copy.
-  fs.writeFileSync(path.join(dir, 'network.json'), '{');
-  const [recovered] = quietly(() => readNetwork(dir));
-  assert.equal(recovered.proxy.url, 'http://proxy-a:3128');
-
-  // Removed on purpose: the copy goes too, or it would be read as the proxy the next time.
+  // A copy left there by something else goes with the next save, and with the proxy when it is removed.
+  fs.writeFileSync(path.join(dir, 'network.json.bak'), JSON.stringify({ proxy: { url: 'http://stale:1' } }));
   saveNetwork(dir, { proxy: { url: 'http://proxy-c:3128' } });
+  assert.deepEqual(fs.readdirSync(dir), ['network.json']);
+  fs.writeFileSync(path.join(dir, 'network.json.bak'), JSON.stringify({ proxy: { url: 'http://stale:1' } }));
   saveNetwork(dir, null);
-  assert.equal(readNetwork(dir), null);
-  assert.deepEqual(fs.readdirSync(dir).filter((f) => f === 'network.json' || f === 'network.json.bak'), []);
+  assert.equal(readNetwork(dir), null, 'a copy left behind would be read as the proxy');
+  assert.deepEqual(fs.readdirSync(dir), []);
 
-  // Damaged with no copy: no proxy, said once, and the file is left for whoever looks into it.
+  // Damaged: no proxy, said once, and the file is left for whoever looks into it.
   fs.writeFileSync(path.join(dir, 'network.json'), '{');
   const [none, lines] = quietly(() => [readNetwork(dir), readNetwork(dir)]);
   assert.deepEqual(none, [null, null]);
@@ -214,23 +214,65 @@ test('the saved proxy: a damaged file does not stop the server, and removing the
   assert.equal(fs.readFileSync(path.join(dir, 'network.json'), 'utf8'), '{');
 });
 
-test('saved sign-ins: a damaged index means people sign in again, never a server that will not start', (t) => {
+test('saved sign-ins: no copy of the index is kept, and a damaged index means people sign in again, never a server that will not start', (t) => {
   const dir = folder(t);
   const sessions = new SessionPersistence(dir);
   const key = 'a'.repeat(64);
-  sessions.saveIndex([{ key, userId: 'u1', via: 'password', createdAt: 1, lastUsedAt: 2 }]);
+  const other = 'b'.repeat(64);
+  sessions.saveIndex([{ key, userId: 'u1', via: 'password', createdAt: 1, lastUsedAt: 2 }, { key: other, userId: 'u2', via: 'password', createdAt: 1, lastUsedAt: 2 }]);
+  sessions.saveIndex([{ key, userId: 'u1', via: 'password', createdAt: 1, lastUsedAt: 3 }]);
   assert.deepEqual(new SessionPersistence(dir).load().map((s) => s.userId), ['u1']);
+  // A sign-in that ended leaves nothing behind: no previous index with its (hashed) id.
+  assert.deepEqual(fs.readdirSync(path.join(dir, 'sessions')), ['index.json']);
 
   const index = path.join(dir, 'sessions', 'index.json');
-  fs.writeFileSync(index, '');
-  const [loaded, lines] = quietly(() => new SessionPersistence(dir).load());
-  assert.deepEqual(loaded, []);
-  assert.equal(lines.length, 1);
+  for (const damaged of ['', '{"version":1,"sess']) {
+    fs.writeFileSync(index, damaged);
+    const [loaded, lines] = quietly(() => new SessionPersistence(dir).load());
+    assert.deepEqual(loaded, []);
+    assert.equal(lines.length, 1, 'said once');
+  }
+  // The next save puts a whole index back.
+  sessions.saveIndex([{ key, userId: 'u1', via: 'password', createdAt: 1, lastUsedAt: 4 }]);
+  assert.deepEqual(new SessionPersistence(dir).load().map((s) => s.userId), ['u1']);
+  assert.deepEqual(fs.readdirSync(path.join(dir, 'sessions')), ['index.json']);
+});
 
-  // With a last good copy, the sign-ins come back from it.
-  sessions.saveIndex([{ key, userId: 'u1', via: 'password', createdAt: 1, lastUsedAt: 2 }]);
-  sessions.saveIndex([{ key, userId: 'u1', via: 'password', createdAt: 1, lastUsedAt: 3 }]);
-  fs.writeFileSync(index, '{"version":1,"sess');
-  const [again] = quietly(() => new SessionPersistence(dir).load());
-  assert.deepEqual(again.map((s) => s.userId), ['u1']);
+test('a secret taken out or replaced on purpose does not stay on the disk in the last good copy', async (t) => {
+  const dir = folder(t);
+  const holds = (file, text) => fs.existsSync(file) && fs.readFileSync(file, 'utf8').includes(text);
+
+  // Settings: the mail password.
+  const file = path.join(dir, 'settings.json');
+  const store = new SettingsStore({ file });
+  store.save({ smtp: { host: 'mail.acme.io', password: 'first-secret' } });
+  store.save({ template: { subject: 'One' } });
+  assert.ok(holds(`${file}.bak`, 'first-secret'), 'an ordinary save keeps the settings before it');
+  store.save({ smtp: { password: 'second-secret' } });
+  assert.ok(holds(file, 'second-secret'));
+  assert.equal(fs.existsSync(`${file}.bak`), false, 'the password before is in no copy');
+  store.save({ template: { subject: 'Two' } });
+  assert.ok(holds(`${file}.bak`, 'second-secret') && !holds(`${file}.bak`, 'first-secret'), 'the next save keeps a copy again');
+  store.save({ smtp: { password: null } });
+  assert.ok(!holds(file, 'second-secret') && !holds(`${file}.bak`, 'second-secret'), 'cleared: gone from the file and from the copy');
+  // And after a restart, when what was saved is known only from the file.
+  new SettingsStore({ file }).save({ smtp: { host: 'mail.acme.io', password: 'third-secret' } });
+  const reopened = new SettingsStore({ file });
+  reopened.save({ smtp: { password: 'fourth-secret' } });
+  assert.ok(!holds(`${file}.bak`, 'third-secret'));
+
+  // People: someone removed, and a password replaced.
+  const iamFile = path.join(dir, 'iam.json');
+  const iam = new IamStore({ file: iamFile });
+  const admin = await iam.createUser({ email: 'admin@acme.io', role: 'admin', password: NEXT_PASSWORD, mustChangePassword: false });
+  const leaver = await iam.createUser({ email: 'leaver@acme.io', role: 'user', password: NEXT_PASSWORD });
+  const all = iam.permissionsOf(iam.user(admin.id));
+  assert.ok(holds(`${iamFile}.bak`, 'admin@acme.io'), 'an ordinary save keeps the file before it');
+  iam.deleteUser(leaver.id, { actorPerms: all, actorId: admin.id });
+  assert.ok(!holds(iamFile, 'leaver@acme.io') && !holds(`${iamFile}.bak`, 'leaver@acme.io'));
+  iam.recordSignIn(iam.user(admin.id));
+  const before = iam.user(admin.id).passwordHash;
+  assert.ok(holds(`${iamFile}.bak`, before));
+  await iam.setPassword(admin.id, `${NEXT_PASSWORD}-again`);
+  assert.ok(!holds(iamFile, before) && !holds(`${iamFile}.bak`, before), 'the password before is in no copy');
 });
