@@ -1104,11 +1104,21 @@ Totals at the top, then three tabs: **Credit audit log**, **Integrity & reconcil
 
 | Action | Who | What |
 | --- | --- | --- |
-| **Download backup** | Admin | One `.mzbackup` file. It holds the keys, the mail password and the users, so keep it safe. |
+| **Download backup** | Admin | One `.mzbackup` file. It holds the keys, the mail password and the users, so it is encrypted (below). |
 | **Back up to folder now** | Admin / Analyst | Writes a backup to the backup folder. Scheduled backups run every 24 hours by default. |
-| **Restore from backup…** | Admin | Checks the file (asks for the passphrase if it is encrypted), shows what it holds, then **Restore at next restart**: the state is replaced when the server next starts. |
+| **Restore from backup…** | Admin | Checks the file, shows what it holds, then **Restore at next restart**: the state is replaced when the server next starts. A backup this server made opens by itself; another server's asks for its backup key or passphrase. |
+| **Show backup key**, **Copy**, **Download as a text file**, **I have saved it** | Admin | The key the backups are encrypted with. Keep a copy somewhere other than the server, then confirm. |
+| **Turn on backup encryption** | Admin | On an installation whose backups were plain: the server makes its backup key, shows it, and encrypts every backup from then on. |
 
-See [audit-and-backup.md](audit-and-backup.md) for encrypted backups and moving to a new server.
+**Backups are encrypted.** The **Encryption** line says with what:
+
+- **A new installation** encrypts every backup with a backup key of its own, from the first one. The key is eight groups of four letters and digits.
+- **Save the key.** If the server is lost, a backup opens only with its key. **Show backup key**, copy or download it, keep it in a password manager or a safe, then choose **I have saved it**. Until someone does, Admins see a notice at the top of every page.
+- **An installation that already existed** keeps plain backups until an Admin chooses **Turn on backup encryption**. Until then Admins see a notice that backups are not encrypted.
+- **With `BACKUP_PASSPHRASE` set**, backups are encrypted with that passphrase and none of this changes anything.
+- Each time the key is shown is recorded in the audit log, without the key. The key is never emailed and is not inside a backup.
+
+See [audit-and-backup.md](audit-and-backup.md#backups-are-encrypted) for how the server tells a new installation from an existing one, plain backups on purpose (`BACKUP_ENCRYPTION=off`), and moving to a new server.
 
 ---
 
@@ -1502,9 +1512,9 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 - The projects loaded on the Workbench: Credits panel → **Take back unused credits**.
 
 **Move to a new server**
-1. Audit page → **Download backup**.
+1. Audit page → **Download backup**. Have the backup key at hand (**Show backup key**), or the `BACKUP_PASSPHRASE`.
 2. Start the new container.
-3. **Restore from backup…**
+3. **Restore from backup…**, and give the key or passphrase when it asks.
 
 ---
 

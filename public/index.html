@@ -250,6 +250,8 @@
         <main>
           <!-- The product licence's end, for Admins in its last 30 days (src/activation.js). -->
           <p class="licence-banner" id="licence-banner" role="status" hidden></p>
+          <!-- Backups, for Admins: the backup key not yet saved somewhere else, or backups not encrypted (src/backup-key.js). -->
+          <p class="licence-banner" id="backup-banner" role="status" hidden></p>
           <!-- ================= Connect ================= -->
           <section class="panel connect" id="connect-panel" hidden>
             <div class="connect-mark" aria-hidden="true">
@@ -3305,6 +3307,8 @@ BITBUCKET_TOKEN_2=…  BITBUCKET_URL_2=https://bitbucket.acme.com</pre>
                 <label class="button-like" data-perm="backup.manage"><input type="file" id="restore-file" accept=".mzbackup,application/octet-stream" hidden /> Restore from backup…</label>
                 <span class="status" id="backup-status"></span>
               </div>
+              <!-- Backup encryption and the server's backup key: Admins only (src/backup-key.js). -->
+              <div id="backup-key-panel" class="audit-result" data-perm="backup.manage" hidden></div>
               <div id="restore-panel" class="audit-result" hidden></div>
               <div class="table-wrap" id="backup-list-wrap" hidden>
                 <table class="data-table">

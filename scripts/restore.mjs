@@ -6,8 +6,15 @@
  *
  * Without --yes it only checks the backup and shows what it holds. Files
  * already in the state folder are moved to replaced-<time>/, never deleted.
- * BACKUP_PASSPHRASE opens an encrypted backup. The state folder comes from
- * DATA_DIR / SETTINGS_FILE, as for the server (default ~/.mission-zero).
+ * An encrypted backup opens with BACKUP_PASSPHRASE: the passphrase the server
+ * that made it had, or that server's backup key (saved from Audit → State &
+ * backups). A backup this state folder's own server made opens without it. The
+ * state folder comes from DATA_DIR / SETTINGS_FILE, as for the server (default
+ * ~/.mission-zero).
+ *
+ * Restored into a folder that has decided nothing about backup encryption yet
+ * (a rebuilt server) with a server's backup key, the folder keeps that key: the
+ * rebuilt server goes on encrypting its backups with the key already saved.
  *
  * A running server would keep writing its own copy over the restored files, so
  * the restore takes the server's lock on the state folder first and refuses
@@ -18,7 +25,8 @@
 import '../src/load-env.js';
 import fs from 'node:fs';
 
-import { describeBackup, readBackup, restoreBackup } from '../src/backup.js';
+import { BackupKeyError, describeBackup, isSealed, readBackup, restoreBackup } from '../src/backup.js';
+import { BackupKeyStore, canonicalBackupKey } from '../src/backup-key.js';
 import { prepareDataDir, resolveDataDir } from '../src/data-dir.js';
 import { InstanceLock } from '../src/instance-lock.js';
 
@@ -32,11 +40,52 @@ if (!file) {
 const { dir: dataDir } = resolveDataDir();
 const settingsFile = process.env.SETTINGS_FILE?.trim() || '';
 
-let bundle;
+// What may open an encrypted backup: BACKUP_PASSPHRASE (a passphrase, or a server's backup key), then the
+// backup key this state folder already holds (a backup this same server made).
+let ownKey = null;
 try {
-  bundle = readBackup(fs.readFileSync(file), { passphrase: process.env.BACKUP_PASSPHRASE || '' });
+  ownKey = new BackupKeyStore({ dataDir });
+} catch {
+  // Its key file cannot be read: the restore goes on with what was given.
+}
+const given = process.env.BACKUP_PASSPHRASE || '';
+const secrets = [...new Set([given, ownKey?.reveal() ?? ''].filter(Boolean))];
+
+let bundle;
+let sealed = false;
+/** The secret the backup opened with ('' for a plain one). */
+let openedWith = '';
+try {
+  const buffer = fs.readFileSync(file);
+  sealed = isSealed(buffer);
+  if (!sealed || !secrets.length) {
+    bundle = readBackup(buffer);
+  } else {
+    for (const secret of secrets) {
+      try {
+        bundle = readBackup(buffer, { passphrase: secret });
+        openedWith = secret;
+        break;
+      } catch (error) {
+        if (!(error instanceof BackupKeyError) || secret === secrets.at(-1)) throw error;
+      }
+    }
+  }
 } catch (error) {
-  console.error(`Cannot restore: ${error.message}`);
+  if (error instanceof BackupKeyError) {
+    console.error(
+      error.code === 'BACKUP_KEY_NEEDED'
+        ? 'Cannot restore: this backup is encrypted, and no backup key or passphrase was given.'
+        : `Cannot restore: this backup is encrypted, and it did not open with ${given ? 'the BACKUP_PASSPHRASE given' : 'this state folder\'s own backup key'}. The key or passphrase is wrong, or the backup is damaged.`,
+    );
+    console.error('It opens with the backup key of the server that made it (an Admin saved it from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.');
+    console.error('Give it in BACKUP_PASSPHRASE and run this again:');
+    console.error('  Linux, macOS:  BACKUP_PASSPHRASE=<the key> npm run restore -- <backup file>');
+    console.error('  Windows cmd:   set BACKUP_PASSPHRASE=<the key>   then   npm run restore -- <backup file>');
+    console.error('Nothing was written.');
+  } else {
+    console.error(`Cannot restore: ${error.message}`);
+  }
   process.exit(1);
 }
 const info = describeBackup(bundle);
@@ -74,13 +123,23 @@ if (flags.has('--force')) {
   }
 }
 let done;
+let keptKey = false;
 try {
   // The lock is beaten between files: a long restore gives its timer no turn, and a lock that stopped changing
   // would be taken over by a server started meanwhile.
   done = restoreBackup(bundle, { dataDir, settingsFile, onFile: () => lock?.touch() });
+  // A rebuilt server (nothing decided here yet) restored with a server's backup key keeps that key, so its
+  // backups stay encrypted with the one already saved. A passphrase of the Admin's own is never written down.
+  if (sealed && ownKey && !ownKey.decided) keptKey = ownKey.adopt(openedWith);
 } finally {
   lock?.release();
 }
 console.log(`\nRestored ${done.restored.length} files into ${dataDir}.`);
 if (done.replacedDir) console.log(`Files that were there before are in ${done.replacedDir}.`);
+if (keptKey) {
+  console.log('This server goes on encrypting its backups with the same backup key.');
+} else if (sealed && ownKey && !ownKey.decided && !canonicalBackupKey(openedWith)) {
+  console.log('The backup was encrypted with a passphrase: start the server with the same BACKUP_PASSPHRASE to keep its backups encrypted.');
+  console.log('Without it they are not encrypted until an Admin turns encryption on (Audit → State & backups).');
+}
 console.log('Start the server; the Audit tab\'s "Verify integrity" confirms the restored log.');

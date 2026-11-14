@@ -246,7 +246,7 @@ Step by step, and what to do when it goes wrong: [User guide → Turn on HTTPS](
 | `NODE_OPTIONS` | e.g. `--max-old-space-size=2048` with `--memory 3g`. |
 | `NODE_EXTRA_CA_CERTS` | A company CA, when a proxy inspects TLS. Not needed: Settings → Checkmarx One → Trusted certificates does the same without a restart. |
 | `HTTPS_PROXY`, `NO_PROXY` | Your company's web proxy and the hosts that skip it. Or set them under Settings → Network & proxy, which checks them first ([network](docs/network.md)). |
-| `BACKUP_INTERVAL_HOURS` (24), `BACKUP_KEEP` (14), `BACKUP_PASSPHRASE`, `BACKUP_DIR` | Scheduled, optionally encrypted backups of `/data`. |
+| `BACKUP_INTERVAL_HOURS` (24), `BACKUP_KEEP` (14), `BACKUP_PASSPHRASE`, `BACKUP_ENCRYPTION`, `BACKUP_DIR` | Scheduled backups of `/data`. A new installation encrypts them with a backup key of its own (an Admin saves it from Audit → State & backups); `BACKUP_PASSPHRASE` encrypts with a passphrase instead; `BACKUP_ENCRYPTION=off` keeps them plain. |
 | `SHUTDOWN_DRAIN_SECONDS` (8), `INSTANCE_LOCK_WAIT_SECONDS` (45) | Updates: how long running requests may finish when stopping; how long a new server waits for the old one ([Updating](docs/updating.md)). |
 | `CONNECTION_CHECK_TIMEOUT_MS` (25000), `CONFIG_ROLLBACK_IDLE_MINUTES` (10) | When a changed connection counts as failed, and when an unattended one is rolled back. |
 | `BRAND_FONT_DIR` (`<DATA_DIR>/fonts`), `BRAND_FONT_FAMILY` (`Founders Grotesk`) | Your organisation's own licensed brand font, served from your folder; never part of the image ([branding](docs/branding.md#your-own-brand-font-founders-grotesk-for-checkmarx)). |

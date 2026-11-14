@@ -150,6 +150,10 @@ const MATRIX = [
   ['PUT', '/api/settings', { aiTriage: { poolPeriod: 'all' } }, true, false, false],
   ['POST', '/api/settings/import-env', { text: 'SMTP_HOST=mail.acme.io' }, true, false, false],
   ['GET', '/api/backup/download', null, true, false, false],
+  // The server's backup key: seen, confirmed as saved and turned on by those who may download backups (Admins).
+  ['POST', '/api/backup/key/show', null, true, false, false],
+  ['POST', '/api/backup/key/confirm', null, true, false, false],
+  ['POST', '/api/backup/encryption', {}, true, false, false],
 ];
 
 test('each role can do exactly what it should', async () => {
