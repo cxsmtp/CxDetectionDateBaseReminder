@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { StateFileError, appendDurable, readState, removeState, writeState } from '../src/state-file.js';
+import { StateFileError, appendDurable, clearHalfSaved, readState, removeState, writeState } from '../src/state-file.js';
 
 /** A folder of its own for one test, removed when the test ends. */
 function folder(t) {
@@ -241,4 +241,26 @@ test('appendDurable adds to the end of a log, making it (0600) when it is not th
   appendDurable(file, '{"n":2}\n');
   assert.equal(fs.readFileSync(file, 'utf8'), '{"n":1}\n{"n":2}\n');
   if (process.platform !== 'win32') assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+});
+
+test('files a crash left in the middle of a save are removed at the next start; nothing else is touched', (t) => {
+  const dir = folder(t);
+  const old = new Date(Date.now() - 3_600_000);
+  const leave = (name, when) => {
+    const file = path.join(dir, name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, '{"smtp":{"pass":"secret"}}');
+    if (when) fs.utimesSync(file, when, when);
+    return file;
+  };
+  const crashed = leave('settings.json.0123456789abcdef.tmp', old);
+  const inTenant = leave('tenants/acme/iam.json.fedcba9876543210.tmp', old);
+  const beingSaved = leave('iam.json.00112233445566ff.tmp'); // a script saving at this moment
+  const state = leave('settings.json', old);
+  const copy = leave('settings.json.bak', old);
+  const someoneElses = leave('notes.tmp', old);
+  const tooDeep = leave('git-cache/a/b/c/x.json.0123456789abcdef.tmp', old);
+  assert.deepEqual(clearHalfSaved(dir).sort(), [crashed, inTenant].sort());
+  for (const file of [beingSaved, state, copy, someoneElses, tooDeep]) assert.ok(fs.existsSync(file), `${path.relative(dir, file)} is left`);
+  assert.deepEqual(clearHalfSaved(path.join(dir, 'not-there')), []);
 });

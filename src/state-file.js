@@ -221,6 +221,39 @@ export function removeState(file) {
   fs.rmSync(lastGoodCopy(file), { force: true });
 }
 
+/** What writeState() calls the file it writes before it takes the state file's place. */
+const HALF_SAVED = /\.[0-9a-f]{16}\.tmp$/;
+
+/**
+ * Remove what a crash in the middle of a save left behind: files writeState() was still writing when the
+ * server died. They were never put in place, hold a copy of what was being saved (keys and passwords
+ * among it), and nothing reads them. Looked for in `dir` and the folders in it, `depth` levels down; one
+ * younger than `olderThanMs` is left, in case a script is saving at this moment. Returns the paths removed.
+ */
+export function clearHalfSaved(dir, { depth = 2, olderThanMs = 10 * 60_000, now = Date.now() } = {}) {
+  const removed = [];
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return removed;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (depth > 0) removed.push(...clearHalfSaved(full, { depth: depth - 1, olderThanMs, now }));
+      continue;
+    }
+    if (!entry.isFile() || !HALF_SAVED.test(entry.name)) continue;
+    try {
+      if (now - fs.statSync(full).mtimeMs < olderThanMs) continue;
+      fs.rmSync(full, { force: true });
+      removed.push(full);
+    } catch {}
+  }
+  return removed;
+}
+
 /**
  * Add text to the end of an append-only log and have it on the disk before returning: the file is opened
  * by its path, written, flushed and closed, every time. No descriptor is kept between appends, so a log

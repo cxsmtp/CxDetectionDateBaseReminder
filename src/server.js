@@ -83,7 +83,7 @@ import { addSla, slaSummary } from './sla.js';
 import { INSTANCE_VARS, extraInstanceNumbers, instanceSource, numberedVariable, providersIn, setForRepo } from './scm/instances.js';
 import { SessionPersistence, sessionKey } from './handover.js';
 import { InstanceLock } from './instance-lock.js';
-import { StateFileError } from './state-file.js';
+import { clearHalfSaved, StateFileError } from './state-file.js';
 import { inlineScriptHashes, pruneAttempts, sameOriginGuard, securityHeaders, trustProxySetting, viaTrustedProxy } from './security.js';
 import { describeCertificate } from './tls.js';
 import { HSTS_AGES, HttpsManager } from './https-manager.js';
@@ -163,6 +163,11 @@ try {
 } catch (error) {
   console.error(`! ${error.message}`);
   process.exit(1);
+}
+// What a crash in the middle of a save left: never put in place, and holding a copy of what was being saved.
+{
+  const halfSaved = clearHalfSaved(dataDir);
+  if (halfSaved.length) console.log(`[data] Removed ${halfSaved.length} unfinished save file(s) a crash left in ${dataDir}.`);
 }
 const migrated = migrateLegacyData(dataDir, { legacyDir: path.join(projectDir, 'data') });
 if (migrated.length) {

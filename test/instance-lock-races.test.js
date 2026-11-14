@@ -395,3 +395,20 @@ test('a dead lock is taken over even when the wait allowed is shorter than the s
   assert.ok(performance.now() - started >= 450);
   second.release();
 });
+
+test('a starting server killed in the middle of taking over does not keep the others out for ever', async (t) => {
+  const dir = folder(t);
+  deadLock(dir);
+  // What it left: its marker that a takeover is under way, and the dead lock it had moved aside.
+  const killed = '0b0e6f6e-9d0c-4c57-8f43-3d1f5a1c2b7e';
+  fs.writeFileSync(`${lockFile(dir)}.takeover`, killed);
+  fs.writeFileSync(`${lockFile(dir)}.stale-${killed}`, 'the lock it moved');
+  const started = performance.now();
+  const lock = await new InstanceLock(dir, { staleMs: 200, pollMs: 5 }).acquire({ waitMs: 0 });
+  const took = performance.now() - started;
+  assert.ok(took >= 400, `taken after ${Math.round(took)} ms: the marker is given a stale time of its own`);
+  assert.equal(readLock(dir).id, lock.id);
+  assert.deepEqual(leftovers(dir), [], 'what the killed server left is cleared');
+  lock.release();
+  assert.deepEqual(fs.readdirSync(dir), []);
+});

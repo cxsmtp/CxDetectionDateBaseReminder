@@ -288,7 +288,12 @@ export class InstanceLock {
       const staleMs = Math.max(this.#staleMs, 3 * Math.min(Number(seen.held?.beatMs) || 0, MAX_FOREIGN_BEAT_MS));
       if (now - since >= staleMs) {
         const took = this.#takeOver(sig);
-        if (took === true) break; // a server that died: taken over
+        if (took === true) {
+          // Taken over. Should its server have been alive after all and beating at that very
+          // moment, its beat has replaced our new lock: look once more before believing it.
+          await pause(this.#retryMs);
+          if (look(this.#file).held?.id === this.#id) break;
+        }
         const busy = took === 'busy' ? look(this.#gate).sig : null;
         if (busy === null || busy !== gate?.sig) gate = busy === null ? null : { sig: busy, since: now };
         else if (now - gate.since >= staleMs) {
