@@ -269,8 +269,8 @@ let restoredAtStart = null;
 try {
   restoredAtStart = applyPendingRestore({ dataDir, settingsFile: config.settingsFile });
   if (restoredAtStart) {
-    console.log(`[data] Restored ${restoredAtStart.restored.length} file(s) from the backup of ${restoredAtStart.createdAt}.`);
-    if (restoredAtStart.replacedDir) console.log(`[data] The files it replaced are in ${restoredAtStart.replacedDir}.`);
+    console.log(`[data] Restored ${restoredAtStart.restored.length} file(s) from the backup of ${logSafe(restoredAtStart.createdAt)}.`);
+    if (restoredAtStart.replacedDir) console.log(`[data] The files it replaced are in ${logSafe(restoredAtStart.replacedDir)}.`);
   }
 } catch (error) {
   console.error(`! [data] The staged restore could not be applied, and nothing was changed: ${error.message}`);

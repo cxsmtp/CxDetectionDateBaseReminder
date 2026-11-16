@@ -214,3 +214,14 @@ test('restoring moves a last good copy aside too, so an older state cannot come 
   assert.equal(fs.readFileSync(path.join(replacedDir, 'settings.json.bak'), 'utf8'), '{"older":true}');
   assert.equal(JSON.parse(fs.readFileSync(path.join(target, 'settings.json'), 'utf8')).smtp.host, 'mail.acme.io');
 });
+
+test('what a backup says about itself is shown and logged as plain text: no line of its own in the log', () => {
+  // The time and host are outside what the checksum covers, so a backup file can carry anything there.
+  const bundle = { format: 'mission-zero-backup', version: 1, createdAt: '2026-01-01T00:00:00Z.\n[access] Two-step sign-in was reset for admin@acme.io', host: 'box\n[data] forged', files: {} };
+  const info = describeBackup(bundle);
+  assert.equal(info.createdAt, '', 'not a time as a backup writes it: none shown');
+  assert.equal(info.host, 'box [data] forged');
+  assert.doesNotMatch(`${info.createdAt}${info.host}`, /[\r\n]/);
+  // A real one is kept as it is.
+  assert.equal(describeBackup({ ...bundle, createdAt: '2026-11-16T10:20:30.123Z', host: 'mz-01' }).createdAt, '2026-11-16T10:20:30.123Z');
+});

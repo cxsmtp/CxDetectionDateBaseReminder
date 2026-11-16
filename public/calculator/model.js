@@ -189,8 +189,10 @@ export function aheadSettings(value = {}) {
  */
 export function aheadMonths(months, declinePercent = 0) {
   const keep = (1 - clamp(Number(declinePercent) || 0, 0, 100) / 100) ** (1 / 12);
+  // At most the 60 months a projection can cover (trProjection): a saved report's own figure is never a loop count.
+  const period = clamp(Number(months) || 0, 0, 60);
   let total = 0;
-  for (let m = 0; m < months; m += 1) total += keep ** m;
+  for (let m = 0; m < period; m += 1) total += keep ** m;
   return total;
 }
 
