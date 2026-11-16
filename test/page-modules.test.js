@@ -1,6 +1,6 @@
 // The page's script is public/app.js and the modules under public/app/, loaded by the browser itself (no build
-// step). What holds them together, as files: every module is loaded from app.js and asked for early by index.html,
-// none imports app.js back, and everything a module does when the page loads is called from app.js, once.
+// step). What holds them together, as files: every module is loaded from app.js, index.html asks early for every
+// file the page loads, no module imports app.js back, and everything a module does when the page loads is called from app.js, once.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -19,23 +19,25 @@ test('the page loads app.js as a module, and nothing else of its own script', ()
   assert.deepEqual([...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*>/g)].map((m) => m[0]), ['<script type="module" src="app.js">']);
 });
 
-/** The files a file of the page's script imports, as paths under public/. */
-const importsOf = (file) => [...read(`public/${file}`).matchAll(/^import (?:\{[^}]*\} from )?'([^']+)';$/gm)].map((m) => path.posix.join(path.posix.dirname(file), m[1]));
+/** The files a file of the page's script imports (an import may run over several lines), as paths under public/. */
+const importsOf = (file) => [...read(`public/${file}`).matchAll(/^import (?:[^';]*? from )?'([^']+)';$/gm)].map((m) => path.posix.join(path.posix.dirname(file), m[1]));
 
-test('every module under app/ is reached from app.js and preloaded by index.html, and no preload points at nothing', () => {
+test('every module under app/ is reached from app.js, and index.html preloads every module the page loads, no more', () => {
   assert.ok(modules.length >= 10, `the modules are there: ${modules.join(', ')}`);
   const reached = new Set();
   const queue = ['app.js'];
   while (queue.length) {
     for (const file of importsOf(queue.pop())) {
-      if (!file.startsWith('app/') || reached.has(file)) continue;
+      if (reached.has(file)) continue;
       reached.add(file);
       queue.push(file);
     }
   }
-  assert.deepEqual([...reached].sort(), modules, 'app.js loads each of them, itself or through another');
-  const preloaded = [...html.matchAll(/<link rel="modulepreload" href="([^"]+)" \/>/g)].map((m) => m[1]).sort();
-  assert.deepEqual(preloaded, modules, 'index.html asks for each of them at once');
+  assert.deepEqual([...reached].filter((file) => file.startsWith('app/')).sort(), modules, 'app.js loads each of them, itself or through another');
+  // Asked for at once: without this the browser finds each file only after reading the one that imports it.
+  const preloaded = [...html.matchAll(/<link rel="modulepreload" href="([^"]+)" \/>/g)].map((m) => m[1]);
+  assert.deepEqual([...preloaded].sort(), [...reached].sort(), 'index.html preloads what app.js loads, and nothing else');
+  assert.equal(new Set(preloaded).size, preloaded.length, 'each once');
 });
 
 test('no module imports the entry point, and each imports only files that exist', () => {
