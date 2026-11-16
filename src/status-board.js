@@ -1,7 +1,7 @@
 /**
  * Labs → Status board (Beta): every project's last scan and its results at a glance.
  *
- * Built from what the Workbench fetch already read (src/server.js runScan): the latest scan of each project on the
+ * Built from what the Workbench fetch already read (src/routes/scan.js runScan): the latest scan of each project on the
  * branch that counts, its engines (read with the scan types, no extra call), the open results by severity, and the
  * languages. The fetch adds two cheap reads when the board is unlocked, both tenant-wide and cached per Checkmarx One
  * key: the applications (a few pages), and the scans that failed in the last 7 days (one page in most tenants). A

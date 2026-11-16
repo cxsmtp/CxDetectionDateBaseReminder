@@ -99,7 +99,7 @@ export const PERMISSIONS = [
 export const PERMISSION_IDS = PERMISSIONS.map((p) => p.id);
 /**
  * Granted to one person at a time by an Admin, never by a role (not even Admin's): the consolidated view of every
- * tenant they work in (Labs, behind its activation code). Held as a flag on the user; src/server.js adds it to what they may do.
+ * tenant they work in (Labs, behind its activation code). Held as a flag on the user; src/routes/guards.js adds it to what they may do.
  */
 export const PERSON_GRANTS = [{ id: 'consolidated.view', group: 'Labs', label: 'May see the consolidated view (all connected tenants)', description: 'Labs → Consolidated view: every tenant they work in, read only. Given to one person at a time by an Admin, never through a role.' }];
 const PERSON_GRANT_IDS = new Set(PERSON_GRANTS.map((p) => p.id));
