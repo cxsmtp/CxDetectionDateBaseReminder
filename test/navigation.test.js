@@ -8,11 +8,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { NAV_FLAT_MAX, NAV_GROUPS, OLD_NAV_GROUPS, SETTINGS_PARTS, navFoldsFrom, navIsFlat, settingsSectionFor } from '../public/nav-map.js';
+import { PAGE_SCRIPT_FILES, pageScript } from './page-script.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 const html = read('public/index.html');
-const app = read('public/app.js');
+// The page's script: public/app.js and its modules under public/app/ (test/page-script.js).
+const app = pageScript();
 
 /** The attributes of one opening tag: { class: 'tab', 'data-route': 'credits', 'data-advanced': '' }. */
 const attrs = (text) => Object.fromEntries([...text.matchAll(/([\w-]+)(?:="([^"]*)")?/g)].map((m) => [m[1], m[2] ?? '']));
@@ -32,7 +34,7 @@ const settingsNav = tags(between('<nav class="set-nav" id="set-nav"', '</nav>'),
 const settingsLinks = settingsNav.filter((el) => el.tag === 'a' && el['data-set']);
 const sections = Object.fromEntries([...html.matchAll(/<section class="panel[^"]*" id="set-([a-z]+)"([^>]*)>/g)].map((m) => [m[1], attrs(m[2])]));
 
-/** PAGE_PERMS in public/app.js: which permissions open each page (any one of them). */
+/** PAGE_PERMS in public/app/nav.js: which permissions open each page (any one of them). */
 const pagePerms = (() => {
   const body = app.slice(app.indexOf('const PAGE_PERMS = {'), app.indexOf('\n};', app.indexOf('const PAGE_PERMS = {')));
   return Object.fromEntries([...body.matchAll(/^ {2}(\w+): '([^']*)'/gm)].map((m) => [m[1], m[2]]));
@@ -305,7 +307,7 @@ test('the words follow the menu, and every heading has its translation', () => {
     assert.ok(sentence in catalog, `in the catalog: ${sentence}`);
   }
   // Nothing the page or the server says names a group that is gone.
-  for (const file of ['public/app.js', 'public/index.html', 'public/mobile.js', 'src/server.js', 'src/features.js', 'src/diagnostics.js', 'src/impact-summary.js']) {
+  for (const file of [...PAGE_SCRIPT_FILES, 'public/index.html', 'public/mobile.js', 'src/server.js', 'src/features.js', 'src/diagnostics.js', 'src/impact-summary.js']) {
     assert.doesNotMatch(read(file), /Settings → (?:AI & credits|Start|Security|Reports & brand|Risks endpoint|Links into Checkmarx One)\b|(?:Prove|Plan|Follow up) → (?!Prove, plus Set up)|own menu group/, file);
   }
   for (const sentence of ['Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.', 'Off: add who gets it under Settings → AI & credit pool.']) {

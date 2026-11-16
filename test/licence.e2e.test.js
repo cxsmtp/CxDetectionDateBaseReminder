@@ -59,7 +59,7 @@ test('past its end: every page says it has been deactivated, and nothing else an
     assert.match(page.text, /The product has been deactivated\./);
     assert.match(page.text, /Bhawani Singh/);
   }
-  for (const [method, url] of [['GET', '/api/me'], ['POST', '/api/session/password'], ['GET', '/app.js'], ['POST', '/api/relay/credits']]) {
+  for (const [method, url] of [['GET', '/api/me'], ['POST', '/api/session/password'], ['GET', '/app.js'], ['GET', '/app/core.js'], ['POST', '/api/relay/credits']]) {
     const r = await ask(method, url, method === 'POST' ? {} : undefined);
     assert.equal(r.status, 503, `${method} ${url}`);
   }

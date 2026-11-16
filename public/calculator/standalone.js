@@ -236,7 +236,7 @@ export function startStandalone({ samples = {} } = {}) {
     } catch {}
   });
 
-  // The calculator's tabs (in CxMissionZero, app.js switches them): one panel shown at a time, the arrow keys move along.
+  // The calculator's tabs (in CxMissionZero, app/nav.js switches them): one panel shown at a time, the arrow keys move along.
   const showTab = (tab) => {
     const group = tab.closest('[data-ptabs]').dataset.ptabs;
     for (const t of document.querySelectorAll(`[data-ptabs="${group}"] [data-pt]`)) {

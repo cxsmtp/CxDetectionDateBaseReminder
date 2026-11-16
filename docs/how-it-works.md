@@ -206,3 +206,35 @@ src/automation.js    Age-threshold reminders
 scripts/             backup, restore, reset-admin
 loadtest/            Mock Checkmarx One and the benchmarks
 ```
+
+### The page's script
+
+`public/index.html` loads `public/app.js` as an ES module, and the browser loads what it imports itself: there is no bundler, and nothing comes from outside the server. Each page or concern is a module under `public/app/`:
+
+| File | What it holds |
+| --- | --- |
+| `public/app.js` | The entry point: loads the modules and runs what each does when the page loads, in a fixed order; then the server's health, the session and the first route |
+| `public/app/state.js` | Who is signed in and what they may do, the loaded scan, the page open |
+| `public/app/format.js` | Escaping, and how dates and numbers are written |
+| `public/app/core.js` | Calls to the server and their flares, the browser's log and the Logs page, error reports, status lines and their help, the certificate prompt, toasts |
+| `public/app/nav.js` | Which pages a person may open, feature stages, routes, tabs, the Settings sections, the menu, the page title, the command palette, and starting the pages that have files of their own (FAE Flush, Status board, Consolidated view, Govern, the calculator) |
+| `public/app/profile.js` | Theme, look, accent and scan colours, the app's name, logo and icon, a person's own branding, language, profile, own two-step sign-in |
+| `public/app/session.js` | Sign-in, the first administrator, two-step, password and reset screens, what shows once signed in, the connections in the header, the terms of use |
+| `public/app/settings.js` | The Settings page: showing and saving the settings, the connection guard, rollback notices, quick setup from a .env file, the email checks |
+| `public/app/system.js` | Activation, tenants, About and updates, integrity, the report server address, network and proxy, trusted certificates, the Checkmarx One integration, HTTPS |
+| `public/app/automation.js` | Automation: automatic reminders, the reminder email, the preview of the next run, hands-off |
+| `public/app/workbench.js` | The Workbench: what to load, loading it, the journey, the action rail, getting started |
+| `public/app/projects.js` | The Workbench's table of projects: rows, filters, columns, export, the people who started the scans |
+| `public/app/actions.js` | AI credits per project (giving, taking back, triage, remediation) and sending reminders |
+| `public/app/reports.js` | The Dashboard of tracked reports |
+| `public/app/help.js` | Get help |
+| `public/app/labs.js` | Labs: Beta (code authors, identities, Git hosts) and Fusion |
+| `public/app/audit.js` | Audit: credit events, integrity, reconciliation, what people did, backups and restore |
+| `public/app/access.js` | People & roles, sign-in policy, single sign-on |
+| `public/app/credits.js` | Credit Control: the pool, usage, allocations, using and giving credits |
+| `public/app/impact.js` | Impact |
+
+- **Nothing runs when a module is loaded.** A module's top level only declares (functions, `const`, `let`). What it does when the page loads (attaching listeners, drawing the menu and the columns) is in its `wire…()` functions, and `app.js` calls each of them once, in the order that code has always run in. So the modules may import each other in circles, and the order the browser loads them in changes nothing.
+- **Shared state** is in `app/state.js`. A `let` that belongs to one module is exported for the others to read; only its own module assigns it.
+- **A new module** is imported from `app.js` (or from a module it loads) and gets a `<link rel="modulepreload">` in `index.html`. Every script the page loads has one, so the browser asks for all of them at once instead of finding each only after reading the file that imports it (`test/page-modules.test.js` checks both). The server sends files under 32 KB uncompressed (`HTTP_COMPRESSION_MIN_KB`), so a module of 15 to 30 KB costs more on the wire than its size suggests.
+- The other files under `public/` (`nav-map.js`, `i18n.js`, `table-tools.js`, `calculator/`…) are the modules that were always separate; `app.js` imports them first, in the same order as before.

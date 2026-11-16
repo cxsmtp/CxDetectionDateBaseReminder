@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { LANGUAGE_CODES } from '../scripts/i18n-check.mjs';
+import { pageScript } from './page-script.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -74,9 +75,13 @@ test('the page loads the phone layer after the looks, and starts it once the men
   const looks = html.indexOf('href="nextgen.css"');
   const phone = html.indexOf('href="mobile.css"');
   assert.ok(looks > 0 && phone > looks, 'mobile.css comes after nextgen.css');
-  const app = read('public/app.js');
-  assert.match(app, /import \{ initMobile \} from '\.\/mobile\.js';/);
-  assert.equal(app.match(/^initMobile\(\);$/gm)?.length, 1, 'started once, at the top level');
+  // The menu's module starts it, in the function app.js calls when the page loads, after the pins are drawn.
+  const nav = read('public/app/nav.js');
+  assert.match(nav, /import \{ initMobile \} from '\.\.\/mobile\.js';/);
+  const from = nav.indexOf('export function wireMenuAndTabs() {');
+  assert.match(nav.slice(from, nav.indexOf('\n}\n', from)), /\n {2}renderNavPins\(\);\n[^]*\n {2}initMobile\(\);$/);
+  assert.equal(pageScript().match(/^ *initMobile\(\);$/gm)?.length, 1, 'started once');
+  assert.equal(read('public/app.js').match(/^wireMenuAndTabs\(\);$/gm)?.length, 1, 'when the page loads');
 });
 
 test('the phone layer writes only its own markup: names and labels go in as text', () => {
