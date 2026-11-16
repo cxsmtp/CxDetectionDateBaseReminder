@@ -25,7 +25,7 @@ The technical reference: what happens under each feature, where data lives, and 
 - `/api/risks/ai-insights` adds AI Triage status.
 - `CX_RISK_SOURCE=scan-results` reads `firstFoundAt` from the latest completed scan instead, for tenants without the risks service.
 - Every call sends `Accept: application/json; version=1.0`; without it the gateway answers 400.
-- **Detect** (Settings → Risks endpoint) probes the known paths. 400, 403, 404 and 405 all mean "try the next one".
+- **Detect** (Settings → Checkmarx One → Risks endpoint, with the advanced options shown) probes the known paths. 400, 403, 404 and 405 all mean "try the next one".
 
 **Scan initiators** come from `/api/projects/last-scan` (one call per 50 projects), then `/api/scans?project-id=…` for any project it did not cover. An address is resolved in this order:
 1. an email on the scan, or a username that is an address;

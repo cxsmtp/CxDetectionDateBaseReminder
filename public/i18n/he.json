@@ -5836,6 +5836,13 @@
   "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": "הגיבוי הזה מוצפן, ומפתח הגיבוי או ביטוי הסיסמה של השרת הזה אינם פותחים אותו. הזינו את מפתח הגיבוי של השרת שיצר אותו (שנשמר מתוך ביקורת ← מצב וגיבויים באותו שרת), או את ה-BACKUP_PASSPHRASE שהיה לאותו שרת.",
   "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": "הגיבוי הזה לא נפתח: מפתח הגיבוי או ביטוי הסיסמה שגויים, או שהגיבוי פגום. הוא נפתח רק באמצעות מפתח הגיבוי של השרת שיצר אותו (שנשמר מתוך ביקורת ← מצב וגיבויים), או באמצעות ה-BACKUP_PASSPHRASE שהיה לאותו שרת.",
   "twostep|Code": "קוד",
-  "twostep|Recovery code": "קוד שחזור"
+  "twostep|Recovery code": "קוד שחזור",
+  "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>קרדיטים",
+  "Credits given, used and left, what they achieved, and how many a customer needs": "קרדיטים שהוקצו, נוצלו ונותרו, מה הם השיגו וכמה קרדיטים לקוח צריך",
+  "It moves out of Labs to the Credits group of the menu, after Audit.": "התכונה עוברת מהמעבדה לקבוצת קרדיטים בתפריט, אחרי ביקורת.",
+  "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "התכונה עוברת מהמעבדה לראש תפריט פעולה (FAE Flush, שולחן מלאכה, אוטומציה, לוח בקרה); שולחן המלאכה נשאר דף הבית.",
+  "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "כסף: הגדירו עלות לשעה ומחיר לקרדיט אחד בהגדרות ← AI ומכסת קרדיטים.",
+  "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "כסף: שעות שנחסכו × העלות לשעה, פחות הקרדיטים שנוצלו × המחיר לקרדיט אחד (שניהם בהגדרות ← AI ומכסת קרדיטים).",
+  "Off: add who gets it under Settings → AI & credit pool.": "כבוי: הוסיפו נמענים בהגדרות ← AI ומכסת קרדיטים."
  }
 }

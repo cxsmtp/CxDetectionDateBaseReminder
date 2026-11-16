@@ -38823,5 +38823,55 @@
   "seen": [
    "Sign-in page › two-step sign-in"
   ]
+ },
+ "<i aria-hidden=\"true\"></i>Credits": {
+  "kind": "html",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
+  ]
+ },
+ "Credits given, used and left, what they achieved, and how many a customer needs": {
+  "kind": "attr:title",
+  "seen": [
+   "first start › p",
+   "sign in › p",
+   "Dashboard › p"
+  ]
+ },
+ "It moves out of Labs to the Credits group of the menu, after Audit.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Beta features › li › Govern"
+  ]
+ },
+ "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Beta features › li › FAE Flush"
+  ]
+ },
+ "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": {
+  "kind": "text",
+  "seen": [
+   "impact › li › How these are worked out",
+   "impact › exec › li › How these are worked out",
+   "impact › detail › li › How these are worked out"
+  ]
+ },
+ "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": {
+  "kind": "message",
+  "seen": [
+   "message"
+  ]
+ },
+ "Off: add who gets it under Settings → AI & credit pool.": {
+  "kind": "text",
+  "seen": [
+   "impact › span › Monthly summary by email",
+   "impact › exec › span › Monthly summary by email",
+   "impact › detail › span › Monthly summary by email"
+  ]
  }
 }

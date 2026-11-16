@@ -1,7 +1,7 @@
 /**
  * The credit pool and how credits were used over time.
  *
- * The pool (Settings → AI & credits) is the most the utility may spend,
+ * The pool (Settings → AI & credit pool) is the most the utility may spend,
  * triage and remediation together, per month or as one pool. Every project
  * allocation is given out of it: what is free to give is what the pool has
  * left minus what projects were allocated and have not used yet.

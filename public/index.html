@@ -79,77 +79,74 @@
           </button>
         </div>
         <nav class="nav" id="nav" aria-label="Main" hidden>
-          <p class="nav-group nav-pinned-head" data-stage="pinned" title="The pages you pinned, always at the top" hidden><i aria-hidden="true"></i>Pinned</p>
+          <p class="nav-group nav-pinned-head" data-group="pinned" data-stage="pinned" title="The pages you pinned, always at the top" hidden><i aria-hidden="true"></i>Pinned</p>
           <div class="nav-pinned" id="nav-pinned"></div>
           <p class="nav-pinned-empty" id="nav-pinned-empty" hidden>Nothing pinned yet: point at a page and click its pin.</p>
-          <p class="nav-group" data-stage="act" title="Find ageing findings, see who owns them and remind them"><i aria-hidden="true"></i>Act</p>
-          <a href="#/dashboard" data-route="dashboard" class="tab" data-stage="act">
+          <p class="nav-group" data-group="act" data-stage="act" title="Find ageing findings, see who owns them and remind them"><i aria-hidden="true"></i>Act</p>
+          <a href="#/dashboard" data-route="dashboard" class="tab" data-group="act" data-stage="act">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
             <span>Workbench</span>
           </a>
-          <a href="#/automation" data-route="automation" class="tab" data-stage="act" data-perm="settings.view settings.automation">
+          <a href="#/automation" data-route="automation" class="tab" data-group="act" data-stage="act" data-perm="settings.view settings.automation">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v3" /><path d="M12 19v3" /><path d="M2 12h3" /><path d="M19 12h3" /><path d="M4.9 4.9l2.1 2.1" /><path d="M17 17l2.1 2.1" /><path d="M4.9 19.1L7 17" /><path d="M17 7l2.1-2.1" /></svg>
             <span>Automation</span>
           </a>
-          <p class="nav-group" data-stage="followup" data-perm="reports.view" title="Follow every tracked scope down to zero"><i aria-hidden="true"></i>Follow up</p>
-          <a href="#/reports" data-route="reports" class="tab" data-stage="followup" data-perm="reports.view">
+          <a href="#/reports" data-route="reports" class="tab" data-group="act" data-stage="followup" data-perm="reports.view">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5" /><path d="M4 19h16" /><path d="M7 15l4-4 3 3 5-6" /></svg>
             <span>Dashboard</span>
           </a>
-          <p class="nav-group" data-stage="prove" data-perm="credits.view audit.view backup.view" title="Every credit accounted for, in a log nobody can quietly change"><i aria-hidden="true"></i>Prove</p>
-          <a href="#/credits" data-route="credits" class="tab" data-stage="prove" data-perm="credits.view">
+          <p class="nav-group" data-group="credits" data-stage="prove" title="Credits given, used and left, what they achieved, and how many a customer needs"><i aria-hidden="true"></i>Credits</p>
+          <a href="#/credits" data-route="credits" class="tab" data-group="credits" data-stage="prove" data-perm="credits.view">
             <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></svg>
             <span>Credit Control</span>
           </a>
-          <a href="#/impact" data-route="impact" class="tab" data-stage="prove" data-perm="reports.view">
+          <a href="#/impact" data-route="impact" class="tab" data-group="credits" data-stage="prove" data-perm="reports.view">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16" /><path d="M5 15l4-5 4 3 6-7" /><path d="M15 6h4v4" /></svg>
             <span>Impact</span>
           </a>
-          <a href="#/audit" data-route="audit" class="tab" data-stage="prove" data-perm="audit.view backup.view">
+          <a href="#/audit" data-route="audit" class="tab" data-group="credits" data-stage="prove" data-perm="audit.view backup.view">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
             <span>Audit</span>
           </a>
-          <p class="nav-group" data-stage="govern" id="nav-group-govern" data-perm="feature.govern" title="Who may use how many AI credits, and what happens at the limit" hidden><i aria-hidden="true"></i>Govern</p>
-          <p class="nav-group" data-stage="plan" data-perm="projections.use" title="Work out the Checkmarx One credits a customer needs"><i aria-hidden="true"></i>Plan</p>
-          <a href="#/calculator" data-route="calculator" class="tab" id="nav-calculator" data-stage="plan" data-perm="projections.use">
+          <a href="#/calculator" data-route="calculator" class="tab" id="nav-calculator" data-group="credits" data-stage="plan" data-perm="projections.use">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 7h8" /><path d="M8 11h2" /><path d="M14 11h2" /><path d="M8 15h2" /><path d="M14 15h2" /><path d="M8 18h2" /><path d="M14 18h2" /></svg>
             <span>Cx Credits Calculator</span>
           </a>
-          <p class="nav-group" data-stage="setup" title="People, settings and logs"><i aria-hidden="true"></i>Set up</p>
-          <a href="#/access" data-route="access" class="tab" data-stage="setup" data-perm="iam.view">
+          <p class="nav-group" data-group="setup" data-stage="setup" title="People, settings and logs"><i aria-hidden="true"></i>Set up</p>
+          <a href="#/access" data-route="access" class="tab" data-group="setup" data-stage="setup" data-perm="iam.view">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5" /></svg>
             <span>People &amp; roles</span>
           </a>
-          <a href="#/settings" data-route="settings" class="tab" data-stage="setup">
+          <a href="#/settings" data-route="settings" class="tab" data-group="setup" data-stage="setup">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
             <span>Settings</span>
           </a>
-          <a href="#/logs" data-route="logs" class="tab" data-stage="setup">
+          <a href="#/logs" data-route="logs" class="tab" data-group="setup" data-stage="setup">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>
             <span>Logs</span>
           </a>
-          <p class="nav-group nav-labs" data-stage="labs" data-perm="labs.active" title="Early features, still being tried out. Shown while one of them is turned on for your role."><i aria-hidden="true"></i>Labs</p>
-          <a href="#/beta" data-route="beta" class="tab" data-stage="labs" data-perm="feature.codeAuthors feature.identityMatching">
+          <p class="nav-group nav-labs" data-group="labs" data-stage="labs" data-perm="labs.active" title="Early features, still being tried out. Shown while one of them is turned on for your role."><i aria-hidden="true"></i>Labs</p>
+          <a href="#/beta" data-route="beta" class="tab" data-group="labs" data-stage="labs" data-perm="feature.codeAuthors feature.identityMatching">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6" /><path d="M10 3v6.5L4.6 18.2A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.8L14 9.5V3" /><path d="M7.5 15h9" /></svg>
             <span id="nav-beta-label">Code authors</span>
           </a>
-          <a href="#/fusion" data-route="fusion" class="tab" data-stage="labs" data-perm="feature.fusionResults">
+          <a href="#/fusion" data-route="fusion" class="tab" data-group="labs" data-stage="labs" data-perm="feature.fusionResults">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="5" /><circle cx="16" cy="12" r="5" /></svg>
             <span>Fusion results</span>
           </a>
-          <a href="#/flush" data-route="flush" class="tab" id="nav-flush" data-stage="labs" data-perm="feature.faeFlush">
+          <a href="#/flush" data-route="flush" class="tab" id="nav-flush" data-group="labs" data-stage="labs" data-perm="feature.faeFlush">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8z" /><path d="M17 15l3 3" /><path d="M20 15l-3 3" /></svg>
             <span>FAE Flush</span>
           </a>
-          <a href="#/status" data-route="status" class="tab" id="nav-status" data-stage="labs" data-perm="feature.statusBoard">
+          <a href="#/status" data-route="status" class="tab" id="nav-status" data-group="labs" data-stage="labs" data-perm="feature.statusBoard">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16" /><path d="M4 12h11" /><path d="M4 18h6" /></svg>
             <span>Status board</span><span class="badge warn nav-beta" data-beta-badge="statusBoard">Beta</span>
           </a>
-          <a href="#/consolidated" data-route="consolidated" class="tab" id="nav-consolidated" data-stage="labs" data-perm="feature.consolidated">
+          <a href="#/consolidated" data-route="consolidated" class="tab" id="nav-consolidated" data-group="labs" data-stage="labs" data-perm="feature.consolidated">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z" /><path d="M3 13l9 5 9-5" /></svg>
             <span>Consolidated</span><span class="badge warn nav-beta" data-beta-badge="consolidated">Beta</span>
           </a>
-          <a href="#/govern" data-route="govern" class="tab" id="nav-govern" data-stage="labs" data-perm="feature.govern">
+          <a href="#/govern" data-route="govern" class="tab" id="nav-govern" data-group="labs" data-stage="labs" data-perm="feature.govern">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17a8 8 0 0 1 16 0" /><path d="M12 17l4-5" /><path d="M4 21h16" /></svg>
             <span>Govern</span><span class="badge warn nav-beta" data-beta-badge="govern">Beta</span>
           </a>
@@ -1042,32 +1039,27 @@
                   <a href="#/settings/profile" data-set="profile">Your profile</a>
                   <a href="#/settings/appearance" data-set="appearance">Your appearance</a>
                   <a href="#/settings/mybrand" data-set="mybrand" data-perm="branding.personal">Your branding</a>
-                <p class="set-group" data-perm="integration.cxone integration.smtp settings.links beta.use">Start</p>
-                  <a href="#/settings/import" data-set="import" data-perm="integration.cxone integration.smtp settings.links beta.use">Quick setup (.env)</a>
-                  <a href="#/settings/handsoff" data-set="handsoff" data-perm="settings.automation settings.view">Hands-off</a>
                 <p class="set-group">Connections</p>
+                  <a href="#/settings/import" data-set="import" data-perm="integration.cxone integration.smtp settings.links beta.use">Quick setup (.env)</a>
                   <a href="#/settings/connection" data-set="connection">Checkmarx One</a>
                   <a href="#/settings/smtp" data-set="smtp">Email server</a>
                   <a href="#/settings/network" data-set="network" data-perm="integration.cxone integration.smtp">Network &amp; proxy</a>
-                  <a href="#/settings/endpoint" data-set="endpoint" data-advanced>Risks endpoint</a>
+                  <a href="#/settings/https" data-set="https" data-perm="security.https">HTTPS</a>
+                  <a href="#/settings/server" data-set="server">Server address</a>
                 <p class="set-group">Reminders</p>
+                  <a href="#/settings/handsoff" data-set="handsoff" data-perm="settings.automation settings.view">Hands-off</a>
                   <a href="#/settings/initiators" data-set="initiators">Developer addresses</a>
                   <a href="#/settings/template" data-set="template" data-advanced>Mail template</a>
                   <a href="#/automation" class="set-out" data-perm="settings.view settings.automation">Automation <span aria-hidden="true">→</span></a>
                   <a href="#/settings/sla" data-set="sla" data-perm="feature.sla">SLAs <span class="badge warn" data-beta-badge="sla">Beta</span></a>
-                <p class="set-group">AI &amp; credits</p>
+                <p class="set-group">Organisation</p>
                   <a href="#/settings/ai" data-set="ai">AI &amp; credit pool</a>
-                <p class="set-group">Reports &amp; brand</p>
-                  <a href="#/settings/server" data-set="server">Server address</a>
-                  <a href="#/settings/links" data-set="links" data-advanced>Links into Checkmarx One</a>
                   <a href="#/settings/branding" data-set="branding" data-perm="branding.view settings.branding">Branding</a>
-                <p class="set-group" data-perm="security.https">Security</p>
-                  <a href="#/settings/https" data-set="https" data-perm="security.https">HTTPS</a>
-                <p class="set-group">About</p>
                   <a href="#/settings/features" data-set="features" data-perm="features.manage">Beta features</a>
+                  <a href="#/settings/support" data-set="support" data-perm="support.manage">Get help</a>
+                <p class="set-group set-open">About</p>
                   <a href="#/settings/activation" data-set="activation" data-perm="activation.manage activation.view">Activation codes</a>
                   <a href="#/settings/tenants" data-set="tenants" data-perm="tenants.manage">Tenants</a>
-                  <a href="#/settings/support" data-set="support" data-perm="support.manage">Get help</a>
                   <a href="#/settings/update" data-set="update" data-perm="system.update">Update &amp; recovery</a>
                   <a href="#/settings/about" data-set="about">About &amp; terms of use</a>
                 </div>
@@ -1405,6 +1397,22 @@
                   <span class="status" id="trust-status"></span>
                 </div>
               </details>
+              <!-- Was a section of its own (#/settings/endpoint still opens it: public/nav-map.js). -->
+              <details class="disclosure" id="set-part-endpoint" data-advanced>
+                <summary>Risks endpoint</summary>
+                <p class="hint wide" data-help-keep>
+                  Defaults to <code>/api/risks/</code>. <strong>Detect</strong> probes the known paths against your tenant and
+                  reports what each returned.
+                </p>
+                <label class="field">
+                  <span>Path — <code>{projectId}</code> is substituted for a templated endpoint</span>
+                  <div class="path-row">
+                    <input id="risks-path" spellcheck="false" placeholder="/api/risks/" />
+                    <button id="detect-risks" type="button">Detect</button>
+                  </div>
+                </label>
+                <div id="probe-results" hidden></div>
+              </details>
             </section>
 
             <section class="panel" id="set-network" data-perm="integration.cxone integration.smtp" data-edit-perm="integration.cxone">
@@ -1686,30 +1694,6 @@
               <div id="brand-preview" class="brand-preview"></div>
             </section>
 
-            <section class="panel" id="set-links" data-edit-perm="settings.links">
-              <h2>Links into Checkmarx One</h2>
-              <p class="hint wide">
-                Every finding in a reminder links straight to it in the platform. If a link lands in the wrong place, correct
-                the template here — the example below updates as you type.
-              </p>
-
-              <label class="field">
-                <span>Base URL — blank uses the API host your key resolved to</span>
-                <input id="link-base" spellcheck="false" placeholder="https://us.ast.checkmarx.net" />
-              </label>
-              <label class="field">
-                <span>Project link — <code>{baseUrl} {projectId}</code></span>
-                <input id="link-project" spellcheck="false" />
-              </label>
-              <label class="field">
-                <span>Finding link — <code>{baseUrl} {projectId} {scanId} {engine} {riskId}</code></span>
-                <input id="link-risk" spellcheck="false" />
-              </label>
-
-              <div class="kv" id="link-examples"></div>
-
-            </section>
-
             <section class="panel" id="set-server" data-edit-perm="settings.links">
               <h2>Reminder server address</h2>
               <p class="hint wide">The address people use to reach this app from their emailed report.</p>
@@ -1721,6 +1705,29 @@
                 <button id="test-report-server" type="button">Test</button>
               </div>
               <div class="server-effective" id="server-effective"></div>
+              <!-- Was a section of its own (#/settings/links still opens it: public/nav-map.js). -->
+              <details class="disclosure" id="set-part-links" data-advanced>
+                <summary>Links into Checkmarx One</summary>
+                <p class="hint wide" data-help-keep>
+                  Every finding in a reminder links straight to it in the platform. If a link lands in the wrong place, correct
+                  the template here — the example below updates as you type.
+                </p>
+
+                <label class="field">
+                  <span>Base URL — blank uses the API host your key resolved to</span>
+                  <input id="link-base" spellcheck="false" placeholder="https://us.ast.checkmarx.net" />
+                </label>
+                <label class="field">
+                  <span>Project link — <code>{baseUrl} {projectId}</code></span>
+                  <input id="link-project" spellcheck="false" />
+                </label>
+                <label class="field">
+                  <span>Finding link — <code>{baseUrl} {projectId} {scanId} {engine} {riskId}</code></span>
+                  <input id="link-risk" spellcheck="false" />
+                </label>
+
+                <div class="kv" id="link-examples"></div>
+              </details>
             </section>
 
             <section class="panel" id="set-https" data-perm="security.https">
@@ -1857,22 +1864,6 @@
                 <pre class="https-cmd">podman exec mission-zero node scripts/https.mjs both</pre>
               </details>
               <span class="status" id="https-status"></span>
-            </section>
-
-            <section class="panel" id="set-endpoint" data-edit-perm="integration.cxone">
-              <h2>Risks endpoint</h2>
-              <p class="hint wide">
-                Defaults to <code>/api/risks/</code>. <strong>Detect</strong> probes the known paths against your tenant and
-                reports what each returned.
-              </p>
-              <label class="field">
-                <span>Path — <code>{projectId}</code> is substituted for a templated endpoint</span>
-                <div class="path-row">
-                  <input id="risks-path" spellcheck="false" placeholder="/api/risks/" />
-                  <button id="detect-risks" type="button">Detect</button>
-                </div>
-              </label>
-              <div id="probe-results" hidden></div>
             </section>
 
             <section class="panel" id="set-features" data-perm="features.manage">

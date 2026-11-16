@@ -5836,6 +5836,13 @@
   "This backup is encrypted, and this server's own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.": "Cette sauvegarde est chiffrée, et la clé de sauvegarde ou la phrase secrète de ce serveur ne l'ouvre pas. Indiquez la clé de sauvegarde du serveur qui l'a créée (enregistrée depuis son Audit → État et sauvegardes), ou la BACKUP_PASSPHRASE qu'avait ce serveur.",
   "This backup did not open: wrong backup key or passphrase, or the backup is damaged. It opens only with the backup key of the server that made it (saved from Audit → State & backups), or with the BACKUP_PASSPHRASE that server had.": "Cette sauvegarde ne s'est pas ouverte : clé de sauvegarde ou phrase secrète incorrecte, ou sauvegarde endommagée. Elle ne s'ouvre qu'avec la clé de sauvegarde du serveur qui l'a créée (enregistrée depuis Audit → État et sauvegardes), ou avec la BACKUP_PASSPHRASE qu'avait ce serveur.",
   "twostep|Code": "Code",
-  "twostep|Recovery code": "Code de récupération"
+  "twostep|Recovery code": "Code de récupération",
+  "<i aria-hidden=\"true\"></i>Credits": "<i aria-hidden=\"true\"></i>Crédits",
+  "Credits given, used and left, what they achieved, and how many a customer needs": "Crédits attribués, utilisés et restants, ce qu'ils ont permis et combien il en faut à un client",
+  "It moves out of Labs to the Credits group of the menu, after Audit.": "Elle quitte Labs pour le groupe Crédits du menu, après Audit.",
+  "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "Elle quitte Labs pour le haut d'Agir (FAE Flush, Établi, Automatisation, Tableau de bord) ; l'établi reste la page d'accueil.",
+  "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "Argent : définissez un coût horaire et le prix d'un crédit sous Paramètres → AI et réserve de crédits.",
+  "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "Argent : heures économisées × coût horaire, moins les crédits utilisés × prix d'un crédit (tous deux sous Paramètres → AI et réserve de crédits).",
+  "Off: add who gets it under Settings → AI & credit pool.": "Désactivé : ajoutez les destinataires sous Paramètres → AI et réserve de crédits."
  }
 }
