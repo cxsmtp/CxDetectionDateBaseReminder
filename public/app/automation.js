@@ -1,10 +1,11 @@
 // Automation: automatic reminders (who, what, when), the reminder email, the preview of the next run, and hands-off.
 import { ENGINES, cleanEngines } from '../engines.js';
-import { renderAudience, scheduleText } from '../app.js';
+import { scheduleText } from '../app.js';
 import { $, can, canAny, state } from './state.js';
 import { escapeHtml, fmtDateTime } from './format.js';
 import { api, handleAuthLoss, setStatus, showError, toast } from './core.js';
 import { activateTab, renderFeatureStages, tabMemory } from './nav.js';
+import { renderAudience } from './actions.js';
 
 // ---- Settings → Hands-off: set it up once (four questions), then steer it by email ----
 

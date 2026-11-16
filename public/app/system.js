@@ -1,7 +1,6 @@
 // Settings for the server itself: activation, tenants, About and updates, integrity, the report server address,
 // network and proxy, trusted certificates, the Checkmarx One integration and HTTPS.
 import { initTenantMenu } from '../tenant-menu.js';
-import { renderGettingStarted } from '../app.js';
 import { $, can, canAny, state } from './state.js';
 import { escapeHtml, formatDate } from './format.js';
 import { api, certificateFileData, handleAuthLoss, renderLicenceBanner, setStatus, showError, toast } from './core.js';
@@ -9,6 +8,7 @@ import { applyPermissions, calculator, parseRoute } from './nav.js';
 import { languagesChanged } from './profile.js';
 import { autosave, loadConnectionGuard } from './settings.js';
 import { loadAutomation } from './automation.js';
+import { renderGettingStarted } from './workbench.js';
 
 // ---- Activation codes: add-ons unlocked by the maintainer (Hebrew, several tenants) ----
 
