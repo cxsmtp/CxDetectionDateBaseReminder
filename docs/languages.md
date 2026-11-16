@@ -133,6 +133,8 @@ These now have separate entries.
 
 **Added after collection.** Six entries were translated afterwards and then reviewed twice in all nine languages: the date-range "From"/"To", the code-author confidence badges "Sure", "Check" and "Unsure", and the calendar "Last month".
 
+**Changed in MZ-01.01.13.** The server's name: 25 entries in all fourteen languages called it by its older name (a server for reminders) and now say "CxMissionZero server", with the product's name left as it is written (German *CxMissionZero-Server*, French *serveur CxMissionZero*, Spanish *servidor de CxMissionZero*, Japanese *CxMissionZeroサーバー*, Chinese *CxMissionZero 服务器* and so on), spaced as each language's other sentences space a Latin name. And 3 new entries in all fourteen languages, on **Settings → Beta features**: what the Cx Credits Calculator's switch does now that the calculator runs on its own, what turning it off means, and the message when it is saved turned off. These 3 were translated once and not yet reviewed a second time.
+
 **Added in MZ-01.00.46.** The Credit Control page's **Give credits** bar, its messages, and the row's **Give** and **Take back** buttons: 22 entries in all nine languages. Each was translated against the glossary and the app's existing wording, so **Give** and **Take back** read as opposites everywhere. It then went through the same two separate reviews:
 - **Review 1:** 2 corrections (Simplified Chinese and Korean punctuation).
 - **Review 2:** 4 corrections: a counter added in Japanese and Thai, Korean quotation marks, and a Malay sentence made less literal.
