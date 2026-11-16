@@ -47,8 +47,6 @@ import { githubIssues, gitlabIssues, openSlaIssues } from './sla-issues.js';
 import { BrandFonts } from './brand-fonts.js';
 import { TrackedReports, baselineReadAt, computeProgress, foundSince, matchesFilters, outcomeOf, reportSummary } from './tracked-reports.js';
 import { FindingJournal } from './finding-journal.js';
-import { computeImpact } from './impact.js';
-import { impactSummary } from './impact-summary.js';
 import { TERMINAL, closure, newerThan, rescanRequest, verificationResult } from './verification.js';
 import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
@@ -92,7 +90,7 @@ import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, inLabs, isFinal, labsPermission, LABS_VIEW, mayUse } from './features.js';
 import { scanLanguages, scanTypes, tenantCredits } from './fusion-usage.js';
 import { journeyOf } from './journey.js';
-import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
+import { SupportDesk } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
 import { PasswordResets, RESET_TTL_MS, maskEmail, resetAllowed } from './password-reset.js';
 import { PendingSetups, SignInTickets, TICKET_TTL_MS, groupedKey, matchTotp, newRecoveryCodes, newSecret, otpauthUri, recoveryHash } from './mfa.js';
@@ -127,6 +125,8 @@ import { registerAuditRoutes } from './routes/audit.js';
 import { registerReportRoutes } from './routes/reports.js';
 import { registerCreditUsageRoute } from './routes/credits.js';
 import { registerHandsOffPageRoutes, registerHandsOff } from './routes/hands-off.js';
+import { registerSupportRoutes } from './routes/support.js';
+import { registerImpactRoutes } from './routes/impact.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 /** Whose own branding (Settings → Your branding) the current request is made with: see presenting(). */
@@ -8621,219 +8621,19 @@ app.get('/api/credits/views', requirePermission('credits.view'), (req, res) => {
   res.json({ projects: Object.fromEntries(projects.map((p) => [p.projectId, p.credits])) });
 });
 
-// ---------------------------------------------------------------------------
-// Impact: what AI Triage and AI Remediation did for the backlog (src/impact.js)
-// ---------------------------------------------------------------------------
-
-const IMPACT_DAYS = ['30', '90', '365', 'all'];
-
-/** The Impact figures for the last `days` days ('all': since the first reading), or for [from, to). */
-function impactFor({ days = '90', from = null, to = null, settings = settingsStore.get().impact } = {}, now = new Date()) {
-  const start = from ?? (days === 'all' ? '0000-01-01T00:00:00.000Z' : new Date(now.getTime() - Number(days) * 86_400_000).toISOString());
-  return computeImpact({
-    journal: findingJournal.entries(),
-    ledger: creditLedger.entriesBetween('0000', '9999'),
-    settings,
-    from: start,
-    to,
-    now,
-  });
-}
-
-const impactPeriodLabel = (days) => (days === 'all' ? 'since the first reading' : `last ${days} days`);
-
-/**
- * The Impact settings for this person: their own figures from Your profile → Your Impact figures,
- * the organisation's for any they left empty. With a currency of their own, the organisation's
- * hourly cost and credit price (in another currency) are not used: only theirs, or none.
- * `personal`: which figures are theirs (null: none).
- */
-function impactSettingsFor(user) {
-  const org = settingsStore.get().impact;
-  const p = user?.profile?.impact ?? {};
-  const own = Boolean(p.currency) && p.currency !== org.currency;
-  const settings = {
-    ...org,
-    currency: own ? p.currency : org.currency,
-    hourlyRate: p.hourlyRate ?? (own ? 0 : org.hourlyRate),
-    creditPrice: p.creditPrice ?? (own ? 0 : org.creditPrice),
-    triageMinutes: p.triageMinutes ?? org.triageMinutes,
-    fixMinutes: p.fixMinutes ?? org.fixMinutes,
-  };
-  const personal = [...(own ? ['currency'] : []), ...['hourlyRate', 'creditPrice', 'triageMinutes', 'fixMinutes'].filter((k) => p[k] !== null && p[k] !== undefined)];
-  return { settings, personal: personal.length ? personal : null };
-}
-
-app.get('/api/impact', requirePermission('reports.view'), (req, res) => {
-  const days = IMPACT_DAYS.includes(String(req.query.days)) ? String(req.query.days) : '90';
-  const { monthlyTo, currency: organisationCurrency } = settingsStore.get().impact;
-  const mine = impactSettingsFor(req.user);
-  res.json({ ...impactFor({ days, settings: mine.settings }), personal: mine.personal, organisationCurrency, days, monthlyTo: can(req, 'settings.ai') ? monthlyTo : undefined, monthlyOn: monthlyTo.length > 0, lastSent: automationState.impactSent || null });
+// ---- The Impact page and its monthly summary: src/routes/impact.js -----------------------------------------------------
+const { impactFor, monthlyImpact } = registerImpactRoutes(app, {
+  settingsStore, creditLedger, findingJournal, audit, terms, automationState, asyncRoute, brandingNow, can,
+  requirePermission, sendingSettings, resolveReportServer, adminActor,
+  // Made further down: looked up when used, never before.
+  readerLook: later(() => readerLook),
 });
 
-/** One page for leadership: download it, then print or save it as PDF from the browser. */
-app.get('/api/impact/summary.html', requirePermission('reports.view'), (req, res) => {
-  const days = IMPACT_DAYS.includes(String(req.query.days)) ? String(req.query.days) : '90';
-  const settings = settingsStore.get();
-  const mine = impactSettingsFor(req.user);
-  const { html } = impactSummary(impactFor({ days, settings: mine.settings }), { appName: brandingNow(settings.branding)?.appName || 'CxMissionZero', periodLabel: impactPeriodLabel(days), personal: mine.personal, look: readerLook(req.user, settings) });
-  res.set('Content-Disposition', `attachment; filename="impact-${new Date().toISOString().slice(0, 10)}.html"`);
-  res.type('html').send(html);
+// ---- Get help (support cases and requests): src/routes/support.js -----------------------------------------------------
+registerSupportRoutes(app, {
+  tenancy, settingsStore, iam, supportDesk, asyncRoute, permissionsFor, tenantsOf, requireSession, can,
+  requirePermission, sendingSettings, resolveReportServer, tenantName,
 });
-
-/** The previous calendar month (UTC): its first day and the first day of this month. */
-function lastMonth(now = new Date()) {
-  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return { month: from.toISOString().slice(0, 7), from: from.toISOString(), to: to.toISOString() };
-}
-
-/** Email last month's summary to Settings → Impact's list (or `to`). Returns who it went to. */
-async function sendImpactSummary({ to = null, actor = { kind: 'system' } } = {}) {
-  const settings = sendingSettings();
-  const recipients = to ?? settings.impact.monthlyTo;
-  if (!recipients.length) throw Object.assign(new Error('Add who gets the monthly summary first.'), { status: 400 });
-  const period = lastMonth();
-  const url = resolveReportServer(null, settings).url;
-  const message = impactSummary(impactFor({ from: period.from, to: period.to }), {
-    appName: settings.branding?.appName || 'CxMissionZero',
-    periodLabel: period.month,
-    email: true,
-    // The organisation's look: the summary goes to a list, not to one reader.
-    look: readerLook(null, settings),
-    pageUrl: url ? `${url.replace(/\/$/, '')}/#/impact` : '',
-  });
-  await sendReminderMail(settings, message, { to: recipients, cc: [], bcc: [], exact: true });
-  audit.record({ type: 'settings', outcome: 'changed', reason: `Impact summary for ${period.month} emailed to ${recipients.length} address${recipients.length === 1 ? '' : 'es'}.`, actor, details: { impact: { month: period.month, to: recipients.length } } });
-  return { month: period.month, to: recipients };
-}
-
-app.post('/api/impact/email', requirePermission('settings.ai'), asyncRoute(async (req, res) => {
-  const result = await sendImpactSummary({ actor: await adminActor(req) });
-  res.json({ sent: true, ...result });
-}));
-
-// ---------------------------------------------------------------------------
-// Get help: support cases and enhancements (src/support.js)
-// ---------------------------------------------------------------------------
-
-/** The team that answers requests raised in a tenant: active people with support.manage who work in it (a Super Admin works in every one). */
-function supportTeamOf(tenant) {
-  return iam.users()
-    .map((u) => iam.user(u.id))
-    .filter((u) => u && !u.disabled && u.email && permissionsFor(u).has('support.manage') && tenantsOf(u).includes(tenant));
-}
-
-/** May this person see the request: the one who raised it, or the team of its tenant. */
-const seesRequest = (req, ticket) => ticket.requester.id === req.user.id || (can(req, 'support.manage') && tenantsOf(req.user, req.permissions).includes(ticket.tenant));
-
-function requestView(req, ticket, { full = false } = {}) {
-  const view = {
-    id: ticket.id,
-    kind: ticket.kind,
-    subject: ticket.subject,
-    status: ticket.status,
-    priority: ticket.priority,
-    requester: { name: ticket.requester.name, email: ticket.requester.email },
-    mine: ticket.requester.id === req.user.id,
-    tenant: tenancy.enabled ? tenantName(ticket.tenant) : '',
-    createdAt: ticket.createdAt,
-    updatedAt: ticket.updatedAt,
-    messages: ticket.messages.length,
-  };
-  if (!full) return view;
-  return {
-    ...view,
-    conversation: ticket.messages.map((m) => ({ at: m.at, name: m.by.name || m.by.email, team: m.team, mine: m.by.id === req.user.id, text: m.text })),
-    history: ticket.history.map((h) => ({ at: h.at, name: h.by.name || h.by.email, status: h.status })),
-  };
-}
-
-/**
- * Email about a request, through the mail server of the tenant it was raised in.
- * The person who raised it hears of every answer and status change; the team, of
- * every new request and every answer from that person. Never fails the request:
- * the reply says what could not be sent.
- */
-async function mailSupport(req, ticket, event, { fromTeam = false, message = null } = {}) {
-  const tenant = tenancy.has(ticket.tenant) ? ticket.tenant : DEFAULT_TENANT;
-  return tenancy.run(tenant, async () => {
-    const settings = sendingSettings();
-    const url = resolveReportServer(req, settings).url;
-    // Support is between this person and the team: the organisation's name, never a demonstration's.
-    const appName = settingsStore.get().branding?.appName || 'CxMissionZero';
-    const self = String(req.user.email ?? '').toLowerCase();
-    const jobs = [];
-    if (event !== 'message' || fromTeam) {
-      if (ticket.requester.email && (event === 'created' || ticket.requester.email.toLowerCase() !== self)) jobs.push(['requester', [ticket.requester.email]]);
-    }
-    if (!fromTeam && event !== 'status') {
-      const team = [...new Set(supportTeamOf(ticket.tenant).map((u) => u.email).filter((e) => e.toLowerCase() !== self))];
-      if (team.length) jobs.push(['team', team]);
-    }
-    const result = { sent: 0, error: '' };
-    for (const [to, addresses] of jobs) {
-      try {
-        await sendReminderMail(settings, supportEmail(ticket, { event, to, appName, url, message }), { to: addresses, cc: [], bcc: [], exact: true });
-        result.sent += addresses.length;
-      } catch (error) {
-        result.error = error.message;
-      }
-    }
-    return result;
-  });
-}
-
-app.get('/api/support', requireSession, (req, res) => {
-  const team = can(req, 'support.manage');
-  const visible = supportDesk.list().filter((t) => seesRequest(req, t));
-  res.json({ team, statuses: SUPPORT_STATUSES, requests: visible.map((t) => requestView(req, t)) });
-});
-
-app.get('/api/support/:id', requireSession, (req, res) => {
-  const ticket = supportDesk.get(req.params.id);
-  if (!ticket || !seesRequest(req, ticket)) return res.status(404).json({ error: 'No such request, or it is not yours to see.' });
-  res.json({ team: can(req, 'support.manage'), request: requestView(req, ticket, { full: true }) });
-});
-
-app.post('/api/support', requireSession, asyncRoute(async (req, res) => {
-  const kind = req.body?.kind;
-  if (!SUPPORT_KINDS[kind]) return res.status(400).json({ error: 'Choose a support case or an enhancement.' });
-  const channel = supportChannel(settingsStore.get());
-  if (channel.mode === 'email') return res.status(409).json({ error: `Requests go by email here: write to ${channel.email}.`, email: channel.email });
-  if (supportDesk.raisedSince(req.user.id, new Date(Date.now() - 3_600_000).toISOString()) >= 20) {
-    return res.status(429).json({ error: 'You raised 20 requests in the last hour. Add to one of them instead, or try again later.' });
-  }
-  const ticket = supportDesk.create({
-    kind,
-    tenant: req.tenantId ?? DEFAULT_TENANT,
-    subject: req.body?.subject,
-    text: req.body?.text,
-    priority: req.body?.priority,
-    requester: { id: req.user.id, name: req.user.name, email: req.user.email },
-  });
-  const emailed = await mailSupport(req, ticket, 'created');
-  res.status(201).json({ request: requestView(req, ticket, { full: true }), emailed });
-}));
-
-app.post('/api/support/:id/messages', requireSession, asyncRoute(async (req, res) => {
-  const ticket = supportDesk.get(req.params.id);
-  if (!ticket || !seesRequest(req, ticket)) return res.status(404).json({ error: 'No such request, or it is not yours to see.' });
-  // Someone who both raised it and is on the team answers as the person who raised it.
-  const fromTeam = ticket.requester.id !== req.user.id;
-  supportDesk.reply(ticket.id, { by: { id: req.user.id, name: req.user.name, email: req.user.email }, team: fromTeam, text: req.body?.text });
-  const emailed = await mailSupport(req, ticket, 'message', { fromTeam, message: ticket.messages.at(-1).text });
-  res.json({ request: requestView(req, ticket, { full: true }), emailed });
-}));
-
-app.post('/api/support/:id/status', requirePermission('support.manage'), asyncRoute(async (req, res) => {
-  const ticket = supportDesk.get(req.params.id);
-  if (!ticket || !seesRequest(req, ticket)) return res.status(404).json({ error: 'No such request, or it is not yours to see.' });
-  const before = ticket.status;
-  supportDesk.setStatus(ticket.id, String(req.body?.status ?? ''), { by: { id: req.user.id, name: req.user.name, email: req.user.email } });
-  const emailed = ticket.status === before ? { sent: 0, error: '' } : await mailSupport(req, ticket, 'status', { fromTeam: true });
-  res.json({ request: requestView(req, ticket, { full: true }), emailed });
-}));
 
 // ---- Hands-off mode and self-healing: src/routes/hands-off.js ------------------------------------------------------------
 const {
@@ -8867,19 +8667,6 @@ registerHandsOffPageRoutes(app, {
   settingsStore, audit, integrationSession, resolveAutomationSession, scheduler, asyncRoute, can, requirePermission,
   sendingSettings, adminActor, audienceSetting, serverUrl, sendStatus, selfCheck, healthView,
 });
-
-/** Once a month, after the 1st's early hours (UTC): last month's summary, when someone is on the list. */
-async function monthlyImpact(now = new Date()) {
-  const settings = settingsStore.get();
-  if (!settings.impact.monthlyTo.length || !terms.organisation()) return;
-  const { month } = lastMonth(now);
-  if (automationState.impactSent >= month || now.getUTCHours() < 6) return;
-  automationState.impactSent = month; // once, even if the mail server refuses (the audit log says so)
-  await sendImpactSummary().catch((error) => {
-    console.warn(`[impact] Monthly summary for ${month} not sent: ${error.message}`);
-    audit.record({ type: 'settings', outcome: 'failed', reason: `Impact summary for ${month} could not be emailed: ${error.message}`, actor: { kind: 'system' }, details: { impact: { month } } });
-  });
-}
 
 /** The credit pool now: size, used (triage / remediation), left, given to projects, free to give. */
 /** How long the tenant's Checkmarx One credits, once read, are taken as they are. */
