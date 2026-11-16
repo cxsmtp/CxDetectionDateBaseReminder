@@ -40,9 +40,9 @@ import os from 'node:os';
 import zlib from 'node:zlib';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { GitHubClient } from './github/client.js';
-import { gitHostOf, setCloneHostCheck, validLogin } from './github/identity.js';
+import { setCloneHostCheck } from './github/identity.js';
 import { codeVersion, locationOf, onGitHub, parseRepoUrl } from './github/blame.js';
-import { SCM_LABELS, SCM_PROVIDERS, checkConnections as checkScmConnections, providerOf, scmClients, scmConfigs } from './scm/providers.js';
+import { SCM_LABELS, SCM_PROVIDERS, providerOf, scmClients, scmConfigs } from './scm/providers.js';
 import { acknowledgeStart, companionState, requestFullUpdate } from './updates/companion.js';
 import { githubIssues, gitlabIssues, openSlaIssues } from './sla-issues.js';
 import { BrandFonts } from './brand-fonts.js';
@@ -59,7 +59,7 @@ import { ProjectionStore, ReportStore, TenantReadStore, readFusionOffer, readJob
 import { buildCalculatorLauncher, buildStandaloneCalculator, projectionFileProblem, reportRuntime } from './standalone-calculator.js';
 import { CLOC_FUSION, GIT_COUNT_LIMITS, clocFusionPage, connectionSource, createGitCounter, gitSource, listOrganizations, listRepositories, sweepLeftovers } from './fusion-git.js';
 import { reportFileName as projectionFileName } from '../public/calculator/report.js';
-import { MAX_PROJECTS, cleanOrigins, globMatch, readLimit } from '../public/calculator/model.js';
+import { MAX_PROJECTS, cleanOrigins, readLimit } from '../public/calculator/model.js';
 import { buildReminder, buildReportData, buildReportEmail, buildTemplateData } from './reminder.js';
 import { exampleLinks, projectUrl, riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
@@ -67,10 +67,10 @@ import { buildBrandedReminder, effectiveBranding, personName, REMINDER_PLACEHOLD
 import { focusProjects, nextRunAfter } from './automation-config.js';
 import { checkServiceUrl, deriveConnection, publicConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, sendTestEmail, testConnection } from './mailer.js';
-import { checkCxKey, checkEnvFile, explainCxone, explainGit, explainSmtp, refusedByCheck } from './troubleshoot.js';
+import { checkCxKey, checkEnvFile, explainCxone, explainSmtp, refusedByCheck } from './troubleshoot.js';
 import { TrustStore, isUntrustedCode } from './trust.js';
 import { activeProxy, checkRoute, cleanProxy, proxyWithAuth, readNetwork, requirements, requirementsText, saveNetwork } from './network.js';
-import { SettingsStore, apiPath, cleanPersonalBranding, hasEnvironmentSmtp, hostOfUrl, isVerified, mergeSettings, overlayBranding, parseAddressList, publicSettings, smtpFingerprint, supportChannel } from './settings.js';
+import { SettingsStore, cleanPersonalBranding, hasEnvironmentSmtp, hostOfUrl, isVerified, mergeSettings, overlayBranding, parseAddressList, publicSettings, smtpFingerprint, supportChannel } from './settings.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import v8 from 'node:v8';
 import { Watchdog, outsideFault, rollbackTarget, shouldNotify, shouldRaiseCase } from './watchdog.js';
@@ -80,7 +80,7 @@ import { BACKUP_SUBJECT, findBackupInMailbox, readReplies } from './mail-inbox.j
 import { ConnectionGuard, describeCxone, describeSmtp } from './connection-guard.js';
 import { ENV_SETTINGS, isSecretVariable, parseEnvText, settingsFromEnv } from './env-import.js';
 import { addSla, slaSummary } from './sla.js';
-import { INSTANCE_VARS, extraInstanceNumbers, instanceSource, numberedVariable, providersIn, setForRepo } from './scm/instances.js';
+import { numberedVariable, setForRepo } from './scm/instances.js';
 import { SessionPersistence, sessionKey } from './handover.js';
 import { InstanceLock } from './instance-lock.js';
 import { clearHalfSaved, flushPendingNow, StateFileError } from './state-file.js';
@@ -95,9 +95,7 @@ import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
 import { SUPPORTING_NOTICE, Terms, cleanName } from './terms.js';
 import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
 import { featureById, featureList, inLabs, isFinal, labsPermission, LABS_VIEW, mayUse } from './features.js';
-import { PROBE_DEFAULTS, probeFusion } from './fusion.js';
-import { aiFindings, cleanEngines as cleanFusionEngines, readRiskFusion } from './fusion-ai.js';
-import { DEFAULT_PERIOD as FUSION_PERIOD, USAGE_PERIODS, fusionUsage, projectFacts, scanLanguages, scanTypeOf, scanTypes, tenantAi, tenantCredits } from './fusion-usage.js';
+import { scanLanguages, scanTypes, tenantCredits } from './fusion-usage.js';
 import { journeyOf } from './journey.js';
 import { KINDS as SUPPORT_KINDS, STATUSES as SUPPORT_STATUSES, SupportDesk, supportEmail } from './support.js';
 import { HOUR_MS, currentWindow, graceHoursOf, newWindow, rescanGrants, windowAction, windowState } from './rescan-window.js';
@@ -125,6 +123,8 @@ import {
 import { SYSTEM_ACTOR, clientIp, escapeHtml, escapeHtmlText, idList, logSafe } from './routes/shared.js';
 import { registerCodeAuthorRoutes } from './routes/code-authors.js';
 import { registerFaeFlushRoutes } from './routes/fae-flush.js';
+import { registerFusionRoutes } from './routes/fusion.js';
+import { createGitConnections, registerGitConnectionRoutes } from './routes/git-connections.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 /** Whose own branding (Settings → Your branding) the current request is made with: see presenting(). */
@@ -1216,6 +1216,16 @@ function activeConfig() {
   const pinned = settingsStore.get().endpoints.risksPath;
   return pinned ? { ...config, risks: { ...config.risks, path: pinned } } : config;
 }
+
+// ---- The git connections (GitHub, GitLab, Azure DevOps, Bitbucket): src/routes/git-connections.js ----------------------
+// Their helpers are made here, before the areas that use them; the route is registered further down.
+const {
+  gitCacheDir, githubConfig, cloneHostAllowed, scmHosts, githubClient, gitSets, connectionsStatus,
+} = createGitConnections({
+  dataDir, tenancy, tstate, settingsStore,
+  // Made further down: looked up when used, never before.
+  integrationStatus: later(() => integrationStatus),
+});
 
 // ---------------------------------------------------------------------------
 // Connection
@@ -10564,572 +10574,16 @@ app.delete('/api/backup/restore', requirePermission('backup.manage'), asyncRoute
   res.json({ pendingRestore: false });
 }));
 
-// ---------------------------------------------------------------------------
-// Beta: GitHub identity matching, and emailing the authors of vulnerable code
-// ---------------------------------------------------------------------------
-
-const gitCacheDir = path.join(dataDir, 'git-cache');
-
-/** The GitHub connection: what Settings stores, else GITHUB_TOKEN / GITHUB_API_URL / GITHUB_ORG from the environment. */
-function githubConfig(settings = settingsStore.get(), source = process.env) {
-  const github = settings.beta?.github ?? {};
-  const env = (name) => String(source[name] ?? '').trim();
-  const defaultApi = !github.apiUrl || github.apiUrl === 'https://api.github.com';
-  const apiUrl = defaultApi && env('GITHUB_API_URL') ? env('GITHUB_API_URL').replace(/\/+$/, '') : github.apiUrl || 'https://api.github.com';
-  // GITHUB_TOKEN goes only to the host GITHUB_API_URL names (else api.github.com):
-  // pointing the API address elsewhere on the Beta page never sends it there.
-  const envToken = env('GITHUB_TOKEN') && hostOfUrl(apiUrl) === (hostOfUrl(env('GITHUB_API_URL')) || 'api.github.com') ? env('GITHUB_TOKEN') : '';
-  return {
-    ...github,
-    token: github.token || envToken,
-    tokenSource: github.token ? 'settings' : envToken ? 'environment' : 'none',
-    apiUrl,
-    org: github.org || env('GITHUB_ORG'),
-  };
-}
-
-/**
- * The hosts repositories are cloned from: the public GitHub, GitLab, Bitbucket and Azure DevOps,
- * the hosts connected on the Beta page or in the environment, and SCM_ALLOWED_HOSTS. A
- * repository address from a project or a setting never makes the server call anything else.
- */
-const PUBLIC_SCM_HOSTS = ['github.com', 'gitlab.com', 'bitbucket.org', 'dev.azure.com'];
-function cloneHostAllowed(host) {
-  const name = String(host ?? '').toLowerCase();
-  if (PUBLIC_SCM_HOSTS.includes(name) || name.endsWith('.visualstudio.com')) return true;
-  const settings = settingsStore.get();
-  const scm = scmConfigs(settings);
-  const hostname = (value) => String(value ?? '').toLowerCase().replace(/:\d+$/, '');
-  const known = [gitHostOf(githubConfig(settings).apiUrl), scm.gitlab.host, scm.azure.host, scm.bitbucket.host, ...gitSets(settings).slice(1).flatMap((set) => set.hosts.map((h) => h.host))].map(hostname);
-  const extra = String(process.env.SCM_ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
-  return known.includes(name) || extra.includes(name);
-}
 setCloneHostCheck(cloneHostAllowed);
 
-/** GitLab, Azure DevOps and Bitbucket: their connections and API clients (built per use: settings may change). */
-function scmHosts(settings = settingsStore.get()) {
-  const configs = scmConfigs(settings);
-  return { configs, clients: scmClients(configs) };
-}
+registerGitConnectionRoutes(app, { asyncRoute, requireSession, connectionsStatus });
 
-function githubClient(settings = settingsStore.get()) {
-  const github = githubConfig(settings);
-  return new GitHubClient({ token: github.token, apiUrl: github.apiUrl });
-}
-
-const urlPath = (url) => {
-  try {
-    return new URL(url).pathname.split('/').filter(Boolean);
-  } catch {
-    return [];
-  }
-};
-
-/**
- * Every set of git connections: the first (Beta page, plain variables), then
- * the numbered ones (GITHUB_TOKEN_2 …, src/scm/instances.js). Each set: its
- * GitHub and other hosts' connections, and the hosts it holds a token for.
- */
-function gitSets(settings = settingsStore.get()) {
-  const describe = (n, github, scm, named) => {
-    const owner = (value) => String(value ?? '').toLowerCase();
-    const hosts = [];
-    if (github.token) hosts.push({ provider: 'github', host: gitHostOf(github.apiUrl), owner: owner(github.org) });
-    if (scm.gitlab.token) hosts.push({ provider: 'gitlab', host: scm.gitlab.host, owner: owner(scm.gitlab.group).split('/')[0] });
-    if (scm.azure.token && scm.azure.host) hosts.push({ provider: 'azure', host: scm.azure.host, owner: owner(urlPath(scm.azure.orgUrl)[0]) });
-    if (scm.bitbucket.token) hosts.push({ provider: 'bitbucket', host: scm.bitbucket.host, owner: owner(scm.bitbucket.workspace) });
-    return { n, github, scm, hosts, named };
-  };
-  const sets = [describe(1, githubConfig(settings), scmConfigs(settings), null)];
-  for (const n of extraInstanceNumbers(settings)) {
-    const source = instanceSource(settings, n);
-    sets.push(describe(n, githubConfig({}, source), scmConfigs({}, source), new Set(providersIn(source))));
-  }
-  return sets;
-}
-
-/**
- * The connections the header shows, green or red, with a few details:
- * Checkmarx One (the server's integration), the mail server (passed its test
- * with the current settings), and every git host (each token answers).
- */
-async function connectionsStatus() {
-  const settings = settingsStore.get();
-  const cx = integrationStatus();
-  const smtp = settings.smtp ?? {};
-  const verified = isVerified(settings);
-  const git = await gitConnections(settings);
-  const gh = git.instances.find((i) => i.provider === 'github' && i.n === 1);
-  return {
-    cxone: {
-      ok: cx.connected,
-      tenant: cx.connection?.tenant ?? '',
-      apiUrl: cx.connection?.baseUrl ?? '',
-      iamUrl: cx.connection?.iamUrl ?? '',
-      source: cx.source,
-      pending: cx.pending,
-      reason: cx.connected ? (cx.pending ? 'A changed connection is being checked; the last known good one is in use.' : '') : 'Not connected: an Admin connects it under Settings → Checkmarx One integration, or with CX_API_KEY.',
-      help: (!cx.connected || cx.pending) ? tstate.connectionHelp?.cxone : undefined,
-    },
-    smtp: {
-      ok: Boolean(smtp.host) && verified,
-      host: smtp.host ?? '',
-      port: smtp.port ?? null,
-      tls: smtp.secure ? 'implicit TLS' : 'STARTTLS',
-      from: smtp.fromAddress || smtp.user || '',
-      verifiedAt: verified ? settings.verifiedAt ?? null : null,
-      reason: !smtp.host ? 'No mail server: set it under Settings → Email server, or with SMTP_HOST in the .env file.' : verified ? '' : 'Not tested with these settings: Settings → Email server → Test connection.',
-      help: verified ? undefined : tstate.connectionHelp?.smtp,
-    },
-    // Every git host and instance, for the header's Git chip (one logo each).
-    git,
-    // The first GitHub connection, as before (kept for callers of this shape).
-    github: gh
-      ? { ok: gh.ok, login: gh.who, apiUrl: gh.url, org: gh.owner, source: gh.source, checkedAt: gh.checkedAt, reason: gh.reason }
-      : { ok: false, login: '', apiUrl: githubConfig(settings).apiUrl, org: '', source: 'none', checkedAt: null, reason: 'No GitHub token: add GITHUB_TOKEN to the .env file, or set it on the Beta page.' },
-  };
-}
-
-/** Results of checking each git connection: at most every 5 minutes, and again when its settings change. */
-const gitChecks = scoped(tenancy, 'gitChecks');
-const GIT_CHECK_MS = 5 * 60_000;
-
-/** Ask one host who its token belongs to. */
-async function checkGitInstance(provider, set) {
-  if (provider === 'github') {
-    const user = await new GitHubClient({ token: set.github.token, apiUrl: set.github.apiUrl }).rest('/user');
-    return user?.login ?? '';
-  }
-  const result = (await checkScmConnections(scmClients(set.scm), set.scm, [provider]))[provider];
-  if (!result) throw new Error(provider === 'azure' ? 'set the organisation address (AZURE_DEVOPS_ORG_URL) too' : 'no answer');
-  if (!result.ok) throw Object.assign(new Error(result.reason.replace(/^[^:]*refused: /, '')), { help: result.help });
-  return result.who ?? '';
-}
-
-/**
- * Every git connection: GitHub, GitLab, Azure DevOps and Bitbucket, the first of
- * each and the numbered ones (GITHUB_TOKEN_2 …), each checked with its host.
- * Hosts with no connection are listed too, with what to add.
- */
-async function gitConnections(settings = settingsStore.get()) {
-  const instances = [];
-  const checks = [];
-  for (const set of gitSets(settings)) {
-    for (const provider of SCM_PROVIDERS) {
-      const cfg = provider === 'github' ? set.github : set.scm[provider];
-      const token = cfg.token;
-      // The first set lists a host once it has a token; a numbered set, once its variables name the host.
-      if (!token && !(set.named?.has(provider))) continue;
-      const url = provider === 'github' ? cfg.apiUrl : provider === 'azure' ? cfg.orgUrl : cfg.apiUrl;
-      const owner = provider === 'github' ? cfg.org : provider === 'gitlab' ? cfg.group : provider === 'azure' ? urlPath(cfg.orgUrl)[0] ?? '' : cfg.workspace;
-      const vars = INSTANCE_VARS[provider];
-      const suffix = set.n === 1 ? '' : `_${set.n}`;
-      const entry = { provider, n: set.n, label: SCM_LABELS[provider], url: url ?? '', host: url ? hostOfUrl(url) : '', owner: owner ?? '', source: set.n === 1 ? cfg.tokenSource : 'environment', variables: `${vars.token}${suffix}`, ok: false, who: '', checkedAt: null, reason: '' };
-      instances.push(entry);
-      if (!token) {
-        entry.reason = `No token: add ${vars.token}${suffix} to the .env file.`;
-        continue;
-      }
-      const key = createHash('sha256').update(`${provider}|${url}|${token}`).digest('hex');
-      const cached = gitChecks.get(key);
-      if (cached && Date.now() - cached.at < GIT_CHECK_MS) {
-        Object.assign(entry, cached.result, { checkedAt: new Date(cached.at).toISOString() });
-        continue;
-      }
-      checks.push(
-        checkGitInstance(provider, set)
-          .then((who) => ({ ok: true, who: String(who ?? ''), reason: '' }))
-          .catch((error) => ({ ok: false, who: '', reason: `${SCM_LABELS[provider]} refused the token: ${error.message}`, help: error.help ?? explainGit(provider, error, { url, variable: entry.variables }) }))
-          .then((result) => {
-            const at = Date.now();
-            gitChecks.set(key, { at, result });
-            Object.assign(entry, result, { checkedAt: new Date(at).toISOString() });
-          }),
-      );
-    }
-  }
-  await Promise.all(checks);
-  // Grouped by host, so two GitHub connections sit side by side.
-  instances.sort((a, b) => SCM_PROVIDERS.indexOf(a.provider) - SCM_PROVIDERS.indexOf(b.provider) || a.n - b.n);
-  if (gitChecks.size > 64) for (const [key, value] of gitChecks) if (Date.now() - value.at > GIT_CHECK_MS) gitChecks.delete(key);
-  const missing = SCM_PROVIDERS.filter((p) => !instances.some((i) => i.provider === p)).map((p) => ({ provider: p, label: SCM_LABELS[p], variables: INSTANCE_VARS[p].token }));
-  const connected = instances.filter((i) => i.ok).length;
-  return {
-    ok: instances.length > 0 && connected === instances.length,
-    connected,
-    total: instances.length,
-    instances,
-    missing,
-    reason: instances.length ? (connected === instances.length ? '' : `${instances.length - connected} of ${instances.length} git connection(s) not working.`) : 'No git host connected: add GITHUB_TOKEN, GITLAB_TOKEN, AZURE_DEVOPS_TOKEN or BITBUCKET_TOKEN to the .env file.',
-  };
-}
-
-app.get('/api/connections', requireSession, asyncRoute(async (req, res) => res.json(await connectionsStatus())));
-
-/** Usernames worth matching: scan initiators that are not already addresses. */
-function initiatorLogins(lastScan) {
-  const logins = new Set();
-  for (const info of Object.values(lastScan?.initiators ?? {})) {
-    const name = String(info?.initiator ?? '').trim();
-    if (name && !name.includes('@') && validLogin(name)) logins.add(name);
-  }
-  return [...logins];
-}
-
-/**
- * Fusion results (Labs, src/fusion.js): Fusion's results only, worked on only, with the page's own
- * line (applications and projects by name) and its own fetch, apart from the Workbench's. Kept with
- * the session (session.fusionScope and session.lastFusion).
- */
-/** Each Fusion result's link in Checkmarx One: its project's Risk Hub with the risk open, as the Workbench links it. */
-function linkFusion(req, fusion) {
-  const { links } = settingsStore.get();
-  for (const r of fusion?.results ?? []) {
-    if (!r.projectId || r.projectId.startsWith('app:')) continue;
-    r.url = riskUrl({ projectId: r.projectId, id: r.riskId || r.resultId, scanner: r.scanner || 'SAST' }, req.session.connection, links, r.scanId);
-  }
-  // Each project's own page in Checkmarx One, to go into its detail there.
-  for (const [projectId, p] of Object.entries(fusion?.projects ?? {})) p.url = projectUrl({ projectId }, req.session.connection, links);
-  return fusion;
-}
-
-/**
- * Fusion (AI-generated SAST results, src/fusion-ai.js) for these projects, from each one's latest completed
- * scan; kept with the session, with the results as findings the credit, triage and remediation code acts on.
- */
-/**
- * The credits a project's latest AI scan used: none for a LAST scan, nor for a Fusion scan whose steps say Fusion
- * credits are disabled; otherwise the Fusion credits it used over the last year per AI scan (Checkmarx One does not
- * say a scan's own), marked an estimate; null when not known.
- */
-function scanCreditsOf(project, used) {
-  if (project.scanType === 'last' || project.fusionCredits === 'off') return { credits: 0, estimate: false };
-  if (used?.perScan !== null && used?.perScan !== undefined) return { credits: used.perScan, estimate: true };
-  return null;
-}
-
-async function loadAiFusion(req, names) {
-  const ids = Object.keys(names);
-  const client = req.session.client;
-  const scans = await getLastScans(client, ids);
-  const trace = fusionTrace(req);
-  // First, which latest scans ran the AI engine at all: from their engines, else a hundred scans to a call. Only
-  // those are read further (most of a tenant's projects never ran it).
-  const kinds = await scanTypes(client, Object.fromEntries(ids.filter((id) => scans[id]).map((id) => [id, scans[id]])), { background: false, trace }).catch(() => ({}));
-  const aiScanned = ids.filter((id) => scans[id] && kinds[id] !== 'none');
-  // Each of those: Fusion or LAST (its settings say), its model and where that was set, its lines of code. The
-  // tenant's AI settings and credits beside them, at the same time.
-  const [facts, ai, credits] = await Promise.all([
-    projectFacts(client, aiScanned, scans, { trace, concurrency: 8 }).catch((error) => (console.warn(`[fusion] facts: ${logSafe(error.message)}`), {})),
-    tenantAi(client, { trace }).catch(() => null),
-    tenantCreditsOf(req, { fresh: true }),
-  ]);
-  const types = Object.fromEntries(ids.map((id) => [id, facts[id]?.scanType ?? kinds[id] ?? scanTypeOf(scans[id]?.engines, null)]));
-  // The AI-scanned projects' Risk Hub lists, as the Workbench reads them; and, at the same time, the Fusion credits
-  // each used per AI scan over the last year (for what its latest scan cost).
-  const riskSource = createRiskSource(client, activeConfig());
-  const [read, usage] = await Promise.all([
-    readRiskFusion(client, ids.map((id) => ({ id, name: names[id] })), scans, { types, riskSource, trace, concurrency: 8 }),
-    fusionUsage(client, aiScanned.map((id) => ({ id, name: names[id] })), { period: 'last_year', scopeIds: ids, trace }).catch((error) => (console.warn(`[fusion] usage: ${logSafe(error.message)}`), null)),
-  ]);
-  const fusion = linkFusion(req, read);
-  for (const [id, f] of Object.entries(facts)) if (fusion.projects[id]) Object.assign(fusion.projects[id], f, { scanType: fusion.projects[id].scanType });
-  // Fusion credits: whether the tenant charges them, as the latest Fusion scans' steps say.
-  const charged = Object.values(facts).map((f) => f.fusionCredits).filter(Boolean);
-  fusion.tenant = { ai, credits, fusionCredits: charged.includes('reserved') ? 'reserved' : charged.length ? 'off' : '' };
-  // Their AI scans and credits over the year, kept to the projects shown.
-  if (usage?.projects) {
-    for (const id of Object.keys(usage.projects)) if (!fusion.projects[id]) delete usage.projects[id];
-    usage.totals = Object.values(usage.projects).reduce((t, u) => ({ scans: t.scans + (u.scans ?? 0), fusionScans: t.fusionScans + (u.fusionScans ?? 0), lastScans: t.lastScans + (u.lastScans ?? 0), credits: t.credits + (u.credits ?? 0), fusion: t.fusion + (u.fusion ?? 0) }), { scans: 0, fusionScans: 0, lastScans: 0, credits: 0, fusion: 0 });
-  }
-  fusion.usage = usage;
-  for (const [id, p] of Object.entries(fusion.projects)) p.scanCredits = scanCreditsOf(p, fusion.usage?.projects?.[id]);
-  req.session.lastFusion = fusion;
-  req.session.fusionScan = aiFindings(fusion);
-  // A new read: the projects shown are the page's again; the Fusion and LAST ticks stay.
-  if (req.session.fusionFocus) req.session.fusionFocus.projectIds = null;
-  return fusion;
-}
-
-/**
- * What the page's credits and actions are for: the results of the engines ticked (Fusion, LAST or both) in the
- * projects it shows (null: every one loaded). Taken from the request when it says, kept with the session.
- */
-function fusionFocus(req) {
-  const body = req.body ?? {};
-  // A project's side panel asks for that project alone, without changing what the page's bar acts on.
-  if (body.once === true) return { engines: cleanFusionEngines(body.engines), projectIds: Array.isArray(body.projectIds) ? body.projectIds.map((id) => String(id ?? '').slice(0, 80)).filter(Boolean).slice(0, 50) : null };
-  const focus = (req.session.fusionFocus ??= { engines: cleanFusionEngines(), projectIds: null });
-  if ('engines' in body) focus.engines = cleanFusionEngines(body.engines);
-  if ('projectIds' in body) focus.projectIds = Array.isArray(body.projectIds) ? [...new Set(body.projectIds.map((id) => String(id ?? '').slice(0, 80)).filter(Boolean))].slice(0, 5000) : null;
-  return focus;
-}
-
-app.get('/api/beta/fusion', requireFeature('fusionResults'), (req, res) => {
-  res.json({ fusion: req.session.lastFusion ?? null, scope: req.session.fusionScope ?? null, focus: fusionFocus(req), credits: fusionCredits(req) });
+// ---- Fusion results (Labs): src/routes/fusion.js ----------------------------------------------------------------------
+const { initiatorLogins } = registerFusionRoutes(app, {
+  settingsStore, creditLedger, allocations, creditView, asyncRoute, can, requirePermission, requireFeature,
+  activeConfig, afterFetch, adminActor, stateCache, projectStates, scanProjects, cleanSeverities, notifyOnBehalf,
+  VERIFY_AT_ONCE, adminTriage, adminRemediate, goneText, allocateNeeded, kindsOf, tenantCreditsOf, creditPool,
 });
-
-// The AI scans and credits over another period (the page's period picker), for the projects loaded.
-app.post('/api/beta/fusion/usage', requireFeature('fusionResults'), asyncRoute(async (req, res) => {
-  const fusion = req.session.lastFusion;
-  if (!fusion) return res.status(409).json({ error: 'Load results first.' });
-  const period = USAGE_PERIODS[req.body?.period] ? req.body.period : FUSION_PERIOD;
-  req.session.fusionPeriod = period;
-  const names = req.session.fusionScope?.names ?? {};
-  fusion.usage = await fusionUsage(req.session.client, Object.keys(fusion.projects).map((id) => ({ id, name: names[id] ?? fusion.projects[id].projectName })), { period, scopeIds: Object.keys(names), trace: fusionTrace(req) });
-  res.json({ usage: fusion.usage });
-}));
-
-// The credits the page's lanes show, for what it shows now (the ticks, and the projects its filters leave).
-app.post('/api/beta/fusion/credits', requireFeature('fusionResults'), (req, res) => {
-  res.json({ focus: fusionFocus(req), credits: fusionCredits(req) });
-});
-
-// ---- Troubleshooting Fusion (Admins who manage the Checkmarx One integration): test paths, and a
-// debug log of every Fusion call in full (the access token never in it), kept with the session only.
-const FUSION_LOG_MAX = 100;
-const fusionDebugOf = (req) => (req.session.fusionDebug ??= { on: false, log: [] });
-/** Where a Fusion call's full exchange goes while debug mode is on (null when off). */
-function fusionTrace(req, always = null) {
-  const debug = req.session.fusionDebug;
-  if (!debug?.on && !always) return null;
-  return (entry) => {
-    always?.push(entry);
-    if (debug?.on) {
-      debug.log.push(entry);
-      if (debug.log.length > FUSION_LOG_MAX) debug.log.splice(0, debug.log.length - FUSION_LOG_MAX);
-    }
-  };
-}
-
-app.get('/api/beta/fusion/debug', requireFeature('fusionResults'), requirePermission('integration.cxone'), (req, res) => {
-  const { endpoints = {} } = settingsStore.get();
-  const debug = fusionDebugOf(req);
-  res.json({ on: debug.on, log: debug.log, defaults: PROBE_DEFAULTS, pinned: { results: endpoints.fusionResultsPath ?? '', dispatcher: endpoints.fusionDispatcherPath ?? '' } });
-});
-
-app.put('/api/beta/fusion/debug', requireFeature('fusionResults'), requirePermission('integration.cxone'), (req, res) => {
-  const debug = fusionDebugOf(req);
-  if ('on' in (req.body ?? {})) debug.on = req.body.on === true;
-  if (req.body?.clear === true) debug.log = [];
-  res.json({ on: debug.on, log: debug.log });
-});
-
-app.post('/api/beta/fusion/probe', requireFeature('fusionResults'), requirePermission('integration.cxone'), asyncRoute(async (req, res) => {
-  const asked = (Array.isArray(req.body?.paths) ? req.body.paths : []).map((p) => String(p ?? '').trim()).filter(Boolean);
-  if (!asked.length) return res.status(400).json({ error: 'Enter at least one path to test.' });
-  if (asked.length > 20) return res.status(400).json({ error: 'Test at most 20 paths at a time.' });
-  const bad = asked.filter((p) => !apiPath(p));
-  if (bad.length) return res.status(400).json({ error: `Only paths under /api on this Checkmarx One, without a query: ${bad.slice(0, 3).join(', ')}` });
-  // {appId}: an application holding a fetched project, else the tenant's first.
-  const appId = req.session.lastFusion?.applications?.[0]?.id
-    ?? (await listApplications(req.session.client, { maxItems: 1 }).catch(() => []))[0]?.id ?? '';
-  const exchanges = [];
-  const results = await probeFusion(req.session.client, asked, { appId, trace: fusionTrace(req, exchanges) });
-  res.json({ appId, results, exchanges });
-}));
-
-// ---- Acting on Fusion's results: the same allocate / triage / remediate as a tracked report's Triage tab,
-// for Admins, on only the fetched findings Fusion re-scored (matched by result id; severities are the
-// findings' own in Checkmarx One, which credits and AI Triage go by).
-
-/** A result id as Fusion and the results API may write it (URL-encoded once or twice), plain. */
-const plainId = (id) => {
-  let s = String(id ?? '');
-  for (let i = 0; i < 2; i += 1) {
-    try {
-      const d = decodeURIComponent(s);
-      if (d === s) break;
-      s = d;
-    } catch {
-      break;
-    }
-  }
-  return s;
-};
-
-/** Which loaded results the page acts on (the engines ticked, the projects shown): (projectId, finding) → true. */
-function fusionKeep(req) {
-  const { engines, projectIds: shown } = fusionFocus(req);
-  const only = shown ? new Set(shown) : null;
-  const ids = new Map();
-  for (const r of req.session.lastFusion?.results ?? []) {
-    if (!r.projectId || !r.resultId) continue;
-    if ((r.engine && !engines.includes(r.engine)) || (only && !only.has(r.projectId))) continue;
-    if (!ids.has(r.projectId)) ids.set(r.projectId, new Set());
-    ids.get(r.projectId).add(plainId(r.resultId));
-  }
-  const keep = (projectId, r) => {
-    const set = ids.get(projectId);
-    return Boolean(set && [r.riskId, r.alternateId, r.similarityId].some((id) => id && set.has(plainId(id))));
-  };
-  return { keep, projectIds: [...ids.keys()] };
-}
-
-const FUSION_RECENT_MS = 30 * 60 * 1000;
-
-/** The projects whose Fusion results are acted on: those the Fusion page loaded (else the Workbench's fetch). */
-const fusionProjects = (req, projectIds) => (req.session.fusionScan?.projects ?? scanProjects(req, projectIds)).filter((p) => projectIds.includes(p.projectId));
-/** Each project's scan the results come from, for AI Triage and AI Remediation. */
-const fusionInitiators = (req) => ({ ...(req.session.lastScan?.initiators ?? {}), ...(req.session.fusionScan?.initiators ?? {}) });
-
-/** The Fusion page's two lanes: credits needed by severity (1 to triage, 3 to remediate) and what its projects hold. */
-function fusionCredits(req) {
-  const { keep, projectIds } = fusionKeep(req);
-  const projects = fusionProjects(req, projectIds);
-  const triage = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
-  const remediation = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
-  const left = { triage: 0, remediation: 0 };
-  let matched = 0;
-  const { allowReremediation = false } = settingsStore.get().aiTriage ?? {};
-  for (const p of projects) {
-    const remediated = allowReremediation ? new Set() : creditLedger.remediatedIds(p.projectId);
-    for (const r of p.risks ?? []) {
-      if (!keep(p.projectId, r) || !(r.severity in triage)) continue;
-      matched += 1;
-      const recent = r.triageRequestedAt && Date.now() - r.triageRequestedAt < FUSION_RECENT_MS;
-      if ((!r.state || r.state === 'TO_VERIFY') && !recent) triage[r.severity] += 1;
-      if (remediable(r) && !remediated.has(r.riskId)) remediation[r.severity] += CREDIT_COST.remediation;
-    }
-    const balance = allocations.balance(p.projectId);
-    left.triage += balance.triage.remaining;
-    left.remediation += balance.remediation.remaining;
-  }
-  // What projects already hold and have not used, beside what the tenant has left in Checkmarx One (as last read).
-  const pool = creditPool();
-  return { triage, remediation, left, matched, projects: projects.length, held: pool.outstanding.total, pool: { limited: pool.limited, size: pool.size, unallocated: pool.unallocated }, tenant: req.session.tenantCredits?.value ?? null };
-}
-
-/** Admins only (those who set the credit pool), with the Beta feature. */
-function requireFusionAdmin(req, res, next) {
-  if (can(req, 'credits.limit')) return next();
-  res.status(403).json({ error: 'Only an Admin can allocate credits or run AI on Fusion results.', permission: 'credits.limit' });
-}
-
-app.post('/api/beta/fusion/allocate', requireFeature('fusionResults'), requirePermission('credits.allocate'), requireFusionAdmin, afterFetch, asyncRoute(async (req, res) => {
-  if (!req.session.lastFusion) return res.status(409).json({ error: 'Read Fusion first.' });
-  const wanted = cleanSeverities(req.body?.severities);
-  if (!wanted.length) return res.status(400).json({ error: 'Pick severities to allocate for.' });
-  const { keep, projectIds } = fusionKeep(req);
-  const projects = fusionProjects(req, projectIds);
-  if (!projects.length) return res.status(409).json({ error: 'None of the loaded projects has Fusion results.' });
-  const done = await allocateNeeded(req, projects, {
-    wanted, extraTriage: 0, extraRemediation: 0, kinds: kindsOf(req.body?.kind), keep, where: 'Labs → Fusion results',
-    details: { projectIds: projects.map((p) => p.projectId), kind: req.body?.kind ?? 'both', fusion: true },
-  });
-  if (done.error) return res.status(409).json(done);
-  for (const p of projects) p.credits = creditView(p);
-  res.json({ credits: fusionCredits(req), gone: done.gone, goneNote: done.gone.length ? `Skipped: ${goneText(done.gone)}` : '' });
-}));
-
-app.post('/api/beta/fusion/triage', requireFeature('fusionResults'), requirePermission('triage.run'), requireFusionAdmin, afterFetch, asyncRoute(async (req, res) => {
-  if (!req.session.lastFusion) return res.status(409).json({ error: 'Read Fusion first.' });
-  const wanted = cleanSeverities(req.body?.severities);
-  if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to triage.' });
-  const { keep, projectIds } = fusionKeep(req);
-  const projects = fusionProjects(req, projectIds);
-  const candidate = (p, r) => keep(p.projectId, r) && wanted.includes(r.severity) && (!r.state || r.state === 'TO_VERIFY');
-  const lives = await mapWithConcurrency(projects, VERIFY_AT_ONCE, async (p) => ((p.risks ?? []).some((r) => candidate(p, r)) ? projectStates(req.session, p.projectId).catch(() => null) : null));
-  const originals = new Map();
-  const findings = [];
-  for (const [i, p] of projects.entries()) {
-    for (const r of p.risks ?? []) {
-      if (!keep(p.projectId, r) || !wanted.includes(r.severity)) continue;
-      const state = lives[i]?.get(r.riskId) ?? r.state;
-      if (state && state !== 'TO_VERIFY') continue;
-      if (r.triageRequestedAt && Date.now() - r.triageRequestedAt < FUSION_RECENT_MS) continue;
-      const copy = { ...r, projectId: p.projectId, projectName: p.projectName };
-      originals.set(copy, r);
-      findings.push(copy);
-    }
-  }
-  if (!findings.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], credits: fusionCredits(req) });
-  const actor = await adminActor(req);
-  const outcome = await adminTriage(req.session, findings, fusionInitiators(req), { actor, origin: `Labs → Fusion results: triage ${wanted.map((s) => s.toLowerCase()).join(', ')}` });
-  for (const f of outcome.startedFindings) originals.get(f).triageRequestedAt = Date.now();
-  for (const p of projects) p.credits = creditView(p);
-  const { startedFindings, ...summary } = outcome;
-  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'triage', startedFindings, fusionInitiators(req), actor);
-  res.json({ ...summary, notified, credits: fusionCredits(req) });
-}));
-
-app.post('/api/beta/fusion/remediate', requireFeature('fusionResults'), requirePermission('triage.run'), requireFusionAdmin, afterFetch, asyncRoute(async (req, res) => {
-  if (!req.session.lastFusion) return res.status(409).json({ error: 'Read Fusion first.' });
-  const wanted = cleanSeverities(req.body?.severities);
-  if (!wanted.length) return res.status(400).json({ error: 'Pick at least one severity to remediate.' });
-  const { keep, projectIds } = fusionKeep(req);
-  const projects = fusionProjects(req, projectIds);
-  const { allowReremediation = false } = settingsStore.get().aiTriage ?? {};
-  const findings = [];
-  for (const p of projects) {
-    if (!(p.risks ?? []).some((r) => keep(p.projectId, r) && wanted.includes(r.severity))) continue;
-    stateCache.delete(p.projectId);
-    const live = await projectStates(req.session, p.projectId).catch(() => null);
-    const remediated = allowReremediation ? new Set() : creditLedger.remediatedIds(p.projectId);
-    for (const r of p.risks ?? []) {
-      if (!keep(p.projectId, r)) continue;
-      const state = live?.get(r.riskId) ?? r.state;
-      if (state && state !== r.state) r.state = state;
-      if (remediable({ ...r, state }) && !remediated.has(r.riskId)) findings.push({ ...r, projectId: p.projectId, projectName: p.projectName });
-    }
-  }
-  const unique = remediationCandidates(findings, wanted);
-  if (!unique.length) return res.json({ requested: 0, started: 0, failed: 0, skipped: 0, errors: [], credits: fusionCredits(req) });
-  const actor = await adminActor(req);
-  const { startedFindings, ...summary } = await adminRemediate(req.session, unique, fusionInitiators(req), { actor, origin: `Labs → Fusion results: remediate the confirmed ${wanted.map((s) => s.toLowerCase()).join(', ')}` });
-  for (const p of projects) p.credits = creditView(p);
-  const notified = req.body?.notifyInitiators === false ? null : await notifyOnBehalf(req.session, 'remediation', startedFindings, fusionInitiators(req), actor);
-  res.json({ ...summary, notified, credits: fusionCredits(req) });
-}));
-
-app.post(
-  '/api/beta/fusion/read',
-  requireFeature('fusionResults'),
-  asyncRoute(async (req, res) => {
-    // Read again for what the page's line last loaded.
-    const scope = req.session.fusionScope;
-    if (!scope?.projects) return res.status(400).json({ error: 'Choose applications or projects above, then Load Fusion results.' });
-    const fusion = await loadAiFusion(req, scope.names);
-    res.json({ fusion, scope, credits: fusionCredits(req) });
-  }),
-);
-
-/**
- * The Fusion page's own fetch: the projects of the applications named, plus the projects named (names or ids,
- * `*` and `?` as wildcards); nothing named is every project. Only Fusion's results are read for them.
- */
-app.post(
-  '/api/beta/fusion/fetch',
-  requireFeature('fusionResults'),
-  asyncRoute(async (req, res) => {
-    const names = (value) => (Array.isArray(value) ? value : String(value ?? '').split(','))
-      .map((v) => String(v).trim().slice(0, 200))
-      .filter(Boolean)
-      .slice(0, 50);
-    const wantedApps = names(req.body?.applications);
-    const wantedProjects = names(req.body?.projects);
-    const matches = (list, item) => list.some((n) => n === item.id || globMatch(n, item.name));
-    const client = req.session.client;
-    const [projects, apps] = await Promise.all([listProjects(client), listApplications(client).catch(() => [])]);
-    const byId = new Map(projects.map((p) => [p.id, p]));
-    const ids = new Set();
-    if (!wantedApps.length && !wantedProjects.length) for (const p of projects) ids.add(p.id);
-    for (const a of apps) if (matches(wantedApps, a)) for (const id of a.projectIds) ids.add(id);
-    for (const p of projects) if (matches(wantedProjects, p)) ids.add(p.id);
-    if (!ids.size) return res.status(400).json({ error: 'No application or project has those names.' });
-    const scope = {
-      projects: ids.size,
-      openFindings: 0,
-      bySeverity: { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 },
-      names: Object.fromEntries([...ids].map((id) => [id, byId.get(id)?.name ?? id])),
-      fetchedAt: new Date().toISOString(),
-      own: { applications: wantedApps, projects: wantedProjects },
-    };
-    req.session.fusionScope = scope;
-    const fusion = await loadAiFusion(req, scope.names);
-    res.json({ fusion, scope, credits: fusionCredits(req) });
-  }),
-);
 
 // ---- FAE Flush (Labs, then Act): src/routes/fae-flush.js -------------------------------------------------------------
 registerFaeFlushRoutes(app, {
