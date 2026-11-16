@@ -104,7 +104,7 @@ export function createCreditRules(d) {
    */
   function relayError(error) {
     const status = Number(error?.status) || 0;
-    if (status === 401 || status === 403) return 'Checkmarx One refused the request. Ask your security team to check the reminder server.';
+    if (status === 401 || status === 403) return 'Checkmarx One refused the request. Ask your security team to check the CxMissionZero server.';
     if (status === 402) return 'Checkmarx One has no AI credits left for this.';
     if (status === 404) return 'Checkmarx One could not find this finding.';
     if (status === 429) return 'Checkmarx One is busy. Try again in a minute.';
@@ -220,7 +220,7 @@ export function createCreditRules(d) {
     if (!session) {
       res.status(503).json({
         error:
-          'The reminder server has no stored Checkmarx One connection. ' +
+          'The CxMissionZero server has no stored Checkmarx One connection. ' +
           'Set CX_API_KEY, or arm automation on its Settings page.',
       });
     }

@@ -290,7 +290,7 @@ As an Admin, open **Settings** and work down this list.
 | 1 | Quick setup from a .env file | **Download the sample .env**, fill in your Checkmarx One key and mail server, and upload it. This does steps 2–4 in one go. |
 | 2 | Checkmarx One integration | Paste the API key, then **Connect & store**. |
 | 3 | Email server (SMTP) | Host, port, user and password. Then **Test connection** and **Send test email**. |
-| 4 | Reminder server address | The `https://` address people use to reach this server. Then **Test**. Serve it over HTTPS first: [Turn on HTTPS](#turn-on-https). |
+| 4 | CxMissionZero server address | The `https://` address people use to reach this server. Then **Test**. Serve it over HTTPS first: [Turn on HTTPS](#turn-on-https). |
 | 5 | AI Triage & Remediation from reports | Decide what developers may run from their reports, and set the credit pool. |
 | 6 | Branding | Company name, logo and colour for emails and reports. |
 | 7 | Automation (optional) | **Act → Automation**: set the age limits, preview who would get what, then turn it on. Start with **Test mode**. |
@@ -320,7 +320,7 @@ Admins only: **Settings → HTTPS**. It moves the running server from http to HT
    - **Read the check.** Nothing changes yet. Each line is a tick (fine), **!** (works, but some people may see a warning) or **✕** (cannot be used, and why):
      - the key belongs to the certificate;
      - the dates;
-     - the names it covers, compared with the address you are using and the Reminder server address;
+     - the names it covers, compared with the address you are using and the CxMissionZero server address;
      - who issued it: a public authority, your company's, or self-signed. Missing intermediate certificates are spotted here;
      - the key's strength and purpose.
    - **Use it.** Click **Use this certificate**. It goes into use at once; the one it replaces is kept.
@@ -453,7 +453,7 @@ For everyday use, switch to way A or B instead: every reader's machine would hav
 
    If the start fails, the log says why (see [Troubleshooting](#troubleshooting)).
 2. **The browser:** open `https://mz.company.com`. It shows the padlock, with no warning.
-3. **Settings → Reminder server address:** it should show `https://mz.company.com`. Click **Test**.
+3. **Settings → CxMissionZero server address:** it should show `https://mz.company.com`. Click **Test**.
    - The address comes from `REPORT_SERVER_URL`. If one was saved on this page before, that one wins: change it here.
    - New emailed reports carry this address.
 
@@ -461,7 +461,7 @@ For everyday use, switch to way A or B instead: every reader's machine would hav
 
 - **Everyone signs in once** at the new address. A browser keeps its sign-in per address, and the old `http://` one is no longer used.
 - **Reports emailed before the switch** still point at the old address.
-  - A reader clicks **Change** next to *Reminder server* at the top of the report, enters `https://mz.company.com`, and the report remembers it.
+  - A reader clicks **Change** next to *CxMissionZero server* at the top of the report, enters `https://mz.company.com`, and the report remembers it.
   - Alternatively, send new reports.
 - **Updating** works as before: `podman pull`, then the same command you started with, **including its HTTPS options**. Without a certificate option it still serves HTTPS, with the self-signed certificate.
 - **Ports 80 and 443 on Windows:** Podman may refuse them ("permission denied"). Either:
@@ -576,7 +576,7 @@ Sets the connections from one file, the same file you can start the container wi
 3. **Choose a .env file** (or drop it on the box).
 
 What happens when you upload:
-- **Section 1** of the file (Checkmarx One, mail server, reminder server address) applies at once, and each connection is checked.
+- **Section 1** of the file (Checkmarx One, mail server, CxMissionZero server address) applies at once, and each connection is checked.
 - **Blank values keep what is set now**, so you can upload only what changed.
 - **Section 2** (time zone, backups, tuning) only takes effect when the container starts with `--env-file`. An upload lists those variables as not applied.
 - **Only what you may change is applied.** Variables your role cannot set are refused by name.
@@ -714,7 +714,7 @@ Every finding in an email links straight to it in Checkmarx One (Risk Hub).
 - If links land in the wrong place, edit the **base URL**, **project link** or **finding link** template. The example underneath updates as you type.
 - Placeholders: `{baseUrl}`, `{projectId}`, `{scanId}`, `{engine}`, `{riskId}`.
 
-### Reminder server address
+### CxMissionZero server address
 The address people's browsers use to reach this server, put into every emailed report so readers can triage from it. For example `https://mission-zero.company.com`.
 - **Test** checks that it answers as this server.
 - You are warned if it is `localhost` (nobody else can reach it) or plain `http`.
@@ -940,17 +940,17 @@ Each run: when, how (scheduled or **Run once now**, in test mode or not), the fi
 1. **Open it.** Click the button (it downloads the report; the link works for 30 days) or open the attachment. Any browser works, and nothing needs installing.
    - It opens in your profile's language, else your browser's. **Language** at the top switches it.
    - It is in your profile's look (its colours, its band across the top and its face; Classic the classic one), light, dark or your device's, and your accent (see [Find your way](#find-your-way)). Without an account, it is in the organisation's default.
-   - Your profile's language works offline. Any other language comes from the reminder server the first time, and is then kept in your browser.
+   - Your profile's language works offline. Any other language comes from the CxMissionZero server the first time, and is then kept in your browser.
    - Finding titles, project names, code, and what Checkmarx One's AI wrote stay as they are.
-2. **It connects by itself** to the reminder server shown at the top.
+2. **It connects by itself** to the CxMissionZero server shown at the top.
    - If it cannot, it says why. Click **Connect** to try again.
-   - If the server moved, click **Change address**. The report checks that the new address really is the reminder server, and remembers it.
+   - If the server moved, click **Change address**. The report checks that the new address really is the CxMissionZero server, and remembers it.
    - You need to be on the company network or VPN.
 3. **Read the list.** The header sums it up: open findings, how many critical, high, medium and low, and the oldest. It shows the top 300 findings, worst severity first, then oldest, 50 a page: the page numbers are under the list.
    - **Search and filter every finding,** not only the 300: pick a severity (its button counts the whole report), search (finding, query, project, file), or tick **Only what AI can act on**. Every heading (**Severity**, **Finding**, **Type**, **Age**, **State**, **Triage result**) sorts on a click and filters with its funnel: type to keep what contains it (on **Age**, `>90` or `<=30` compare), or tick the values to keep. They combine; **Clear all** above the list resets them.
    - A match from beyond the top 300 is tagged **Beyond the top 300** and can be triaged and remediated like the others. A report holds up to 10,000 findings, worst first; past that, it says how many it left out.
    - On a phone the headings are a row of small buttons above the cards, each still sorting and filtering.
-   - **How this report works** explains Triage, Remediate and the reminder server.
+   - **How this report works** explains Triage, Remediate and the CxMissionZero server.
    - Each finding shows:
      - its live Checkmarx One state;
      - a link into Checkmarx One.
@@ -983,7 +983,7 @@ Each run: when, how (scheduled or **Run once now**, in test mode or not), the fi
    - **Copy git command** copies one line to run in the repository folder (cmd, PowerShell or a shell): `curl -fsSL "<link>" -o mz-fix.patch && git apply --recount mz-fix.patch`. The link is signed for that one finding and works for 7 days; each download is in the audit log.
 7. **Refresh** re-reads states at any time. The report also refreshes by itself.
 8. **One project's own report.** A report covering several projects lists them at the bottom.
-   - Clicking one asks the reminder server for that project's own report: the same kind of report, for that project alone, read fresh, and limited to the severities and age the original covered.
+   - Clicking one asks the CxMissionZero server for that project's own report: the same kind of report, for that project alone, read fresh, and limited to the severities and age the original covered.
    - It opens in a new tab and is downloaded too. If the browser blocks the tab, the download still arrives; allow pop-ups for the report to get the tab as well.
    - These buttons never lead to Checkmarx One.
 
@@ -1587,7 +1587,7 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | Hebrew is on (Settings → Activation codes) but not in the language list | Only roles with the **Hebrew** permission are offered it (Admins always). On **People & roles**, tick **Hebrew** for the role, then **Save**; it applies at once. |
 | Gmail refuses the password | Use an App Password, not your normal password. |
 | An uploaded .env file "Not applied" | That line has a mistake (listed with its line number and how to fix it); the setting that worked is kept. Fix the line and upload again. |
-| The report says it cannot reach the server | Be on the company network or VPN. Check **Settings → Reminder server address**, and use **Change address** in the report if the server moved. |
+| The report says it cannot reach the server | Be on the company network or VPN. Check **Settings → CxMissionZero server address**, and use **Change address** in the report if the server moved. |
 | More rows than credits needed | Several rows can be one Checkmarx One result (marked **Same result R1** …). You are charged per result. |
 | "Fetch still running" when you click Allocate or Triage | Wait for the green **Data fetch complete** flare. |
 | "Could not be confirmed twice" when allocating | Someone was triaging, or a scan finished, between the two reads. Wait a minute and use **Check the numbers again**. |
@@ -1601,7 +1601,7 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | **HTTPS:** a reverse proxy (Caddy, nginx) answers 502 Bad Gateway | CxMissionZero serves HTTPS by default, and the proxy speaks http to it. Add `-e HTTPS=off` to CxMissionZero's `podman run` line. |
 | **HTTPS:** "HTTPS must be on, off or both" in the log | `HTTPS` takes `on`, `off` or `both` (also `true`/`false`, `yes`/`no`, `1`/`0`). |
 | "Accept the terms of use to continue" / "An administrator must accept the terms of use" | An Admin signs in and accepts the terms for the organisation, then each person accepts them once ([Terms of use](#terms-of-use)). |
-| A report says "This reminder server is not in use yet" | An Admin has not accepted the terms of use yet. Once they do, the report works (reload it). |
+| A report says "This CxMissionZero server is not in use yet" | An Admin has not accepted the terms of use yet. Once they do, the report works (reload it). |
 | **HTTPS:** locked out of the Settings page after a change | On the server: `podman exec mission-zero node scripts/https.mjs both`. Within 5 seconds http works next to HTTPS again, with HSTS off. |
 | **HTTPS:** **Switch to HTTPS only** is greyed out | Open the page over HTTPS (the link under the button) and switch there. It also needs **HTTP + HTTPS side by side** first (step 2). |
 | **HTTPS:** "The private key is missing" | Add the `.key` file IT gave with the certificate, or upload a `.pfx` that holds both. If the request was made on this page, the key is already on the server: upload the certificate IT sent for *that* request. |
@@ -1610,5 +1610,5 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | **HTTPS:** "permission denied" when starting on ports 80 / 443 | Podman on Windows: `podman machine stop`, `podman machine set --rootful`, `podman machine start`. Or use `-p 8443:3000 -e HTTPS_PUBLIC_PORT=8443`. |
 | **HTTPS:** Let's Encrypt (Caddy) gets no certificate | `podman logs mz-caddy` says why. Usually the DNS name does not point at this machine yet, or port 80 is blocked from the internet. |
 | **HTTPS:** a renewed certificate is not being used | Wait 5 minutes. If the log says *The changed certificate could not be used*, the new files do not fit together; the old certificate stays in use meanwhile. |
-| **HTTPS:** reports cannot reach the server after the switch | Reports sent before carry the old address. In the report, click **Change** next to the reminder server and enter the `https://` address. Check **Settings → Reminder server address** shows it too. |
+| **HTTPS:** reports cannot reach the server after the switch | Reports sent before carry the old address. In the report, click **Change** next to the CxMissionZero server and enter the `https://` address. Check **Settings → CxMissionZero server address** shows it too. |
 | Anything else | Logs page → **Download troubleshooting log** and send it to your maintainer. |

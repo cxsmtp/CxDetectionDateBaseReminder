@@ -1,5 +1,5 @@
 // A report covering several projects offers each project's own report instead of
-// links to Checkmarx One: the reminder server builds it (same scope, signed), and
+// links to Checkmarx One: the CxMissionZero server builds it (same scope, signed), and
 // a report can only ask for the projects and scope it was made with.
 import test from 'node:test';
 import assert from 'node:assert/strict';

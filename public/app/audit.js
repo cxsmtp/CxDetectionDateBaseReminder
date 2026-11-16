@@ -43,13 +43,16 @@ function auditQuery(extra = {}) {
   return params.toString();
 }
 
+// What the server called itself in the audit log before MZ-01.01.13. Those entries stay as they were written (the
+// log is a chain); the page shows them under today's name, so one actor does not read as two.
+const SERVER_NAME_BEFORE = ['reminder', 'server'].join(' ');
 function actorText(actor = {}) {
   if (actor.kind === 'report') {
     return [actor.recipient || 'report recipient', `emailed report${actor.reportVerified === false ? ' (unsigned)' : ''}`];
   }
   if (actor.kind === 'admin') return [actor.email || actor.user || actor.name || 'administrator', `admin${actor.tenant ? ` · ${actor.tenant}` : ''}`];
   if (actor.kind === 'user') return [actor.email || actor.user || 'unknown', [actor.role, actor.via].filter(Boolean).join(' · ') || 'signed-in user'];
-  return [actor.user || actor.kind || 'system', actor.kind || ''];
+  return [(actor.user === SERVER_NAME_BEFORE ? 'CxMissionZero server' : actor.user) || actor.kind || 'system', actor.kind || ''];
 }
 
 function renderAuditTotals(totals) {

@@ -1053,7 +1053,7 @@ label.button-like:focus-within { outline: 2px solid var(--accent); outline-offse
   .audit-filter-actions button { flex: 1; }
 }
 
-/* Reminder server address */
+/* CxMissionZero server address */
 .server-field { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
 .server-field .field { flex: 1 1 320px; margin: 0; }
 .server-effective { margin-top: 10px; display: grid; gap: 6px; font-size: 13px; }

@@ -53,7 +53,7 @@ The interactive HTML report (attached to reminders, or downloaded) is in the sam
 
 **Switching.** The **Language** list at the top of the report switches it at any time.
 - **Carried in the report:** the profile's language, and Hebrew for the people it is on for. These work offline.
-- **Fetched when picked:** any other language comes from the reminder server, which the report reaches anyway to triage. It is then kept in that browser, so it works offline from then on.
+- **Fetched when picked:** any other language comes from the CxMissionZero server, which the report reaches anyway to triage. It is then kept in that browser, so it works offline from then on.
 - **No server address:** a report that has none offers only what it carries.
 - **Size:** each language adds about 60 KB, so a report does not carry all fifteen.
 
@@ -62,9 +62,9 @@ The interactive HTML report (attached to reminders, or downloaded) is in the sam
 **What stays as it is:**
 - finding titles, project names, file paths, addresses and code;
 - what Checkmarx One wrote itself: AI Triage's summary and reasons, and AI Remediation's description of its fix;
-- messages the reminder server sends back, such as a refusal for lack of credits.
+- messages the CxMissionZero server sends back, such as a refusal for lack of credits.
 
-**Hebrew** travels only in the reports of people it is on for; the reminder server never hands it out.
+**Hebrew** travels only in the reports of people it is on for; the CxMissionZero server never hands it out.
 
 **Right to left.** In Arabic and Hebrew the report is mirrored like the page.
 
@@ -189,7 +189,7 @@ While checking this release, five German and five French entries were found with
 - **Review 2:** 9 corrections. The Chinese files no longer call the language "it", German and Korean say Hebrew appears in nobody's list, and Spanish, French, Malay and Indonesian drop a casual "so".
 
 **Added in MZ-01.00.59.** 407 entries in all fourteen languages: everything the interactive HTML report says. That covers its page, buttons, messages and confirmations, the credits panel, the tools for opening and fixing code, and the fix advice under a confirmed finding (64 sentences). Product, engine and tool names, code, headers, paths and numbers stay as they are. Checkmarx One's own state name “To verify” stays in English, because that is what Checkmarx One shows. Two entries are new kinds:
-- **"That language could not be loaded…":** the message when the reminder server does not answer.
+- **"That language could not be loaded…":** the message when the CxMissionZero server does not answer.
 - **`verdict|Not exploitable`:** one finding's verdict, in the singular. The app's "Not exploitable" is a filter of many findings, plural in several languages. In Arabic every verdict agrees with the masculine الاكتشاف.
 
 Each entry was translated, then reviewed twice:

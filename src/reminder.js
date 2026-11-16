@@ -223,8 +223,8 @@ export const FIX_LABEL = "Let's start fixing the vulnerabilities";
 
 /**
  * The mail that carries the report. Its button downloads the same interactive
- * report from the reminder server (mail clients cannot link to an attachment);
- * opened, the report connects to the reminder server by itself. Without a
+ * report from the CxMissionZero server (mail clients cannot link to an attachment);
+ * opened, the report connects to the CxMissionZero server by itself. Without a
  * download link, the button opens the project in Checkmarx One instead.
  */
 export function buildReportEmail(reportData, { greeting = 'Hi', topCount = 0, downloadUrl = '' } = {}) {
@@ -244,7 +244,7 @@ export function buildReportEmail(reportData, { greeting = 'Hi', topCount = 0, do
     action =
       `<p>${button(download, FIX_LABEL)}</p>` +
       `<p style="color:#667085;font-size:13px">Downloads your interactive report — the same file as attached. Open it in your browser: ` +
-      `it connects to the reminder server by itself, and you can run AI Triage and Remediation from there.</p>` +
+      `it connects to the CxMissionZero server by itself, and you can run AI Triage and Remediation from there.</p>` +
       (withUrls.length
         ? `<p style="color:#667085;font-size:13px">Or open in Checkmarx One: ${withUrls.map((p) => link(p.url, p.projectName)).join(' · ')}</p>`
         : '');
@@ -276,7 +276,7 @@ export function buildReportEmail(reportData, { greeting = 'Hi', topCount = 0, do
       ? [`${FIX_LABEL} (downloads your interactive report): ${download}`, ...withUrls.map((p) => `Open ${p.projectName} in Checkmarx One: ${p.url}`)]
       : withUrls.map((p) => `${FIX_LABEL} — ${p.projectName}: ${p.url}`)),
     '',
-    `The attached report lists your top ${topCount} findings. Open it in your browser: it connects to the reminder server ` +
+    `The attached report lists your top ${topCount} findings. Open it in your browser: it connects to the CxMissionZero server ` +
       'on its own (or asks you to), and you can triage every critical or high finding across all your projects in one click.',
   ].join('\n');
 

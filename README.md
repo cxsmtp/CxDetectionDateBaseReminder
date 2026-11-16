@@ -190,7 +190,7 @@ podman run --replace -d --name mission-zero -p 3443:3000 -v mission-zero-data:/d
 **Check it worked**
 - `podman logs mission-zero` shows `running on https://…`, and for A and C the certificate's name and expiry date. Self-signed also logs a warning: fine to try it out, not for everyday use. A certificate that does not fit its key, or a wrong `.pfx` password, stops the start with the reason; it never falls back to plain http.
 - The browser shows the padlock at `https://mz.company.com`.
-- **Settings → Reminder server address** shows the `https://` address, so new emailed reports use it. It comes from `REPORT_SERVER_URL`, unless an address was saved on that page before: then change it there, and click **Test**.
+- **Settings → CxMissionZero server address** shows the `https://` address, so new emailed reports use it. It comes from `REPORT_SERVER_URL`, unless an address was saved on that page before: then change it there, and click **Test**.
 
 **After switching to HTTPS**
 - **People sign in once** at the new address.

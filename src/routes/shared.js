@@ -23,4 +23,4 @@ export const escapeHtmlText = (text) => String(text ?? '').replace(/[&<>"']/g, (
 export const clientIp = (req) => req.ip || req.socket?.remoteAddress || '';
 
 /** Who an audit entry names when the server acted by itself. */
-export const SYSTEM_ACTOR = { kind: 'system', user: 'reminder server' };
+export const SYSTEM_ACTOR = { kind: 'system', user: 'CxMissionZero server' };

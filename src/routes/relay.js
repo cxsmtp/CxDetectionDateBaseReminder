@@ -160,7 +160,7 @@ export function registerRelayRoutes(app, d) {
       }
       const session = await relaySession(res);
       if (!session) {
-        auditRefusedRequest('triage', actor, findings, 'No stored Checkmarx One connection on the reminder server.', 'failed');
+        auditRefusedRequest('triage', actor, findings, 'No stored Checkmarx One connection on the CxMissionZero server.', 'failed');
         return;
       }
 
@@ -570,7 +570,7 @@ export function registerRelayRoutes(app, d) {
       }
       const session = await relaySession(res);
       if (!session) {
-        auditRefusedRequest('remediation', actor, findings, 'No stored Checkmarx One connection on the reminder server.', 'failed');
+        auditRefusedRequest('remediation', actor, findings, 'No stored Checkmarx One connection on the CxMissionZero server.', 'failed');
         return;
       }
 
@@ -695,7 +695,7 @@ export function registerRelayRoutes(app, d) {
             error: error.status === 402
               ? 'Checkmarx One has no credits left for AI Remediation.'
               : error.status === 403
-                ? "The reminder server's Checkmarx One account is not allowed to run AI Remediation."
+                ? "The CxMissionZero server's Checkmarx One account is not allowed to run AI Remediation."
                 : `AI Remediation could not start: ${relayError(error)}`,
           });
         } finally {

@@ -48,7 +48,7 @@ export function registerHttpsRoutes(app, d) {
     },
   };
 
-  /** The names people use to reach this server: this page's, the reminder server address's, and any given. */
+  /** The names people use to reach this server: this page's, the CxMissionZero server address's, and any given. */
   function httpsHosts(req, extra = []) {
     const hosts = new Set();
     const add = (value) => {
@@ -153,7 +153,7 @@ export function registerHttpsRoutes(app, d) {
     const mode = String(req.body?.mode ?? '');
     const from = httpsManager.mode;
     httpsManager.setMode(mode, { secure: Boolean(req.secure), confirm: Boolean(req.body?.confirm), by: actor.user });
-    // Emailed reports carry the reminder server address: the https one from now on.
+    // Emailed reports carry the CxMissionZero server address: the https one from now on.
     let addressChanged = '';
     if (mode === 'https' && req.body?.updateAddress) {
       const current = settingsStore.get().links.reportServerUrl;
@@ -164,7 +164,7 @@ export function registerHttpsRoutes(app, d) {
       }
     }
     const names = { http: 'HTTP only', both: 'HTTP and HTTPS side by side', https: 'HTTPS only (http redirects to https)' };
-    auditHttps(req, actor, `Server switched from ${names[from]} to ${names[mode]}.${addressChanged ? ` Reminder server address set to ${addressChanged}.` : ''}`, { from, to: mode });
+    auditHttps(req, actor, `Server switched from ${names[from]} to ${names[mode]}.${addressChanged ? ` CxMissionZero server address set to ${addressChanged}.` : ''}`, { from, to: mode });
     console.log(`[https] ${names[mode]}, switched by ${logSafe(actor.user)}.`);
     res.json({ ...(await httpsStatus(req)), addressChanged });
   }));

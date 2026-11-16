@@ -33,7 +33,7 @@ function start(env) {
   let log = '';
   const server = spawn(process.execPath, ['src/server.js'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(APP_PORT), HOST: '127.0.0.1', HTTPS: 'off', DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-')), BACKUP_INTERVAL_HOURS: '0', CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', SMTP_HOST: '', GITHUB_TOKEN: '', UPDATE_IMAGE: '127.0.0.1:1/none/none', ...env },
+    env: { ...process.env, PORT: String(APP_PORT), HOST: '127.0.0.1', HTTPS: 'off', DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-')), BACKUP_INTERVAL_HOURS: '0', CALCULATOR_BUILTIN: 'on', CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', SMTP_HOST: '', GITHUB_TOKEN: '', UPDATE_IMAGE: '127.0.0.1:1/none/none', ...env },
   });
   server.stdout.on('data', (d) => (log += d));
   server.stderr.on('data', (d) => (log += d));

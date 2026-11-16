@@ -16,7 +16,7 @@ export function createReportServerAddress(d) {
 
   /** Where emailed reports reach this server: the configured address, else the one the dashboard is using. */
   /**
-   * The reminder server address put into every report, so anyone opening it can
+   * The CxMissionZero server address put into every report, so anyone opening it can
    * connect: the Settings page, else REPORT_SERVER_URL / PUBLIC_URL, else the
    * address the dashboard is open on. Reports sent with nobody at the dashboard
    * (automatic reminders) use the last address an administrator reached it on.

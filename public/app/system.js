@@ -510,7 +510,7 @@ export function wireAboutAndUpdates() {
 }
 
 // ---------------------------------------------------------------------------
-// Reminder server address put into every report
+// CxMissionZero server address put into every report
 // ---------------------------------------------------------------------------
 
 const SERVER_SOURCES = {
@@ -687,7 +687,7 @@ export function wireServerConnections() {
     try {
       const response = await fetch(`${url}/api/relay/ping`, { cache: 'no-store' });
       const body = await response.json().catch(() => null);
-      if (body?.service !== 'mission-zero-relay') throw new Error(`${url} answered, but not as this reminder server.`);
+      if (body?.service !== 'mission-zero-relay') throw new Error(`${url} answered, but not as this CxMissionZero server.`);
       result.className = 'status ok';
       result.textContent = `Reachable from this browser. Readers on other networks need the same access (company network or VPN).${typed && typed !== state.settings?.links?.reportServerUrl ? ' Save to use it.' : ''}`;
     } catch (error) {
@@ -931,7 +931,7 @@ function renderHttps(s) {
   $('https-undo').hidden = s.mode !== 'https';
   const addressHttps = /^https:/i.test(reminder);
   $('https-update-address').closest('label').hidden = addressHttps || s.mode === 'https';
-  $('https-update-address-label').textContent = `Also put ${s.viewing.httpsUrl} into new reports, as the Reminder server address (now ${reminder || 'none'})`;
+  $('https-update-address-label').textContent = `Also put ${s.viewing.httpsUrl} into new reports, as the CxMissionZero server address (now ${reminder || 'none'})`;
   const hint = $('https-switch-hint');
   hint.className = 'https-note';
   if (s.mode === 'both' && !s.viewing.secure) {

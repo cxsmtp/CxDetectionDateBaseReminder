@@ -66,7 +66,7 @@ async function saveTrackedReport() {
 
 const TRACK_POLL_MS = 30_000;
 let trackTimer = null;
-// The reminder server's time zone, which automatic reminders run in.
+// The CxMissionZero server's time zone, which automatic reminders run in.
 let serverZone = { name: '', offset: 'UTC' };
 const zoneLabel = () => (serverZone.name ? `${serverZone.name} (${serverZone.offset})` : serverZone.offset);
 
@@ -899,7 +899,7 @@ async function verifyGraceChange(event) {
   }
 }
 
-/** A time as the reminder server's clock shows it. */
+/** A time as the CxMissionZero server's clock shows it. */
 function serverTime(iso) {
   try {
     return new Date(iso).toLocaleString(undefined, serverZone.name ? { timeZone: serverZone.name, dateStyle: 'medium', timeStyle: 'short' } : undefined);

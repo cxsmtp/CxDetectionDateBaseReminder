@@ -52,7 +52,7 @@ export const PERMISSIONS = [
   { id: 'branding.view', group: 'Settings', label: 'See the Branding page', description: 'Open Settings → Branding: the organisation’s names, logo and colours that everyone uses by default.' },
   { id: 'settings.branding', group: 'Settings', label: 'Branding', description: 'Change the organisation’s names, logo and colours.' },
   { id: 'branding.personal', group: 'Settings', label: 'Their own branding', description: 'Set their own names, logo and colours under Settings → Your branding, for their demonstrations: the reports and emails they make then carry them. Everyone else keeps the organisation’s.' },
-  { id: 'settings.links', group: 'Settings', label: 'Links & server address', description: 'Change links into Checkmarx One and the reminder server address.' },
+  { id: 'settings.links', group: 'Settings', label: 'Links & server address', description: 'Change links into Checkmarx One and the CxMissionZero server address.' },
   { id: 'settings.ai', group: 'Settings', label: 'AI Triage & Remediation rules', description: 'Allow triage and remediation from reports, re-triage, and the administrator contact.' },
   { id: 'settings.automation', group: 'Settings', label: 'Automation', description: 'Change, run and reset automatic reminders.' },
   { id: 'integration.cxone', group: 'Integrations', label: 'Checkmarx One integration', description: 'Connect the server to Checkmarx One (its API key and endpoints).', special: true },

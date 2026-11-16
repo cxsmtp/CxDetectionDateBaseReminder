@@ -419,7 +419,7 @@ export function registerTrackedReportRoutes(app, d) {
     if (!window) return { status: 409, error: report.latest?.closure?.closed ? 'The rescan opens in a moment: try again shortly.' : 'Not every finding in this report is dealt with yet: triage or fix the rest first.' };
     if (window.startedAt || report.verification?.round === window.round) return { status: 409, error: 'This round is already being rescanned.' };
     const session = await resolveAutomationSession();
-    if (!session) return { status: 503, error: 'The reminder server has no Checkmarx One connection right now.' };
+    if (!session) return { status: 503, error: 'The CxMissionZero server has no Checkmarx One connection right now.' };
     await startVerification(report, session, { by: email, reason: `started by ${email}, who fixed the findings` });
     window.startedAt = new Date().toISOString();
     window.startedBy = email;
@@ -685,7 +685,7 @@ export function registerTrackedReportRoutes(app, d) {
       }
       try {
         const server = resolveReportServer(null, settings);
-        if (!server.url) console.warn(`! [reports] "${logSafe(report.name)}": sent without a reminder server address — set it in Settings → Links or REPORT_SERVER_URL.`);
+        if (!server.url) console.warn(`! [reports] "${logSafe(report.name)}": sent without a CxMissionZero server address — set it in Settings → Links or REPORT_SERVER_URL.`);
         const result = await remindTrackedReport(session, report, auto, server.url, { automatic: true });
         auto.lastError = result.status === 200 ? '' : result.body?.error || 'Failed';
       } catch (error) {
@@ -1091,7 +1091,7 @@ export function registerTrackedReportRoutes(app, d) {
     const window = currentWindow(report);
     if (!window) return res.status(409).json({ error: 'Not every finding in scope is dealt with yet: the developers\' rescan opens then.' });
     const links = (window.developers ?? []).map((d) => ({ email: d.email, name: d.name, projects: d.projects, link: rescanLink(report, d.email, window) }));
-    if (links.some((l) => !l.link)) return res.status(409).json({ error: 'Set the reminder server address (Settings → Server address) so the links can reach this server.' });
+    if (links.some((l) => !l.link)) return res.status(409).json({ error: 'Set the CxMissionZero server address (Settings → Server address) so the links can reach this server.' });
     res.json({ dueAt: window.dueAt, links });
   });
 

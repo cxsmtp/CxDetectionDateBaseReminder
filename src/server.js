@@ -481,7 +481,7 @@ if (restoredAtStart) {
     type: 'backup',
     outcome: 'changed',
     reason: `State restored from the backup of ${restoredAtStart.createdAt} (host ${restoredAtStart.host})${restoredFromMailbox ? `, found by itself in the backup mailbox ${backupMailbox.email} (${restoredFromMailbox.name})` : ''}.`,
-    actor: { kind: 'system', user: 'reminder server' },
+    actor: { kind: 'system', user: 'CxMissionZero server' },
     details: { restore: { createdAt: restoredAtStart.createdAt, files: restoredAtStart.files, sha256: restoredAtStart.sha256, replacedDir: restoredAtStart.replacedDir } },
   });
 }
@@ -803,13 +803,13 @@ const RELAY_MAX_IN_FLIGHT = Math.max(10, Number(process.env.RELAY_MAX_IN_FLIGHT)
 const relayStats = { inFlight: 0, peak: 0, served: 0, shed: 0 };
 app.use('/api/relay', (req, res, next) => {
   if (!terms.organisation() && req.path !== '/ping') {
-    return res.status(403).json({ error: 'This reminder server is not in use yet: an administrator must first accept its terms of use.' });
+    return res.status(403).json({ error: 'This CxMissionZero server is not in use yet: an administrator must first accept its terms of use.' });
   }
   if (relayStats.inFlight >= RELAY_MAX_IN_FLIGHT) {
     relayStats.shed += 1;
     const retryAfter = 2 + Math.floor(Math.random() * 4);
     res.set('Retry-After', String(retryAfter));
-    return res.status(503).json({ error: 'The reminder server is busy; retrying in a moment.', busy: true, retryAfter });
+    return res.status(503).json({ error: 'The CxMissionZero server is busy; retrying in a moment.', busy: true, retryAfter });
   }
   relayStats.inFlight += 1;
   relayStats.peak = Math.max(relayStats.peak, relayStats.inFlight);
@@ -1498,7 +1498,7 @@ if (restoredAtStart) {
 }
 
 /**
- * The https:// address for a request that came over plain http: the reminder server address
+ * The https:// address for a request that came over plain http: the CxMissionZero server address
  * when it is an https one, else the same host (and port) on https. `port`: the https port
  * people use, when the request came to another port (HTTP_REDIRECT_PORT).
  */
@@ -1540,7 +1540,7 @@ function httpsOnlyAnswer(req, res, { port } = {}) {
       }
     }
     res.writeHead(426, { 'Content-Type': 'application/json; charset=utf-8' });
-    return res.end(JSON.stringify({ error: `This reminder server now uses HTTPS only. Its address is ${origin}`, movedTo: origin }));
+    return res.end(JSON.stringify({ error: `This CxMissionZero server now uses HTTPS only. Its address is ${origin}`, movedTo: origin }));
   }
   res.writeHead(308, { Location: `${origin}${url}` });
   return res.end();
