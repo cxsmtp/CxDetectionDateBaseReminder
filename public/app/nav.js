@@ -9,10 +9,12 @@ import { initGovern } from '../govern.js';
 import { initMobile } from '../mobile.js';
 import { SETTINGS_PARTS, navFoldsFrom, navIsFlat, settingsSectionFor } from '../nav-map.js';
 import { t } from '../i18n.js';
-import { applyMyAppBranding, checkFocus, closeProfileOf, helpRoute, leaveSettings, loadAccess, loadActivation, loadAutomation, loadFusion, loadHandsOff, loadHelp, loadHttps, loadImpact, loadMyBranding, loadPool, loadTenants, loadTrackedReports, loadUpdates, loadUsage, loadUserActivity, openRail, renderAbout, renderAudit, renderBeta, renderBetaScope, renderColumnMenu, renderEmailPreview, renderProfile, renderProjectsHead, renderRailScope, renderSettings, reportVisit, rpState, showTermsOverlay, usageTimer, userActivity } from '../app.js';
+import { checkFocus, helpRoute, leaveSettings, loadAccess, loadActivation, loadAutomation, loadFusion, loadHandsOff, loadHelp, loadHttps, loadImpact, loadPool, loadTenants, loadTrackedReports, loadUpdates, loadUsage, loadUserActivity, openRail, renderAbout, renderAudit, renderBeta, renderBetaScope, renderColumnMenu, renderEmailPreview, renderProjectsHead, renderRailScope, renderSettings, reportVisit, rpState, usageTimer, userActivity } from '../app.js';
 import { $, can, canAny, state } from './state.js';
 import { escapeHtml, fmtDateTime } from './format.js';
 import { api, handleAuthLoss, renderLogsPage, setStatus, showError, toast } from './core.js';
+import { applyMyAppBranding, closeProfileOf, loadMyBranding, renderProfile } from './profile.js';
+import { showTermsOverlay } from './session.js';
 
 /** Which permissions open each page (any one of them). */
 export const PAGE_PERMS = {

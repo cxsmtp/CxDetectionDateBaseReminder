@@ -1,9 +1,10 @@
 // What every page uses: calls to the server with their flares, the browser's own log and the Logs page that shows
 // it, script errors sent to the troubleshooting log, status lines and their help, the certificate prompt and toasts.
 import { nextSpeedster } from '../speedsters.js';
-import { loadTrust, loadUserActivity, refreshConnectionsSoon, showSignIn, userActivity } from '../app.js';
+import { loadTrust, loadUserActivity, userActivity } from '../app.js';
 import { $, can, state } from './state.js';
 import { escapeHtml, formatDate } from './format.js';
+import { refreshConnectionsSoon, showSignIn } from './session.js';
 
 // Script errors go to the server's troubleshooting log (scrubbed there; at most 20 per page load).
 let reportedErrors = 0;
