@@ -5846,6 +5846,17 @@
   "Off: add who gets it under Settings → AI & credit pool.": "關閉：請在「設定 → AI 與點數額度」下新增收件者。",
   "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "Cx 點數計算工具獨立執行，有自己的位址和自己的登入。開啟後，對於可以使用計算工具的角色，Cx 點數計算工具會出現在選單中，並在新分頁中開啟該位址。",
   "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "關閉時（初始狀態），選單中沒有計算工具；位址會保留。CxMissionZero 只是連結到該位址；誰可以開啟它由那邊決定。",
-  "Saved. Cx Credits Calculator is off: the menu does not show it.": "已儲存。Cx 點數計算工具已關閉：選單中不顯示。"
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "已儲存。Cx 點數計算工具已關閉：選單中不顯示。",
+  "Not loaded yet": "尚未載入",
+  "Not loaded yet.": "尚未載入。",
+  "It loads by itself when this page is opened, or with Load below.": "開啟此頁面時會自動載入，也可以按下方的「載入」。",
+  "Waiting for its turn": "正在排隊等候",
+  "Reading its projects…": "正在讀取其專案…",
+  "projects read": "個專案已讀取",
+  "Refresh every tenant": "重新整理所有租戶",
+  "Each tenant loads by itself when this page is opened: its projects show here as it finishes.": "開啟此頁面時，每個租戶都會自動載入：載入完成後，其專案會顯示在這裡。",
+  "Each tenant's figures are what it holds now: every open finding as last loaded, the credits it last read and its credit pool (and Govern's budgets where Govern runs). For people who may fetch findings, this page loads each tenant by itself when it is opened, with that tenant's own Checkmarx One connection; Refresh every tenant reads them all again. Loading reads Checkmarx One and changes nothing there or in a tenant. The \"Go to\" buttons take you into the tenant, as the tenant switcher does.": "每個租戶的數字皆為其目前保存的內容：最近一次載入時的所有未解決檢測結果、最近一次讀取的點數及其點數額度（若有執行治理，另含治理的預算）。對於可以取得檢測結果的人員，此頁面在開啟時會使用各租戶自己的 Checkmarx One 連線自動載入每個租戶；「重新整理所有租戶」會重新讀取全部租戶。載入只會讀取 Checkmarx One，不會變更其中或任何租戶中的內容。「前往」按鈕會帶您進入該租戶，與租戶切換器的作用相同。",
+  "Reads every tenant's open findings and credits from Checkmarx One again, each with its own connection": "使用各租戶自己的連線，從 Checkmarx One 重新讀取每個租戶的未解決檢測結果與點數",
+  "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "此租戶沒有已儲存的 Checkmarx One 連線。請開啟該租戶，並在 設定 → Checkmarx One 中連線一次。"
  }
 }

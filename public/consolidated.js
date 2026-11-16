@@ -1,6 +1,8 @@
 /**
  * Labs → Consolidated view (Beta): every connected tenant in one place, read only (GET /api/consolidated reads each
- * tenant's own memory; each visit is written to that tenant's audit log). Tabs: Overview (a card per tenant and the
+ * tenant's own memory; each visit is written to that tenant's audit log). For someone who may fetch findings the page
+ * loads the tenants itself: those never loaded (or not for a day) when it is opened, all of them with Refresh every
+ * tenant, one with the button on its card (POST /api/consolidated/load; GET says how far each has got). Tabs: Overview (a card per tenant and the
  * tenants side by side), Projects (every tenant's Workbench projects), Fusion, Credits, Status board. Every row and
  * card names its tenant in the tenant's colour; every table has a tenant filter; "Open" switches to that tenant the
  * normal way (POST /api/me/tenant).
@@ -15,9 +17,12 @@ const HEALTH = {
   healthy: ['Healthy', ''],
   failed: ['Last fetch failed', 'warn'],
   stale: ['Not fetched for a day', 'warn'],
-  notLoaded: ['Not loaded — open it once', 'gv-dashed'],
+  notLoaded: ['Not loaded yet', 'gv-dashed'],
+  loading: ['Loading…', 'gv-dashed'],
 };
 export const healthBadge = (h) => `<span class="badge ${HEALTH[h]?.[1] ?? ''}">${esc(HEALTH[h]?.[0] ?? h)}</span>`;
+/** How often the page asks how far the loads have got. */
+const LOAD_POLL_MS = 3000;
 
 export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateTime }) {
   let data = null;
@@ -36,7 +41,7 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
     return !w.length || w.some((x) => fields.join(' ').toLowerCase().includes(x));
   };
 
-  async function load({ quiet = false } = {}) {
+  async function load({ quiet = false, auto = true } = {}) {
     if (loading) return;
     loading = true;
     if (!data) setStatus('cv-status', 'Reading every tenant…');
@@ -49,6 +54,50 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
     } finally {
       loading = false;
     }
+    // Opened (or come back to): tenants never loaded, or not for a day, are loaded now; the others are left alone.
+    if (auto && data?.canLoad && tenants().some((t) => !t.loading && (t.health === 'notLoaded' || t.health === 'stale'))) await startLoad({ only: 'missing' }, { quiet: true });
+    else if (tenants().some((t) => t.loading)) follow();
+  }
+
+  // ---- Loading tenants from here: start, then follow how far each has got ----
+  let following = null;
+  /** Ask the server to load tenants (all of this person's, those named, or only those missing), then follow them. */
+  async function startLoad(body, { quiet = false } = {}) {
+    try {
+      const { started } = await api('/api/consolidated/load', { method: 'POST', body: JSON.stringify(body), quiet: true });
+      for (const t of tenants()) if (started.includes(t.id)) t.loading = { done: 0, total: null, waiting: true };
+      render();
+      if (started.length) follow();
+    } catch (error) {
+      if (!quiet) toast(error.message, 'error');
+    }
+  }
+  /** While a tenant is loading and this page is open: its progress every few seconds, and the figures once it is done. */
+  function follow() {
+    if (following) return;
+    following = setInterval(async () => {
+      if ($('page-consolidated').hidden || !data) return stopFollowing();
+      try {
+        const status = await api('/api/consolidated/load', { quiet: true });
+        const now = new Map(status.tenants.map((t) => [t.id, t]));
+        let finished = false;
+        for (const t of tenants()) {
+          const s = now.get(t.id);
+          if (!s) continue;
+          if (t.loading && !s.loading) finished = true;
+          t.loading = s.loading;
+        }
+        if (finished) await load({ quiet: true, auto: false });
+        else renderOverview();
+        if (!tenants().some((t) => t.loading)) stopFollowing();
+      } catch {
+        stopFollowing();
+      }
+    }, LOAD_POLL_MS);
+  }
+  function stopFollowing() {
+    clearInterval(following);
+    following = null;
   }
 
   /** "All 241 · acme-eu 112 · …": a tenant filter above a table. */
@@ -77,6 +126,9 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
     $('cv-n-projects').textContent = num(data.projects.length);
     const none = !tenants().some((t) => t.loaded);
     $('cv-empty').hidden = !none;
+    // Whoever may fetch findings loads the tenants from here; anyone else is told where they are loaded.
+    for (const el of document.querySelectorAll('#page-consolidated [data-cv-can-load]')) el.hidden = (el.dataset.cvCanLoad === 'yes') !== Boolean(data.canLoad);
+    $('cv-refresh').disabled = tenants().length > 0 && tenants().every((t) => t.loading);
     renderOverview();
     renderProjects();
     renderFusion();
@@ -88,17 +140,27 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
   function card(t) {
     const credits = t.credits
       ? `<b translate="no">${num(t.credits.used)}</b> <span>used</span> · <b translate="no">${num(t.credits.available)}</b> <span>available</span>`
-      : '<span class="hint">Not read yet: open Credit Control in this tenant</span>';
+      : data.canLoad ? '<span class="hint">Not read yet</span>' : '<span class="hint">Not read yet: open Credit Control in this tenant</span>';
     const total = t.credits ? (t.credits.total ?? (t.credits.used ?? 0) + (t.credits.available ?? 0)) : 0;
     const pct = total ? Math.min(100, ((t.credits.used ?? 0) / total) * 100) : 0;
     const govern = !t.govern ? '<span>Govern off</span>' : t.govern.on === null ? '<span class="hint">Govern not started since the server started</span>' : `<span>Govern on</span>${t.govern.budgeted !== null ? ` · <span translate="no">${num(t.govern.budgeted)}</span> <span>in budgets</span>` : ''}${t.govern.restricted ? ` · <span translate="no">${num(t.govern.restricted)}</span> <span>restricted</span>` : ''}`;
     const fetch = t.health === 'notLoaded' ? '<span class="hint">Never, since the server started</span>' : `<span translate="no">${esc(ago(t.fetchedAt) || '—')}</span>${t.error && t.health === 'failed' ? ` · <span class="bad-text"><span translate="no">${esc(fmtDateTime(t.error.at))}</span> <span>failed:</span> <span translate="no">${esc(t.error.message)}</span></span>` : ''}`;
     const figuresHtml = t.loaded
       ? `<div class="fusion-big"><div><b translate="no">${num(t.projects)}</b><span>projects</span></div><div><b translate="no">${num(t.overdue)}</b><span>overdue</span></div><div><b translate="no">${num(t.total)}</b><span>open results</span></div></div>${sevChips(t.sev)}`
-      : `<p class="cv-not-loaded"><strong>Not loaded — open it once.</strong> <span>Load findings on its Workbench: its projects show here from then on.</span></p>`;
+      : t.loading
+        ? ''
+        : data.canLoad
+          ? // (One whose load failed is not tried again by itself: why is under Last fetch, and Load tries again.)
+            `<p class="cv-not-loaded"><strong>Not loaded yet.</strong>${t.health === 'failed' ? '' : ' <span>It loads by itself when this page is opened, or with Load below.</span>'}</p>`
+          : `<p class="cv-not-loaded"><strong>Not loaded — open it once.</strong> <span>Load findings on its Workbench: its projects show here from then on.</span></p>`;
+    // Being loaded now: how far it has got (it waits its turn while others are read).
+    const progress = !t.loading
+      ? ''
+      : `<p class="cv-not-loaded cv-loading" role="status"><strong>Loading…</strong> ${t.loading.waiting ? '<span>Waiting for its turn</span>' : t.loading.total === null ? '<span>Reading its projects…</span>' : `<span><b translate="no">${num(t.loading.done)}</b> <span>of</span> <b translate="no">${num(t.loading.total)}</b> <span>projects read</span></span>`}</p>`;
+    const loadButton = data.canLoad ? `<button type="button" class="sm" data-cv-load="${esc(t.id)}"${t.loading ? ' disabled' : ''}><span>${t.loaded ? 'Refresh' : 'Load'}</span></button>` : '';
     return `<section class="cv-card tc-${colourIndex(t.colour)}" aria-label="${esc(t.name)}">
-      <div class="cv-card-head">${tenantChip(t.id, t.name, t.colour)}${healthBadge(t.health)}</div>
-      ${figuresHtml}
+      <div class="cv-card-head">${tenantChip(t.id, t.name, t.colour)}${healthBadge(t.loading ? 'loading' : t.health)}</div>
+      ${figuresHtml}${progress}
       <div class="gv-tenantbar" role="img" aria-label="${esc(t.credits ? `${num(t.credits.used)} of ${num(total)} credits used` : 'Credits not read yet')}"><span class="t-pool" style="width:${pct.toFixed(1)}%"></span></div>
       <dl class="fusion-kv">
         <dt>AI credits</dt><dd>${credits}</dd>
@@ -106,7 +168,7 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
         <dt>Budgets</dt><dd>${govern}</dd>
         <dt>Last fetch</dt><dd>${fetch}</dd>
       </dl>
-      <div class="actions"><button type="button" class="sm" data-cv-open="${esc(t.id)}"><span>Go to</span> <span translate="no">${esc(t.name)}</span> ↗</button></div>
+      <div class="actions">${loadButton}<button type="button" class="sm" data-cv-open="${esc(t.id)}"><span>Go to</span> <span translate="no">${esc(t.name)}</span> ↗</button></div>
     </section>`;
   }
 
@@ -118,7 +180,7 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
     { id: 'used', label: 'Credits used', num: true, sort: (t) => t.credits?.used ?? null, cell: (t) => `<td class="num">${num(t.credits?.used)}</td>`, csv: (t) => t.credits?.used ?? '', report: (t) => num(t.credits?.used) },
     { id: 'available', label: 'Available', num: true, sort: (t) => t.credits?.available ?? null, cell: (t) => `<td class="num">${num(t.credits?.available)}</td>`, csv: (t) => t.credits?.available ?? '', report: (t) => num(t.credits?.available) },
     { id: 'fetch', label: 'Last fetch', sort: { value: (t) => (t.fetchedAt ? Date.parse(t.fetchedAt) : null), text: (t) => ago(t.fetchedAt) }, cell: (t) => `<td translate="no">${esc(ago(t.fetchedAt) || '—')}</td>`, csv: (t) => t.fetchedAt ?? '', report: (t) => esc(t.fetchedAt ? fmtDateTime(t.fetchedAt) : '—') },
-    { id: 'health', label: 'Health', sort: (t) => HEALTH[t.health]?.[0] ?? t.health, cell: (t) => `<td>${healthBadge(t.health)}</td>`, csv: (t) => HEALTH[t.health]?.[0] ?? t.health, report: (t) => esc(HEALTH[t.health]?.[0] ?? t.health) },
+    { id: 'health', label: 'Health', sort: (t) => HEALTH[t.health]?.[0] ?? t.health, cell: (t) => `<td>${healthBadge(t.loading ? 'loading' : t.health)}</td>`, csv: (t) => HEALTH[t.health]?.[0] ?? t.health, report: (t) => esc(HEALTH[t.health]?.[0] ?? t.health) },
   ];
 
   /** Draw a table's headings from its columns (only when they change), its rows sorted and filtered. */
@@ -256,6 +318,9 @@ export function initConsolidated({ api, $, toast, showError, setStatus, fmtDateT
     }
     const open = event.target.closest('[data-cv-open]');
     if (open) return openTenant(open.dataset.cvOpen);
+    const one = event.target.closest('[data-cv-load]');
+    if (one && data) return startLoad({ tenants: [one.dataset.cvLoad] });
+    if (event.target.closest('#cv-refresh') && data) return startLoad({});
     const more = event.target.closest('[data-cv-more]');
     if (more) {
       limits[more.dataset.cvMore] += PAGE_ROWS;

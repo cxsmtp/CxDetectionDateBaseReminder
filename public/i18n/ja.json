@@ -5846,6 +5846,17 @@
   "Off: add who gets it under Settings → AI & credit pool.": "オフ：設定 → AIとクレジットプールで送信先を追加してください。",
   "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "Cx クレジット計算ツールは単独で、専用のアドレスと独自のサインインで動作します。オンにすると、計算ツールを使えるロールのメニューに Cx クレジット計算ツールが表示され、そのアドレスを新しいタブで開きます。",
   "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "オフ（初期状態）では、メニューに計算ツールは表示されません。アドレスは保持されます。CxMissionZero はそのアドレスにリンクするだけで、誰が開けるかはそちら側で決まります。",
-  "Saved. Cx Credits Calculator is off: the menu does not show it.": "保存しました。Cx クレジット計算ツールはオフです。メニューには表示されません。"
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "保存しました。Cx クレジット計算ツールはオフです。メニューには表示されません。",
+  "Not loaded yet": "未読み込み",
+  "Not loaded yet.": "まだ読み込まれていません。",
+  "It loads by itself when this page is opened, or with Load below.": "このページを開くと自動的に読み込まれます。下の「読み込み」でも読み込めます。",
+  "Waiting for its turn": "順番待ち",
+  "Reading its projects…": "プロジェクトを読み取っています…",
+  "projects read": "プロジェクト読み取り済み",
+  "Refresh every tenant": "すべてのテナントを更新",
+  "Each tenant loads by itself when this page is opened: its projects show here as it finishes.": "各テナントは、このページを開くと自動的に読み込まれます。読み込みが終わると、そのプロジェクトがここに表示されます。",
+  "Each tenant's figures are what it holds now: every open finding as last loaded, the credits it last read and its credit pool (and Govern's budgets where Govern runs). For people who may fetch findings, this page loads each tenant by itself when it is opened, with that tenant's own Checkmarx One connection; Refresh every tenant reads them all again. Loading reads Checkmarx One and changes nothing there or in a tenant. The \"Go to\" buttons take you into the tenant, as the tenant switcher does.": "各テナントの数値は、そのテナントが現在保持している内容です：最後に読み込んだ時点のすべての未解決の検出結果、最後に読み取ったクレジット、クレジットプール（統制が稼働している場合は統制の予算）。検出結果を取得できるユーザーの場合、このページを開くと、各テナント自身のCheckmarx One接続を使って各テナントが自動的に読み込まれます。「すべてのテナントを更新」を押すと、すべてを再度読み取ります。読み込みはCheckmarx Oneを読み取るだけで、Checkmarx Oneもテナントも変更しません。「移動」ボタンを押すと、テナント切り替えと同様にそのテナントに移動します。",
+  "Reads every tenant's open findings and credits from Checkmarx One again, each with its own connection": "各テナントの未解決の検出結果とクレジットを、それぞれの接続でCheckmarx Oneから再度読み取ります",
+  "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "このテナントには保存されたCheckmarx One接続がありません。テナントを開き、設定 → Checkmarx One で一度接続してください。"
  }
 }
