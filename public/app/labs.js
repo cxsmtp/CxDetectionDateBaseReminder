@@ -148,6 +148,8 @@ const fusionCell = {
   count: (n, cls = '') => `<td class="num c-count ${n ? cls : 'zero'}">${fmt(n)}</td>`,
   maybe: (n) => `<td class="num${n === null || n === undefined ? ' zero' : ''}">${n === null || n === undefined ? '—' : fmt(n)}</td>`,
 };
+/** The results column's heading, by what is ticked: Fusion alone, LAST alone, or both (each row by its own scan). */
+const FUSION_RESULTS_HEADING = { FUSION: 'Fusion / total results', LAST: 'LAST results', 'FUSION,LAST': 'AI / total results' };
 const FUSION_COLUMNS = [
   { id: 'project', label: 'Project', fixed: true, sort: (r) => r.name, cell: (r) => `<td class="fusion-proj-name"><button type="button" class="link" data-fusion-project="${escapeHtml(r.projectId)}" title="Show its vulnerabilities">${escapeHtml(r.name)}</button></td>` },
   { id: 'scan', label: 'Scan', title: 'Fusion: its latest scan ran the AI engine with Fusion on. LAST: with Fusion off (LLM-based scanning alone).', sort: (r) => SCAN_TYPE_LABEL[r.scanType] ?? r.scanType, cell: (r) => `<td><span class="scan-tag scan-tag-${escapeHtml(r.scanType)}">${escapeHtml(SCAN_TYPE_LABEL[r.scanType] ?? r.scanType)}</span></td>` },
@@ -169,12 +171,19 @@ const FUSION_COLUMNS = [
   },
   {
     // The id is as before ("share"), so the columns people chose to show, hide or reorder stay as they left them.
+    // Its heading follows the ticks; each row follows its own scan: a Fusion scan's AI results over all of its SAST
+    // results (12 / 140), a LAST scan's AI results alone (there is no traditional SAST to compare them with).
     id: 'share',
-    label: 'Total results',
+    label: () => FUSION_RESULTS_HEADING[fusionEngines().join(',')] ?? 'AI / total results',
     num: true,
-    title: 'All of its latest scan\'s SAST results, the AI engine\'s and traditional SAST\'s together; hover a figure for the AI engine\'s share',
-    sort: (r) => r.sastResults,
-    cell: (r) => (r.sastResults === null ? '<td class="num zero" title="Checkmarx One did not say how many SAST results its latest scan has">—</td>' : `<td class="num${r.sastResults ? '' : ' zero'}" title="${escapeHtml(r.aiShare === null ? '' : `${fmt(r.total)} of ${fmt(r.sastResults)} SAST results are the AI engine's: ${fmt(r.aiShare)}%`)}">${fmt(r.sastResults)}</td>`),
+    title: 'What the AI engine reported; for a Fusion scan, all of its latest scan\'s SAST results after the slash (12 / 140). Hover a figure for the AI engine\'s share',
+    sort: { value: (r) => r.total ?? 0, text: (r) => (r.scanType === 'last' || r.sastResults === null ? fmt(r.total ?? 0) : `${fmt(r.total ?? 0)} / ${fmt(r.sastResults)}`) },
+    cell: (r) => {
+      const ai = `<b>${fmt(r.total ?? 0)}</b>`;
+      if (r.scanType === 'last') return `<td class="num fusion-of-cell${r.total ? '' : ' zero'}" title="${escapeHtml(`${fmt(r.total ?? 0)} found by the AI engine alone (a LAST scan)`)}">${ai}</td>`;
+      if (r.sastResults === null) return `<td class="num fusion-of-cell" title="Checkmarx One did not say how many SAST results its latest scan has">${ai} <span class="fusion-of">/ —</span></td>`;
+      return `<td class="num fusion-of-cell" title="${escapeHtml(`${fmt(r.total ?? 0)} of ${fmt(r.sastResults)} SAST results are the AI engine's: ${fmt(r.aiShare ?? 0)}%`)}">${ai} <span class="fusion-of">/ ${fmt(r.sastResults)}</span></td>`;
+    },
   },
   { id: 'toVerify', label: 'To verify', num: true, title: 'Open risks still in Risk Hub\'s default state, To verify', sort: (r) => r.TO_VERIFY, cell: (r) => fusionCell.count(r.TO_VERIFY) },
   { id: 'confirmed', label: 'Confirmed', num: true, title: 'Open risks confirmed (by people or by AI Triage)', sort: (r) => r.CONFIRMED, cell: (r) => fusionCell.count(r.CONFIRMED) },
@@ -191,15 +200,22 @@ const FUSION_COLUMNS = [
 const fusionColumnsShown = () => columnsShownOf('fusion-projects', FUSION_COLUMNS);
 /** The sort and filters belong to one arrangement of the columns: another starts afresh. */
 const fusionTableKey = () => `fusion-projects:${fusionColumnsShown().map((c) => c.id).join(',')}`;
+/** The headings last drawn: drawn again only when they change (the ticks, the columns), so the sort and filter controls stay. */
+let fusionHeadDrawn = '';
 function renderFusionHead() {
   const shown = fusionColumnsShown();
   $('fusion-table').dataset.tt = fusionTableKey();
-  $('fusion-head').innerHTML = shown.map((c) => `<th${c.num ? ' class="num"' : ''}${c.title ? ` title="${escapeHtml(c.title)}"` : ''}>${escapeHtml(c.label)}</th>`).join('');
+  const html = shown.map((c) => `<th${c.num ? ' class="num"' : ''}${c.title ? ` title="${escapeHtml(c.title)}"` : ''}>${escapeHtml(typeof c.label === 'function' ? c.label() : c.label)}</th>`).join('');
+  if (html === fusionHeadDrawn && $('fusion-head').childElementCount) return;
+  fusionHeadDrawn = html;
+  $('fusion-head').innerHTML = html;
 }
 
 export function renderFusion() {
   const tiles = $('fusion-tiles');
   if (!tiles) return;
+  // The results column's heading says what the ticks show.
+  renderFusionHead();
   const { data, scope } = fusion;
   const engines = fusionEngines();
   const label = engineLabel(engines);

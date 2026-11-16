@@ -5860,6 +5860,10 @@
   "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "此租戶沒有已儲存的 Checkmarx One 連線。請開啟該租戶，並在 設定 → Checkmarx One 中連線一次。",
   "Total results": "結果總數",
   "All of its latest scan's SAST results, the AI engine's and traditional SAST's together; hover a figure for the AI engine's share": "其最近一次掃描的所有 SAST 結果，包含 AI 引擎與傳統 SAST 的結果；將滑鼠移到數字上可查看 AI 引擎所佔比例",
-  "{0} of {1} SAST results are the AI engine's: {2}%": "{1} 筆 SAST 結果中有 {0} 筆來自 AI 引擎：{2}%"
+  "{0} of {1} SAST results are the AI engine's: {2}%": "{1} 筆 SAST 結果中有 {0} 筆來自 AI 引擎：{2}%",
+  "Fusion / total results": "Fusion / 結果總數",
+  "AI / total results": "AI / 結果總數",
+  "What the AI engine reported; for a Fusion scan, all of its latest scan's SAST results after the slash (12 / 140). Hover a figure for the AI engine's share": "AI 引擎回報的結果；對於 Fusion 掃描，斜線後是其最近一次掃描的所有 SAST 結果（12 / 140）。將滑鼠移到數字上可查看 AI 引擎所佔比例",
+  "{0} found by the AI engine alone (a LAST scan)": "僅由 AI 引擎發現 {0} 筆（LAST 掃描）"
  }
 }

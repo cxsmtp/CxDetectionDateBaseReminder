@@ -5860,6 +5860,10 @@
   "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "Penyewa ini tidak mempunyai sambungan Checkmarx One yang disimpan. Buka penyewa itu dan sambungkannya sekali di bawah Tetapan → Checkmarx One.",
   "Total results": "Jumlah hasil",
   "All of its latest scan's SAST results, the AI engine's and traditional SAST's together; hover a figure for the AI engine's share": "Semua hasil SAST imbasan terkininya, hasil enjin AI dan SAST tradisional bersama-sama; tuding pada angka untuk melihat bahagian enjin AI",
-  "{0} of {1} SAST results are the AI engine's: {2}%": "{0} daripada {1} hasil SAST ialah hasil enjin AI: {2}%"
+  "{0} of {1} SAST results are the AI engine's: {2}%": "{0} daripada {1} hasil SAST ialah hasil enjin AI: {2}%",
+  "Fusion / total results": "Fusion / jumlah hasil",
+  "AI / total results": "AI / jumlah hasil",
+  "What the AI engine reported; for a Fusion scan, all of its latest scan's SAST results after the slash (12 / 140). Hover a figure for the AI engine's share": "Apa yang dilaporkan enjin AI; bagi imbasan Fusion, semua hasil SAST imbasan terkininya selepas garis condong (12 / 140). Tuding pada angka untuk melihat bahagian enjin AI",
+  "{0} found by the AI engine alone (a LAST scan)": "{0} ditemui oleh enjin AI sahaja (imbasan LAST)"
  }
 }
