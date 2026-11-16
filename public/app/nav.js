@@ -9,7 +9,7 @@ import { initGovern } from '../govern.js';
 import { initMobile } from '../mobile.js';
 import { SETTINGS_PARTS, navFoldsFrom, navIsFlat, settingsSectionFor } from '../nav-map.js';
 import { t } from '../i18n.js';
-import { loadAccess, loadFusion, loadImpact, loadPool, loadTrackedReports, loadUsage, loadUserActivity, renderAudit, renderBeta, renderBetaScope, reportVisit, rpState, usageTimer, userActivity } from '../app.js';
+import { loadAccess, loadFusion, loadImpact, loadPool, loadUsage, loadUserActivity, renderAudit, renderBeta, renderBetaScope, reportVisit, usageTimer, userActivity } from '../app.js';
 import { $, can, canAny, state } from './state.js';
 import { escapeHtml, fmtDateTime } from './format.js';
 import { api, handleAuthLoss, renderLogsPage, setStatus, showError, toast } from './core.js';
@@ -20,6 +20,7 @@ import { loadActivation, loadHttps, loadTenants, loadUpdates, renderAbout } from
 import { checkFocus, loadAutomation, loadHandsOff, renderEmailPreview } from './automation.js';
 import { openRail, renderRailScope } from './workbench.js';
 import { renderColumnMenu, renderProjectsHead } from './projects.js';
+import { loadTrackedReports, rpState } from './reports.js';
 import { helpRoute, loadHelp } from './help.js';
 
 /** Which permissions open each page (any one of them). */
