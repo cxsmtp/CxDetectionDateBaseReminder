@@ -126,6 +126,7 @@ import { registerSupportRoutes } from './routes/support.js';
 import { registerImpactRoutes } from './routes/impact.js';
 import { registerTrackedReportRoutes } from './routes/tracked-reports.js';
 import { registerRelayRoutes } from './routes/relay.js';
+import { createReportServerAddress } from './routes/report-server.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 /** Whose own branding (Settings → Your branding) the current request is made with: see presenting(). */
@@ -1226,6 +1227,13 @@ function activeConfig() {
   const pinned = settingsStore.get().endpoints.risksPath;
   return pinned ? { ...config, risks: { ...config.risks, path: pinned } } : config;
 }
+
+// ---- This server's address as others reach it: src/routes/report-server.js ---------------------------------------------
+const {
+  LOOPBACK, requestOrigin, resolveReportServer, reportServerUrl, reportServerWarnings, requestHost,
+} = createReportServerAddress({
+  tstate, settingsStore, httpsManager, can,
+});
 
 // ---- The git connections (GitHub, GitLab, Azure DevOps, Bitbucket): src/routes/git-connections.js ----------------------
 // Their helpers are made here, before the areas that use them; the route is registered further down.
@@ -4506,66 +4514,6 @@ app.post(
   }),
 );
 
-/** Where emailed reports reach this server: the configured address, else the one the dashboard is using. */
-/**
- * The reminder server address put into every report, so anyone opening it can
- * connect: the Settings page, else REPORT_SERVER_URL / PUBLIC_URL, else the
- * address the dashboard is open on. Reports sent with nobody at the dashboard
- * (automatic reminders) use the last address an administrator reached it on.
- */
-const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|0\.0\.0\.0)$/i;
-
-function requestOrigin(req) {
-  // Only a plain host[:port] (requestHost's rule): never a path, user name or other site smuggled into a header.
-  const forwardedHost = viaTrustedProxy(req) ? String(req.get('x-forwarded-host') ?? '').split(',')[0].trim() : '';
-  const host = /^([\w.-]+|\[[0-9a-f:.]+\])(:\d{1,5})?$/i.test(forwardedHost) ? forwardedHost : requestHost(req);
-  return host ? `${req.protocol}://${host}` : '';
-}
-
-/**
- * Remember the address the dashboard is open on, for reports sent with nobody there.
- * Only from someone signed in who may set the links (an Admin, as a rule), and only the
- * plain Host they used, never X-Forwarded-Host: a report reader, or anyone able to send a
- * request, cannot point every automatic report at an address of their choosing.
- */
-function noteDashboardOrigin(req) {
-  if (!req.user || !can(req, 'settings.links')) return;
-  const host = requestHost(req);
-  if (!host) return;
-  try {
-    const origin = `${req.protocol}://${host}`;
-    if (!LOOPBACK.test(new URL(origin).hostname)) tstate.lastDashboardOrigin = origin;
-  } catch {}
-}
-
-function resolveReportServer(req = null, settings = settingsStore.get()) {
-  if (req) noteDashboardOrigin(req);
-  if (settings.links.reportServerUrl) return { url: settings.links.reportServerUrl, source: 'settings' };
-  if (config.reportServerUrl) return { url: config.reportServerUrl, source: 'environment' };
-  if (req) return { url: requestOrigin(req), source: 'this page' };
-  if (tstate.lastDashboardOrigin) return { url: tstate.lastDashboardOrigin, source: 'last dashboard address' };
-  return { url: '', source: 'none' };
-}
-
-function reportServerUrl(req, settings) {
-  return resolveReportServer(req, settings).url;
-}
-
-/** Why readers might not be able to use an address. */
-function reportServerWarnings(url) {
-  if (!url) return ['No address: reports go out without one, and readers must type it in before they can triage.'];
-  const warnings = [];
-  try {
-    const parsed = new URL(url);
-    if (LOOPBACK.test(parsed.hostname)) warnings.push(`${parsed.hostname} only works on the computer running this server. Set the address others use to reach it.`);
-    if (parsed.protocol === 'http:' && !LOOPBACK.test(parsed.hostname)) warnings.push('Plain http: triage requests cross the network unencrypted. Turn on HTTPS under Settings → HTTPS.');
-    if (parsed.protocol === 'https:' && httpsManager.mode !== 'http' && httpsManager.selfSigned && !LOOPBACK.test(parsed.hostname)) warnings.push('This server uses a self-signed certificate: reports reach it only from machines that trust it. Upload your company certificate under Settings → HTTPS.');
-  } catch {
-    warnings.push('Not a valid address.');
-  }
-  return warnings;
-}
-
 // ---------------------------------------------------------------------------
 // Relay for the emailed report
 //
@@ -5349,12 +5297,6 @@ const reportOpens = {
     return total;
   },
 };
-
-/** The host[:port] this request was sent to, when it is a plain name or address (else ''). */
-function requestHost(req) {
-  const header = String(req.headers.host ?? '');
-  return /^([\w.-]+|\[[0-9a-f:.]+\])(:\d{1,5})?$/i.test(header) ? header : '';
-}
 
 /** The names people use to reach this server: this page's, the reminder server address's, and any given. */
 function httpsHosts(req, extra = []) {
