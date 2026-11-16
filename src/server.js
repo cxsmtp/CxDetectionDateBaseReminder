@@ -55,7 +55,7 @@ import { AutomationState, Scheduler } from './automation.js';
 import { onMailFailure, sendReminderMail, testConnection } from './mailer.js';
 import { explainCxone } from './troubleshoot.js';
 import { TrustStore } from './trust.js';
-import { SettingsStore, hasEnvironmentSmtp, isVerified } from './settings.js';
+import { SettingsStore, calculatorBuiltIn, hasEnvironmentSmtp, isVerified } from './settings.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { systemEmail } from './hands-off.js';
 import { BACKUP_SUBJECT, findBackupInMailbox } from './mail-inbox.js';
@@ -649,7 +649,12 @@ app.use(['/api/session', '/api/licence'], express.json({ limit: '64kb' }));
 // only for someone signed in who may use the calculator. Anyone else's request falls to the limit below, and is
 // refused by the route (401 or 403) without 40 MB having been read for them.
 const calculatorJson = express.json({ limit: '40mb' });
+// The built-in calculator is muted unless this server was started with CALCULATOR_BUILTIN=on: the Cx Credits
+// Calculator runs on its own, at the address an Admin gives (Settings → Beta features), and nothing under
+// /api/projections is answered, read or kept.
+const CALCULATOR_BUILT_IN = calculatorBuiltIn();
 app.use('/api/projections', (req, res, next) => {
+  if (!CALCULATOR_BUILT_IN) return res.status(404).json({ error: 'The Cx Credits Calculator is not part of this CxMissionZero server: it runs on its own, at the address an Admin gives.', calculatorOff: true });
   const session = currentSession(req);
   const user = session ? iam.user(session.userId) : null;
   if (user && !user.disabled && permissionsFor(user).has('projections.use')) return calculatorJson(req, res, next);
@@ -764,7 +769,9 @@ app.get('/brand-fonts/:file', (req, res) => {
   res.set('Cache-Control', 'public, max-age=86400').sendFile(file);
 });
 const staticFiles = express.static(publicDir);
-app.use((req, res, next) => (req.path.startsWith('/api/') ? next() : staticFiles(req, res, next)));
+// (/calculator is a route, src/routes/features.js: it sends people on to the calculator's own address. The files
+// under it, which the pages load, are served as any other.)
+app.use((req, res, next) => (req.path.startsWith('/api/') || /^\/calculator\/?$/.test(req.path) ? next() : staticFiles(req, res, next)));
 
 /**
  * The emailed report is opened from disk (origin "null"), so its calls to the
@@ -1276,7 +1283,7 @@ registerUpdateRoutes(app, { dataDir, audit, asyncRoute, requirePermission, backu
 
 // ---- Settings → Beta features: src/routes/features.js -----------------------------------------------------------------
 registerFeatureRoutes(app, {
-  settingsStore, audit, scheduler, asyncRoute, requireSession, can, requirePermission, featureLocked,
+  settingsStore, audit, scheduler, asyncRoute, currentSession, requireSession, can, requirePermission, featureLocked,
 });
 
 // ---- The troubleshooting report: src/routes/updates.js ------------------------------------------------------------------

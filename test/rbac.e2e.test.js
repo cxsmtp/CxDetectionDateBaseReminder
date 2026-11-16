@@ -64,6 +64,9 @@ test.before(async () => {
       CX_TENANT: 'acme',
       REPORT_SIGNING_KEY: SIGNING_KEY,
       ADMIN_EMAIL: '',
+      // The built-in calculator's routes are among those checked for each role (as installed, they answer nobody:
+      // test/calculator-muted.e2e.test.js).
+      CALCULATOR_BUILTIN: 'on',
       ADMIN_PASSWORD: '',
       FIRST_ADMIN: 'setup-code',
     },

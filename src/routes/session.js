@@ -17,7 +17,7 @@ import { generatePassword, passwordProblem, publicUser } from '../iam.js';
 import fs from 'node:fs';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { sendReminderMail } from '../mailer.js';
-import { isVerified, mergeSettings, overlayBranding, supportChannel } from '../settings.js';
+import { calculatorBuiltIn, isVerified, mergeSettings, overlayBranding, supportChannel } from '../settings.js';
 import { systemEmail } from '../hands-off.js';
 import { pruneAttempts } from '../security.js';
 import { DEFAULT_TENANT } from '../tenancy.js';
@@ -141,8 +141,9 @@ export function registerSessionRoutes(app, d) {
       role: { id: user.role, name: iam.role(user.role)?.name ?? user.role },
       permissions,
       features: Object.fromEntries(featureList(settings).map((f) => [f.id, f.stage])),
-      // The Cx Credits Calculator at an address of its own (an Admin's switch): the menu opens it there, for whoever may use the calculator.
-      calculator: held.has('projections.use') && settings.calculator?.external && settings.calculator.url ? { url: settings.calculator.url } : null,
+      // The Cx Credits Calculator, for whoever may use it: the address an Admin gave (the menu opens it there), or
+      // nothing, and the menu has no calculator. Only a server started with CALCULATOR_BUILTIN=on has the built-in one.
+      calculator: !held.has('projections.use') ? null : settings.calculator?.external && settings.calculator.url ? { url: settings.calculator.url } : calculatorBuiltIn() ? { builtIn: true } : null,
       via: session.via,
       // Two-step sign-in for this person: on or not, how many recovery codes are left, and whether an Admin requires it.
       twoStep: { available: Boolean(user.passwordHash), on: Boolean(user.mfa?.secret), since: user.mfa?.secret ? user.mfa.enabledAt ?? '' : '', recoveryLeft: user.mfa?.secret ? (user.mfa.recovery ?? []).length : 0, required: iam.twoStepRequired() },
