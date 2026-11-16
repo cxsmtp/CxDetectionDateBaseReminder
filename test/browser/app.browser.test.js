@@ -51,6 +51,10 @@ async function signedInAs(page, name) {
 }
 
 async function signOut(page) {
+  // As a person does it: once the page has settled. (A request still on its way when the visit ends is answered
+  // 401, rightly, and would be listed as a problem: on a slow runner the page that was just opened was still
+  // reading People & roles.)
+  await page.waitForLoadState('networkidle');
   await page.locator('#user-menu summary').click();
   await page.locator('#disconnect').click();
   await page.locator('#signin-box').waitFor({ state: 'visible' });
