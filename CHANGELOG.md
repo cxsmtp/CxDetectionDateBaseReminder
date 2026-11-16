@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.18 | 507 and 511/s, 0 (main 499 and 484, 0; two pairs) | 2.7 s and 147 ms (177 ms and 5.1 s) | 194 and 70 ms (78 and 214 ms) | 1,239 + 17 in a browser | 0 vulnerabilities | No new scan: this release changes the page only (one table column, its translations). The last, fb266f9f of MZ-01.01.17's first commit: 217 open (1 / 6 / 85 / 122, 3 info), all still to verify in Checkmarx One; 4 fixed and 5 hardened in MZ-01.01.17, 181 judged not exploitable ([review](docs/security/mz-01.01.17-review.md)) |
 | MZ-01.01.17 | 499/s, 0 (main 524, 0) | 477 ms (360 ms) | 141 ms (145 ms) | 1,239 + 17 in a browser | 0 vulnerabilities | Scan fb266f9f of this release's first commit, every engine but the AI ones: 217 open (1 / 6 / 85 / 122, 3 info), all still to verify in Checkmarx One. 190 are first reports: earlier scans listed nothing in the two largest files, which MZ-01.01.13 split, so the earlier "32 open" never covered them. All 190 read: 4 real and fixed (none reachable without an Analyst's or Admin's rights), 5 hardened, 181 not exploitable ([review](docs/security/mz-01.01.17-review.md)) |
 | MZ-01.01.16 | 510/s, 0 (main 486, 0) | 5.6 s (3.9 s) | 197 ms (265 ms) | 1,233 + 16 in a browser | 0 vulnerabilities | No new scan of this code yet (the connector was signed in again during this release); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.15 | 507/s, 0 (main 496, 0) | 4.9 s (5.3 s) | 293 ms (364 ms) | 1,232 + 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
@@ -103,6 +104,12 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.18 — 2026-11-16 17:46 UTC · [#140](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/140)
+
+- **The results column follows the ticks.** On Labs → Fusion results, with Fusion ticked alone the column reads **Fusion / total results** (what Fusion reported, then all of the latest scan's SAST results: 12 / 140); with LAST ticked alone, **LAST results** (one number: a LAST scan has no traditional SAST results to compare with); with both, **AI / total results**, each row by its own scan.
+- **Sorted by what the AI engine found.** The column sorts by the first number, and hovering a figure still gives the AI engine's share of the scan's SAST results.
+- **Status.** 1,239 tests pass (one is skipped when run as root and passes in CI), with 17 that drive the page in Chromium; `npm audit --omit=dev` finds nothing. Two benchmark pairs against main, all four runs with 0 failed requests and no finding sent twice: 507 and 511 requests a second (main 499 and 484); report opens at p95 2.7 s and 147 ms (main 177 ms and 5.1 s), the slower tail on the branch in one pair and on main in the other, with no server code changed. No new Checkmarx One scan: the page alone changes; the last, fb266f9f, is in [MZ-01.01.17's review](docs/security/mz-01.01.17-review.md).
 
 ## MZ-01.01.17 — 2026-11-16 17:16 UTC · [#139](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/139)
 
