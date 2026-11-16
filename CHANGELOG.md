@@ -100,7 +100,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.01.13 — 2026-11-16 07:45 UTC · [#135](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/135)
+## MZ-01.01.13 — 2026-11-16 08:25 UTC · [#135](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/135)
 
 - **The server has one name.** What the page, the emailed report and the emails called the "reminder server" is now the "CxMissionZero server", in all fourteen languages; audit entries written under the old name are shown under the new one.
 - **The Cx Credits Calculator runs on its own.** It is off on a new server: an Admin gives its address under Settings → Beta features and turns it on, and Cx Credits Calculator is then in the menu for the roles that may use it and opens that address in a new tab (`/calculator` on the server leads there too).
