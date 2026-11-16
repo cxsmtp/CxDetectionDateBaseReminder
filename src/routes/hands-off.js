@@ -19,7 +19,7 @@ import { isPaused, parseCommand, statusDue, systemEmail, COMMANDS } from '../han
 import { findReferences, peekTenant, readAction, replyReference, signAction } from '../action-links.js';
 import { readReplies } from '../mail-inbox.js';
 import { DEFAULT_TENANT } from '../tenancy.js';
-import { SYSTEM_ACTOR, escapeHtml } from './shared.js';
+import { SYSTEM_ACTOR, escapeHtml, logSafe } from './shared.js';
 
 /**
  * MissionZero's own emails and one-click links, the mailbox it reads, the self-check, and their background loops.
@@ -221,7 +221,12 @@ export function registerHandsOff(app, d) {
       const said = await tenancy.run(found.tenant, () => performHandsOff({ command: a, ref: r }, e));
       res.send(tenancy.run(found.tenant, () => actionPage('Done', said)));
     } catch (error) {
-      res.status(error.status ?? 500).send(actionPage('Not done', error.message));
+      // A refusal raised on purpose carries its status and its words for the reader; anything else stays in the log.
+      if (!error.status) {
+        console.error(`POST /a/:token -> ${logSafe(error.stack ?? error.message)}`);
+        diagnostics.error('hands-off-link', error);
+      }
+      res.status(error.status ?? 500).send(actionPage('Not done', error.status ? error.message : 'Something went wrong on the server. The details are in its log.'));
     }
   }));
 
@@ -267,7 +272,9 @@ export function registerHandsOff(app, d) {
     try {
       said = await performHandsOff({ ...asked, ref }, from);
     } catch (error) {
-      said = `Not done: ${error.message}`;
+      // As for the link above: only a refusal's own words go back by email.
+      if (!error.status) diagnostics.error('hands-off-reply', error);
+      said = `Not done: ${error.status ? error.message : 'something went wrong on the server.'}`;
     }
     const reply = systemEmail({ appName: appNameNow(), subject: `Re: ${String(subject).replace(/^(re:\s*)+/i, '').slice(0, 150)}`, lines: [said], reference: '', replyHelp: false });
     await sendSystemMail([from], reply);

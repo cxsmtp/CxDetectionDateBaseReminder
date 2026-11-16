@@ -1408,6 +1408,8 @@ app.use((error, req, res, next) => {
     return res.status(500).json({ error: 'Something went wrong on the server. The details are in its log.' });
   }
   if (error.status >= 500) diagnostics.error('upstream-error', error, { route: req.route ? `${req.baseUrl}${req.route.path}` : '(unmatched)', status: error.status });
+  // A report's own calls (nobody signed in): the kind of failure, never Checkmarx One's words or its answer.
+  if (req.path.startsWith('/api/relay/') && ['CxApiError', 'AuthError'].includes(error.name)) return res.status(error.status).json({ error: relayError(error) });
   res.status(error.status).json({ error: error.message ?? 'Unexpected error.', detail: error.body ?? undefined, help: error.help ?? connectionHelp(req, error) ?? undefined });
 });
 

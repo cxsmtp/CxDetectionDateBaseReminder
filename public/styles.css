@@ -352,6 +352,24 @@ textarea {
 textarea { width: 100%; resize: vertical; line-height: 1.5; }
 textarea.code, .code { font: 12.5px/1.6 var(--mono); }
 select { padding-inline-end: 30px; cursor: pointer; }
+/* A list that opens draws the same in every browser: the browser's own drawing is switched off (Safari's made it
+   taller than the buttons beside it, with its own box and arrows) and the arrow is ours, in the text's colour.
+   The arrow and the room it needs are marked !important because several looks set a control's whole background
+   or padding in one go, which would otherwise remove the arrow or put the words under it. */
+select:not([multiple]):not([size]) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-inline-end: 30px !important;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%) !important;
+  background-position: right 16px top 50%, right 11px top 50% !important;
+  background-size: 5px 5px, 5px 5px !important;
+  background-repeat: no-repeat !important;
+}
+:root[dir="rtl"] select:not([multiple]):not([size]) { background-position: left 11px top 50%, left 16px top 50% !important; }
+/* A search field takes the page's border, height and background in Safari too (which otherwise draws its own
+   rounded field and ignores them), without Safari's magnifying glass inside it. */
+input[type="search"] { -webkit-appearance: textfield; appearance: textfield; }
+input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; }
 input:not([type="range"]):focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
 input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; margin: 0; flex: 0 0 auto; cursor: pointer; }
 input[type="color"] { width: 64px; height: var(--control-h); padding: 3px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); }
@@ -539,7 +557,7 @@ td.initiator { white-space: normal; max-width: 240px; min-width: 120px; overflow
 td.initiator .zero, td.initiator .err { display: block; font-size: 11.5px; }
 td.credits { white-space: nowrap; }
 td.credits .low { color: var(--danger); }
-#projects th[data-sort] { cursor: pointer; user-select: none; }
+#projects th[data-sort] { cursor: pointer; -webkit-user-select: none; user-select: none; }
 #projects th[data-sort]:hover { color: var(--text); }
 #projects th.sorted { color: var(--text); }
 #projects th[data-dir="asc"]::after { content: " ▲"; font-size: 9px; }
@@ -1257,7 +1275,7 @@ input.sr-only:focus-visible + label.button { outline: 2px solid var(--accent); o
 .share-cell { width: 34%; }
 
 .notice-dialog { max-width: min(620px, calc(100vw - 32px)); width: 100%; border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 22px; background: var(--surface); color: var(--text); box-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.45); }
-.notice-dialog::backdrop { background: rgb(15 23 42 / 0.45); backdrop-filter: blur(2px); }
+.notice-dialog::backdrop { background: rgb(15 23 42 / 0.45); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
 .notice-head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
 .notice-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); flex: 0 0 auto; }
 .notice-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -1321,7 +1339,7 @@ button.credit-edit .need-tag { flex-basis: 100%; }
 
 /* Projects table: column picker */
 .col-picker { position: relative; }
-.col-picker > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: var(--control-h); padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface); font-weight: 500; font-size: 13.5px; cursor: pointer; user-select: none; }
+.col-picker > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: var(--control-h); padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface); font-weight: 500; font-size: 13.5px; cursor: pointer; -webkit-user-select: none; user-select: none; }
 .col-picker > summary::-webkit-details-marker { display: none; }
 .col-picker > summary svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 .col-picker[open] > summary { border-color: var(--accent); color: var(--accent); }
@@ -1552,7 +1570,7 @@ body.fetching [data-needs-data] { opacity: 0.45; cursor: not-allowed; }
 .https-browser.good { color: var(--ok); }
 .https-pass { max-width: 360px; }
 .https-always { margin: 10px 0 0; padding-inline-start: 18px; font-size: 12px; color: var(--muted); }
-.https-cmd { margin: 6px 0 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface-3); font: 12px var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
+.https-cmd { margin: 6px 0 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface-3); font: 12px var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; -webkit-user-select: all; user-select: all; }
 @media (max-width: 640px) {
   .https-step { padding: 12px; }
 }
@@ -1574,11 +1592,11 @@ body.fetching [data-needs-data] { opacity: 0.45; cursor: not-allowed; }
 .twostep-qr { flex: none; width: 196px; height: 196px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .twostep-qr svg { display: block; width: 100%; height: 100%; }
 .twostep-key-text { display: grid; gap: 6px; min-width: 0; justify-items: start; }
-.twostep-key-text code { font-size: 13px; overflow-wrap: anywhere; user-select: all; }
+.twostep-key-text code { font-size: 13px; overflow-wrap: anywhere; -webkit-user-select: all; user-select: all; }
 .twostep-state { margin: 0; font-size: 13.5px; }
-.recovery-codes { display: grid; grid-template-columns: repeat(2, max-content); gap: 4px 28px; margin: 0 0 12px; padding: 12px 16px; list-style: none; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); font: 14px/1.6 var(--mono); user-select: all; }
+.recovery-codes { display: grid; grid-template-columns: repeat(2, max-content); gap: 4px 28px; margin: 0 0 12px; padding: 12px 16px; list-style: none; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); font: 14px/1.6 var(--mono); -webkit-user-select: all; user-select: all; }
 .reset-missing li.hint { list-style: none; margin-inline-start: -18px; color: var(--text); font-weight: 600; }
-.terms-overlay { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgb(15 23 42 / 0.55); backdrop-filter: blur(3px); }
+.terms-overlay { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgb(15 23 42 / 0.55); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 .terms-overlay[hidden] { display: none; }
 .terms-box { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: min(780px, 100%); max-height: min(88vh, 900px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .terms-head { padding: 18px 22px 10px; border-bottom: 1px solid var(--border); }
@@ -1852,7 +1870,7 @@ main { max-width: 1760px; padding-bottom: 72px; }
 .nav-group:first-child { margin-top: 2px; }
 .nav-group i { width: 8px; height: 8px; border-radius: 3px; background: var(--stage); flex: 0 0 auto; }
 /* Each group folds with a click on its name (public/app/nav.js, applyNavFolds); the page open stays shown. */
-.nav-group[role="button"] { cursor: pointer; user-select: none; border-radius: 6px; }
+.nav-group[role="button"] { cursor: pointer; -webkit-user-select: none; user-select: none; border-radius: 6px; }
 .nav-group[role="button"]:hover { color: var(--text); }
 .nav-group[role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* The fold chevron is drawn, not written: the group's name stays a plain phrase that translates. */
@@ -2024,7 +2042,7 @@ a.button-like:hover { border-color: color-mix(in srgb, var(--text) 28%, var(--bo
 .wb-rail h2 { font-size: 15px; }
 
 /* Preview: a sheet over the page */
-.sheet-scrim { position: fixed; inset: 0; z-index: 55; background: rgb(10 14 24 / 0.38); backdrop-filter: blur(2px); }
+.sheet-scrim { position: fixed; inset: 0; z-index: 55; background: rgb(10 14 24 / 0.38); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
 .preview-sheet {
   position: fixed; z-index: 60; top: 16px; inset-inline-end: 16px; bottom: 16px; width: min(920px, calc(100vw - 32px));
   overflow: auto; display: grid; grid-template-rows: auto auto minmax(0, 1fr); box-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.45);
@@ -2140,7 +2158,7 @@ body.sheet-open { overflow: hidden; }
    ========================================================================== */
 
 .palette { padding: 0; border: 0; background: transparent; width: min(640px, calc(100vw - 32px)); margin: 12vh auto auto; max-height: 70vh; overflow: visible; }
-.palette::backdrop { background: rgb(10 14 24 / 0.4); backdrop-filter: blur(3px); }
+.palette::backdrop { background: rgb(10 14 24 / 0.4); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 .palette-box { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.5); overflow: hidden; }
 .palette-search { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
 .palette-search svg { width: 18px; height: 18px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; flex: 0 0 auto; }
@@ -3530,7 +3548,7 @@ th.tt-th .tt-tools > button { display: inline-grid; place-items: center; width: 
 th.tt-th:hover .tt-tools > button, th.tt-th .tt-tools > button:focus-visible { opacity: 0.85; }
 th.tt-th .tt-tools > button:hover { opacity: 1; background: var(--surface-3); }
 th.tt-th .tt-tools svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-th.tt-sortable { cursor: pointer; user-select: none; }
+th.tt-sortable { cursor: pointer; -webkit-user-select: none; user-select: none; }
 th.tt-sorted .tt-sort, th.tt-filtered .tt-filter { opacity: 1; color: var(--accent); }
 th.tt-sorted[data-tt-dir="asc"] .tt-down, th.tt-sorted[data-tt-dir="desc"] .tt-up { opacity: 0.25; }
 th.tt-filtered .tt-filter svg { fill: currentColor; }
