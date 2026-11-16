@@ -33,17 +33,16 @@ import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
 import { IamStore, LANGUAGE_PERMISSIONS, PERMISSIONS, PROFILE_LANGUAGES, PROGRAMMING_LANGUAGES, cleanProfile, generatePassword, passwordProblem, publicUser } from './iam.js';
 import { insideProject, migrateLegacyData, prepareDataDir, resolveDataDir } from './data-dir.js';
-import { BackupKeyError, PENDING_RESTORE, applyPendingRestore, collectStateFiles, createBackup, describeBackup, isSealed, listBackups, readBackup, writeBackupTo } from './backup.js';
+import { PENDING_RESTORE, applyPendingRestore, isSealed, readBackup, writeBackupTo } from './backup.js';
 import { BackupKeyStore } from './backup-key.js';
 import fs from 'node:fs';
-import os from 'node:os';
 import zlib from 'node:zlib';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { GitHubClient } from './github/client.js';
 import { setCloneHostCheck } from './github/identity.js';
 import { codeVersion, locationOf, onGitHub, parseRepoUrl } from './github/blame.js';
 import { SCM_LABELS, SCM_PROVIDERS, providerOf, scmClients, scmConfigs } from './scm/providers.js';
-import { acknowledgeStart, companionState, requestFullUpdate } from './updates/companion.js';
+import { acknowledgeStart } from './updates/companion.js';
 import { githubIssues, gitlabIssues, openSlaIssues } from './sla-issues.js';
 import { BrandFonts } from './brand-fonts.js';
 import { TrackedReports, baselineReadAt, computeProgress, foundSince, matchesFilters, outcomeOf, reportSummary } from './tracked-reports.js';
@@ -125,6 +124,9 @@ import { registerCodeAuthorRoutes } from './routes/code-authors.js';
 import { registerFaeFlushRoutes } from './routes/fae-flush.js';
 import { registerFusionRoutes } from './routes/fusion.js';
 import { createGitConnections, registerGitConnectionRoutes } from './routes/git-connections.js';
+import { registerBackupRoutes } from './routes/backups.js';
+import { registerSystemReportRoute, registerUpdateRoutes, registerIntegrityRoutes } from './routes/updates.js';
+import { registerFeatureRoutes } from './routes/features.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 /** Whose own branding (Settings → Your branding) the current request is made with: see presenting(). */
@@ -10210,21 +10212,7 @@ const integrity = new IntegrityService({
 });
 integrity.start();
 
-app.get('/api/integrity', requirePermission('system.update'), (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.json({ ...(integrity.last ?? { state: 'checking', summary: 'The first check runs a few seconds after start.' }), repository: integrity.repository });
-});
-
-app.post(
-  '/api/integrity/check',
-  requirePermission('system.update'),
-  asyncRoute(async (req, res) => {
-    // At most one fresh check a minute: each asks GitHub once.
-    const recent = integrity.last && Date.now() - Date.parse(integrity.last.at) < 60_000;
-    const result = recent ? integrity.last : await integrity.check({ reason: `asked by ${req.user?.email ?? 'someone'}` });
-    res.json({ ...result, repository: integrity.repository });
-  }),
-);
+registerIntegrityRoutes(app, { asyncRoute, requirePermission, integrity });
 
 const updateStore = new VersionStore({
   dataDir,
@@ -10260,319 +10248,23 @@ const updates = new UpdateService({
   }, Math.min(60_000, every)).unref();
 }
 
-const updateError = (res, error) => res.status(error.status ?? 500).json({ error: error.message });
+registerUpdateRoutes(app, { dataDir, audit, asyncRoute, requirePermission, backupToFolder, updates });
 
-const updateStatus = () => ({ ...updates.status(), companion: companionState(dataDir) });
-
-app.get('/api/system/update', requirePermission('system.update'), (req, res) => res.json(updateStatus()));
-
-/**
- * Full image update (Beta): ask the update companion to replace this container with the same
- * container on another image tag. A backup is taken first; the companion does the rest
- * (src/companion/main.js) and this server is stopped by it, as for any update.
- */
-app.post(
-  '/api/system/update/full',
-  requirePermission('system.update'),
-  asyncRoute(async (req, res) => {
-    const tag = String(req.body?.tag ?? '').trim();
-    const by = req.user?.email ?? '';
-    try {
-      const state = companionState(dataDir);
-      if (!state.connected) throw Object.assign(new Error('The update companion is not running: start it (the command is on this page), or update with podman pull.'), { status: 409 });
-      if (state.busy) throw Object.assign(new Error('A full image update is already under way.'), { status: 409 });
-      await backupToFolder(SYSTEM_ACTOR, `Before replacing the image with ${tag}`);
-      const request = requestFullUpdate(dataDir, { tag, by });
-      audit.record({ type: 'system', outcome: 'changed', reason: `Full image update to ${tag} asked of the update companion.`, actor: { kind: 'user', user: by }, details: { tag, id: request.id } });
-      res.status(202).json(updateStatus());
-    } catch (error) {
-      updateError(res, error);
-    }
-  }),
-);
-
-app.post(
-  '/api/system/update/check',
-  requirePermission('system.update'),
-  asyncRoute(async (req, res) => {
-    await updates.check();
-    res.json(updateStatus());
-  }),
-);
-
-app.post('/api/system/update/install', requirePermission('system.update'), (req, res) => {
-  const ref = String(req.body?.ref ?? '').trim();
-  if (!ref) return res.status(400).json({ error: 'Choose a version.' });
-  try {
-    updates.install(ref, { by: req.user?.email ?? '' });
-    res.status(202).json(updateStatus());
-  } catch (error) {
-    updateError(res, error);
-  }
+// ---- Settings → Beta features: src/routes/features.js -----------------------------------------------------------------
+registerFeatureRoutes(app, {
+  settingsStore, audit, scheduler, asyncRoute, requireSession, can, requirePermission, featureLocked,
 });
 
-app.post(
-  '/api/system/update/switch',
-  requirePermission('system.update'),
-  asyncRoute(async (req, res) => {
-    try {
-      await updates.switch(String(req.body?.version ?? ''), { by: req.user?.email ?? '' });
-      res.json(updateStatus());
-    } catch (error) {
-      updateError(res, error);
-    }
-  }),
-);
-
-app.post('/api/system/update/restart', requirePermission('system.update'), (req, res) => {
-  try {
-    res.json(updates.restart(req.user?.email ?? ''));
-  } catch (error) {
-    updateError(res, error);
-  }
+registerSystemReportRoute(app, {
+  dataDir, sessions, tstate, audit, httpsManager, relayStats, requirePermission, cxonePending, smtpPending,
+  serverTimeZone, lastBackup: () => lastBackup, updates,
 });
 
-app.put('/api/system/update/settings', requirePermission('system.update'), (req, res) => {
-  const auto = req.body?.auto === true;
-  const hour = req.body?.windowHour;
-  const windowHour = hour === null || hour === '' || hour === undefined ? null : Number(hour);
-  if (windowHour !== null && !(Number.isInteger(windowHour) && windowHour >= 0 && windowHour <= 23)) return res.status(400).json({ error: 'The hour is 0 to 23, or any time.' });
-  updates.saveSettings({ auto, windowHour });
-  audit.record({ type: 'system', outcome: 'changed', reason: `Auto-update ${auto ? `on${windowHour === null ? '' : `, at ${String(windowHour).padStart(2, '0')}:00`}` : 'off'}.`, actor: { kind: 'user', user: req.user?.email ?? '' }, details: { auto, windowHour } });
-  res.json(updateStatus());
+// ---- Audit → State & backups: src/routes/backups.js -------------------------------------------------------------------
+registerBackupRoutes(app, {
+  projectDir, dataDir, dataDirSource, backupKey, restoredAtStart, audit, asyncRoute, requirePermission, adminActor,
+  backupConfig, lastBackup: () => lastBackup, settleState, backupToFolder,
 });
-
-// ---------------------------------------------------------------------------
-// Beta features, and making them final (src/features.js)
-// ---------------------------------------------------------------------------
-
-/** Every Beta feature, its stage, and whether this person may use it and change it. */
-app.get('/api/features', requireSession, (req, res) => {
-  const settings = settingsStore.get();
-  res.json({
-    features: featureList(settings).filter((f) => !featureLocked(f)).map(({ unlockedBy, ...f }) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })),
-    canManage: can(req, 'features.manage'),
-  });
-});
-
-/** The Admin's switch: a feature becomes final for everyone (or goes back to Beta). Audited. */
-app.put('/api/features/:id', requirePermission('features.manage'), (req, res) => {
-  const feature = featureById(req.params.id);
-  if (!feature) return res.status(404).json({ error: 'No such feature.' });
-  const stage = req.body?.stage === 'final' ? 'final' : req.body?.stage === 'beta' ? 'beta' : '';
-  if (!stage) return res.status(400).json({ error: 'The stage must be "beta" or "final".' });
-  const before = isFinal(settingsStore.get(), feature.id) ? 'final' : 'beta';
-  if (before !== stage) {
-    settingsStore.save({ features: { [feature.id]: { stage, at: new Date().toISOString(), by: req.user?.email ?? '' } } });
-    audit.record({
-      type: 'system',
-      outcome: 'changed',
-      reason: stage === 'final' ? `“${feature.name}” made final: no longer Beta, for everyone holding its permission.` : `“${feature.name}” put back in Beta.`,
-      actor: { kind: 'user', user: req.user?.email ?? '' },
-      details: { feature: feature.id, from: before, to: stage },
-    });
-    scheduler.sync();
-  }
-  const settings = settingsStore.get();
-  res.json({ features: featureList(settings).filter((f) => !featureLocked(f)).map(({ unlockedBy, ...f }) => ({ ...f, canUse: mayUse(settings, f.id, req.permissions) })), canManage: true });
-});
-
-/**
- * The Cx Credits Calculator at an address of its own (Settings → Beta features): an Admin's switch and the address.
- * Turned on, the menu opens the calculator there and the built-in page is put away; its saved customers and reports
- * stay, and come back when it is turned off.
- */
-app.get('/api/calculator/address', requirePermission('features.manage'), (req, res) => {
-  res.json({ calculator: settingsStore.get().calculator });
-});
-
-app.put('/api/calculator/address', requirePermission('features.manage'), asyncRoute(async (req, res) => {
-  const before = settingsStore.get().calculator;
-  const incoming = {};
-  if (req.body && 'url' in req.body) incoming.url = req.body.url;
-  if (req.body && 'external' in req.body) incoming.external = req.body.external === true;
-  const after = settingsStore.save({ calculator: incoming }).calculator;
-  if (before.external !== after.external || before.url !== after.url) {
-    audit.record({
-      type: 'system',
-      outcome: 'changed',
-      reason: after.external ? `The Cx Credits Calculator now opens at its own address, ${after.url}.` : before.external ? 'The Cx Credits Calculator opens in CxMissionZero again (the built-in page).' : `The Cx Credits Calculator's own address was ${after.url ? `set to ${after.url}` : 'cleared'} (not turned on).`,
-      actor: { kind: 'user', user: req.user?.email ?? '' },
-      details: { calculator: { before, after } },
-    });
-  }
-  res.json({ calculator: after });
-}));
-
-/** Everything worth knowing when something is wrong, without secrets: for the Admin, or to send to whoever helps. */
-app.get('/api/system/report', requirePermission('system.update'), (req, res) => {
-  const memory = process.memoryUsage();
-  const status = updates.status();
-  let disk = null;
-  try {
-    const s = fs.statfsSync(dataDir);
-    disk = { freeMB: Math.round((s.bavail * s.bsize) / 1048576), totalMB: Math.round((s.blocks * s.bsize) / 1048576) };
-  } catch {}
-  const report = {
-    generatedAt: new Date().toISOString(),
-    version: APP_VERSION,
-    image: status.image,
-    running: status.running,
-    builtIn: status.builtIn,
-    supervised: status.supervised,
-    installed: status.installed.map(({ version, tag, installedAt }) => ({ version, tag, installedAt })),
-    events: status.events,
-    node: process.versions.node,
-    platform: `${process.platform}/${process.arch}`,
-    uptimeSeconds: Math.round(process.uptime()),
-    memoryMB: { rss: Math.round(memory.rss / 1048576), heapUsed: Math.round(memory.heapUsed / 1048576) },
-    disk,
-    https: { mode: httpsManager.mode, selfSigned: httpsManager.selfSigned },
-    checkmarxOne: { connected: Boolean(sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId)), pending: cxonePending() },
-    smtp: { pending: smtpPending() },
-    lastBackup,
-    relay: { ...relayStats },
-    timeZone: serverTimeZone(),
-  };
-  audit.record({ type: 'system', outcome: 'info', reason: 'Troubleshooting report downloaded.', actor: { kind: 'user', user: req.user?.email ?? '' } });
-  res.set('Content-Disposition', `attachment; filename="cxmissionzero-report-${report.generatedAt.slice(0, 10)}.json"`);
-  res.json(report);
-});
-
-app.get('/api/backup', requirePermission('backup.view'), (req, res) => {
-  const files = collectStateFiles(dataDir, config.settingsFile);
-  const bytes = files.reduce((sum, f) => sum + fs.statSync(f.path).size, 0);
-  res.json({
-    dataDir,
-    source: dataDirSource,
-    insideProject: insideProject(dataDir, projectDir),
-    files: files.length,
-    bytes,
-    backupDir: backupConfig.dir,
-    backupDirExplicit: backupConfig.explicitDir,
-    sameDisk: !backupConfig.explicitDir || insideProject(backupConfig.dir, dataDir),
-    intervalHours: backupConfig.intervalHours,
-    keep: backupConfig.keep,
-    encrypted: Boolean(backupConfig.passphrase),
-    // What encrypts a backup made now, whether its key was saved elsewhere, and whether an Admin can turn it on (never the key).
-    encryption: backupKey.status(),
-    last: lastBackup,
-    backups: listBackups(backupConfig.dir).slice(0, 30),
-    pendingRestore: fs.existsSync(path.join(dataDir, PENDING_RESTORE)),
-    restoredAtStart: restoredAtStart && { createdAt: restoredAtStart.createdAt, files: restoredAtStart.files, replacedDir: restoredAtStart.replacedDir },
-  });
-});
-
-/**
- * The server's own backup key (src/backup-key.js), for those who may download and restore backups (Admins).
- * It is shown on request only, each showing is audited (never the key), and it goes nowhere else: not into
- * a backup, an email or a log.
- */
-app.post('/api/backup/key/show', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
-  const key = backupKey.reveal();
-  if (!key) return res.status(409).json({ error: 'This server has no backup key: backup encryption has not been turned on.' });
-  audit.record({ type: 'backup', outcome: 'info', reason: 'Backup key shown.', actor: await adminActor(req) });
-  await audit.settled();
-  const { keyCreatedAt, keySaved } = backupKey.status();
-  res.set('Cache-Control', 'no-store').json({ key, createdAt: keyCreatedAt, saved: keySaved, host: os.hostname() });
-}));
-
-/** "I have saved it": an Admin kept the backup key somewhere other than this server. */
-app.post('/api/backup/key/confirm', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
-  const actor = await adminActor(req);
-  if (!backupKey.confirmSaved({ by: actor.email })) return res.status(409).json({ error: 'This server has no backup key: backup encryption has not been turned on.' });
-  audit.record({ type: 'backup', outcome: 'changed', reason: 'Backup key confirmed as saved somewhere other than this server.', actor });
-  res.json({ encryption: backupKey.status() });
-}));
-
-/** Turn backup encryption on, on an installation whose backups were plain: the server makes its backup key now. */
-app.post('/api/backup/encryption', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
-  if (req.body?.on !== true) return res.status(400).json({ error: 'Backup encryption can be turned on here. To keep backups plain, set BACKUP_ENCRYPTION=off on the server.' });
-  const before = backupKey.status();
-  if (before.source === 'passphrase') return res.status(409).json({ error: 'Backups are already encrypted, with BACKUP_PASSPHRASE.' });
-  if (before.optedOut) return res.status(409).json({ error: 'BACKUP_ENCRYPTION=off is set on the server: remove it and restart to encrypt backups.' });
-  const actor = await adminActor(req);
-  if (backupKey.turnOn({ by: actor.email })) {
-    audit.record({ type: 'backup', outcome: 'changed', reason: 'Backup encryption turned on: backups are encrypted with this server\'s backup key from now on.', actor });
-  }
-  res.json({ encryption: backupKey.status() });
-}));
-
-/** Download a backup now (encrypted with BACKUP_PASSPHRASE or the server's backup key, when either is in use). */
-app.get('/api/backup/download', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
-  await settleState();
-  const { buffer, summary } = createBackup({ dataDir, settingsFile: config.settingsFile, passphrase: backupConfig.passphrase });
-  audit.record({
-    type: 'backup',
-    outcome: 'info',
-    reason: `Backup downloaded (${summary.files} files${summary.encrypted ? ', encrypted' : ', not encrypted'}).`,
-    actor: await adminActor(req),
-    details: { backup: summary },
-  });
-  const stamp = summary.createdAt.replace(/[:.]/g, '-').slice(0, 19);
-  res.setHeader('Content-Type', 'application/octet-stream');
-  res.setHeader('Content-Disposition', `attachment; filename="mission-zero-${stamp}.mzbackup"`);
-  res.send(buffer);
-}));
-
-app.post('/api/backup/now', requirePermission('backup.run'), asyncRoute(async (req, res) => {
-  const result = await backupToFolder(await adminActor(req), 'Manual');
-  if (!result.ok) return res.status(500).json({ error: `Backup failed: ${result.error}` });
-  res.json({ ...result, backups: listBackups(backupConfig.dir).slice(0, 30) });
-}));
-
-/**
- * Upload a backup. ?check=1 only reads it and says what it holds. Otherwise
- * it is staged and applied at the next start: the running server would write
- * its in-memory state straight over restored files.
- */
-app.post(
-  '/api/backup/restore',
-  requirePermission('backup.manage'),
-  express.raw({ type: () => true, limit: '200mb' }),
-  asyncRoute(async (req, res) => {
-    const actor = await adminActor(req);
-    let bundle;
-    // What the person typed first, then what this server encrypts with: a backup of its own opens without asking.
-    const given = String(req.get('x-backup-passphrase') ?? '');
-    try {
-      bundle = readBackup(req.body ?? Buffer.alloc(0), { passphrases: [given, ...backupKey.candidates()] });
-    } catch (error) {
-      const needsKey = error instanceof BackupKeyError;
-      // Nothing was typed and this server's own key does not open it: say whose key is needed, not "wrong".
-      const message = needsKey && !given
-        ? 'This backup is encrypted, and this server\'s own backup key or passphrase does not open it. Give the backup key of the server that made it (saved from its Audit → State & backups), or the BACKUP_PASSPHRASE that server had.'
-        : error.message;
-      if (req.query.check !== '1') audit.record({ type: 'backup', outcome: 'refused', reason: `Restore refused: ${message}`, actor });
-      return res.status(400).json({ error: message, needsKey });
-    }
-    const info = describeBackup(bundle);
-    if (req.query.check === '1') return res.json({ backup: info });
-    // Staged decrypted: it sits in the state folder (0600) beside the same secrets.
-    const pending = path.join(dataDir, PENDING_RESTORE);
-    const partial = `${pending}.${randomUUID()}.partial`;
-    fs.writeFileSync(partial, zlib.gzipSync(Buffer.from(JSON.stringify(bundle))), { mode: 0o600, flag: 'wx' });
-    fs.renameSync(partial, pending);
-    audit.record({
-      type: 'backup',
-      outcome: 'changed',
-      reason: `Restore staged from the backup of ${info.createdAt}: applied at the next restart.`,
-      actor,
-      details: { restore: { createdAt: info.createdAt, host: info.host, files: info.files, sha256: info.sha256 } },
-    });
-    await audit.settled();
-    res.json({ backup: info, staged: true, restartRequired: true });
-  }),
-);
-
-app.delete('/api/backup/restore', requirePermission('backup.manage'), asyncRoute(async (req, res) => {
-  const pending = path.join(dataDir, PENDING_RESTORE);
-  if (fs.existsSync(pending)) {
-    fs.rmSync(pending, { force: true });
-    audit.record({ type: 'backup', outcome: 'changed', reason: 'Staged restore cancelled.', actor: await adminActor(req) });
-  }
-  res.json({ pendingRestore: false });
-}));
 
 setCloneHostCheck(cloneHostAllowed);
 
