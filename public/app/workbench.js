@@ -1,7 +1,7 @@
 // The Workbench: what to load (ages, engines, branches, named projects and people), loading it, the journey,
 // the action rail and getting started.
 import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from '../engines.js';
-import { access, loadFusion, renderFusion } from '../app.js';
+import { access } from '../app.js';
 import { $, can, state } from './state.js';
 import { escapeHtml } from './format.js';
 import { api, flare, handleAuthLoss, logger, setStatus, showError } from './core.js';
@@ -9,6 +9,7 @@ import { STAGE_LABELS, activateTab } from './nav.js';
 import { collectInitiators, fusion, renderInitiatorList, renderProjects, visibleProjects } from './projects.js';
 import { renderAllocation, renderTotals } from './actions.js';
 import { dialTicks } from './reports.js';
+import { loadFusion, renderFusion } from './labs.js';
 
 // ---------------------------------------------------------------------------
 // Workbench: scope

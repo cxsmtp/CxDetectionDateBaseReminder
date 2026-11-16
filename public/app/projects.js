@@ -1,12 +1,12 @@
 // The Workbench's table of projects: rows, filters, optional columns, export, and the people who started the scans.
 import { sortAndFilter } from '../table-tools.js';
 import { SCAN_TYPE_LABEL, fusionTotalOf } from '../fusion-view.js';
-import { fusionEngines } from '../app.js';
 import { $, can, state } from './state.js';
 import { escapeHtml, fmt, formatDate } from './format.js';
 import { api, handleAuthLoss, helpTip, setStatus, showError } from './core.js';
 import { applyCredits, creditCell, renderAllocation, renderRecipientHint, resultsText } from './actions.js';
 import { renderTrackRow } from './reports.js';
+import { fusionEngines } from './labs.js';
 
 // ---------------------------------------------------------------------------
 // Workbench: table
