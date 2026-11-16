@@ -4,7 +4,6 @@ import { creditTiers } from '../credit-tiers.js';
 import { sortAndFilter } from '../table-tools.js';
 import { columnMenu, shownColumns as columnsShownOf } from '../column-prefs.js';
 import { ENGINE_LABEL, FUSION_STATES, FUSION_STATUSES, MODEL_FROM, PERIOD_LABEL, SCAN_TYPE_LABEL, STATE_LABEL, countsFor, engineLabel, fileOf, filtering, fusionReportHtml, fusionResultRows, fusionRows, fusionTiles, scannerLabel, shownEngines, wordsLabel } from '../fusion-view.js';
-import { creditsChanged, noteGone } from '../app.js';
 import { $, can, state } from './state.js';
 import { escapeHtml, fmt, fmtDateTime } from './format.js';
 import { api, handleAuthLoss, setStatus, showError, showHelp } from './core.js';
@@ -12,6 +11,7 @@ import { SEVERITY_LABEL } from './automation.js';
 import { avatar, fusion, renderProjects } from './projects.js';
 import { allocationScope } from './actions.js';
 import { creditLane, spendText } from './reports.js';
+import { creditsChanged, noteGone } from './credits.js';
 
 // ---------------------------------------------------------------------------
 // Beta: code authors and GitHub identities

@@ -1,6 +1,5 @@
 // The Settings page: reading and showing the settings, saving them as they are typed, the connection guard,
 // rollback notices, quick setup from a .env file, and the email and template checks.
-import { checkPoolLimit, creditTimer, loadPool, poolTenant } from '../app.js';
 import { $, can, canAny, state } from './state.js';
 import { escapeHtml, formatDate } from './format.js';
 import { api, handleAuthLoss, helpHtml, hideToast, setStatus, showError, showHelp, toast } from './core.js';
@@ -9,6 +8,7 @@ import { loadIntegration, loadNetwork, loadReportServer } from './system.js';
 import { loadAutomation } from './automation.js';
 import { renderAudience, renderRecipientHint } from './actions.js';
 import { applySupportChannel } from './help.js';
+import { checkPoolLimit, creditTimer, loadPool, poolTenant } from './credits.js';
 
 // ---------------------------------------------------------------------------
 // Settings page

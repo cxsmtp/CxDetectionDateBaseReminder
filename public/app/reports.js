@@ -3,12 +3,12 @@
 import { SEVERITIES_ALL, creditTiers } from '../credit-tiers.js';
 import { describeEngines } from '../engines.js';
 import { t } from '../i18n.js';
-import { creditsChanged, noteGone } from '../app.js';
 import { $, can, state } from './state.js';
 import { escapeHtml, fmt } from './format.js';
 import { api, handleAuthLoss, helpTip, setStatus, showError } from './core.js';
 import { windowParams } from './workbench.js';
 import { AUDIENCE_TEXT, allocationScope, audience } from './actions.js';
+import { creditsChanged, noteGone } from './credits.js';
 
 // ---------------------------------------------------------------------------
 // Tracked reports
