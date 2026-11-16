@@ -1,3 +1,17 @@
+/**
+ * CxMissionZero's server. This file puts it together; the routes are in src/routes/, one module for each area.
+ *
+ * In this order, because the order is behaviour:
+ * 1. The state folder: one server at a time (the lock on it), what a crash left, a restore staged for this start,
+ *    and then the stores: each tenant's settings, credits, audit log and the rest, the people, the sign-ins kept
+ *    from before. A damaged state file stops the start here (stopAtStart).
+ * 2. The Express app and its middleware: security headers, compression, the answer to Let's Encrypt, draining for
+ *    a stop, the body parsers for each path, the licence gate, the tenant a request is for, the same-origin
+ *    guard, the activity log, the page's files, and the relay's CORS answer and admission control.
+ * 3. The areas: each call registers one area's routes, in the order kept in test/fixtures/routes.txt. The backup
+ *    schedule and the integrity and update services are made between them, where they always were.
+ * 4. The error handler, the start (listening, the first connections, the schedulers), and the shutdown.
+ */
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
