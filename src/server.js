@@ -22,7 +22,7 @@ import { CreditAllocations, creditFigures, billingUnit } from './credit-allocati
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
-import { IamStore, LANGUAGE_PERMISSIONS, PERMISSIONS, PROFILE_LANGUAGES, PROGRAMMING_LANGUAGES, cleanProfile, generatePassword, passwordProblem, publicUser } from './iam.js';
+import { IamStore, LANGUAGE_PERMISSIONS, PERMISSIONS, generatePassword, passwordProblem, publicUser } from './iam.js';
 import { insideProject, migrateLegacyData, prepareDataDir, resolveDataDir } from './data-dir.js';
 import { PENDING_RESTORE, applyPendingRestore, isSealed, readBackup, writeBackupTo } from './backup.js';
 import { BackupKeyStore } from './backup-key.js';
@@ -47,7 +47,7 @@ import { deriveConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, testConnection } from './mailer.js';
 import { explainCxone } from './troubleshoot.js';
 import { TrustStore } from './trust.js';
-import { SettingsStore, cleanPersonalBranding, hasEnvironmentSmtp, hostOfUrl, isVerified, mergeSettings, overlayBranding, supportChannel } from './settings.js';
+import { SettingsStore, hasEnvironmentSmtp, hostOfUrl, isVerified, mergeSettings, overlayBranding, supportChannel } from './settings.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { systemEmail } from './hands-off.js';
 import { BACKUP_SUBJECT, findBackupInMailbox } from './mail-inbox.js';
@@ -119,6 +119,8 @@ import { registerSettingsRoutes } from './routes/settings.js';
 import { registerConnectionRoutes } from './routes/connections.js';
 import { registerNetworkRoutes } from './routes/network.js';
 import { registerTrustRoutes } from './routes/trust.js';
+import { registerPeopleRoutes } from './routes/people.js';
+import { registerAccountRoutes } from './routes/account.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 /** Whose own branding (Settings → Your branding) the current request is made with: see presenting(). */
@@ -2200,409 +2202,24 @@ app.delete('/api/session', (req, res) => {
   res.json({ connected: false, signedIn: false });
 });
 
-app.get('/api/me', requireSession, (req, res) => res.json(describeMe(req.session, req.user)));
-
-/** A page or tab someone opened, or an action done in the page alone (the PDF summary): User activity. */
-app.post('/api/activity', requireSession, (req, res) => {
-  const kind = req.body?.kind === 'event' ? 'event' : 'page';
-  const name = String(req.body?.name ?? '').trim();
-  if (!/^[\w .,:/#&()'’›→-]{1,80}$/u.test(name)) return res.status(400).json({ error: 'Not a page or action name.' });
-  activity.record({ user: req.user.email, name: req.user.name ?? '', role: iam.role(req.user.role)?.name ?? req.user.role, ip: clientIp(req), kind, action: kind === 'page' ? `Opened ${name}` : name, route: '/api/activity', method: 'POST', status: 204 });
-  res.status(204).end();
+// ---- A person's own account, the activity log and the terms of use: src/routes/account.js -------------------------------
+registerAccountRoutes(app, {
+  settingsStore, activity, audit, terms, iam, firstAdminFile, languageAccess, allowedLanguages, asyncRoute,
+  currentSession, requireSession, can, requirePermission, adminActor, describeMe,
+  // Made further down: looked up when used, never before.
+  withinReach: later(() => withinReach),
+  endSessionsOf: later(() => endSessionsOf),
 });
 
-/** What people did here, newest first: for those who may see the audit log. */
-app.get('/api/activity', requirePermission('audit.view'), (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.json(activity.list({ limit: req.query.limit, offset: req.query.offset, user: String(req.query.user ?? ''), q: String(req.query.q ?? ''), kind: String(req.query.kind ?? ''), from: String(req.query.from ?? ''), to: String(req.query.to ?? '') }));
+// ---- People & roles: src/routes/people.js -------------------------------------------------------------------------------
+const { mayChangeRoles, withinReach, iamView, visibleUser, auditIam, endSessionsOf } = registerPeopleRoutes(app, {
+  MAINTAINER_EMAIL, sessions, tenancy, settingsStore, audit, iam, languageAccess, allowedLanguages,
+  dormantPermissions, asyncRoute, permissionsFor, isSuperAdmin, tenantsOf, can, requirePermission, featureLocked,
+  adminActor, signInTickets, passwordResets, passwordResetReady, utc, maySetSignInSecurity, signInSecurityView,
+  // Made further down: looked up when used, never before.
+  tenantName: later(() => tenantName),
+  appNameNow: later(() => appNameNow),
 });
-
-app.get('/api/activity/export', requirePermission('audit.view'), (req, res) => {
-  res.set('Content-Disposition', `attachment; filename="user-activity-${new Date().toISOString().slice(0, 10)}.csv"`);
-  res.type('text/csv').send(activity.csv());
-});
-
-/** The terms of use: readable by anyone (also before signing in), with where this person stands. */
-app.get('/api/terms', (req, res) => {
-  const session = currentSession(req);
-  const user = session ? iam.user(session.userId) : null;
-  const organisation = terms.organisation();
-  const mine = user ? terms.userAcceptance(user.id) : null;
-  res.set('Cache-Control', 'no-store');
-  res.json({
-    version: terms.version,
-    text: terms.text,
-    organisation: organisation ? { at: organisation.at, by: organisation.by, via: organisation.via } : null,
-    ...(user ? { you: { accepted: Boolean(organisation) && terms.acceptedBy(user.id), at: mine?.at ?? (organisation?.everyone ? organisation.at : null), canAcceptForOrganisation: user.role === 'admin' } } : {}),
-  });
-});
-
-/** Accept the terms: an Admin for the organisation (first), then each person for themselves. */
-app.post('/api/terms/accept', requireSession, asyncRoute(async (req, res) => {
-  if (String(req.body?.version ?? '') !== terms.version) return res.status(409).json({ error: 'The terms changed while you were reading them: read the current version, then accept.' });
-  const actor = { kind: 'user', user: req.user.email, ip: clientIp(req), userAgent: String(req.get('user-agent') ?? '').slice(0, 200) };
-  if (!terms.organisation()) {
-    if (req.user.role !== 'admin' || !req.body?.forOrganisation) return res.status(403).json({ error: 'An administrator must accept the terms of use for the organisation first.' });
-    const name = cleanName(req.body?.organisationName);
-    if (!name && !terms.organisationName()) return res.status(400).json({ error: 'Write your organisation’s name: it goes on the projection reports and other documents CxMissionZero makes.' });
-    terms.acceptForOrganisation({ by: req.user.email, ip: clientIp(req), name });
-    audit.record({ type: 'access', outcome: 'changed', reason: `Terms of use v${terms.version} accepted for the organisation by ${req.user.email}${name ? ` (organisation name: ${name})` : ''}.`, actor, details: { terms: { version: terms.version, hash: terms.hash, scope: 'organisation' } } });
-  }
-  if (!terms.acceptedBy(req.user.id)) {
-    terms.acceptForUser({ userId: req.user.id, email: req.user.email, ip: clientIp(req) });
-    audit.record({ type: 'access', outcome: 'changed', reason: `Terms of use v${terms.version} accepted by ${req.user.email}.`, actor, details: { terms: { version: terms.version, hash: terms.hash, scope: 'user' } } });
-  }
-  res.json(describeMe(req.session, req.user));
-}));
-
-/** Change one's own password (required after an administrator reset). */
-app.post(
-  '/api/me/password',
-  requireSession,
-  asyncRoute(async (req, res) => {
-    const user = req.user;
-    // Signed in by single sign-on, with no password here: they cannot give themselves one (it would outlast
-    // their account at the identity provider). An Admin sets one for them under People & roles.
-    if (!user.passwordHash && req.session.via === 'sso') {
-      return res.status(403).json({ error: 'You signed in with single sign-on and have no password here, so you cannot set one yourself. An administrator can give you one under People & roles.' });
-    }
-    if (user.passwordHash) {
-      try {
-        await iam.signIn(user.email, String(req.body?.current ?? ''));
-      } catch (error) {
-        return res.status(error.status === 423 ? 423 : 400).json({ error: error.status === 423 ? error.message : 'Your current password is wrong.' });
-      }
-    }
-    if (String(req.body?.next ?? '') === String(req.body?.current ?? '')) return res.status(400).json({ error: 'Choose a password different from the current one.' });
-    await iam.setPassword(user.id, String(req.body?.next ?? ''), { mustChange: false });
-    // Anyone else signed in with the old password is signed out; this browser stays signed in.
-    endSessionsOf(user.id, req.session.id);
-    fs.rmSync(firstAdminFile, { force: true });
-    audit.record({ type: 'iam', outcome: 'changed', reason: `${user.email} changed their password.`, actor: await adminActor(req) });
-    res.json(describeMe(req.session, iam.user(user.id)));
-  }),
-);
-
-/**
- * One's own profile: name, language, time zone, programming languages and Impact figures. A time zone picked up
- * from the computer by itself (quiet) is stored without an audit entry; everything else is audited.
- */
-app.put(
-  '/api/me/profile',
-  requireSession,
-  asyncRoute(async (req, res) => {
-    const patch = {};
-    for (const key of ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages', 'impact', 'look', 'theme', 'accent', 'scanColours']) if (key in (req.body ?? {})) patch[key] = req.body[key];
-    if (patch.language && !languageAccess.isAvailable(String(patch.language), allowedLanguages(req.user.id))) return res.status(400).json({ error: 'That language is not available.' });
-    const { before, after } = iam.updateProfile(req.user.id, patch);
-    const changed = [
-      ...(before.name !== after.name ? ['name'] : []),
-      ...Object.keys(after.profile).filter((k) => JSON.stringify(before.profile[k]) !== JSON.stringify(after.profile[k])),
-    ];
-    // How the app looks to them (look, light or dark, accent, Fusion and LAST colours) is theirs alone: never an audit entry.
-    const appearance = ['look', 'theme', 'accent', 'scanColours'];
-    const quiet = changed.every((k) => appearance.includes(k)) || (req.body?.quiet === true && changed.every((k) => k === 'timeZone' || k === 'language'));
-    if (changed.length && !quiet) {
-      audit.record({ type: 'iam', outcome: 'changed', reason: `${after.email} updated their profile: ${changed.join(', ')}.`, actor: await adminActor(req), details: { before: { name: before.name, ...before.profile }, after: { name: after.name, ...after.profile } } });
-    }
-    res.json(describeMe(req.session, iam.user(req.user.id)));
-  }),
-);
-
-/** One's own picture: a PNG, JPEG or WebP data: URL (the page makes it small first), or none. */
-app.put(
-  '/api/me/avatar',
-  requireSession,
-  asyncRoute(async (req, res) => {
-    const after = iam.setAvatar(req.user.id, String(req.body?.image ?? ''));
-    audit.record({ type: 'iam', outcome: 'changed', reason: `${after.email} ${after.avatarAt ? 'changed' : 'removed'} their picture.`, actor: await adminActor(req) });
-    res.json(describeMe(req.session, iam.user(req.user.id)));
-  }),
-);
-
-/** A person's picture: for themselves, and for anyone who may see people and roles. */
-app.get('/api/users/:id/avatar', requireSession, (req, res) => {
-  if (req.params.id !== req.user.id && !can(req, 'iam.view')) return res.status(403).json({ error: 'Your role does not allow this.' });
-  const owner = iam.user(req.params.id);
-  if (owner && !withinReach(req, owner)) return res.status(404).json({ error: 'No picture.' });
-  const avatar = iam.avatar(req.params.id);
-  if (!avatar) return res.status(404).json({ error: 'No picture.' });
-  res.set({ 'Content-Type': avatar.type, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" });
-  res.send(avatar.bytes);
-});
-
-/** Settings → Your branding: one's own, and the organisation's it falls back to field by field. */
-function personalBrandingView(user) {
-  const { appName, companyName, logoUrl, logoHeight, accentColor, callToAction } = settingsStore.get().branding;
-  return { branding: cleanPersonalBranding(user.branding ?? {}), organisation: { appName, companyName, logoUrl, logoHeight, accentColor, callToAction } };
-}
-
-app.get('/api/me/branding', requirePermission('branding.personal'), (req, res) => res.json(personalBrandingView(req.user)));
-
-app.put(
-  '/api/me/branding',
-  requirePermission('branding.personal'),
-  asyncRoute(async (req, res) => {
-    const next = cleanPersonalBranding(req.user.branding ?? {}, req.body ?? {});
-    const { before } = iam.setBranding(req.user.id, next);
-    const prior = cleanPersonalBranding(before ?? {});
-    const changed = Object.keys(next).filter((k) => prior[k] !== next[k]);
-    if (changed.length) {
-      const what = changed.length === 1 && changed[0] === 'on' ? (next.on ? 'turned their own branding on' : 'went back to the organisation’s branding') : `changed their own branding: ${changed.join(', ')}`;
-      // The logo itself can be large; the log says only whether there is one.
-      const summary = (b) => b && { ...b, logoUrl: b.logoUrl ? (b.logoUrl.startsWith('data:') ? '(uploaded image)' : b.logoUrl) : '' };
-      audit.record({ type: 'iam', outcome: 'changed', reason: `${req.user.email} ${what}.`, actor: await adminActor(req), details: { before: summary(prior), after: summary(next) } });
-    }
-    res.json({ ...personalBrandingView(iam.user(req.user.id)), me: describeMe(req.session, iam.user(req.user.id)) });
-  }),
-);
-
-app.get('/api/me/profile/options', requireSession, (req, res) => res.json({ languages: PROFILE_LANGUAGES.filter((code) => languageAccess.isAvailable(code, allowedLanguages(req.user.id))), programmingLanguages: PROGRAMMING_LANGUAGES }));
-
-// ---------------------------------------------------------------------------
-// Access: users and roles
-// ---------------------------------------------------------------------------
-
-const actorOf = (req) => ({ actorPerms: req.permissions, actorId: req.user.id });
-
-/** Can this person see (and manage) that user: someone in the tenant they work in now, or anyone for a Super Admin. */
-function sharesTenant(req, user) {
-  if (!tenancy.enabled || isSuperAdmin(req.permissions)) return true;
-  return tenantsOf(iam.user(user.id) ?? user).includes(req.tenantId);
-}
-
-/** Roles are shared by every tenant: only people who work in the first tenant change them. */
-function mayChangeRoles(req) {
-  return !tenancy.enabled || isSuperAdmin(req.permissions) || tenantsOf(req.user, req.permissions).includes(DEFAULT_TENANT);
-}
-
-/**
- * Whether this person may know `user` exists: their role holds nothing beyond this
- * person's own permissions. A Security Analyst sees analysts and below, never who
- * the Admins are; an Admin sees everyone. Themselves always.
- */
-const withinReach = (req, user) => user.id === req.user.id || iam.canGrant(req.permissions, permissionsFor({ ...user, disabled: false }));
-
-function iamView(req) {
-  return {
-    users: iam.users().filter((u) => sharesTenant(req, u) && withinReach(req, u)).map((u) => ({ ...u, canManage: can(req, 'iam.manage') && iam.canGrant(req.permissions, iam.permissionsOf({ ...iam.user(u.id), disabled: false })) && u.id !== req.user.id })),
-    roles: iam.roles().filter((r) => r.id === req.user.role || iam.canGrant(req.permissions, r.permissions)).map((r) => ({ ...r, canManage: can(req, 'iam.manage') && mayChangeRoles(req) && !r.locked && iam.canGrant(req.permissions, r.permissions), canAssign: can(req, 'iam.manage') && iam.canGrant(req.permissions, r.permissions) })),
-    permissions: PERMISSIONS.filter((p) => !dormantPermissions().includes(p.id)),
-    // Whether this person may add roles (New role, Duplicate): the matrix shows the buttons only then.
-    rolesChangeable: can(req, 'iam.manage') && mayChangeRoles(req),
-    me: { id: req.user.id, permissions: [...req.permissions] },
-    tenants: tenancy.enabled && isSuperAdmin(req.permissions) ? tenancy.list().map((t) => ({ id: t.id, name: tenantName(t.id) })) : null,
-    signIn: can(req, 'iam.manage') ? { ...passwordResetReady(), canChange: !tenancy.enabled || isSuperAdmin(req.permissions), security: maySetSignInSecurity(req) ? signInSecurityView() : null } : null,
-    // Labs → Consolidated view: an Admin ticks who may see it, once its activation code is in force.
-    consolidatedGrant: !featureLocked(featureById('consolidated')) && can(req, 'iam.manage') && req.user.role === 'admin',
-  };
-}
-
-/** A user this person may change: 404 for someone outside the tenants they work in. */
-function visibleUser(req, id) {
-  const user = iam.user(id);
-  if (!user || !sharesTenant(req, user) || !withinReach(req, user)) throw Object.assign(new Error('No such user.'), { status: 404 });
-  return user;
-}
-
-async function auditIam(req, reason, details) {
-  audit.record({ type: 'iam', outcome: 'changed', reason, actor: await adminActor(req), details });
-}
-
-/** Sign out every session of a user whose access was removed (all but `keep`, when given). */
-function endSessionsOf(userId, keep = null) {
-  // A sign-in waiting for its two-step code ends too.
-  signInTickets.revokeUser(userId);
-  // Saved sign-ins nobody has come back for since a restart end too.
-  const keepKey = keep ? sessionKey(keep) : null;
-  sessions.endWhere((s) => s.userId === userId && !(keep && (s.id === keep || s.key === keepKey)));
-}
-
-app.get('/api/iam', requirePermission('iam.view'), (req, res) => res.json(iamView(req)));
-
-app.post(
-  '/api/iam/users',
-  requirePermission('iam.manage'),
-  asyncRoute(async (req, res) => {
-    const { email, name, role, password, cxoneIdentities } = req.body ?? {};
-    const user = await iam.createUser({ email, name, role, password: password ? String(password) : '', cxoneIdentities, mustChangePassword: true }, actorOf(req));
-    // Someone added while working in another tenant works in that tenant.
-    if (req.tenantId && req.tenantId !== DEFAULT_TENANT) iam.setTenants(user.id, [req.tenantId]);
-    await auditIam(req, `Added ${user.email} as ${iam.role(user.role)?.name}.`, { user });
-    res.status(201).json(iamView(req));
-  }),
-);
-
-app.patch(
-  '/api/iam/users/:id',
-  requirePermission('iam.manage'),
-  asyncRoute(async (req, res) => {
-    const patch = {};
-    for (const key of ['name', 'role', 'cxoneIdentities', 'disabled']) if (key in (req.body ?? {})) patch[key] = req.body[key];
-    visibleUser(req, req.params.id);
-    const { before, after } = iam.updateUser(req.params.id, patch, actorOf(req));
-    const changes = Object.keys(patch).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
-    if (changes.length) {
-      const what = changes.map((k) => (k === 'role' ? `role ${iam.role(before.role)?.name ?? before.role} → ${iam.role(after.role)?.name ?? after.role}` : k === 'disabled' ? (after.disabled ? 'disabled' : 'enabled') : k)).join(', ');
-      await auditIam(req, `Changed ${after.email}: ${what}.`, { before, after });
-    }
-    if (after.disabled) endSessionsOf(after.id);
-    res.json(iamView(req));
-  }),
-);
-
-app.delete(
-  '/api/iam/users/:id',
-  requirePermission('iam.manage'),
-  asyncRoute(async (req, res) => {
-    visibleUser(req, req.params.id);
-    const removed = iam.deleteUser(req.params.id, actorOf(req));
-    endSessionsOf(removed.id);
-    await auditIam(req, `Removed ${removed.email} (${iam.role(removed.role)?.name ?? removed.role}).`, { user: removed });
-    res.json(iamView(req));
-  }),
-);
-
-/**
- * An Admin edits someone's profile: their sign-in email, name, language, time zone, programming
- * languages, Impact figures and look. Only people whose permissions the Admin holds all of (the
- * same rule as changing their role), never themselves (that is Your profile). A new email ends any
- * reset link sent to the old one, and both addresses are told.
- */
-const ADMIN_PROFILE_FIELDS = ['name', 'language', 'timeZone', 'timeZoneAuto', 'programmingLanguages', 'impact', 'look', 'theme', 'accent', 'scanColours'];
-function managedUser(req) {
-  const user = visibleUser(req, req.params.id);
-  if (user.id === req.user.id) throw Object.assign(new Error('Change your own profile under Settings → Your profile.'), { status: 400 });
-  if (!iam.canGrant(req.permissions, iam.permissionsOf({ ...user, disabled: false }))) {
-    throw Object.assign(new Error('You cannot change this person: their role holds permissions you do not have.'), { status: 403 });
-  }
-  return user;
-}
-const managedView = (req, id) => {
-  const user = iam.users().find((u) => u.id === id);
-  return { user: { ...user, canManage: true, roleName: iam.role(user.role)?.name ?? user.role } };
-};
-
-app.get('/api/iam/users/:id/profile', requirePermission('iam.manage'), (req, res) => {
-  const user = managedUser(req);
-  res.json({ ...managedView(req, user.id), languages: languageAccess.available(allowedLanguages(user.id)) });
-});
-
-app.put(
-  '/api/iam/users/:id/profile',
-  requirePermission('iam.manage'),
-  asyncRoute(async (req, res) => {
-    const target = managedUser(req);
-    const body = req.body ?? {};
-    const patch = {};
-    for (const key of ADMIN_PROFILE_FIELDS) if (key in body) patch[key] = body[key];
-    if (patch.language && !languageAccess.isAvailable(String(patch.language), allowedLanguages(target.id))) return res.status(400).json({ error: 'That language is not available to this person.' });
-    // Checked whole before anything is saved, so a bad field never leaves half a change behind.
-    cleanProfile(patch);
-    let email = null;
-    if ('email' in body) email = iam.changeEmail(target.id, String(body.email ?? ''), actorOf(req));
-    const { before, after } = Object.keys(patch).length ? iam.updateProfile(target.id, patch) : { before: publicUser(iam.user(target.id)), after: publicUser(iam.user(target.id)) };
-    const changed = Object.keys(patch).filter((k) => JSON.stringify(k === 'name' ? before.name : before.profile[k]) !== JSON.stringify(k === 'name' ? after.name : after.profile[k]));
-    const emailChanged = email && email.before !== email.after;
-    if (emailChanged || changed.length) {
-      const what = [emailChanged ? `email ${email.before} → ${email.after}` : '', ...changed].filter(Boolean).join(', ');
-      await auditIam(req, `Changed ${emailChanged ? email.before : after.email}'s profile: ${what}.`, { before, after: publicUser(iam.user(target.id)) });
-    }
-    if (emailChanged) {
-      // A reset link sent to the old address must not reset the account now that it is someone else's.
-      passwordResets.revokeUser(target.id);
-      tellEmailChanged(email.before, email.after, req.user.email);
-    }
-    res.json(managedView(req, target.id));
-  }),
-);
-
-app.put(
-  '/api/iam/users/:id/avatar',
-  requirePermission('iam.manage'),
-  asyncRoute(async (req, res) => {
-    const target = managedUser(req);
-    const after = iam.setAvatar(target.id, String(req.body?.image ?? ''));
-    await auditIam(req, `${after.avatarAt ? 'Changed' : 'Removed'} ${after.email}'s picture.`);
-    res.json(managedView(req, target.id));
-  }),
-);
-
-/** Both addresses hear about a changed sign-in email (best effort: only when email is set up). */
-function tellEmailChanged(before, after, by) {
-  const settings = tenancy.run(DEFAULT_TENANT, () => settingsStore.get());
-  if (!isVerified(settings)) return;
-  const appName = appNameNow();
-  const notes = [
-    [before, `The sign-in email of your ${appName} account was changed from ${before} to ${after} by ${by}. From now on you sign in with ${after}, and links and reminders go there.`],
-    [after, `This address now signs in to ${appName}: ${by} changed the account's email from ${before} to ${after}.`],
-  ];
-  for (const [to, line] of notes) {
-    if (to.toLowerCase() === MAINTAINER_EMAIL.toLowerCase()) continue;
-    sendReminderMail(
-      settings,
-      systemEmail({ appName, subject: `Your ${appName} sign-in email was changed`, lines: [line], facts: [['Changed at', utc(Date.now())]], footer: 'Not expected? Tell an administrator at once.', replyHelp: false }),
-      { exact: true, to: [to] },
-    ).catch((error) => console.error(`[profile] Could not tell ${to} about the new email: ${error.message}`));
-  }
-}
-
-/** Set a temporary password; the user must choose their own at next sign-in. */
-app.post(
-  '/api/iam/users/:id/password',
-  requirePermission('iam.manage'),
-  asyncRoute(async (req, res) => {
-    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Change your own password from your account menu.' });
-    visibleUser(req, req.params.id);
-    const user = await iam.setPassword(req.params.id, String(req.body?.password ?? ''), { mustChange: true, actorPerms: req.permissions });
-    endSessionsOf(user.id);
-    await auditIam(req, `Set a temporary password for ${user.email}.`);
-    res.json(iamView(req));
-  }),
-);
-
-app.post(
-  '/api/iam/roles',
-  requirePermission('iam.manage'),
-  asyncRoute(async (req, res) => {
-    if (!mayChangeRoles(req)) return res.status(403).json({ error: 'Roles are shared by every tenant, so only people who work in the first tenant change them.' });
-    const { after } = iam.saveRole(null, req.body ?? {}, actorOf(req));
-    await auditIam(req, `Created role "${after.name}" (${after.permissions.length} permissions).`, { role: after });
-    res.status(201).json(iamView(req));
-  }),
-);
-
-app.put(
-  '/api/iam/roles/:id',
-  requirePermission('iam.manage'),
-  asyncRoute(async (req, res) => {
-    if (!mayChangeRoles(req)) return res.status(403).json({ error: 'Roles are shared by every tenant, so only people who work in the first tenant change them.' });
-    // A permission not listed right now (Hebrew while its code is not in force) keeps what the role had.
-    const dormant = dormantPermissions();
-    const held = iam.role(req.params.id)?.permissions ?? [];
-    const asked = Array.isArray(req.body?.permissions) ? req.body.permissions : [];
-    const body = { ...(req.body ?? {}), permissions: [...asked.filter((p) => !dormant.includes(p)), ...held.filter((p) => dormant.includes(p))] };
-    const { before, after } = iam.saveRole(req.params.id, body, actorOf(req));
-    const added = after.permissions.filter((p) => !before.permissions.includes(p));
-    const removed = before.permissions.filter((p) => !after.permissions.includes(p));
-    if (before.name !== after.name) await auditIam(req, `Renamed role "${before.name}" to "${after.name}".`, { before: { id: after.id, name: before.name }, after: { id: after.id, name: after.name } });
-    if (added.length || removed.length || before.description !== after.description) {
-      await auditIam(req, `Changed role "${after.name}"${added.length ? `: added ${added.join(', ')}` : ''}${removed.length ? `${added.length ? ';' : ':'} removed ${removed.join(', ')}` : ''}.`, { before, after });
-    }
-    res.json(iamView(req));
-  }),
-);
-
-app.delete(
-  '/api/iam/roles/:id',
-  requirePermission('iam.manage'),
-  asyncRoute(async (req, res) => {
-    if (!mayChangeRoles(req)) return res.status(403).json({ error: 'Roles are shared by every tenant, so only people who work in the first tenant change them.' });
-    const removed = iam.deleteRole(req.params.id, actorOf(req));
-    await auditIam(req, `Removed role "${removed.name}".`, { role: removed });
-    res.json(iamView(req));
-  }),
-);
 
 // ---- Trusted certificates, and connecting to Checkmarx One: src/routes/trust.js ----------------------------------------
 const { cxHosts, connectCheckmarxOne, SERVER_NAME, refuseOtherTenants, TRUST_EDIT } = registerTrustRoutes(app, {
