@@ -18,7 +18,7 @@ import { projectReads } from './cxone/risks.js';
 import { ReportGrants } from './report-grants.js';
 import { patchLinks } from './remediation-patch.js';
 import { CreditLedger } from './credits.js';
-import { CreditAllocations, creditFigures, billingUnit } from './credit-allocations.js';
+import { CreditAllocations } from './credit-allocations.js';
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
@@ -28,31 +28,24 @@ import { PENDING_RESTORE, applyPendingRestore, isSealed, readBackup, writeBackup
 import { BackupKeyStore } from './backup-key.js';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
-import { createHash, randomUUID } from 'node:crypto';
-import { GitHubClient } from './github/client.js';
+import { randomUUID } from 'node:crypto';
 import { setCloneHostCheck } from './github/identity.js';
-import { codeVersion, onGitHub, parseRepoUrl } from './github/blame.js';
-import { SCM_LABELS, providerOf, scmClients } from './scm/providers.js';
 import { acknowledgeStart } from './updates/companion.js';
-import { githubIssues, gitlabIssues, openSlaIssues } from './sla-issues.js';
 import { BrandFonts } from './brand-fonts.js';
 import { TrackedReports } from './tracked-reports.js';
 import { FindingJournal } from './finding-journal.js';
 import { ScanAttribution } from './scan-attribution.js';
 import { ReportFiles } from './report-files.js';
 import { ProjectionStore, ReportStore, TenantReadStore } from './projections.js';
-import { riskUrl } from './links.js';
 import { AutomationState, Scheduler } from './automation.js';
-import { deriveConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, testConnection } from './mailer.js';
 import { explainCxone } from './troubleshoot.js';
 import { TrustStore } from './trust.js';
-import { SettingsStore, hasEnvironmentSmtp, hostOfUrl, isVerified } from './settings.js';
+import { SettingsStore, hasEnvironmentSmtp, isVerified } from './settings.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { systemEmail } from './hands-off.js';
 import { BACKUP_SUBJECT, findBackupInMailbox } from './mail-inbox.js';
 import { ConnectionGuard } from './connection-guard.js';
-import { setForRepo } from './scm/instances.js';
 import { SessionPersistence, sessionKey } from './handover.js';
 import { InstanceLock } from './instance-lock.js';
 import { clearHalfSaved, flushPendingNow, StateFileError } from './state-file.js';
@@ -66,7 +59,6 @@ import { DEFAULT_TENANT, Tenancy, scoped, scopedState } from './tenancy.js';
 import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
 import { Terms, cleanName } from './terms.js';
 import { featureById } from './features.js';
-import { journeyOf } from './journey.js';
 import { SupportDesk } from './support.js';
 import { SSO_CALLBACK_PATH } from './oidc.js';
 import { FaeFlushStore, FaeHistory } from './fae-flush.js';
@@ -100,10 +92,10 @@ import { registerLicenceRoutes } from './routes/licence.js';
 import { registerHttpsRoutes } from './routes/https.js';
 import { createActors } from './routes/actors.js';
 import { registerCalculatorRoutes } from './routes/calculator.js';
-import { createCreditRules } from './routes/credit-rules.js';
+import { createCreditRules, createCreditView } from './routes/credit-rules.js';
 import { registerReminderRoutes } from './routes/reminders.js';
 import { registerScanRoutes } from './routes/scan.js';
-import { registerAutomationRoutes } from './routes/automation.js';
+import { registerAutomationRoutes, createSlaIssues } from './routes/automation.js';
 import { registerSettingsRoutes } from './routes/settings.js';
 import { registerConnectionRoutes } from './routes/connections.js';
 import { registerNetworkRoutes } from './routes/network.js';
@@ -113,6 +105,7 @@ import { registerAccountRoutes } from './routes/account.js';
 import { registerSessionRoutes } from './routes/session.js';
 import { registerDiagnosticsRoutes } from './routes/diagnostics.js';
 import { createGuards } from './routes/guards.js';
+import { createIntegrationSession } from './routes/integration-session.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 /** Whose own branding (Settings → Your branding) the current request is made with: see presenting(). */
@@ -499,56 +492,7 @@ const supportDesk = new SupportDesk({ file: path.join(dataDir, 'support.json') }
 const touchedProjects = scoped(tenancy, 'touchedProjects');
 const touchProject = (projectId) => touchedProjects.set(projectId, Date.now());
 
-/**
- * Per-project credits for the dashboard: what is allocated and used, and what
- * the findings need (never allocated until someone confirms it).
- */
-function creditView(summary) {
-  const risks = summary.risks ?? [];
-  const figures = creditFigures(risks, { triaged: creditLedger.triagedAt(summary.projectId), remediated: creditLedger.remediatedIds(summary.projectId) });
-  const { toRemediate, need, shortfall } = allocations.need(summary.projectId, risks, figures);
-  return {
-    ...allocations.balance(summary.projectId),
-    toTriage: Object.fromEntries(SEVERITIES.map((s) => [s, figures.toTriage([s])])),
-    // The rows behind those results: rows sharing one Checkmarx One result are triaged, and charged, once.
-    toTriageRows: Object.fromEntries(SEVERITIES.map((s) => [s, figures.triageRows([s]).length])),
-    // Confirmed findings to remediate, by severity, so any choice of severities can be costed.
-    toRemediateBySeverity: Object.fromEntries(SEVERITIES.map((s) => [s, figures.toRemediate([s])])),
-    toRemediate,
-    need,
-    shortfall,
-    sharedResults: sharedResults(figures.triageRows(SEVERITIES)),
-    // Where its findings stand on the way to Mission Zero (src/journey.js).
-    journey: journeyOf(risks, creditLedger.remediatedIds(summary.projectId)),
-  };
-}
-
-/**
- * Findings still to triage that are one Checkmarx One result (several code
- * paths, or data flows, into the same vulnerable code): triaged, charged and
- * fixed together. Named so people can see which ones, and why.
- */
-function sharedResults(rows) {
-  const groups = new Map();
-  for (const r of rows) {
-    const unit = billingUnit(r);
-    if (!groups.has(unit)) groups.set(unit, []);
-    groups.get(unit).push(r);
-  }
-  const place = (location) => String(location ?? '').replace(/^.*[\\/]/, '');
-  return [...groups.entries()]
-    .filter(([, list]) => list.length > 1)
-    .slice(0, 30)
-    .map(([unit, list]) => ({
-      severity: list[0].severity,
-      title: list[0].title,
-      findings: list.length,
-      places: [...new Set(list.map((r) => place(r.location)).filter(Boolean))].slice(0, 4),
-      // How Checkmarx One ties them: one result id (listed once per code path), or one similarity group (the same vulnerable code).
-      tie: unit.startsWith('a:') ? 'result' : 'group',
-      id: unit.slice(2, 10),
-    }));
-}
+const { creditView } = createCreditView({ creditLedger, allocations, SEVERITIES });
 
 const reportGrants = new ReportGrants({
   secret: process.env.REPORT_SIGNING_KEY?.trim() || undefined,
@@ -566,155 +510,23 @@ const patchTokens = patchLinks((text) => reportGrants.macText(text));
 
 const automationState = scoped(tenancy, 'automationState');
 
-/**
- * The session unattended runs use. Automation has no browser to paste a key,
- * so it needs a credential that outlives a session: either CX_API_KEY, or one
- * the administrator explicitly armed from the Settings page.
- */
-
-/** Where the stored integration key connects: what the administrator entered, else the deployment's overrides. */
-function integrationOverrides(settings = settingsStore.get()) {
-  const stored = settings.integrationOverrides ?? {};
-  return {
-    baseUrl: stored.baseUrl || config.overrides.baseUrl,
-    iamUrl: stored.iamUrl || config.overrides.iamUrl,
-    tenant: stored.tenant || config.overrides.tenant,
-  };
-}
-
-/**
- * The server's own Checkmarx One connection (the "integration"): used by
- * report triage, automation, and everyone who signed in with a password.
- */
-function integrationSession() {
-  return sessions.get(tstate.automationSessionId) ?? sessions.get(tstate.bootstrapSessionId);
-}
-
-/**
- * The IAM and API hosts the stored key would be sent to with these endpoints (the key's
- * own issuer where none is set), so a change of host can be told from a change of tenant.
- */
-function cxoneHosts(key, overrides = {}) {
-  const effective = {
-    baseUrl: overrides.baseUrl || config.overrides.baseUrl,
-    iamUrl: overrides.iamUrl || config.overrides.iamUrl,
-    tenant: overrides.tenant || config.overrides.tenant,
-  };
-  let { iamUrl, baseUrl } = effective;
-  try {
-    ({ iamUrl, baseUrl } = deriveConnection(key, effective));
-  } catch {
-    /* not a key we can read: compare the addresses as given */
-  }
-  return `${hostOfUrl(iamUrl)} ${hostOfUrl(baseUrl)}`;
-}
-
-/** The stored key, unless the endpoints now point at another host and no new key came with them. */
-function keyForEndpoints(current, overrides, newKey) {
-  if (newKey) return newKey;
-  const key = current.automationApiKey;
-  if (!key) return key;
-  return cxoneHosts(key, current.integrationOverrides ?? {}) === cxoneHosts(key, overrides) ? key : '';
-}
-
-/** Which key and endpoints a connection was made from (to tell a changed configuration from the running one). */
-const cxoneFingerprint = (key, overrides = {}) =>
-  createHash('sha256').update(JSON.stringify([key ?? '', overrides.baseUrl ?? '', overrides.iamUrl ?? '', overrides.tenant ?? ''])).digest('hex');
-/** The fingerprint of the configuration the running integration session was made from. */
-
-/**
- * Make `session` the integration: it replaces the previous one, and the key and
- * endpoints it was made from become the last known good Checkmarx One configuration.
- */
-function activateIntegration(session, key, overrides = {}) {
-  session.pinned = true;
-  const previous = tstate.automationSessionId;
-  tstate.automationSessionId = session.id;
-  tstate.integrationFingerprint = cxoneFingerprint(key, overrides);
-  tstate.integrationFailure = { fingerprint: null, until: 0 };
-  if (previous && previous !== session.id && previous !== tstate.bootstrapSessionId) sessions.destroy(previous);
-  const { tenant, baseUrl, iamUrl } = session.connection;
-  guard.recordGood('cxone', { apiKey: key, overrides: { baseUrl: overrides.baseUrl ?? '', iamUrl: overrides.iamUrl ?? '', tenant: overrides.tenant ?? '' }, connection: { tenant, baseUrl, iamUrl } });
-  scheduler.sync();
-}
-
-/**
- * Signing in with the stored key: one attempt at a time however many requests are waiting
- * for it, and after a failure none for a while (30-60 s), so a wrong key or an unreachable
- * IAM is not asked again on every request. A changed key or endpoints are tried at once.
- */
-
-async function resolveAutomationSession() {
-  const existing = integrationSession();
-  if (existing) return existing;
-
-  const settings = settingsStore.get();
-  const storedKey = settings.automationApiKey;
-  if (!storedKey) return null;
-
-  const fingerprint = cxoneFingerprint(storedKey, settings.integrationOverrides ?? {});
-  if (tstate.integrationFailure.fingerprint === fingerprint && Date.now() < tstate.integrationFailure.until) return null;
-  if (tstate.integrationAttempt?.fingerprint === fingerprint) return tstate.integrationAttempt.promise;
-
-  const promise = (async () => {
-    try {
-      const session = await connectCheckmarxOne(storedKey, integrationOverrides(settings));
-      activateIntegration(session, storedKey, settings.integrationOverrides ?? {});
-      tstate.integrationFailure = { fingerprint: null, until: 0 };
-      return session;
-    } catch (error) {
-      console.warn(`! Stored automation key could not be used: ${error.message}`);
-      tstate.integrationFailure = { fingerprint, until: Date.now() + 30_000 + Math.floor(Math.random() * 30_000), error };
-      return null;
-    } finally {
-      if (tstate.integrationAttempt?.promise === promise) tstate.integrationAttempt = null;
-    }
-  })();
-  tstate.integrationAttempt = { fingerprint, promise };
-  return promise;
-}
-
 const scheduler = scoped(tenancy, 'scheduler');
 
-/**
- * Open an issue in each project's repository for its findings that went past their SLA:
- * the repository comes from the project's latest scan (or the project), the token from the
- * git connection that fits it. GitHub and GitLab, private repositories only (src/sla-issues.js).
- */
-async function openSlaIssuesFor(items, { client, connection, projects = [], initiators = {}, dryRun }) {
-  const settings = sendingSettings();
-  const byId = new Map(projects.map((p) => [p.id, p]));
-  const sets = gitSets(settings);
-  return openSlaIssues(items, {
-    appName: settings.branding?.appName || 'CxMissionZero',
-    dryRun,
-    urlOf: (risk) => riskUrl(risk, connection, settings.links, initiators[risk.projectId]?.scanId ?? ''),
-    repoOf: async (projectId) => {
-      const scanId = initiators[projectId]?.scanId;
-      let scan = null;
-      if (scanId) {
-        try {
-          scan = await client.request(`/api/scans/${encodeURIComponent(scanId)}`, { retries: 1 });
-        } catch {
-          scan = null;
-        }
-      }
-      const repo = parseRepoUrl(codeVersion(scan, byId.get(projectId) ?? {}).repoUrl);
-      if (!repo) return { problem: 'No repository is linked to this project in Checkmarx One.' };
-      const set = setForRepo(sets, repo);
-      const provider = providerOf(repo, set.scm, set.github.apiUrl);
-      if (provider === 'github') {
-        if (!set.github.token || !onGitHub(repo, set.github.apiUrl)) return { problem: 'No GitHub token is connected for this repository.' };
-        return { repo, host: githubIssues(new GitHubClient({ token: set.github.token, apiUrl: set.github.apiUrl }), repo) };
-      }
-      if (provider === 'gitlab') {
-        if (!set.scm.gitlab.token || repo.host !== set.scm.gitlab.host) return { problem: 'No GitLab token is connected for this repository.' };
-        return { repo, host: gitlabIssues(scmClients(set.scm).gitlab, repo) };
-      }
-      return { problem: `Issues are opened on GitHub and GitLab only${provider ? ` (this repository is on ${SCM_LABELS[provider]})` : ''}.` };
-    },
-  });
-}
+// ---- The server's own Checkmarx One connection: src/routes/integration-session.js --------------------------------------
+const {
+  integrationOverrides, integrationSession, keyForEndpoints, cxoneFingerprint, activateIntegration,
+  resolveAutomationSession,
+} = createIntegrationSession({
+  sessions, tstate, settingsStore, guard, scheduler,
+  // Made further down: looked up when used, never before.
+  connectCheckmarxOne: later(() => connectCheckmarxOne),
+});
+
+const { openSlaIssuesFor } = createSlaIssues({
+  // Made further down: looked up when used, never before.
+  gitSets: later(() => gitSets),
+  sendingSettings: later(() => sendingSettings),
+});
 
 const app = express();
 

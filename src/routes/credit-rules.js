@@ -10,10 +10,73 @@
  * - The audit entry of every credit decision, allocation and settings change.
  */
 import { CREDIT_COST } from '../credits.js';
+import { creditFigures, billingUnit } from '../credit-allocations.js';
 import { poolSummary } from '../credit-usage.js';
 import { createHash } from 'node:crypto';
 import { tenantCredits } from '../fusion-usage.js';
+import { journeyOf } from '../journey.js';
 import { SYSTEM_ACTOR, clientIp } from './shared.js';
+
+/**
+ * A project's credits as the dashboard shows them.
+ * @param {object} d  what src/server.js hands over (listed where it calls this)
+ */
+export function createCreditView(d) {
+  const { creditLedger, allocations, SEVERITIES } = d;
+
+  /**
+   * Per-project credits for the dashboard: what is allocated and used, and what
+   * the findings need (never allocated until someone confirms it).
+   */
+  function creditView(summary) {
+    const risks = summary.risks ?? [];
+    const figures = creditFigures(risks, { triaged: creditLedger.triagedAt(summary.projectId), remediated: creditLedger.remediatedIds(summary.projectId) });
+    const { toRemediate, need, shortfall } = allocations.need(summary.projectId, risks, figures);
+    return {
+      ...allocations.balance(summary.projectId),
+      toTriage: Object.fromEntries(SEVERITIES.map((s) => [s, figures.toTriage([s])])),
+      // The rows behind those results: rows sharing one Checkmarx One result are triaged, and charged, once.
+      toTriageRows: Object.fromEntries(SEVERITIES.map((s) => [s, figures.triageRows([s]).length])),
+      // Confirmed findings to remediate, by severity, so any choice of severities can be costed.
+      toRemediateBySeverity: Object.fromEntries(SEVERITIES.map((s) => [s, figures.toRemediate([s])])),
+      toRemediate,
+      need,
+      shortfall,
+      sharedResults: sharedResults(figures.triageRows(SEVERITIES)),
+      // Where its findings stand on the way to Mission Zero (src/journey.js).
+      journey: journeyOf(risks, creditLedger.remediatedIds(summary.projectId)),
+    };
+  }
+
+  /**
+   * Findings still to triage that are one Checkmarx One result (several code
+   * paths, or data flows, into the same vulnerable code): triaged, charged and
+   * fixed together. Named so people can see which ones, and why.
+   */
+  function sharedResults(rows) {
+    const groups = new Map();
+    for (const r of rows) {
+      const unit = billingUnit(r);
+      if (!groups.has(unit)) groups.set(unit, []);
+      groups.get(unit).push(r);
+    }
+    const place = (location) => String(location ?? '').replace(/^.*[\\/]/, '');
+    return [...groups.entries()]
+      .filter(([, list]) => list.length > 1)
+      .slice(0, 30)
+      .map(([unit, list]) => ({
+        severity: list[0].severity,
+        title: list[0].title,
+        findings: list.length,
+        places: [...new Set(list.map((r) => place(r.location)).filter(Boolean))].slice(0, 4),
+        // How Checkmarx One ties them: one result id (listed once per code path), or one similarity group (the same vulnerable code).
+        tie: unit.startsWith('a:') ? 'result' : 'group',
+        id: unit.slice(2, 10),
+      }));
+  }
+
+  return { creditView };
+}
 
 /**
  * @param {object} d  what src/server.js hands over (listed where it calls this)
