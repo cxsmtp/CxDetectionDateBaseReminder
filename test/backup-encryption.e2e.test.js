@@ -22,7 +22,13 @@ test.after(async () => {
 
 function folder(t, name = 'backup-enc-') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), name));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  // The servers started on this folder are stopped first, and waited for: one still running writes into it (its
+  // sign-ins, its logs, a last backup as it stops), and removing a folder that is being written to fails now and
+  // then with ENOTEMPTY, which is how this file failed once in six runs and kept two images from being published.
+  t.after(async () => {
+    await Promise.all(servers.filter((s) => s.dataDir === dir).map((s) => s.stop()));
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  });
   return dir;
 }
 
@@ -69,6 +75,7 @@ async function start(dataDir, env = {}) {
     assert.equal((await admin('POST', '/api/me/password', { current: FIRST_PASSWORD, next: NEXT_PASSWORD })).status, 200);
   }
   const handle = {
+    dataDir,
     admin,
     base,
     log: () => log,
