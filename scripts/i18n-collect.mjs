@@ -243,7 +243,7 @@ try {
 // Wording the page builds in code and only shows while something runs.
 // The page's script: public/app.js and the modules it imports from public/app/, read as one text.
 const modules = path.join(ROOT, 'public/app');
-const sourceFiles = ['public/app.js', ...(fs.existsSync(modules) ? fs.readdirSync(modules).filter((f) => f.endsWith('.js')).sort().map((f) => `public/app/${f}`) : [])];
+const sourceFiles = ['public/app.js', ...fs.readdirSync(modules).filter((f) => f.endsWith('.js')).sort().map((f) => `public/app/${f}`)];
 const source = sourceFiles.map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');
 const literal = /'((?:[^'\\\n]|\\.)*)'/g;
 const block = (start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));

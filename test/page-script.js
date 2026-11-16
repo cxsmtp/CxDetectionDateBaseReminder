@@ -8,7 +8,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MODULES = path.join(ROOT, 'public/app');
 
 /** The files, from the project's folder: public/app.js first, then public/app/*.js by name. */
-export const PAGE_SCRIPT_FILES = ['public/app.js', ...(fs.existsSync(MODULES) ? fs.readdirSync(MODULES).filter((f) => f.endsWith('.js')).sort().map((f) => `public/app/${f}`) : [])];
+export const PAGE_SCRIPT_FILES = ['public/app.js', ...fs.readdirSync(MODULES).filter((f) => f.endsWith('.js')).sort().map((f) => `public/app/${f}`)];
 
 /** All of it as one text. */
 export const pageScript = () => PAGE_SCRIPT_FILES.map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');

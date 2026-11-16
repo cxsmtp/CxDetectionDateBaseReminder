@@ -1,6 +1,6 @@
 // Where things were before the menu and Settings were flattened, so that an old address, a bookmark and what a
 // browser remembers (the last Settings section, the folded groups) still lead somewhere. Plain data and
-// functions with no page in them: public/app.js uses them, and test/navigation.test.js checks them.
+// functions with no page in them: public/app/nav.js uses them, and test/navigation.test.js checks them.
 
 /**
  * Settings sections that became an advanced part of another section: old name → the section that holds it.

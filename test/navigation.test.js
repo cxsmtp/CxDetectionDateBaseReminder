@@ -34,7 +34,7 @@ const settingsNav = tags(between('<nav class="set-nav" id="set-nav"', '</nav>'),
 const settingsLinks = settingsNav.filter((el) => el.tag === 'a' && el['data-set']);
 const sections = Object.fromEntries([...html.matchAll(/<section class="panel[^"]*" id="set-([a-z]+)"([^>]*)>/g)].map((m) => [m[1], attrs(m[2])]));
 
-/** PAGE_PERMS in public/app.js: which permissions open each page (any one of them). */
+/** PAGE_PERMS in public/app/nav.js: which permissions open each page (any one of them). */
 const pagePerms = (() => {
   const body = app.slice(app.indexOf('const PAGE_PERMS = {'), app.indexOf('\n};', app.indexOf('const PAGE_PERMS = {')));
   return Object.fromEntries([...body.matchAll(/^ {2}(\w+): '([^']*)'/gm)].map((m) => [m[1], m[2]]));
