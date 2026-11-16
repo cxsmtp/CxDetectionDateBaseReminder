@@ -5843,6 +5843,9 @@
   "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "Ia dipindahkan keluar dari Makmal ke bahagian atas Tindakan (FAE Flush, Meja kerja, Automasi, Papan pemuka); Meja kerja kekal sebagai halaman utama.",
   "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "Wang: tetapkan kos sejam dan harga satu kredit di bawah Tetapan → AI & kumpulan kredit.",
   "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "Wang: jam dijimatkan × kos sejam, tolak kredit yang digunakan × harga satu kredit (kedua-duanya di bawah Tetapan → AI & kumpulan kredit).",
-  "Off: add who gets it under Settings → AI & credit pool.": "Mati: tambah penerima di bawah Tetapan → AI & kumpulan kredit."
+  "Off: add who gets it under Settings → AI & credit pool.": "Mati: tambah penerima di bawah Tetapan → AI & kumpulan kredit.",
+  "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "Pengira kredit Cx berjalan secara berasingan, di alamatnya sendiri dan dengan log masuknya sendiri. Apabila dihidupkan, Pengira kredit Cx ada dalam menu untuk peranan yang boleh menggunakan pengira, dan membuka alamat itu dalam tab baharu.",
+  "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "Apabila dimatikan, seperti pada mulanya, menu tidak mempunyai pengira; alamat itu disimpan. CxMissionZero hanya memaut ke alamat itu; siapa yang boleh membukanya ditentukan di sana.",
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "Disimpan. Pengira kredit Cx dimatikan: menu tidak memaparkannya."
  }
 }

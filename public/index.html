@@ -1923,8 +1923,11 @@
                 <div class="feat-head">
                   <h3>Cx Credits Calculator at its own address <span class="badge muted" id="calc-address-badge">Off</span></h3>
                 </div>
-                <p>The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.</p>
-                <p class="hint">Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.</p>
+                <p data-calc-builtin="off">The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.</p>
+                <p class="hint" data-calc-builtin="off">Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.</p>
+                <!-- Only on a server started with the built-in calculator (CALCULATOR_BUILTIN=on): what the switch means there. -->
+                <p data-calc-builtin="on" hidden>The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.</p>
+                <p class="hint" data-calc-builtin="on" hidden>Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.</p>
                 <label class="field">
                   <span>The calculator's address</span>
                   <input id="calc-address-url" type="url" inputmode="url" spellcheck="false" autocomplete="off" placeholder="http://server:8333/" />

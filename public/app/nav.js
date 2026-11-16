@@ -190,8 +190,7 @@ export function renderFeatureStages() {
   STAGES.govern = governFinal ? 'govern' : 'labs';
   PAGE_TITLES.govern[1] = governFinal ? 'Who may use how many AI credits, and what happens at the limit' : 'Labs: who may use how many AI credits, and what happens at the limit';
   if (state.page === 'govern') setPageTitle('govern');
-  applyNavGroups();
-  applyCalculatorAddress();
+  applyCalculatorAddress(); // (which lays out the menu's groups too)
 }
 
 /** Put a menu item right after another item, or after a group's heading, with its pin (which sits after it). */
@@ -205,11 +204,19 @@ function placeNavTab(tab, anchor) {
 
 /** The calculator's own address, when an Admin turned it on (it then opens there, not in CxMissionZero). */
 const calculatorMoved = () => state.me?.calculator?.url ?? '';
+/**
+ * Is there a calculator for this person? Only once an Admin gave its address and turned it on (or on a server
+ * started with the built-in calculator); the server says so only to whoever may use the calculator.
+ */
+const calculatorOn = () => Boolean(state.me?.calculator);
+/** May this person open this page? Its permission, and for the calculator, that there is one. */
+const pageAllowed = (page) => page in PAGE_PERMS && (!PAGE_PERMS[page] || canAny(PAGE_PERMS[page])) && (page !== 'calculator' || calculatorOn());
 
-/** The menu's Cx Credits Calculator: the built-in page, or its own address in a new tab. */
+/** The menu's Cx Credits Calculator: not there while it is off; else its own address in a new tab (or the built-in page). */
 function applyCalculatorAddress() {
   const url = calculatorMoved();
   const link = document.querySelector('#nav > a.tab[data-route="calculator"]');
+  link.classList.toggle('perm-hidden', !pageAllowed('calculator'));
   link.href = url || '#/calculator';
   if (url) {
     link.target = '_blank';
@@ -220,7 +227,8 @@ function applyCalculatorAddress() {
     link.removeAttribute('rel');
     link.removeAttribute('title');
   }
-  // A pinned copy of the menu item follows it.
+  // The menu's groups and a pinned copy of the menu item follow it.
+  applyNavGroups();
   renderNavPins();
   $('calc-moved-open').href = url || '#/calculator';
   $('calc-moved-url').textContent = url;
@@ -232,7 +240,9 @@ function applyCalculatorAddress() {
 }
 
 /** Settings → Beta features: where the calculator opens. The address typed is suggested from this server's own, port 8333. */
-function renderCalculatorAddress({ external, url }) {
+function renderCalculatorAddress({ external, url }, builtIn = false) {
+  // What turning it off means: no calculator in the menu, or, on a server started with it, the built-in one.
+  for (const el of document.querySelectorAll('#calc-address [data-calc-builtin]')) el.hidden = (el.dataset.calcBuiltin === 'on') !== builtIn;
   $('calc-address-url').value = url;
   $('calc-address-url').placeholder = `http://${location.hostname}:8333/`;
   $('calc-address-on').checked = external;
@@ -245,7 +255,8 @@ async function loadFeatures() {
   if (!can('features.manage')) return;
   try {
     renderFeatures(await api('/api/features'));
-    renderCalculatorAddress((await api('/api/calculator/address')).calculator);
+    const address = await api('/api/calculator/address');
+    renderCalculatorAddress(address.calculator, address.builtIn);
   } catch (error) {
     if (!handleAuthLoss(error)) showError('feat-status', error);
   }
@@ -285,11 +296,11 @@ export function wireAdvancedAndFeatures() {
   $('calc-address-save').addEventListener('click', async () => {
     setStatus('calc-address-status', 'Saving…');
     try {
-      const { calculator: saved } = await api('/api/calculator/address', { method: 'PUT', body: JSON.stringify({ url: $('calc-address-url').value, external: $('calc-address-on').checked }) });
-      renderCalculatorAddress(saved);
-      state.me = { ...state.me, calculator: saved.external && saved.url && can('projections.use') ? { url: saved.url } : null };
+      const { calculator: saved, builtIn } = await api('/api/calculator/address', { method: 'PUT', body: JSON.stringify({ url: $('calc-address-url').value, external: $('calc-address-on').checked }) });
+      renderCalculatorAddress(saved, builtIn);
+      state.me = { ...state.me, calculator: !can('projections.use') ? null : saved.external && saved.url ? { url: saved.url } : builtIn ? { builtIn: true } : null };
       applyCalculatorAddress();
-      setStatus('calc-address-status', saved.external ? 'Saved. Cx Credits Calculator in the menu now opens this address.' : 'Saved. The calculator opens in CxMissionZero.', 'ok');
+      setStatus('calc-address-status', saved.external ? 'Saved. Cx Credits Calculator in the menu now opens this address.' : builtIn ? 'Saved. The calculator opens in CxMissionZero.' : 'Saved. Cx Credits Calculator is off: the menu does not show it.', 'ok');
     } catch (error) {
       if (!handleAuthLoss(error)) showError('calc-address-status', error);
     }
@@ -391,8 +402,7 @@ export function route() {
   // Automation moved from Settings to Act: an old link or bookmark still gets there.
   if (location.hash === '#/settings/automation') history.replaceState(null, '', '#/automation');
   const { name, view } = parseRoute();
-  const allowed = (page) => page in PAGE_PERMS && (!PAGE_PERMS[page] || canAny(PAGE_PERMS[page]));
-  const target = allowed(name) ? name : 'dashboard';
+  const target = pageAllowed(name) ? name : 'dashboard';
   if (target !== name && location.hash) history.replaceState(null, '', '#/dashboard');
 
   const previous = state.page;
@@ -799,7 +809,7 @@ const paletteGroup = (page) => STAGE_LABELS[STAGES[page]] ?? (page === 'help' ? 
 
 function paletteEntries() {
   const entries = [];
-  const pageOk = (page) => !PAGE_PERMS[page] || canAny(PAGE_PERMS[page]);
+  const pageOk = (page) => (!PAGE_PERMS[page] || canAny(PAGE_PERMS[page])) && (page !== 'calculator' || calculatorOn());
   for (const [page, [title, sub]] of Object.entries(PAGE_TITLES)) {
     if (page === 'connect' || !pageOk(page)) continue;
     entries.push({ label: title, hint: sub, group: paletteGroup(page), stage: STAGES[page], href: `#/${page}` });

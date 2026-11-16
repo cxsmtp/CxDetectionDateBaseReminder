@@ -5843,6 +5843,9 @@
   "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "ラボから「対応」の先頭（FAE Flush、ワークベンチ、自動化、ダッシュボード）に移動します。ホームページは引き続きワークベンチです。",
   "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "金額：設定 → AIとクレジットプールで、時間単価と1クレジットの価格を設定してください。",
   "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "金額：削減時間 × 時間単価から、使用済みクレジット × 1クレジットの価格を差し引いた額です（どちらも設定 → AIとクレジットプールで設定）。",
-  "Off: add who gets it under Settings → AI & credit pool.": "オフ：設定 → AIとクレジットプールで送信先を追加してください。"
+  "Off: add who gets it under Settings → AI & credit pool.": "オフ：設定 → AIとクレジットプールで送信先を追加してください。",
+  "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "Cx クレジット計算ツールは単独で、専用のアドレスと独自のサインインで動作します。オンにすると、計算ツールを使えるロールのメニューに Cx クレジット計算ツールが表示され、そのアドレスを新しいタブで開きます。",
+  "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "オフ（初期状態）では、メニューに計算ツールは表示されません。アドレスは保持されます。CxMissionZero はそのアドレスにリンクするだけで、誰が開けるかはそちら側で決まります。",
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "保存しました。Cx クレジット計算ツールはオフです。メニューには表示されません。"
  }
 }

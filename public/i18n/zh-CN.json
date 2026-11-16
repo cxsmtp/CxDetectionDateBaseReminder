@@ -5843,6 +5843,9 @@
   "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "它将从实验室移至“行动”的最上方（FAE Flush、工作台、自动化、仪表板）；首页仍为工作台。",
   "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "金额：请在“设置 → AI 与点数额度”下设置每小时成本和每点价格。",
   "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "金额：节省工时 × 每小时成本，减去已使用点数 × 每点价格（两者均在“设置 → AI 与点数额度”下设置）。",
-  "Off: add who gets it under Settings → AI & credit pool.": "关闭：请在“设置 → AI 与点数额度”下添加收件人。"
+  "Off: add who gets it under Settings → AI & credit pool.": "关闭：请在“设置 → AI 与点数额度”下添加收件人。",
+  "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "Cx 点数计算器独立运行，有自己的地址和自己的登录。开启后，对于可以使用计算器的角色，Cx 点数计算器会出现在菜单中，并在新标签页中打开该地址。",
+  "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "关闭时（初始状态），菜单中没有计算器；地址会保留。CxMissionZero 只是链接到该地址；谁可以打开它由那里决定。",
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "已保存。Cx 点数计算器已关闭：菜单中不显示。"
  }
 }

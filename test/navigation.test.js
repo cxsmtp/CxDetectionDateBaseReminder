@@ -147,9 +147,17 @@ test('a heading shows when a page under it does, and never hides one', () => {
   assert.match(fn, /const shown = navTabs\(\)\.filter\(\(tab\) => !tab\.classList\.contains\('perm-hidden'\)\);/);
   assert.match(fn, /const flat = navIsFlat\(shown\.length\);/);
   assert.match(fn, /group\.hidden = flat \|\| !shown\.some\(\(tab\) => tab\.dataset\.group === group\.dataset\.group\);/);
-  // It runs whenever what a person may do is applied, after a final feature has moved to its group.
+  // It runs whenever what a person may do is applied, after a final feature has moved to its group, and after the
+  // Cx Credits Calculator's item is shown or put away (it is in the menu only once an Admin turned it on).
   const stages = app.slice(app.indexOf('function renderFeatureStages() {'), app.indexOf('function placeNavTab('));
-  assert.ok(stages.indexOf('applyNavGroups();') > stages.indexOf("governTab.dataset.group = governFinal ? 'credits' : 'labs';"));
+  assert.ok(stages.indexOf('applyCalculatorAddress();') > stages.indexOf("governTab.dataset.group = governFinal ? 'credits' : 'labs';"));
+  const calculator = app.slice(app.indexOf('function applyCalculatorAddress() {'), app.indexOf('function renderCalculatorAddress('));
+  const putAway = calculator.indexOf("link.classList.toggle('perm-hidden', !pageAllowed('calculator'));");
+  assert.ok(putAway > 0 && calculator.indexOf('applyNavGroups();') > putAway);
+  // No calculator for this person (off, or not theirs): no menu item, no page, nothing in Jump to.
+  assert.match(app, /const calculatorOn = \(\) => Boolean\(state\.me\?\.calculator\);/);
+  assert.match(app, /const pageAllowed = \(page\) => page in PAGE_PERMS && \(!PAGE_PERMS\[page\] \|\| canAny\(PAGE_PERMS\[page\]\)\) && \(page !== 'calculator' \|\| calculatorOn\(\)\);/);
+  assert.match(app, /const target = pageAllowed\(name\) \? name : 'dashboard';/);
   assert.match(app, /function applyPermissions\(\) \{\n {2}for \(const el of document\.querySelectorAll\('\[data-perm\]'\)\) el\.classList\.toggle\('perm-hidden', !canAny\(el\.dataset\.perm\)\);[^]*?\n {2}renderFeatureStages\(\);/);
 });
 

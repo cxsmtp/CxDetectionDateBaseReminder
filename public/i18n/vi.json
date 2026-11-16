@@ -5843,6 +5843,9 @@
   "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "Tính năng này chuyển từ Thử nghiệm lên đầu mục Hành động (FAE Flush, Bàn làm việc, Tự động hóa, Bảng điều khiển); Bàn làm việc vẫn là trang chủ.",
   "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "Tiền: hãy đặt chi phí theo giờ và giá của một tín dụng trong Cài đặt → AI và hạn mức tín dụng.",
   "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "Tiền: số giờ tiết kiệm được × chi phí theo giờ, trừ đi số tín dụng đã dùng × giá của một tín dụng (cả hai trong Cài đặt → AI và hạn mức tín dụng).",
-  "Off: add who gets it under Settings → AI & credit pool.": "Tắt: hãy thêm người nhận trong Cài đặt → AI và hạn mức tín dụng."
+  "Off: add who gets it under Settings → AI & credit pool.": "Tắt: hãy thêm người nhận trong Cài đặt → AI và hạn mức tín dụng.",
+  "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "Công cụ tính tín dụng Cx chạy độc lập, tại một địa chỉ riêng và có đăng nhập riêng. Khi bật, Công cụ tính tín dụng Cx có trong menu cho các vai trò được dùng công cụ tính, và mở địa chỉ đó trong thẻ mới.",
+  "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "Khi tắt, như lúc ban đầu, menu không có công cụ tính; địa chỉ vẫn được giữ lại. CxMissionZero chỉ liên kết tới địa chỉ đó; ai được mở là do nơi đó quyết định.",
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "Đã lưu. Công cụ tính tín dụng Cx đang tắt: menu không hiển thị."
  }
 }

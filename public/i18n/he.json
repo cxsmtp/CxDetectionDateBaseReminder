@@ -5843,6 +5843,9 @@
   "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "התכונה עוברת מהמעבדה לראש תפריט פעולה (FAE Flush, שולחן מלאכה, אוטומציה, לוח בקרה); שולחן המלאכה נשאר דף הבית.",
   "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "כסף: הגדירו עלות לשעה ומחיר לקרדיט אחד בהגדרות ← AI ומכסת קרדיטים.",
   "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "כסף: שעות שנחסכו × העלות לשעה, פחות הקרדיטים שנוצלו × המחיר לקרדיט אחד (שניהם בהגדרות ← AI ומכסת קרדיטים).",
-  "Off: add who gets it under Settings → AI & credit pool.": "כבוי: הוסיפו נמענים בהגדרות ← AI ומכסת קרדיטים."
+  "Off: add who gets it under Settings → AI & credit pool.": "כבוי: הוסיפו נמענים בהגדרות ← AI ומכסת קרדיטים.",
+  "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "מחשבון קרדיטים Cx פועל בנפרד, בכתובת משלו ועם כניסה משלו. כשהאפשרות מופעלת, מחשבון קרדיטים Cx מופיע בתפריט לתפקידים שמורשים להשתמש במחשבון, ופותח את הכתובת הזו בלשונית חדשה.",
+  "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "כשהאפשרות כבויה, כפי שהיא בהתחלה, אין מחשבון בתפריט; הכתובת נשמרת. CxMissionZero רק מקשר לכתובת; מי רשאי לפתוח אותה נקבע שם.",
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "נשמר. מחשבון קרדיטים Cx כבוי: התפריט אינו מציג אותו."
  }
 }

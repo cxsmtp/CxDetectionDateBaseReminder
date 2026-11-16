@@ -5843,6 +5843,9 @@
   "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "تنتقل من المختبر إلى أعلى قائمة إجراء (FAE Flush، منضدة العمل، الأتمتة، لوحة المعلومات)؛ وتبقى منضدة العمل الصفحة الرئيسية.",
   "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "المال: حدِّد تكلفة الساعة وسعر الرصيد الواحد في الإعدادات ← AI ومجمع الأرصدة.",
   "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "المال: الساعات الموفَّرة × تكلفة الساعة، مطروحًا منها الأرصدة المستخدمة × سعر الرصيد الواحد (كلاهما في الإعدادات ← AI ومجمع الأرصدة).",
-  "Off: add who gets it under Settings → AI & credit pool.": "متوقف: أضف المستلمين في الإعدادات ← AI ومجمع الأرصدة."
+  "Off: add who gets it under Settings → AI & credit pool.": "متوقف: أضف المستلمين في الإعدادات ← AI ومجمع الأرصدة.",
+  "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "تعمل حاسبة أرصدة Cx بشكل مستقل، على عنوان خاص بها وبتسجيل دخول خاص بها. عند التفعيل، يظهر عنصر حاسبة أرصدة Cx في القائمة للأدوار المسموح لها باستخدام الحاسبة، ويفتح ذلك العنوان في علامة تبويب جديدة.",
+  "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "عند الإيقاف، وهو الوضع الافتراضي، لا تظهر الحاسبة في القائمة؛ ويبقى العنوان محفوظًا. يكتفي CxMissionZero بالربط بالعنوان؛ ومن يمكنه فتحه يُحدَّد هناك.",
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "تم الحفظ. حاسبة أرصدة Cx متوقفة: لا تعرضها القائمة."
  }
 }

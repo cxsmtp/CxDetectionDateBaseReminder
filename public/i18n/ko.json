@@ -5843,6 +5843,9 @@
   "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "실험실에서 대응의 맨 위(FAE Flush, 작업대, 자동화, 대시보드)로 이동합니다. 홈 페이지는 계속 작업대입니다.",
   "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "금액: 설정 → AI 및 크레딧 풀에서 시간당 비용과 크레딧 1개의 가격을 설정하세요.",
   "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "금액: 절약된 시간 × 시간당 비용에서 사용된 크레딧 × 크레딧 1개 가격을 뺀 값입니다(둘 다 설정 → AI 및 크레딧 풀에서 설정).",
-  "Off: add who gets it under Settings → AI & credit pool.": "꺼짐: 설정 → AI 및 크레딧 풀에서 수신자를 추가하세요."
+  "Off: add who gets it under Settings → AI & credit pool.": "꺼짐: 설정 → AI 및 크레딧 풀에서 수신자를 추가하세요.",
+  "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "Cx 크레딧 계산기는 자체 주소와 자체 로그인으로 독립적으로 실행됩니다. 켜면 계산기를 사용할 수 있는 역할의 메뉴에 Cx 크레딧 계산기가 표시되고, 그 주소를 새 탭으로 엽니다.",
+  "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "꺼져 있으면(처음 상태) 메뉴에 계산기가 없으며, 주소는 그대로 보관됩니다. CxMissionZero는 그 주소로 연결만 하며, 누가 열 수 있는지는 그쪽에서 정합니다.",
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "저장되었습니다. Cx 크레딧 계산기가 꺼져 있어 메뉴에 표시되지 않습니다."
  }
 }

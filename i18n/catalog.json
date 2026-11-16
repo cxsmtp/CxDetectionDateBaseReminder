@@ -38873,5 +38873,23 @@
    "impact › exec › span › Monthly summary by email",
    "impact › detail › span › Monthly summary by email"
   ]
+ },
+ "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "Saved. Cx Credits Calculator is off: the menu does not show it.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features › status"
+  ]
  }
 }

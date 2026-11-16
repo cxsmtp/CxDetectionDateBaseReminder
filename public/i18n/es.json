@@ -5843,6 +5843,9 @@
   "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "Sale de Labs y pasa a la parte superior de Actuar (FAE Flush, Banco de trabajo, Automatización, Panel); el Banco de trabajo sigue siendo la página de inicio.",
   "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "Dinero: configure un coste por hora y el precio de un crédito en Configuración → AI y bolsa de créditos.",
   "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "Dinero: horas ahorradas × el coste por hora, menos los créditos usados × el precio de un crédito (ambos en Configuración → AI y bolsa de créditos).",
-  "Off: add who gets it under Settings → AI & credit pool.": "Desactivado: añada los destinatarios en Configuración → AI y bolsa de créditos."
+  "Off: add who gets it under Settings → AI & credit pool.": "Desactivado: añada los destinatarios en Configuración → AI y bolsa de créditos.",
+  "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "La Calculadora de créditos Cx funciona por su cuenta, en una dirección propia y con su propio inicio de sesión. Activado, Calculadora de créditos Cx aparece en el menú para los roles que pueden usar la calculadora y abre esa dirección en una pestaña nueva.",
+  "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "Desactivado, como está al principio, el menú no tiene calculadora; la dirección se conserva. CxMissionZero solo enlaza a la dirección; quién puede abrirla se decide allí.",
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "Guardado. Calculadora de créditos Cx está desactivada: el menú no la muestra."
  }
 }

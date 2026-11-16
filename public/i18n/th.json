@@ -5843,6 +5843,9 @@
   "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "ย้ายออกจากแล็บไปไว้บนสุดของเมนูดำเนินการ (FAE Flush, โต๊ะทำงาน, ระบบอัตโนมัติ, แดชบอร์ด) โดยโต๊ะทำงานยังคงเป็นหน้าแรก",
   "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "เงิน: กำหนดค่าใช้จ่ายรายชั่วโมงและราคาต่อเครดิตได้ที่ การตั้งค่า → AI และวงเงินเครดิต",
   "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "เงิน: ชั่วโมงที่ประหยัดได้ × ค่าใช้จ่ายรายชั่วโมง หักด้วยเครดิตที่ใช้ × ราคาต่อเครดิต (ทั้งสองค่ากำหนดได้ที่ การตั้งค่า → AI และวงเงินเครดิต)",
-  "Off: add who gets it under Settings → AI & credit pool.": "ปิด: เพิ่มผู้รับได้ที่ การตั้งค่า → AI และวงเงินเครดิต"
+  "Off: add who gets it under Settings → AI & credit pool.": "ปิด: เพิ่มผู้รับได้ที่ การตั้งค่า → AI และวงเงินเครดิต",
+  "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "เครื่องมือคำนวณเครดิต Cx ทำงานแยกต่างหาก ที่ที่อยู่ของตัวเองและมีการลงชื่อเข้าใช้ของตัวเอง เมื่อเปิดใช้ เครื่องมือคำนวณเครดิต Cx จะอยู่ในเมนูสำหรับบทบาทที่ใช้เครื่องมือคำนวณได้ และเปิดที่อยู่นั้นในแท็บใหม่",
+  "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "เมื่อปิด ซึ่งเป็นค่าเริ่มต้น เมนูจะไม่มีเครื่องมือคำนวณ และที่อยู่จะถูกเก็บไว้ CxMissionZero เพียงลิงก์ไปยังที่อยู่นั้น ส่วนใครเปิดได้นั้นกำหนดที่ปลายทาง",
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "บันทึกแล้ว เครื่องมือคำนวณเครดิต Cx ปิดอยู่: เมนูจะไม่แสดง"
  }
 }

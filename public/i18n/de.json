@@ -5843,6 +5843,9 @@
   "It moves out of Labs to the top of Act (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page.": "Es wandert aus Labs an den Anfang von Handeln (FAE Flush, Werkbank, Automatisierung, Dashboard); die Werkbank bleibt die Startseite.",
   "Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.": "Geld: Legen Sie unter Einstellungen → AI & Credit-Pool einen Stundensatz und den Preis eines Credits fest.",
   "Money: hours saved × the hourly cost, less the credits used × the price of one credit (both under Settings → AI & credit pool).": "Geld: eingesparte Stunden × Stundensatz, abzüglich verwendeter Credits × Preis eines Credits (beides unter Einstellungen → AI & Credit-Pool).",
-  "Off: add who gets it under Settings → AI & credit pool.": "Aus: Fügen Sie die Empfänger unter Einstellungen → AI & Credit-Pool hinzu."
+  "Off: add who gets it under Settings → AI & credit pool.": "Aus: Fügen Sie die Empfänger unter Einstellungen → AI & Credit-Pool hinzu.",
+  "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "Der Cx-Credit-Rechner läuft eigenständig, unter einer eigenen Adresse und mit eigener Anmeldung. Eingeschaltet steht Cx-Credit-Rechner im Menü, für die Rollen, die den Rechner nutzen dürfen, und öffnet diese Adresse in einem neuen Tab.",
+  "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "Ausgeschaltet, wie zu Beginn, hat das Menü keinen Rechner; die Adresse bleibt gespeichert. CxMissionZero verlinkt nur auf die Adresse; wer sie öffnen darf, wird dort entschieden.",
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "Gespeichert. Cx-Credit-Rechner ist ausgeschaltet: Das Menü zeigt ihn nicht."
  }
 }
