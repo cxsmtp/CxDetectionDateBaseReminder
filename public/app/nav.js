@@ -9,7 +9,7 @@ import { initGovern } from '../govern.js';
 import { initMobile } from '../mobile.js';
 import { SETTINGS_PARTS, navFoldsFrom, navIsFlat, settingsSectionFor } from '../nav-map.js';
 import { t } from '../i18n.js';
-import { loadAccess, loadImpact, loadPool, loadUsage, loadUserActivity, renderAudit, reportVisit, usageTimer, userActivity } from '../app.js';
+import { loadImpact, loadPool, loadUsage, usageTimer } from '../app.js';
 import { $, can, canAny, state } from './state.js';
 import { escapeHtml, fmtDateTime } from './format.js';
 import { api, handleAuthLoss, renderLogsPage, setStatus, showError, toast } from './core.js';
@@ -23,6 +23,8 @@ import { renderColumnMenu, renderProjectsHead } from './projects.js';
 import { loadTrackedReports, rpState } from './reports.js';
 import { helpRoute, loadHelp } from './help.js';
 import { loadFusion, renderBeta, renderBetaScope } from './labs.js';
+import { loadUserActivity, renderAudit, reportVisit, userActivity } from './audit.js';
+import { loadAccess } from './access.js';
 
 /** Which permissions open each page (any one of them). */
 export const PAGE_PERMS = {

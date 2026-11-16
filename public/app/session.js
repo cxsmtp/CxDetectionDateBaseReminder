@@ -1,7 +1,6 @@
 // Signing in and out: the sign-in, first-administrator, two-step, password and reset screens, what is shown once
 // signed in, the connections in the header, and the terms of use.
 import { qrSvgPath } from '../qr.js';
-import { renderBackupBanner } from '../app.js';
 import { $, can, state } from './state.js';
 import { escapeHtml } from './format.js';
 import { api, helpHtml, renderLicenceBanner, setStatus, showError, toast } from './core.js';
@@ -11,6 +10,7 @@ import { loadSettings, showNotices } from './settings.js';
 import { loadReportServer, renderTenantPicker } from './system.js';
 import { renderGettingStarted, restoreLastScan } from './workbench.js';
 import { applySupportChannel } from './help.js';
+import { renderBackupBanner } from './audit.js';
 
 // ---------------------------------------------------------------------------
 // Connect

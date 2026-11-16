@@ -1,11 +1,11 @@
 // What a person sets for themselves, and the organisation's look it sits over: theme, look, accent and scan
 // colours, the app's name, logo and icon, a person's own branding, language, profile and own two-step sign-in.
 import { LANGUAGES, availableLanguages, currentLanguage, deviceTimeZone, onLanguageChange, setAvailable, setLanguage, setTimeZone, startI18n, t } from '../i18n.js';
-import { loadAccess } from '../app.js';
 import { $, can, state } from './state.js';
 import { escapeHtml } from './format.js';
 import { api, handleAuthLoss, setStatus, showError } from './core.js';
 import { showRecoveryCodes, showTwoStepKey } from './session.js';
+import { loadAccess } from './access.js';
 
 // ---- Settings → Your branding: one's own names, logo and colours, for demonstrations ----
 
