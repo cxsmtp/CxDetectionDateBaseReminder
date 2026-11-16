@@ -32,7 +32,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypt
 import { GitHubClient } from './github/client.js';
 import { setCloneHostCheck } from './github/identity.js';
 import { codeVersion, onGitHub, parseRepoUrl } from './github/blame.js';
-import { SCM_LABELS, providerOf, scmClients, scmConfigs } from './scm/providers.js';
+import { SCM_LABELS, providerOf, scmClients } from './scm/providers.js';
 import { acknowledgeStart } from './updates/companion.js';
 import { githubIssues, gitlabIssues, openSlaIssues } from './sla-issues.js';
 import { BrandFonts } from './brand-fonts.js';
@@ -46,8 +46,7 @@ import { AutomationState, Scheduler } from './automation.js';
 import { deriveConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, testConnection } from './mailer.js';
 import { explainCxone } from './troubleshoot.js';
-import { TrustStore, isUntrustedCode } from './trust.js';
-import { activeProxy, checkRoute, cleanProxy, proxyWithAuth, readNetwork, requirements, requirementsText, saveNetwork } from './network.js';
+import { TrustStore } from './trust.js';
 import { SettingsStore, cleanPersonalBranding, hasEnvironmentSmtp, hostOfUrl, isVerified, mergeSettings, overlayBranding, supportChannel } from './settings.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { systemEmail } from './hands-off.js';
@@ -118,6 +117,8 @@ import { registerScanRoutes } from './routes/scan.js';
 import { registerAutomationRoutes } from './routes/automation.js';
 import { registerSettingsRoutes } from './routes/settings.js';
 import { registerConnectionRoutes } from './routes/connections.js';
+import { registerNetworkRoutes } from './routes/network.js';
+import { registerTrustRoutes } from './routes/trust.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 /** Whose own branding (Settings → Your branding) the current request is made with: see presenting(). */
@@ -2603,270 +2604,20 @@ app.delete(
   }),
 );
 
-// ---------------------------------------------------------------------------
-// Certificates outgoing HTTPS trusts (src/trust.js): a server that left out its
-// intermediate is completed on its own; a company proxy's root is shown to an
-// Admin to trust, or uploaded. Applied at once, no restart.
-// ---------------------------------------------------------------------------
+// ---- Trusted certificates, and connecting to Checkmarx One: src/routes/trust.js ----------------------------------------
+const { cxHosts, connectCheckmarxOne, SERVER_NAME, refuseOtherTenants, TRUST_EDIT } = registerTrustRoutes(app, {
+  trust, sessions, audit, asyncRoute, requirePermission, adminActor, mayChangeRoles,
+  // Made further down: looked up when used, never before.
+  withTimeout: later(() => withTimeout),
+});
 
-/** The "not trusted" TLS code somewhere in an error's causes (fetch wraps it twice). */
-function untrustedCode(error) {
-  for (let e = error, depth = 0; e && depth < 5; e = e.cause, depth++) if (isUntrustedCode(e.code)) return e.code;
-  return '';
-}
-
-/** The Checkmarx One hosts a key connects to: IAM, then the API. */
-function cxHosts(apiKey, endpoints = {}) {
-  try {
-    const c = deriveConnection(apiKey, endpoints);
-    return [...new Set([c.iamUrl, c.baseUrl].filter(Boolean))].map((u) => {
-      const url = new URL(u);
-      return { host: url.hostname, port: Number(url.port) || 443 };
-    });
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Why `hosts` are not trusted, when `error` says so: a server that left out its intermediate is
- * completed ("repaired"); otherwise what an Admin is shown ("needs-consent" with the root found,
- * "needs-upload" with the issuer's name). null when the error was something else.
- */
-async function certificateTrouble(error, hosts) {
-  if (!untrustedCode(error)) return null;
-  let repaired = null;
-  for (const { host, port } of hosts) {
-    let found;
-    try {
-      found = await trust.diagnose(host, port);
-    } catch (cause) {
-      return { status: 'unknown', host, port, error: cause.message };
-    }
-    if (found.status === 'repaired') {
-      repaired = found;
-      audit.record({ type: 'settings', outcome: 'changed', reason: `${host} left out its intermediate certificate: fetched ${found.added.map((a) => `"${a.subject}"`).join(', ')} from its issuer, which a trusted root vouches for.`, actor: SYSTEM_ACTOR, details: { host, port, added: found.added } });
-    } else if (found.status !== 'trusted') {
-      return found;
-    }
-  }
-  return repaired;
-}
-
-/** Connect to Checkmarx One with a key; a certificate chain that could be completed is, and tried once more. */
-async function connectCheckmarxOne(apiKey, endpoints) {
-  try {
-    return await withTimeout(sessions.create(apiKey, endpoints), 'Checkmarx One');
-  } catch (error) {
-    const found = await certificateTrouble(error, cxHosts(apiKey, endpoints));
-    if (found?.status === 'repaired') return withTimeout(sessions.create(apiKey, endpoints), 'Checkmarx One');
-    if (found) error.certificate = found;
-    throw error;
-  }
-}
-
-const SERVER_NAME = /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
-function trustTarget(body) {
-  const host = String(body?.host ?? '').trim().toLowerCase();
-  const port = Number(body?.port ?? 443);
-  if (!SERVER_NAME.test(host) || !Number.isInteger(port) || port < 1 || port > 65535) throw Object.assign(new Error('Give a server name and port, for example eu.iam.checkmarx.net and 443.'), { status: 400 });
-  return { host, port };
-}
-/** Trusted certificates are the whole server's: changed from the first tenant only. */
-function refuseOtherTenants(req, res) {
-  if (mayChangeRoles(req)) return false;
-  res.status(403).json({ error: 'Trusted certificates apply to the whole server, so only people who work in the first tenant change them.' });
-  return true;
-}
-const TRUST_EDIT = ['integration.cxone', 'integration.smtp'];
-
-app.get('/api/trust', requirePermission('settings.view', ...TRUST_EDIT), (req, res) => res.set('Cache-Control', 'no-store').json({ certificates: trust.list() }));
-
-/** Trust the root a server presents, by the fingerprint the Admin was shown (looked up again here). */
-app.post(
-  '/api/trust/presented',
-  requirePermission(...TRUST_EDIT),
-  asyncRoute(async (req, res) => {
-    if (refuseOtherTenants(req, res)) return;
-    const { host, port } = trustTarget(req.body);
-    const actor = await adminActor(req);
-    const done = await trust.trustPresented(host, port, String(req.body?.fingerprint256 ?? ''), { by: actor.user });
-    if (done.added.length) audit.record({ type: 'settings', outcome: 'changed', reason: `Trusted the certificate ${host} presents: ${done.added.map((a) => `"${a.subject}"`).join(', ')}.`, actor, details: { host, port, added: done.added } });
-    res.json({ ...done, certificates: trust.list() });
-  }),
-);
-
-/** Upload certificate authorities; with the server that failed, only those its chain needs are kept. */
-app.post(
-  '/api/trust/upload',
-  requirePermission(...TRUST_EDIT),
-  asyncRoute(async (req, res) => {
-    if (refuseOtherTenants(req, res)) return;
-    const data = String(req.body?.data ?? '');
-    if (!data.trim()) return res.status(400).json({ error: 'Choose a certificate file (.pem, .crt or .cer).' });
-    if (data.length > 3_000_000) return res.status(413).json({ error: 'That file is too large for certificates (3 MB at most).' });
-    const target = req.body?.host ? trustTarget(req.body) : null;
-    const chain = target ? await trust.presented(target.host, target.port).catch(() => null) : null;
-    const actor = await adminActor(req);
-    const added = trust.upload(data, { by: actor.user, chain, host: target?.host ?? '' });
-    if (added.length) audit.record({ type: 'settings', outcome: 'changed', reason: `Trusted uploaded certificate${added.length === 1 ? '' : 's'}: ${added.map((a) => `"${a.subject}"`).join(', ')}.`, actor, details: { host: target?.host ?? '', added } });
-    const now = target ? await trust.diagnose(target.host, target.port, { repair: false }).catch(() => null) : null;
-    res.json({ added, trusted: now ? now.status === 'trusted' : null, certificates: trust.list() });
-  }),
-);
-
-app.delete(
-  '/api/trust/:fingerprint',
-  requirePermission(...TRUST_EDIT),
-  asyncRoute(async (req, res) => {
-    if (refuseOtherTenants(req, res)) return;
-    const removed = trust.remove(String(req.params.fingerprint));
-    if (!removed) return res.status(404).json({ error: 'That certificate is not in the list.' });
-    audit.record({ type: 'settings', outcome: 'changed', reason: `No longer trusts the certificate "${removed.subject}".`, actor: await adminActor(req), details: { removed } });
-    res.json({ certificates: trust.list() });
-  }),
-);
-
-// ---------------------------------------------------------------------------
-// Network & proxy (src/network.js): how this server reaches the internet, a check that
-// says where a connection stops, and the sheet a network team needs. Server-wide.
-// ---------------------------------------------------------------------------
-
-/** Set when the proxy was saved or removed: it is used from the next start, which follows at once when supervised. */
-let networkChangedAt = '';
-
-/** The Checkmarx One hosts this server uses: the stored key's, the environment's, else the one typed. */
-function networkTargets(typed = '') {
-  const settings = settingsStore.get();
-  const known = [
-    ...(settings.automationApiKey ? cxHosts(settings.automationApiKey, integrationOverrides(settings)) : []),
-    ...(config.bootstrapApiKey ? cxHosts(config.bootstrapApiKey, config.overrides) : []),
-  ];
-  const text = String(typed ?? '').trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '').toLowerCase();
-  if (text) {
-    const [host, port] = text.split(':');
-    if (!SERVER_NAME.test(host)) throw Object.assign(new Error('Give a Checkmarx One address, for example ind.iam.checkmarx.net.'), { status: 400 });
-    return [{ host, port: Number(port) || 443 }];
-  }
-  const seen = new Set();
-  return known.filter((t) => !seen.has(t.host) && seen.add(t.host));
-}
-
-/** Git hosts with a token: the ones code authors are read from. */
-function gitHosts(settings) {
-  const out = [];
-  const github = githubConfig(settings);
-  if (github.token) out.push({ label: 'GitHub', host: hostOfUrl(github.apiUrl) });
-  for (const [id, cfg] of Object.entries(scmConfigs(settings))) {
-    const url = [cfg?.apiUrl, cfg?.orgUrl].find((u) => /^https?:\/\//.test(u ?? ''));
-    if (cfg?.token && url) out.push({ label: SCM_LABELS[id] ?? id, host: hostOfUrl(url) });
-  }
-  return out;
-}
-
-/** The identity provider's host and port, while single sign-on is on: one more connection for the network team's sheet. */
-function ssoHost() {
-  const sso = iam.sso();
-  if (!sso.enabled) return null;
-  try {
-    const url = new URL(sso.issuer);
-    return { host: url.hostname, port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80) };
-  } catch {
-    return null;
-  }
-}
-
-function networkView() {
-  const settings = settingsStore.get();
-  const proxy = activeProxy(dataDir);
-  let letsEncrypt = Boolean(LETSENCRYPT_DOMAIN);
-  try {
-    letsEncrypt ||= Boolean(acme.status()?.issued);
-  } catch {}
-  const rows = requirements({
-    checkmarxOne: networkTargets(),
-    smtp: settings.smtp?.host ? { host: settings.smtp.host, port: settings.smtp.port } : null,
-    backupMail: backupMailbox.email && backupMailbox.host ? { host: backupMailbox.host, port: backupMailbox.port } : null,
-    git: gitHosts(settings),
-    sso: ssoHost(),
-    letsEncrypt,
-    updates: updates.supervised,
-    inboundPort: Number(process.env.HTTPS_PUBLIC_PORT || process.env.PORT) || 3000,
-    proxy,
-  });
-  const saved = readNetwork(dataDir);
-  return {
-    proxy: proxy ? { ...proxy, hasPassword: Boolean(saved?.proxy?.password) } : null,
-    changedAt: networkChangedAt,
-    supervised: updates.supervised,
-    targets: networkTargets(),
-    requirements: rows,
-    text: requirementsText(rows, { proxy }),
-  };
-}
-
-/** The proxy typed in the form, with the saved password when the same user leaves it blank. */
-function typedProxy(body) {
-  if (!String(body?.url ?? '').trim()) return null;
-  const typed = cleanProxy(body);
-  const saved = readNetwork(dataDir)?.proxy;
-  if (typed.username && !typed.password && saved?.username === typed.username && saved.url === typed.url) typed.password = saved.password;
-  return typed;
-}
-
-app.get('/api/network', requirePermission('settings.view', ...TRUST_EDIT), (req, res) => res.set('Cache-Control', 'no-store').json(networkView()));
-
-/** Check the way to Checkmarx One with the proxy typed (or directly), step by step, before anything is saved. */
-app.post(
-  '/api/network/check',
-  requirePermission(...TRUST_EDIT),
-  asyncRoute(async (req, res) => {
-    const proxy = typedProxy(req.body);
-    const targets = networkTargets(req.body?.target);
-    if (!targets.length) return res.status(400).json({ error: 'Give the Checkmarx One address to check, for example ind.iam.checkmarx.net (the IAM address of your region).' });
-    const results = [];
-    for (const t of targets) results.push(await checkRoute({ proxy: proxy ? proxyWithAuth(proxy) : '', host: t.host, port: t.port }));
-    res.json({ ok: results.every((r) => r.ok), via: proxy ? proxy.url : 'direct', results });
-  }),
-);
-
-/** Save the proxy (after the same check) and restart the server to use it. */
-app.put(
-  '/api/network',
-  requirePermission(...TRUST_EDIT),
-  asyncRoute(async (req, res) => {
-    if (refuseOtherTenants(req, res)) return;
-    const proxy = typedProxy(req.body);
-    if (!proxy) return res.status(400).json({ error: 'Give the proxy as host:port, for example proxy.acme.local:8080.' });
-    const targets = networkTargets(req.body?.target);
-    const results = [];
-    for (const t of targets) results.push(await checkRoute({ proxy: proxyWithAuth(proxy), host: t.host, port: t.port }));
-    // A proxy that cannot be reached, or refuses Checkmarx One, is not saved: it would only stop what works.
-    const blocked = results.find((r) => r.steps.some((s) => !s.ok && (s.step === 'proxy' || s.step === 'tunnel')));
-    if (blocked) return res.status(422).json({ error: 'Not saved: Checkmarx One could not be reached through this proxy.', results });
-    const actor = await adminActor(req);
-    saveNetwork(dataDir, { proxy, changedAt: new Date().toISOString(), changedBy: actor.user });
-    networkChangedAt = new Date().toISOString();
-    audit.record({ type: 'settings', outcome: 'changed', reason: `Outgoing connections now go through the proxy ${proxy.url}${proxy.username ? ` (signing in as ${proxy.username})` : ''}.`, actor, details: { url: proxy.url, username: proxy.username, noProxy: proxy.noProxy } });
-    if (updates.supervised) setTimeout(() => updates.switchTo({ type: 'restart', by: actor.user }), 600).unref?.();
-    res.json({ ...networkView(), results, restarting: updates.supervised });
-  }),
-);
-
-app.delete(
-  '/api/network',
-  requirePermission(...TRUST_EDIT),
-  asyncRoute(async (req, res) => {
-    if (refuseOtherTenants(req, res)) return;
-    if (!readNetwork(dataDir)) return res.status(404).json({ error: 'No proxy is set here.' });
-    const actor = await adminActor(req);
-    saveNetwork(dataDir, null);
-    networkChangedAt = new Date().toISOString();
-    audit.record({ type: 'settings', outcome: 'changed', reason: 'Outgoing connections no longer go through the proxy set in Settings.', actor });
-    if (updates.supervised) setTimeout(() => updates.switchTo({ type: 'restart', by: actor.user }), 600).unref?.();
-    res.json({ ...networkView(), restarting: updates.supervised });
-  }),
-);
+// ---- Settings → Network: src/routes/network.js --------------------------------------------------------------------------
+registerNetworkRoutes(app, {
+  dataDir, backupMailbox, settingsStore, audit, iam, integrationOverrides, acme, LETSENCRYPT_DOMAIN, asyncRoute,
+  requirePermission, adminActor, githubConfig, cxHosts, SERVER_NAME, refuseOtherTenants, TRUST_EDIT,
+  // Made further down: looked up when used, never before.
+  updates: laterObject(() => updates),
+});
 
 // ---- The server's own connections, and keeping them working: src/routes/connections.js --------------------------------
 const {
