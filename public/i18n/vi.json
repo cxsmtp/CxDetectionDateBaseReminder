@@ -5846,6 +5846,17 @@
   "Off: add who gets it under Settings → AI & credit pool.": "Tắt: hãy thêm người nhận trong Cài đặt → AI và hạn mức tín dụng.",
   "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "Công cụ tính tín dụng Cx chạy độc lập, tại một địa chỉ riêng và có đăng nhập riêng. Khi bật, Công cụ tính tín dụng Cx có trong menu cho các vai trò được dùng công cụ tính, và mở địa chỉ đó trong thẻ mới.",
   "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "Khi tắt, như lúc ban đầu, menu không có công cụ tính; địa chỉ vẫn được giữ lại. CxMissionZero chỉ liên kết tới địa chỉ đó; ai được mở là do nơi đó quyết định.",
-  "Saved. Cx Credits Calculator is off: the menu does not show it.": "Đã lưu. Công cụ tính tín dụng Cx đang tắt: menu không hiển thị."
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "Đã lưu. Công cụ tính tín dụng Cx đang tắt: menu không hiển thị.",
+  "Not loaded yet": "Chưa tải",
+  "Not loaded yet.": "Chưa tải.",
+  "It loads by itself when this page is opened, or with Load below.": "Tenant này tự tải khi trang này được mở, hoặc bằng nút Tải bên dưới.",
+  "Waiting for its turn": "Đang chờ đến lượt",
+  "Reading its projects…": "Đang đọc các dự án của tenant…",
+  "projects read": "dự án đã đọc",
+  "Refresh every tenant": "Làm mới mọi tenant",
+  "Each tenant loads by itself when this page is opened: its projects show here as it finishes.": "Mỗi tenant tự tải khi trang này được mở: các dự án của tenant hiển thị ở đây ngay khi tải xong.",
+  "Each tenant's figures are what it holds now: every open finding as last loaded, the credits it last read and its credit pool (and Govern's budgets where Govern runs). For people who may fetch findings, this page loads each tenant by itself when it is opened, with that tenant's own Checkmarx One connection; Refresh every tenant reads them all again. Loading reads Checkmarx One and changes nothing there or in a tenant. The \"Go to\" buttons take you into the tenant, as the tenant switcher does.": "Số liệu của mỗi tenant là những gì tenant đó đang có: mọi phát hiện đang mở như lần tải gần nhất, số tín dụng đọc gần nhất và hạn mức tín dụng (cùng ngân sách của Quản trị ở nơi Quản trị đang chạy). Với những người được phép lấy phát hiện, trang này tự tải từng tenant khi được mở, bằng kết nối Checkmarx One của chính tenant đó; Làm mới mọi tenant đọc lại tất cả. Việc tải chỉ đọc Checkmarx One và không thay đổi gì ở đó hay trong tenant. Các nút “Đi tới” sẽ đưa bạn vào tenant, giống như bộ chuyển tenant.",
+  "Reads every tenant's open findings and credits from Checkmarx One again, each with its own connection": "Đọc lại từ Checkmarx One các phát hiện đang mở và tín dụng của mọi tenant, mỗi tenant bằng kết nối riêng",
+  "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "Tenant này chưa có kết nối Checkmarx One được lưu. Hãy mở tenant và kết nối một lần trong Cài đặt → Checkmarx One."
  }
 }

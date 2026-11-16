@@ -959,7 +959,7 @@ const { automationReport } = registerAutomationRoutes(app, {
 });
 
 // ---- The Workbench fetch: src/routes/scan.js ----------------------------------------------------------------------------
-const { fetchInProgress, afterFetch, projectRow, readerIdentity, scanAttribution, creditFor } = registerScanRoutes(app, {
+const { fetchInProgress, afterFetch, projectRow, readerIdentity, scanAttribution, creditFor, runScan } = registerScanRoutes(app, {
   saveFetchedData, tenancy, settingsStore, findingJournal, diagnostics, creditView, asyncRoute, requirePermission,
   activeConfig,
   // Made further down: looked up when used, never before.
@@ -1347,9 +1347,12 @@ setInterval(() => {
 }, GOVERN_TICK_MS).unref?.();
 
 // ---- Labs → Status board and Consolidated view (beta): src/labs-routes.js ------------------------------------------
-// The board reads the session's Workbench data; the consolidated view reads each tenant's own memory (never Checkmarx
-// One) and writes one line to each tenant's audit log per visit.
+// The board reads the session's Workbench data; the consolidated view reads each tenant's own memory and writes one
+// line to each tenant's audit log per visit. It loads a tenant itself, with that tenant's stored Checkmarx One
+// connection, when someone who may fetch findings opens the page or asks for it.
 const labs = registerLabsRoutes(app, {
+  runScan,
+  resolveAutomationSession,
   requireFeature,
   requirePermission,
   asyncRoute,

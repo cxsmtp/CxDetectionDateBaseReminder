@@ -5846,6 +5846,17 @@
   "Off: add who gets it under Settings → AI & credit pool.": "Desactivado: añada los destinatarios en Configuración → AI y bolsa de créditos.",
   "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": "La Calculadora de créditos Cx funciona por su cuenta, en una dirección propia y con su propio inicio de sesión. Activado, Calculadora de créditos Cx aparece en el menú para los roles que pueden usar la calculadora y abre esa dirección en una pestaña nueva.",
   "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": "Desactivado, como está al principio, el menú no tiene calculadora; la dirección se conserva. CxMissionZero solo enlaza a la dirección; quién puede abrirla se decide allí.",
-  "Saved. Cx Credits Calculator is off: the menu does not show it.": "Guardado. Calculadora de créditos Cx está desactivada: el menú no la muestra."
+  "Saved. Cx Credits Calculator is off: the menu does not show it.": "Guardado. Calculadora de créditos Cx está desactivada: el menú no la muestra.",
+  "Not loaded yet": "Aún no cargado",
+  "Not loaded yet.": "Aún no cargado.",
+  "It loads by itself when this page is opened, or with Load below.": "Se carga solo al abrir esta página, o con Cargar más abajo.",
+  "Waiting for its turn": "Esperando su turno",
+  "Reading its projects…": "Leyendo sus proyectos…",
+  "projects read": "proyectos leídos",
+  "Refresh every tenant": "Actualizar todos los tenants",
+  "Each tenant loads by itself when this page is opened: its projects show here as it finishes.": "Cada tenant se carga solo al abrir esta página: sus proyectos aparecen aquí en cuanto termina.",
+  "Each tenant's figures are what it holds now: every open finding as last loaded, the credits it last read and its credit pool (and Govern's budgets where Govern runs). For people who may fetch findings, this page loads each tenant by itself when it is opened, with that tenant's own Checkmarx One connection; Refresh every tenant reads them all again. Loading reads Checkmarx One and changes nothing there or in a tenant. The \"Go to\" buttons take you into the tenant, as the tenant switcher does.": "Las cifras de cada tenant son lo que contiene ahora: cada hallazgo abierto tal como se cargó por última vez, los créditos que leyó por última vez y su bolsa de créditos (y los presupuestos de Gobernanza donde Gobernanza está activa). Para quienes pueden obtener hallazgos, esta página carga cada tenant por sí sola al abrirse, con la conexión a Checkmarx One propia de ese tenant; Actualizar todos los tenants los lee todos de nuevo. La carga lee Checkmarx One y no cambia nada allí ni en un tenant. Los botones “Ir a” lo llevan al tenant, igual que el selector de tenants.",
+  "Reads every tenant's open findings and credits from Checkmarx One again, each with its own connection": "Vuelve a leer de Checkmarx One los hallazgos abiertos y los créditos de cada tenant, cada uno con su propia conexión",
+  "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "Este tenant no tiene una conexión a Checkmarx One guardada. Abra el tenant y conéctelo una vez en Configuración → Checkmarx One."
  }
 }

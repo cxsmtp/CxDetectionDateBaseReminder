@@ -38891,5 +38891,71 @@
   "seen": [
    "settings › Beta features › status"
   ]
+ },
+ "Not loaded yet": {
+  "kind": "text",
+  "seen": [
+   "Consolidated view"
+  ]
+ },
+ "Not loaded yet.": {
+  "kind": "text",
+  "seen": [
+   "Consolidated view"
+  ]
+ },
+ "It loads by itself when this page is opened, or with Load below.": {
+  "kind": "text",
+  "seen": [
+   "Consolidated view"
+  ]
+ },
+ "Waiting for its turn": {
+  "kind": "text",
+  "seen": [
+   "Consolidated view › loading"
+  ]
+ },
+ "Reading its projects…": {
+  "kind": "text",
+  "seen": [
+   "Consolidated view › loading"
+  ]
+ },
+ "projects read": {
+  "kind": "text",
+  "seen": [
+   "Consolidated view › loading"
+  ]
+ },
+ "Refresh every tenant": {
+  "kind": "text",
+  "seen": [
+   "Consolidated view"
+  ]
+ },
+ "Each tenant loads by itself when this page is opened: its projects show here as it finishes.": {
+  "kind": "text",
+  "seen": [
+   "Consolidated view"
+  ]
+ },
+ "Each tenant's figures are what it holds now: every open finding as last loaded, the credits it last read and its credit pool (and Govern's budgets where Govern runs). For people who may fetch findings, this page loads each tenant by itself when it is opened, with that tenant's own Checkmarx One connection; Refresh every tenant reads them all again. Loading reads Checkmarx One and changes nothing there or in a tenant. The \"Go to\" buttons take you into the tenant, as the tenant switcher does.": {
+  "kind": "text",
+  "seen": [
+   "Consolidated view › help"
+  ]
+ },
+ "Reads every tenant's open findings and credits from Checkmarx One again, each with its own connection": {
+  "kind": "attr:title",
+  "seen": [
+   "Consolidated view"
+  ]
+ },
+ "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": {
+  "kind": "text",
+  "seen": [
+   "Consolidated view › loading"
+  ]
  }
 }

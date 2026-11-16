@@ -9,13 +9,30 @@
  * /api/consolidated/{summary,projects,status-board} read each tenant's own in-memory state (the copy of its last
  * Workbench fetch, its last-read credits, its credit pool, Govern's view): no Checkmarx One call, no write to a
  * tenant but one line in each tenant's audit log per call. PUT /api/iam/users/:id/consolidated is the Admin's tick.
+ *
+ * The view loads tenants itself (from MZ-01.01.14): POST /api/consolidated/load starts, in each tenant asked for, a
+ * read of every open finding with that tenant's stored Checkmarx One connection, and of its Checkmarx One credits;
+ * GET /api/consolidated/load says how far each has got. It needs Fetch findings as well as the view, changes nothing
+ * in Checkmarx One, and writes one line to each tenant's audit log.
  */
 import { TtlCache } from './ttl-cache.js';
 import { listApplications } from './cxone/projects.js';
 import { safeUrl } from './links.js';
 import { FAILED_DAYS, applicationsByProject, boardFigures, boardOf, failedScansSince, recentScans } from './status-board.js';
 import { tenantColours } from '../public/tenant-colour.js';
-import { consolidatedFigures, crossProjects, governSummary, tenantSummary, workbenchSnapshot } from './consolidated.js';
+import { consolidatedFigures, crossProjects, governSummary, tenantHealth, tenantSummary, workbenchSnapshot } from './consolidated.js';
+import { tenantCredits } from './fusion-usage.js';
+import { DEFAULT_ENGINES } from './engines.js';
+
+/** A load that has not finished after this long is taken to have died (the server keeps none across a restart). */
+const LOAD_LOCK_MS = 30 * 60_000;
+/** Tenants loaded at once: each has its own Checkmarx One, so the limit is this server's own work. */
+const LOADS_AT_ONCE = 2;
+/**
+ * What the consolidated view loads in a tenant: every open finding of the engines AI works on, on each project's
+ * primary branch, for projects scanned in the last 90 days (the Workbench's own starting scope, at any age).
+ */
+const LOAD_SCOPE = Object.freeze({ engines: DEFAULT_ENGINES.join(','), activityPreset: '90d', detectionPreset: 'any' });
 
 /** How long the tenant-wide reads the fetch adds are kept (per Checkmarx One key). */
 const APPLICATIONS_MS = 5 * 60_000;
@@ -55,9 +72,12 @@ export function registerLabsRoutes(app, d) {
   }
 
   /** A fetch finished in the running tenant: keep a slim copy for the consolidated view and the tenant switcher. */
-  function noteFetch(req, result, projectsTotal) {
+  function noteFetch(req, result, projectsTotal, { narrowed = false } = {}) {
     const state = tenancy.current().state;
     const by = req.user?.email ?? '';
+    // A load narrowed to an age, a search or named projects is that person's Workbench data, not the tenant's figures:
+    // the copy kept from a whole load stays (the view then says how old it is, and loads the tenant again itself).
+    if (narrowed) return;
     // Kept whether or not the view is unlocked yet (a row per project, no findings): unlocking it later shows them at once.
     state.workbench = workbenchSnapshot(result, { by, projectsTotal });
   }
@@ -145,6 +165,7 @@ export function registerLabsRoutes(app, d) {
         pool,
         govern: governSummary(context, { locked: governLocked }),
       });
+      summary.loading = loadView(loadOf(state));
       return { id, context, summary, snapshot: state.workbench ?? null };
     });
   }
@@ -168,12 +189,99 @@ export function registerLabsRoutes(app, d) {
   const projectsOf = (tenants) => crossProjects(tenants.map((t) => ({ id: t.id, name: t.summary.name, colour: t.summary.colour, snapshot: t.snapshot })));
   const statusOf = (tenants) => ({ boards: tenants.map((t) => ({ id: t.id, name: t.summary.name, colour: t.summary.colour, health: t.summary.health, figures: boardFigures(t.snapshot?.rows ?? []) })) });
 
+  // ---- Loading tenants from the view itself ------------------------------------------------------------------
+
+  const loadGuard = [...viewGuard, requirePermission('findings.fetch')];
+  /** The load under way in a tenant's state, or null (one that never finished is forgotten after LOAD_LOCK_MS). */
+  const loadOf = (state) => (state?.workbenchLoad && Date.now() - state.workbenchLoad.startedAt < LOAD_LOCK_MS ? state.workbenchLoad : null);
+  const loadView = (load) => (load ? { startedAt: new Date(load.startedAt).toISOString(), by: load.by, done: load.done, total: load.total, waiting: load.waiting === true } : null);
+  /** Loads wait here for a free place (LOADS_AT_ONCE): a queue of functions that start one. */
+  const waiting = [];
+  let running = 0;
+  const next = () => {
+    while (running < LOADS_AT_ONCE && waiting.length) {
+      running += 1;
+      waiting.shift()().finally(() => {
+        running -= 1;
+        next();
+      });
+    }
+  };
+
+  /**
+   * Read one tenant, as its Workbench would with nothing narrowed, with the tenant's own stored connection: the slim
+   * copy is kept by the fetch itself (noteFetch), then the tenant's Checkmarx One credits are read. What goes wrong
+   * is kept for the card (noteFetchFailed); nothing is thrown.
+   */
+  async function loadTenant(id, load) {
+    await tenancy.run(id, async () => {
+      const state = tenancy.current().state;
+      load.waiting = false;
+      load.startedAt = Date.now();
+      try {
+        const integration = await d.resolveAutomationSession();
+        if (!integration?.client) throw Object.assign(new Error('This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.'), { status: 409 });
+        // A session of its own for this read: the findings are let go once the slim copy is made.
+        const session = { client: integration.client, connection: integration.connection };
+        await d.runScan({ session, user: { email: load.by }, query: { ...LOAD_SCOPE } }, { onStart: ({ total }) => (load.total = total), onProject: () => (load.done += 1) });
+        noteCredits(await tenantCredits(integration.client, { background: false }).catch(() => null));
+      } catch (error) {
+        const expected = Number.isInteger(error?.status) && error.status >= 400 && error.status < 600;
+        if (!expected) console.warn(`! [consolidated] loading ${String(id).replace(/[^\w.-]/g, '_')}: ${String(error?.stack ?? error?.message ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').slice(0, 400)}`);
+        noteFetchFailed(error);
+      } finally {
+        if (state.workbenchLoad === load) state.workbenchLoad = null;
+      }
+    });
+  }
+
+  /** How far each of this person's tenants has got: read from memory, so the page may ask every few seconds. */
+  app.get('/api/consolidated/load', ...viewGuard, (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const tenants = d.tenantsOf(req.user, req.permissions).map((id) => {
+      const state = tenancy.context(id).state ?? {};
+      return { id, health: tenantHealth(state.workbench ?? null, state.workbenchError ?? null), loading: loadView(loadOf(state)), fetchedAt: state.workbench?.at ?? null };
+    });
+    res.json({ tenants, canLoad: req.permissions.has('findings.fetch') });
+  });
+
+  /**
+   * Load tenants: { tenants: [ids] } for those named, else every tenant this person works in; { only: 'missing' }
+   * keeps to those never loaded or not loaded for a day (what the page asks for by itself when it is opened). A
+   * tenant already being loaded is left to finish. Answers at once; the loads go on behind.
+   */
+  app.post('/api/consolidated/load', ...loadGuard, asyncRoute(async (req, res) => {
+    const mine = d.tenantsOf(req.user, req.permissions);
+    const asked = Array.isArray(req.body?.tenants) ? req.body.tenants.map((id) => String(id)).filter((id) => mine.includes(id)) : mine;
+    const onlyMissing = req.body?.only === 'missing';
+    const actor = await d.adminActor(req);
+    const started = [];
+    const skipped = [];
+    for (const id of [...new Set(asked)]) {
+      const context = tenancy.context(id);
+      const state = context.state;
+      const health = tenantHealth(state.workbench ?? null, state.workbenchError ?? null);
+      if (loadOf(state) || (onlyMissing && health !== 'notLoaded' && health !== 'stale')) {
+        skipped.push(id);
+        continue;
+      }
+      const load = (state.workbenchLoad = { startedAt: Date.now(), by: req.user.email, done: 0, total: null, waiting: true });
+      try {
+        context.audit.record({ type: 'access', outcome: 'info', reason: `Findings and credits read for the consolidated view, asked by ${req.user.email}${onlyMissing ? ' (on opening the view)' : ''}.`, actor, details: { consolidated: { load: true } } });
+      } catch {}
+      waiting.push(() => loadTenant(id, load));
+      started.push(id);
+    }
+    next();
+    res.status(202).json({ started, skipped });
+  }));
+
   const route = (path, what, build) =>
     app.get(path, ...viewGuard, asyncRoute(async (req, res) => {
       res.set('Cache-Control', 'no-store');
       const tenants = gather(req);
       await audited(req, what, tenants);
-      res.json({ readAt: new Date().toISOString(), current: req.tenantId, ...build(tenants) });
+      res.json({ readAt: new Date().toISOString(), current: req.tenantId, canLoad: req.permissions.has('findings.fetch'), ...build(tenants) });
     }));
 
   route('/api/consolidated', 'overview, projects, Fusion, credits and status board', (tenants) => ({ ...summaryOf(tenants), projects: projectsOf(tenants), ...statusOf(tenants) }));

@@ -299,7 +299,10 @@ export function registerScanRoutes(app, d) {
     const whole = !detectionWindow && !vulnerability;
     if (branchScope === 'primary') for (const summary of result.projects) findingJournal.observe(summary, summary.risks, { complete: whole && !summary.error, engines });
     req.session.lastScan = result;
-    labs.noteFetch(req, result, allProjects.length);
+    // The tenant's copy for the consolidated view is every open finding on the branch that counts: a load narrowed
+    // to an age, a search, or named applications, projects or people does not replace it.
+    const narrowed = Boolean(detectionWindow || vulnerability || scope.projectIds.length || scope.initiators.length || scope.applications.length || branchScope !== 'primary');
+    labs.noteFetch(req, result, allProjects.length, { narrowed });
 
     const response = {
       ...result,
@@ -476,5 +479,5 @@ export function registerScanRoutes(app, d) {
     return credit ? { ...scan, initiator: credit.initiator, initiatorEmail: credit.email || undefined, startedBy: scanInitiator(scan) } : scan;
   };
 
-  return { fetchInProgress, afterFetch, projectRow, readerIdentity, scanAttribution, creditFor };
+  return { fetchInProgress, afterFetch, projectRow, readerIdentity, scanAttribution, creditFor, runScan };
 }

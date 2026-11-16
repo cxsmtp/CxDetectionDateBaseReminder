@@ -55,7 +55,7 @@ const presetLabel = (id) => state.health?.windowPresets.find((p) => p.id === id)
  * "Findings open for": the one question about time on the Workbench. Any age; open for more than so many days
  * (the server's age presets); or new in the last week or month. The ids are the server's window presets.
  */
-export function fillAgePresets(defaultId = 'any') {
+export function fillAgePresets(defaultId = '7d') {
   const options = [
     { id: 'any', label: 'Any age' },
     ...(state.health?.agePresets ?? []),

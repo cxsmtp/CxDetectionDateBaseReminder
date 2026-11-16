@@ -331,3 +331,11 @@ test('nothing the server\'s route modules say names a group that is gone', () =>
     assert.doesNotMatch(read(`src/routes/${name}`), /Settings → (?:AI & credits|Start|Security|Reports & brand|Risks endpoint|Links into Checkmarx One)\b|(?:Prove|Plan|Follow up) → (?!Prove, plus Set up)|own menu group/, name);
   }
 });
+
+test('the Workbench starts with what is new this week; every age is still a choice', () => {
+  // (From MZ-01.01.14. A load made before brings back the scope it was made with: restoreRequest in workbench.js.)
+  assert.match(read('public/app.js'), /fillAgePresets\('7d'\);/);
+  assert.match(app, /export function fillAgePresets\(defaultId = '7d'\) \{/);
+  const options = app.slice(app.indexOf('export function fillAgePresets('), app.indexOf('const ageLabel'));
+  for (const choice of ["{ id: 'any', label: 'Any age' }", "{ id: '7d', label: 'New this week' }", "{ id: '30d', label: 'New this month' }", "{ id: 'custom', label: 'Custom dates…' }"]) assert.ok(options.includes(choice), choice);
+});

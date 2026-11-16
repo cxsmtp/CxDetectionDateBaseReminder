@@ -99,7 +99,8 @@ wirePagesAndPalette();
     // Every open finding, whatever its age, in the projects scanned in the last 90 days: the old findings are
     // what this is for, and a project nobody scans any more is skipped (Narrow down changes that).
     fillPresets('activity-preset', '90d');
-    fillAgePresets('any');
+    // (A first load starts with what is new this week; a load made before brings back what it was made with.)
+    fillAgePresets('7d');
     renderEnginePick();
     renderFocusPick();
     updateScopeSummary();
