@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { LANGUAGE_CODES } from '../scripts/i18n-check.mjs';
+import { pageScript } from './page-script.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -74,9 +75,9 @@ test('the page loads the phone layer after the looks, and starts it once the men
   const looks = html.indexOf('href="nextgen.css"');
   const phone = html.indexOf('href="mobile.css"');
   assert.ok(looks > 0 && phone > looks, 'mobile.css comes after nextgen.css');
-  const app = read('public/app.js');
-  assert.match(app, /import \{ initMobile \} from '\.\/mobile\.js';/);
-  assert.equal(app.match(/^initMobile\(\);$/gm)?.length, 1, 'started once, at the top level');
+  const app = pageScript();
+  assert.match(app, /import \{ initMobile \} from '\.\.?\/mobile\.js';/);
+  assert.equal(app.match(/^ *initMobile\(\);$/gm)?.length, 1, 'started once, when the page loads');
 });
 
 test('the phone layer writes only its own markup: names and labels go in as text', () => {
