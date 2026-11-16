@@ -507,6 +507,10 @@ test('what is ahead: findings still to come at the trend, and more from Fusion',
   assert.equal(aheadMonths(12, 0), 12);
   assert.ok(Math.abs(aheadMonths(12, 2) - (1 - keep ** 12) / (1 - keep)) < 1e-9);
   assert.ok(Math.abs(aheadMonths(3, 2) - (1 + keep + keep ** 2)) < 1e-9);
+  // A saved report's own figure is never a loop count: at most the 60 months a projection covers, and never negative.
+  assert.equal(aheadMonths(3e9, 0), 60);
+  assert.equal(aheadMonths(-5, 0), 0);
+  assert.equal(aheadMonths('abc', 0), 0);
   assert.ok(aheadMonths(12, 2) > 11.8 && aheadMonths(12, 2) < 12, '2% a year: a little under 12 months\' worth');
   const p = trProjection(quarter, {}, { months: 12, fusion: true });
   const high = p.rows.High;

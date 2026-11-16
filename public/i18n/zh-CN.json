@@ -5857,6 +5857,9 @@
   "Each tenant loads by itself when this page is opened: its projects show here as it finishes.": "打开此页面时，每个租户都会自动加载：加载完成后，其项目会显示在这里。",
   "Each tenant's figures are what it holds now: every open finding as last loaded, the credits it last read and its credit pool (and Govern's budgets where Govern runs). For people who may fetch findings, this page loads each tenant by itself when it is opened, with that tenant's own Checkmarx One connection; Refresh every tenant reads them all again. Loading reads Checkmarx One and changes nothing there or in a tenant. The \"Go to\" buttons take you into the tenant, as the tenant switcher does.": "每个租户的数据为其当前保存的内容：最近一次加载时的所有未解决检测结果、最近一次读取的点数及其点数额度（运行治理的租户还包括治理的预算）。对于可以获取检测结果的人员，此页面在打开时会使用各租户自己的 Checkmarx One 连接自动加载每个租户；“刷新所有租户”会重新读取全部租户。加载只读取 Checkmarx One，不会更改其中或任何租户中的内容。“前往”按钮会带您进入该租户，与租户切换器的作用相同。",
   "Reads every tenant's open findings and credits from Checkmarx One again, each with its own connection": "使用各租户自己的连接，从 Checkmarx One 重新读取每个租户的未解决检测结果和点数",
-  "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "此租户没有已保存的 Checkmarx One 连接。请打开该租户，并在 设置 → Checkmarx One 中连接一次。"
+  "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "此租户没有已保存的 Checkmarx One 连接。请打开该租户，并在 设置 → Checkmarx One 中连接一次。",
+  "Total results": "结果总数",
+  "All of its latest scan's SAST results, the AI engine's and traditional SAST's together; hover a figure for the AI engine's share": "其最近一次扫描的所有 SAST 结果，包括 AI 引擎和传统 SAST 的结果；将鼠标悬停在数字上可查看 AI 引擎所占比例",
+  "{0} of {1} SAST results are the AI engine's: {2}%": "{1} 个 SAST 结果中有 {0} 个来自 AI 引擎：{2}%"
  }
 }

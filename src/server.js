@@ -269,8 +269,8 @@ let restoredAtStart = null;
 try {
   restoredAtStart = applyPendingRestore({ dataDir, settingsFile: config.settingsFile });
   if (restoredAtStart) {
-    console.log(`[data] Restored ${restoredAtStart.restored.length} file(s) from the backup of ${restoredAtStart.createdAt}.`);
-    if (restoredAtStart.replacedDir) console.log(`[data] The files it replaced are in ${restoredAtStart.replacedDir}.`);
+    console.log(`[data] Restored ${restoredAtStart.restored.length} file(s) from the backup of ${logSafe(restoredAtStart.createdAt)}.`);
+    if (restoredAtStart.replacedDir) console.log(`[data] The files it replaced are in ${logSafe(restoredAtStart.replacedDir)}.`);
   }
 } catch (error) {
   console.error(`! [data] The staged restore could not be applied, and nothing was changed: ${error.message}`);
@@ -1408,6 +1408,8 @@ app.use((error, req, res, next) => {
     return res.status(500).json({ error: 'Something went wrong on the server. The details are in its log.' });
   }
   if (error.status >= 500) diagnostics.error('upstream-error', error, { route: req.route ? `${req.baseUrl}${req.route.path}` : '(unmatched)', status: error.status });
+  // A report's own calls (nobody signed in): the kind of failure, never Checkmarx One's words or its answer.
+  if (req.path.startsWith('/api/relay/') && ['CxApiError', 'AuthError'].includes(error.name)) return res.status(error.status).json({ error: relayError(error) });
   res.status(error.status).json({ error: error.message ?? 'Unexpected error.', detail: error.body ?? undefined, help: error.help ?? connectionHelp(req, error) ?? undefined });
 });
 

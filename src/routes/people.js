@@ -13,6 +13,7 @@ import { systemEmail } from '../hands-off.js';
 import { sessionKey } from '../handover.js';
 import { DEFAULT_TENANT } from '../tenancy.js';
 import { featureById } from '../features.js';
+import { logSafe } from './shared.js';
 
 /**
  * @param {import('express').Express} app
@@ -210,7 +211,7 @@ export function registerPeopleRoutes(app, d) {
         settings,
         systemEmail({ appName, subject: `Your ${appName} sign-in email was changed`, lines: [line], facts: [['Changed at', utc(Date.now())]], footer: 'Not expected? Tell an administrator at once.', replyHelp: false }),
         { exact: true, to: [to] },
-      ).catch((error) => console.error(`[profile] Could not tell ${to} about the new email: ${error.message}`));
+      ).catch((error) => console.error(`[profile] Could not tell ${logSafe(to)} about the new email: ${logSafe(error.message)}`));
     }
   }
 

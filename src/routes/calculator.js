@@ -140,6 +140,8 @@ export function registerCalculatorRoutes(app, d) {
    * a big tenant, so it runs in the background, one per tenant, and the page follows it.
    */
   const calculatorReads = new Map();
+  /** The tenants POST /api/projections/fusion/read is reading now. */
+  const fusionReads = new Set();
   const readView = (job, since = null) => readJobView(job, { since });
   app.post(
     '/api/projections/read',
@@ -334,9 +336,17 @@ export function registerCalculatorRoutes(app, d) {
     asyncRoute(async (req, res) => {
       const client = req.session.client ?? integrationSession()?.client;
       if (!client) return res.status(409).json({ error: 'Connect to Checkmarx One first (Settings → Checkmarx One), or add each project by hand.' });
-      const [{ perProject, ...tenant }, offer] = await Promise.all([readTenant(client, { branches: branchScopeOf(req.body?.branches), maxProjects: readLimit(req.body?.maxProjects) }), readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null }))]);
-      projectionReads.save(perProject);
-      res.json({ ...tenant, ...offer });
+      // One read of a tenant at a time, as POST /api/projections/read: each holds every project it has read so far.
+      const key = tenancy.current().id;
+      if (fusionReads.has(key) || calculatorReads.get(key)?.state === 'running') return res.status(409).json({ error: 'Checkmarx One is already being read for the calculator. Try again when that read has finished.' });
+      fusionReads.add(key);
+      try {
+        const [{ perProject, ...tenant }, offer] = await Promise.all([readTenant(client, { branches: branchScopeOf(req.body?.branches), maxProjects: readLimit(req.body?.maxProjects) }), readFusionOffer(client).catch(() => ({ models: [], remainingCredits: null }))]);
+        projectionReads.save(perProject);
+        res.json({ ...tenant, ...offer });
+      } finally {
+        fusionReads.delete(key);
+      }
     }),
   );
   /** The organisation's name on what the calculator makes (also given with the terms of use). */

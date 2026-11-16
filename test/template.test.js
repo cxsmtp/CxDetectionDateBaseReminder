@@ -199,3 +199,17 @@ test('sections nest at most four levels deep', () => {
   assert.equal(render('{{#a}}{{#a}}{{#a}}{{#a}}x{{/a}}{{/a}}{{/a}}{{/a}}', { a: true }), 'x');
   assert.throws(() => render('{{#a}}{{#a}}{{#a}}{{#a}}{{^b}}x{{/b}}{{/a}}{{/a}}{{/a}}{{/a}}', { a: true }), (error) => error instanceof TemplateError && /nested too deeply/.test(error.message));
 });
+
+test('a template whose nested sections repeat megabytes of text is refused at once, not rendered for half a minute', () => {
+  // Three levels of {{#risks}} around a body of almost 4 MB: each level re-reads the body for each of its 12 findings.
+  // Before the limit on the text read, this one render held the server for about 25 seconds.
+  const risks = Array.from({ length: 12 }, (_, i) => ({ id: i, title: 'x' }));
+  const body = `{{#nothing}}${'{{a '.repeat(Math.floor((3.9 * 1024 * 1024) / 4))}{{/nothing}}`;
+  const source = `${'{{#risks}}'.repeat(3)}${body}${'{{/risks}}'.repeat(3)}`;
+  const started = Date.now();
+  assert.throws(() => render(source, { risks }), (error) => error instanceof TemplateError && /too large to render/.test(error.message));
+  assert.ok(Date.now() - started < 5000, `refused in ${Date.now() - started} ms`);
+  // A large reminder that repeats little still renders: one level, the same body once per finding.
+  const fine = `{{#risks}}{{title}} ${'x'.repeat(200_000)}{{/risks}}`;
+  assert.equal(render(fine, { risks }).length, 12 * 200_002);
+});

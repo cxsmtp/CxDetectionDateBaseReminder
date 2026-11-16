@@ -58,6 +58,7 @@ export function registerSettingsRoutes(app, d) {
   function permittedSettings(req, body = {}) {
     const allowed = {};
     const ignored = [];
+    // Only the sections named above: a key such as __proto__ or constructor is not one of them, whatever it finds on an object.
     for (const [key, value] of Object.entries(body ?? {})) {
       if (key === 'aiTriage' && value && typeof value === 'object') {
         // The credit pool (size and period) is the Admin's; the rest is the AI settings permission's.
@@ -75,7 +76,7 @@ export function registerSettingsRoutes(app, d) {
         if (Object.keys(ai).length) allowed.aiTriage = ai;
       } else if (key === 'sla' && !mayUse(settingsStore.get(), 'sla', req.permissions)) {
         ignored.push(key);
-      } else if (SETTINGS_SECTIONS[key] && can(req, SETTINGS_SECTIONS[key])) {
+      } else if (Object.hasOwn(SETTINGS_SECTIONS, key) && can(req, SETTINGS_SECTIONS[key])) {
         allowed[key] = value;
       } else {
         ignored.push(key);

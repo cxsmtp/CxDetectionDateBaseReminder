@@ -168,12 +168,13 @@ const FUSION_COLUMNS = [
     cell: (r) => `<td class="fusion-sevs">${FUSION_SEVERITY_ORDER.filter((k) => r[k]).map((k) => `<span class="fusion-sev fusion-sev-${k.toLowerCase()}" title="${escapeHtml(`${fmt(r[k])} ${SEVERITY_LABEL[k].toLowerCase()}`)}">${fmt(r[k])} ${escapeHtml(SEVERITY_LABEL[k][0])}</span>`).join('') || '<span class="zero">none</span>'}</td>`,
   },
   {
+    // The id is as before ("share"), so the columns people chose to show, hide or reorder stay as they left them.
     id: 'share',
-    label: 'AI share of SAST',
+    label: 'Total results',
     num: true,
-    title: 'The AI engine\'s results as a share of all its latest scan\'s SAST results: 20 of 100 is 20%',
-    sort: { value: (r) => r.aiShare, text: (r) => (r.aiShare === null ? '' : `${r.aiShare}%`) },
-    cell: (r) => (r.aiShare === null ? '<td class="num zero" title="Checkmarx One did not say how many SAST results its latest scan has">—</td>' : `<td class="num" title="${escapeHtml(`${fmt(r.total)} of ${fmt(r.sastResults)} SAST results`)}">${fmt(r.aiShare)}%</td>`),
+    title: 'All of its latest scan\'s SAST results, the AI engine\'s and traditional SAST\'s together; hover a figure for the AI engine\'s share',
+    sort: (r) => r.sastResults,
+    cell: (r) => (r.sastResults === null ? '<td class="num zero" title="Checkmarx One did not say how many SAST results its latest scan has">—</td>' : `<td class="num${r.sastResults ? '' : ' zero'}" title="${escapeHtml(r.aiShare === null ? '' : `${fmt(r.total)} of ${fmt(r.sastResults)} SAST results are the AI engine's: ${fmt(r.aiShare)}%`)}">${fmt(r.sastResults)}</td>`),
   },
   { id: 'toVerify', label: 'To verify', num: true, title: 'Open risks still in Risk Hub\'s default state, To verify', sort: (r) => r.TO_VERIFY, cell: (r) => fusionCell.count(r.TO_VERIFY) },
   { id: 'confirmed', label: 'Confirmed', num: true, title: 'Open risks confirmed (by people or by AI Triage)', sort: (r) => r.CONFIRMED, cell: (r) => fusionCell.count(r.CONFIRMED) },
@@ -489,10 +490,10 @@ function renderFusionSide() {
   const date = (iso) => (iso ? fmtDateTime(iso) : '—');
   const item = (r, i) => `<details class="fusion-vuln"${i === 0 ? ' open' : ''}>
       <summary><span class="sev-dot sev-${escapeHtml(r.severity.toLowerCase())}" aria-hidden="true"></span><span class="fusion-vuln-name">${escapeHtml(r.name)}</span><span class="fusion-vuln-tags">${r.aiTriaged ? '<span class="fusion-tag fusion-AI" title="Its state was set by AI Triage">AI-triaged</span>' : ''}${r.engine ? `<span class="fusion-tag fusion-${escapeHtml(r.engine)}">${escapeHtml(ENGINE_LABEL[r.engine] ?? r.engine)}</span>` : ''}</span>
-        <span class="fusion-vuln-sub">${escapeHtml([SEVERITY_LABEL[r.severity] ?? r.severity, scannerLabel(r.scanner), r.status, r.state, r.language, r.source ? fileOf(r.source) : fileOf(r.location.split(' :: ')[0])].filter(Boolean).join(' · '))}</span></summary>
+        <span class="fusion-vuln-sub"><b class="sev-word sev-word-${escapeHtml(r.severity.toLowerCase())}">${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity)}</b>${escapeHtml(['', scannerLabel(r.scanner), r.status, r.state, r.language, r.source ? fileOf(r.source) : fileOf(r.location.split(' :: ')[0])].filter((part, i) => !i || part).join(' · '))}</span></summary>
       ${r.description ? `<p class="fusion-vuln-desc" translate="no">${escapeHtml(r.description)}</p>` : ''}
       <dl>
-        <dt>Severity</dt><dd>${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity)}</dd>
+        <dt>Severity</dt><dd><span class="sev-word sev-word-pill sev-word-${escapeHtml(r.severity.toLowerCase())}">${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity)}</span></dd>
         <dt>Status · state</dt><dd>${escapeHtml([r.status || '—', r.state || '—'].join(' · '))}${r.aiTriaged ? ` <span class="hint">${escapeHtml('(set by AI Triage)')}</span>` : ''}</dd>
         <dt>Language</dt><dd>${escapeHtml(r.language || '—')} <span class="hint">${escapeHtml(r.engine === 'LAST' ? '(only the AI engine covers it)' : r.coveredAs ? `(traditional SAST supports it as ${r.coveredAs})` : '')}</span></dd>
         <dt>CWE</dt><dd>${r.cwe ? `CWE-${escapeHtml(String(r.cwe))}` : '—'}</dd>

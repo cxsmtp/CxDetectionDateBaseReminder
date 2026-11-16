@@ -145,6 +145,45 @@ test('the Workbench loads the projects from Checkmarx One', async () => {
   nothingWentWrong();
 });
 
+test('Fusion results: the total results of each project, and the severity of a result in its own colour', async () => {
+  await goTo(admin, '#/fusion', 'page-fusion');
+  await admin.locator('#fusion-fetch').click();
+  const first = admin.locator('#fusion-body tr').filter({ has: admin.locator('button[data-fusion-project]') }).first();
+  await first.waitFor();
+  const headings = (await admin.locator('#fusion-head th').allTextContents()).map((t) => t.trim());
+  assert.ok(headings.includes('Total results') && !headings.includes('AI share of SAST'), `the count, not a share: ${headings.join(', ')}`);
+  // The scan's SAST results in all, as a number; the AI engine's share of them is what hovering says.
+  const cell = first.locator('td').nth(headings.indexOf('Total results'));
+  assert.match((await cell.textContent()).trim(), /^[\d,]+$/);
+  assert.match(await cell.getAttribute('title'), /^[\d,]+ of [\d,]+ SAST results are the AI engine's: \d+%$/);
+  // Its results: the severity is a word in that severity's colour, in the line under the name and in the details.
+  await first.locator('button[data-fusion-project]').click();
+  const result = admin.locator('#fusion-side-list .fusion-vuln').first();
+  await result.waitFor();
+  const seen = await result.evaluate((el) => {
+    const colour = (node) => getComputedStyle(node).color;
+    const [line, detail] = [el.querySelector('.fusion-vuln-sub .sev-word'), el.querySelector('dd .sev-word')];
+    return { words: [line.textContent, detail.textContent], classes: [line.className, detail.className], colours: [colour(line), colour(detail)], rest: colour(el.querySelector('.fusion-vuln-sub')), dot: getComputedStyle(el.querySelector('.sev-dot')).backgroundColor };
+  });
+  assert.equal(seen.words[0], seen.words[1]);
+  assert.match(seen.words[0], /^(Critical|High|Medium|Low)$/);
+  assert.match(seen.classes[0], new RegExp(`sev-word-${seen.words[0].toLowerCase()}`));
+  assert.equal(seen.colours[0], seen.colours[1], 'the same colour in both places');
+  assert.notEqual(seen.colours[0], seen.rest, 'not the grey of the rest of the line');
+  // Every severity has a colour of its own.
+  const colours = await admin.evaluate(() => ['critical', 'high', 'medium', 'low'].map((k) => {
+    const el = document.body.appendChild(Object.assign(document.createElement('span'), { className: `sev-word sev-word-${k}` }));
+    const colour = getComputedStyle(el).color;
+    el.remove();
+    return colour;
+  }));
+  assert.equal(new Set(colours).size, 4, colours.join(' | '));
+  await admin.keyboard.press('Escape');
+  await admin.locator('#fusion-drawer').waitFor({ state: 'hidden' });
+  await open(admin, 'dashboard', 'page-dashboard');
+  nothingWentWrong();
+});
+
 test('Settings and People & roles open, with what the Admin may see', async () => {
   await open(admin, 'settings', 'page-settings');
   const sections = (await admin.locator('#set-nav [data-set]:visible').allTextContents()).map((t) => t.trim());

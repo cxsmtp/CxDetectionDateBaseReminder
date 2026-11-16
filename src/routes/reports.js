@@ -27,7 +27,7 @@ import { projectUrl } from '../links.js';
 import { sendReminderMail } from '../mailer.js';
 import { isVerified } from '../settings.js';
 import { DEFAULT_TENANT, scoped } from '../tenancy.js';
-import { SYSTEM_ACTOR, clientIp, escapeHtml, idList } from './shared.js';
+import { SYSTEM_ACTOR, clientIp, escapeHtml, idList, logSafe } from './shared.js';
 
 /**
  * @param {import('express').Express} app
@@ -120,7 +120,11 @@ export function registerReportRoutes(app, d) {
         }),
       ]);
       const summary = read.projects[0];
-      if (summary?.error) return res.status(502).json({ error: `Could not read ${projectName || 'the project'} from Checkmarx One: ${summary.error}` });
+      if (summary?.error) {
+        // The reader holds an emailed report and is not signed in: the kind of failure, with Checkmarx One's own words kept in the log.
+        console.warn(`[relay] could not read ${logSafe(projectName || projectId)} for a project report: ${logSafe(summary.error)}`);
+        return res.status(502).json({ error: `Could not read ${projectName || 'the project'} from Checkmarx One. Try again later, or ask your security team to check the CxMissionZero server.` });
+      }
       if (summary) summary.url = projectUrl(summary, session.connection, settings.links);
       const risks = selectRisks(read.projects, { buckets: scope.buckets, severities: scope.severities.length ? scope.severities : null, engines: scope.engines ?? null });
       const actor = reportActor(req);

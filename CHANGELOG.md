@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.17 | 499/s, 0 (main 524, 0) | 477 ms (360 ms) | 141 ms (145 ms) | 1,239 + 17 in a browser | 0 vulnerabilities | Scan fb266f9f of this release's first commit, every engine but the AI ones: 217 open (1 / 6 / 85 / 122, 3 info), all still to verify in Checkmarx One. 190 are first reports: earlier scans listed nothing in the two largest files, which MZ-01.01.13 split, so the earlier "32 open" never covered them. All 190 read: 4 real and fixed (none reachable without an Analyst's or Admin's rights), 5 hardened, 181 not exploitable ([review](docs/security/mz-01.01.17-review.md)) |
 | MZ-01.01.16 | 510/s, 0 (main 486, 0) | 5.6 s (3.9 s) | 197 ms (265 ms) | 1,233 + 16 in a browser | 0 vulnerabilities | No new scan of this code yet (the connector was signed in again during this release); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.15 | 507/s, 0 (main 496, 0) | 4.9 s (5.3 s) | 293 ms (364 ms) | 1,232 + 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.14 | 488 and 499/s, 0 (main 497 and 477, 0 and 31; two pairs) | 6.7 and 5.3 s (7.1 and 10.6 s) | 718 and 376 ms (630 and 998 ms) | 1,232 + 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
@@ -102,6 +103,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.17 — 2026-11-16 17:16 UTC · [#139](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/139)
+
+- **Total results, not a share.** On Labs → Fusion results, the projects table's "AI share of SAST" column is now **Total results**: all of the latest scan's SAST results as a count (47, not 66%); hover the figure for the AI engine's share.
+- **Severity in its colour.** In a project's side panel, each result's severity is a word in that severity's own colour, under the result's name and in its details: red for critical, orange for high, amber for medium, blue for low, readable on light and dark.
+- **The same in Safari.** Lists that open are drawn by the page itself, so Safari no longer makes them taller and boxier than the buttons beside them; search fields take the page's border and height there, and blurred backgrounds work in Safari 17 and older.
+- **The scan that read the main code.** A Checkmarx One scan listed results in the server's and the page's main code for the first time: earlier scans had listed nothing in the two largest files, so the "32 open, all judged" of the last releases never covered them. All 190 first reports were read by three readers; none can be used by someone who is not signed in or by an ordinary User.
+- **Three things fixed from it.** A very large email template with nested sections could hold the server for about 25 seconds per preview (it is now refused at once); a restored backup could write a line of its own into the server log; a saved projection report could freeze a colleague's browser tab.
+- **Less said to people who are not signed in.** A one-click link in an email, a reply by email and a project report now say only what kind of failure happened; the server's or Checkmarx One's own words stay in the server log.
+- **Status.** 1,239 tests pass (one is skipped when run as root and passes in CI), with 17 that drive the page in Chromium; `npm audit --omit=dev` finds nothing. Benchmark against main, both runs with 0 failed requests and no finding sent twice: 499 requests a second (main 524), report opens 477 ms at p95 (main 360 ms), triage polls 141 ms (main 145 ms), measured on the release's first commit. Checkmarx One scan fb266f9f: 217 open (1 critical, 6 high, 85 medium, 122 low, 3 info), all still to verify there; 4 fixed here, 5 hardened, 181 judged not exploitable in [the review](docs/security/mz-01.01.17-review.md). Safari was checked in its engine (WebKit) on Linux, not on a Mac.
 
 ## MZ-01.01.16 — 2026-11-16 15:55 UTC · [#138](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/138)
 

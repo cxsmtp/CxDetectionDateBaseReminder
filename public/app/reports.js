@@ -743,17 +743,18 @@ function verifySection(r) {
       </div>`
     : '';
   const result = v?.result;
-  const tile = (label, value, sub, tone = '') => `<div class="rp-kpi ${tone}"><span class="rp-tile-label">${escapeHtml(label)}</span><span class="rp-kpi-value">${value}</span><span class="rp-tile-sub">${escapeHtml(sub)}</span></div>`;
+  // Counts go through fmt (a number, or NaN): nothing the server stored reaches the page as markup.
+  const tile = (label, value, sub, tone = '') => `<div class="rp-kpi ${tone}"><span class="rp-tile-label">${escapeHtml(label)}</span><span class="rp-kpi-value">${fmt(value)}</span><span class="rp-tile-sub">${escapeHtml(sub)}</span></div>`;
   const resultHtml = result
-    ? `${result.zero ? `<p class="vf-zero">✓ Mission Zero for this scope: everything in round ${v.round} is verified fixed by a rescan.</p>` : ''}
+    ? `${result.zero ? `<p class="vf-zero">✓ Mission Zero for this scope: everything in round ${fmt(v.round)} is verified fixed by a rescan.</p>` : ''}
       <div class="rp-kpis">
         ${tile('Verified fixed', result.fixed, 'gone after the rescan', 'tone-good')}
         ${tile('Still found', result.stillFound.length, result.ineffective ? `${result.ineffective} after AI Remediation: the fix did not work` : 'still reported by Checkmarx One', result.stillFound.length ? 'tone-critical' : '')}
         ${tile('Accepted', result.accepted, 'triaged not exploitable')}
         ${tile('New in scope', result.newInScope, 'found since the round started', result.newInScope ? 'tone-warning' : '')}
       </div>
-      ${result.notChecked ? `<p class="hint">${result.notChecked} finding(s) in projects still waiting for a scan are not checked yet.</p>` : ''}
-      ${result.stillFound.length ? `<details class="vf-still"><summary>Still found (${result.stillFound.length})</summary><ul>${result.stillFound
+      ${result.notChecked ? `<p class="hint">${fmt(result.notChecked)} finding(s) in projects still waiting for a scan are not checked yet.</p>` : ''}
+      ${result.stillFound.length ? `<details class="vf-still"><summary>Still found (${fmt(result.stillFound.length)})</summary><ul>${result.stillFound
         .slice(0, 50)
         .map((f) => `<li><b>${escapeHtml(SEV_NAMES[f.severity] ?? f.severity)}</b> ${escapeHtml(f.title)} <span class="hint">· ${escapeHtml(f.projectName)}${f.remediated ? ' · remediated, still found' : ''}</span></li>`)
         .join('')}</ul></details>` : ''}`
@@ -792,7 +793,7 @@ function verifySection(r) {
         .reverse()
         .map((x) => {
           const res = x.verification?.result;
-          return `<tr><td>${x.round}</td><td>${escapeHtml(sevList(x.severities))}</td><td class="num">${x.baseline}</td><td class="num">${res ? res.fixed : '—'}</td><td class="num">${res ? res.stillFound.length : '—'}</td><td>${res?.zero ? '<span class="rp-chip tone-good">✓ At zero</span>' : res ? 'Verified' : 'Not verified'}</td></tr>`;
+          return `<tr><td>${fmt(x.round)}</td><td>${escapeHtml(sevList(x.severities))}</td><td class="num">${fmt(x.baseline)}</td><td class="num">${res ? fmt(res.fixed) : '—'}</td><td class="num">${res ? fmt(res.stillFound.length) : '—'}</td><td>${res?.zero ? '<span class="rp-chip tone-good">✓ At zero</span>' : res ? 'Verified' : 'Not verified'}</td></tr>`;
         })
         .join('')}</tbody></table></div>`
     : '';

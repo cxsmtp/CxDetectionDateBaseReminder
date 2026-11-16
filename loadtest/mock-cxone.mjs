@@ -114,6 +114,9 @@ const faeProjects = new Map(); // id -> { name, tags }
 const faeScans = new Map(); // scanId -> { projectId, source: 'p3', at }
 const predicates = new Map(); // `${projectId}|${similarityId}` -> state
 const uploads = new Set();
+// Each upload address is given once: numbered by how many were ever given, not by how many are still waiting (an
+// address used and gone made room for the next to get the number of one still waiting, in the same millisecond).
+let uploadsMade = 0;
 let faeMade = 0;
 const codeKept = (i) => i % 9 !== 8; // every ninth project: Checkmarx One no longer keeps its latest scan's code
 const faeSourceOf = (projectId) => faeProjects.get(projectId)?.source ?? '';
@@ -233,7 +236,7 @@ http.createServer((req, res) => {
         return faeProjects.delete(decodeURIComponent(sm0[1])) ? send(204) : send(404, { message: 'project not found' });
       }
       if (req.method === 'PATCH' && u.pathname === '/api/configuration/project') { bump('configuration-patch'); if (REFUSE_SETTING && JSON.parse(b || '[]').some?.((e) => e?.key === REFUSE_SETTING)) return send(403, { code: 403, message: 'Forbidden' }); return faeProjects.has(u.searchParams.get('project-id')) ? send(204) : send(404, {}); }
-      if (req.method === 'POST' && u.pathname === '/api/uploads') { bump('uploads'); const path = `/__upload/${uploads.size + 1}-${Date.now()}`; uploads.add(path); return send(200, { url: `http://127.0.0.1:${process.env.PORT || 4101}${path}` }); }
+      if (req.method === 'POST' && u.pathname === '/api/uploads') { bump('uploads'); const path = `/__upload/${(uploadsMade += 1)}-${Date.now()}`; uploads.add(path); return send(200, { url: `http://127.0.0.1:${process.env.PORT || 4101}${path}` }); }
       // A scan's source code, as Checkmarx One keeps it (a zip).
       if ((sm0 = u.pathname.match(/^\/api\/repostore\/(code|scans)\/(?:(?:scan|feat)-)?p(\d+)$/))) {
         bump(`repostore-${sm0[1]}`);

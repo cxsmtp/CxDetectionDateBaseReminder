@@ -181,6 +181,20 @@ test('a mixed settings save keeps only the sections the role may change', async 
   assert.notEqual(r.body.aiTriage.monthlyCreditLimit, 9);
 });
 
+test('a settings save takes only the sections there are: __proto__ and constructor are left out', async () => {
+  // As a browser or a script could post it: the two names that reach an object's prototype, beside a real section.
+  const body = JSON.parse('{"__proto__":{"polluted":"yes"},"constructor":{"prototype":{"polluted":"yes"}},"template":{"subject":"Analyst {{tenant}}"}}');
+  const r = await as.admin('PUT', '/api/settings', body);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepEqual([...r.body.ignored].sort(), ['__proto__', 'constructor']);
+  assert.equal(r.body.template.subject, 'Analyst {{tenant}}');
+  assert.equal(r.body.polluted, undefined);
+  // Alone, they are nothing this role (or any) may change.
+  const alone = await as.admin('PUT', '/api/settings', JSON.parse('{"__proto__":{"polluted":"yes"}}'));
+  assert.equal(alone.status, 403);
+  assert.equal(({}).polluted, undefined);
+});
+
 test('nobody can raise their own access: an analyst cannot make or change admins', async () => {
   const { body } = await as.analyst('GET', '/api/iam');
   // Analysts and below only: who the Admins are, and the Admin role, stay out of sight.

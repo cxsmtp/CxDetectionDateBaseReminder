@@ -249,8 +249,9 @@ export function describeBackup(bundle) {
   const names = Object.keys(bundle.files);
   const audit = names.filter((n) => n.startsWith('audit/audit-'));
   return {
-    createdAt: bundle.createdAt,
-    host: bundle.host,
+    // Shown, logged and audited: a time as createBackup() writes it (else none), and a host name as plain text.
+    createdAt: /^\d{4}-\d{2}-\d{2}T[\d:.]{8,12}Z$/.test(String(bundle.createdAt)) ? String(bundle.createdAt) : '',
+    host: String(bundle.host ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').slice(0, 255),
     files: names.length,
     bytes: Object.values(bundle.files).reduce((sum, f) => sum + f.size, 0),
     hasSettings: names.includes('settings.json'),

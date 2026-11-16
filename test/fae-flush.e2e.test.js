@@ -162,7 +162,9 @@ test('preview, then a run that deletes the _FAE copies: marked, revalidated, aud
   // Downloaded (from storage that wants the access token, as on a real tenant) and uploaded again for every project
   // whose code Checkmarx One keeps; the repository for project 8.
   const scans = Object.values((await mock('/__fae')).scans);
-  assert.deepEqual([scans.filter((x) => x.code === 'upload').length, scans.filter((x) => x.code === 'git').map((x) => x.source)], [9, ['p8']]);
+  // When this fails, say why a project's code did not come the expected way: each one's attempts, as the run kept them.
+  const otherWays = done.job.projects.filter((p) => p.codeSource !== 'upload').map((p) => `${p.id} ${p.codeSource}: ${JSON.stringify(p.attempts)}`).join('\n');
+  assert.deepEqual([scans.filter((x) => x.code === 'upload').length, scans.filter((x) => x.code === 'git').map((x) => x.source)], [9, ['p8']], otherWays);
   assert.deepEqual(done.job.projects.find((p) => p.id === 'p8').codeSource, 'git');
   assert.ok(done.job.projects.find((p) => p.id === 'p0').attempts.some((a) => a.what === 'code: download and upload' && a.ok), 'each project says how its code came');
   const marks = await mock('/__predicates');

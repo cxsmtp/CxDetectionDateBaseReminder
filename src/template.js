@@ -105,6 +105,9 @@ export function render(source, data, { escape = true } = {}) {
 const MAX_DEPTH = 4;
 const MAX_ITEMS = 50_000;
 const MAX_CHARS = 5 * 1024 * 1024;
+// Template text read: every pass over every section body counts, whether or not it writes anything.
+// (A large body inside nested sections is read once per repeat of each level.)
+const MAX_SCANNED = 64 * 1024 * 1024;
 
 /** Count output against the render's budget; throw once it is spent. */
 function spend(budget, text) {
@@ -121,6 +124,10 @@ function spend(budget, text) {
  * `{{.}}` resolves to the item itself even when it is a primitive.
  */
 function renderWithStack(source, stack, escape, budget, depth) {
+  budget.scanned = (budget.scanned ?? 0) + source.length;
+  if (budget.scanned > MAX_SCANNED) {
+    throw new TemplateError('The template is too large to render: its sections repeat too much text. Simplify the template or narrow the reminder.');
+  }
   // Compiled per call: a shared /g regex would have its lastIndex clobbered by
   // the inner render and restart the outer scan from zero, looping forever.
   const token = new RegExp(TOKEN_SOURCE, 'g');
