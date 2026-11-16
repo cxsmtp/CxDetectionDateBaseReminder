@@ -99,7 +99,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
 
-## MZ-01.01.12 — 2026-11-14 15:05 UTC · [#134](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/134)
+## MZ-01.01.12 — 2026-11-16 05:10 UTC · [#134](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/134)
 
 - **A shorter menu.** Four groups instead of six: Act (Workbench, Automation, Dashboard), Credits (Credit Control, Impact, Audit, Cx Credits Calculator), Set up and Labs; "Prove" is now called "Credits", and Follow up and Plan are folded into their neighbours.
 - **A plain list for people with few pages.** Someone with seven pages or fewer, such as a User or a Security Champion, sees one list without headings.
