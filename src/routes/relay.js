@@ -12,14 +12,40 @@
  * src/server.js, in front of these.
  */
 import { config } from '../config.js';
+import { PACKAGE_VERSION } from '../version.js';
 import { createRiskSource, normalizeRisk } from '../cxone/risks.js';
 import { mapWithConcurrency } from '../cxone/client.js';
 import { gitPatch } from '../remediation-patch.js';
 import { CREDIT_COST } from '../credits.js';
-import { REMEDIABLE_STATE, alreadySent } from '../credit-allocations.js';
+import { alreadySent, REMEDIABLE_STATE } from '../credit-allocations.js';
 import { randomUUID } from 'node:crypto';
+import { reportWords } from '../report-i18n.js';
 import { scoped } from '../tenancy.js';
 import { clientIp, logSafe } from './shared.js';
+
+/**
+ * What a report can ask without a connection: is this the server, and the report's wording in another language.
+ * @param {import('express').Express} app
+ */
+export function registerRelayPingRoutes(app) {
+  /** Lets a report (or the Settings page) check an address really is this server. Never needs a connection. */
+  app.get('/api/relay/ping', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ service: 'mission-zero-relay', ok: true });
+  });
+
+  /**
+   * The report's wording in another language, for a reader who picks it in a report (it carries only
+   * its reader's own). Open languages only: a language behind an activation code travels inside the
+   * reports of the people it is on for, and is never served here.
+   */
+  app.get('/api/relay/report-words/:code', (req, res) => {
+    const strings = reportWords(String(req.params.code));
+    if (!strings) return res.status(404).json({ error: 'That language is not available.' });
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.json({ language: req.params.code, version: PACKAGE_VERSION, strings });
+  });
+}
 
 /**
  * The report's calls, and the caches of Checkmarx One's answers they share.
