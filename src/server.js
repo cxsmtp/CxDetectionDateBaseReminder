@@ -14,7 +14,7 @@ import { VersionStore } from './updates/store.js';
 import { SendGuard } from './send-guard.js';
 import { ActivityLog, describe as describeAction, fieldNames, recordsGet, targetOf } from './activity-log.js';
 import { Diagnostics } from './diagnostics.js';
-import { AGE_BUCKETS, projectReads } from './cxone/risks.js';
+import { projectReads } from './cxone/risks.js';
 import { ReportGrants } from './report-grants.js';
 import { patchLinks } from './remediation-patch.js';
 import { CreditLedger } from './credits.js';
@@ -22,7 +22,7 @@ import { CreditAllocations, creditFigures, billingUnit } from './credit-allocati
 import { knownAddresses } from './known-addresses.js';
 import { TtlCache } from './ttl-cache.js';
 import { AuditLog } from './audit-log.js';
-import { IamStore, LANGUAGE_PERMISSIONS, PERMISSIONS } from './iam.js';
+import { IamStore, LANGUAGE_PERMISSIONS } from './iam.js';
 import { insideProject, migrateLegacyData, prepareDataDir, resolveDataDir } from './data-dir.js';
 import { PENDING_RESTORE, applyPendingRestore, isSealed, readBackup, writeBackupTo } from './backup.js';
 import { BackupKeyStore } from './backup-key.js';
@@ -47,7 +47,7 @@ import { deriveConnection } from './cxone/endpoints.js';
 import { onMailFailure, sendReminderMail, testConnection } from './mailer.js';
 import { explainCxone } from './troubleshoot.js';
 import { TrustStore } from './trust.js';
-import { SettingsStore, hasEnvironmentSmtp, hostOfUrl, isVerified, overlayBranding } from './settings.js';
+import { SettingsStore, hasEnvironmentSmtp, hostOfUrl, isVerified } from './settings.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { systemEmail } from './hands-off.js';
 import { BACKUP_SUBJECT, findBackupInMailbox } from './mail-inbox.js';
@@ -65,13 +65,11 @@ import { GATED_LANGUAGES, LanguageAccess } from './languages.js';
 import { DEFAULT_TENANT, Tenancy, scoped, scopedState } from './tenancy.js';
 import { KnownAddresses, scopeKnownAddresses } from './known-addresses.js';
 import { Terms, cleanName } from './terms.js';
-import { DEFAULT_TEMPLATE, TEMPLATE_VARIABLES } from './template.js';
-import { featureById, isFinal, labsPermission, LABS_VIEW, mayUse } from './features.js';
+import { featureById } from './features.js';
 import { journeyOf } from './journey.js';
 import { SupportDesk } from './support.js';
 import { SSO_CALLBACK_PATH } from './oidc.js';
 import { FaeFlushStore, FaeHistory } from './fae-flush.js';
-import { AGE_PRESETS, WINDOW_PRESETS } from './window.js';
 // Govern (beta): credit governance, per tenant (src/govern/).
 import { GovernService } from './govern/cycle.js';
 import { registerGovernRoutes } from './govern/routes.js';
@@ -113,6 +111,8 @@ import { registerTrustRoutes } from './routes/trust.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { registerAccountRoutes } from './routes/account.js';
 import { registerSessionRoutes } from './routes/session.js';
+import { registerDiagnosticsRoutes } from './routes/diagnostics.js';
+import { createGuards } from './routes/guards.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 /** Whose own branding (Settings → Your branding) the current request is made with: see presenting(). */
@@ -989,151 +989,13 @@ app.use('/api/relay', (req, res, next) => {
   next();
 });
 
-// Each handler runs in its request's tenant, even after a body parser's callback lost the context.
-const asyncRoute = (handler) => (req, res, next) =>
-  Promise.resolve(req.tenantId ? tenancy.run(req.tenantId, () => handler(req, res)) : handler(req, res)).catch(next);
-
-/**
- * The tenants a person works in: every tenant for a Super Admin (tenants.manage); otherwise
- * the ones they were added to, or the first tenant when they were added to none. Empty when
- * every tenant they were added to has been removed.
- */
-/** Permissions that act on the whole server, not one tenant: only for people who work in the first tenant. */
-const SERVER_PERMISSIONS = new Set(['security.https', 'backup.view', 'backup.run', 'backup.manage', 'system.update', 'system.metrics', 'diagnostics.export', 'activation.manage', 'tenants.manage']);
-
-/** What a person may do: their role's permissions, without the server-wide ones when they work only in other tenants. */
-function permissionsFor(user) {
-  const all = iam.permissionsOf(user);
-  // The consolidated view (Labs): given to one person by an Admin, never by a role (src/iam.js PERSON_GRANTS).
-  if (user?.consolidated === true && !user.disabled) all.add('consolidated.view');
-  if (!user?.tenants?.length || user.tenants.includes(DEFAULT_TENANT)) return all;
-  return new Set([...all].filter((p) => !SERVER_PERMISSIONS.has(p)));
-}
-
-/** Several tenants are unlocked by an activation code in date (src/activation.js). */
-const tenantsUnlocked = () => Boolean(activations.tenants()?.valid);
-/** A Super Admin: may manage tenants and work in every one (needs the activation code in date). */
-const isSuperAdmin = (permissions) => permissions.has('tenants.manage') && tenantsUnlocked();
-
-function tenantsOf(user, permissions = permissionsFor(user)) {
-  if (!user) return [];
-  if (isSuperAdmin(permissions)) return tenancy.ids();
-  if (!user.tenants?.length) return [DEFAULT_TENANT];
-  return user.tenants.filter((id) => tenancy.has(id));
-}
-
-/** The caller's signed-in session (every person signs in; there is no shared fallback). */
-const currentSession = (req) => {
-  const session = sessions.get(readSessionCookie(req));
-  return session?.userId ? session : null;
-};
-
-/** Routes someone who must change their password may still use. */
-const PASSWORD_CHANGE_ROUTES = new Set(['/api/me/password', '/api/session', '/api/me']);
-/** Routes usable before the terms of use are accepted: reading and accepting them, and signing in and out. */
-const TERMS_ROUTES = new Set(['/api/me/password', '/api/session', '/api/me', '/api/terms', '/api/terms/accept']);
-
-/** Gate for every signed-in route: a live session of an active user. */
-function requireSession(req, res, next) {
-  const session = currentSession(req);
-  const user = session ? iam.user(session.userId) : null;
-  if (!session || !user || user.disabled) {
-    if (session) sessions.destroy(session.id);
-    return res.status(401).json({ error: 'Please sign in.', signIn: true });
-  }
-  if (user.mustChangePassword && session.via === 'password' && !PASSWORD_CHANGE_ROUTES.has(req.path)) {
-    return res.status(403).json({ error: 'Choose a new password before continuing.', mustChangePassword: true });
-  }
-  if (!TERMS_ROUTES.has(req.path) && (!terms.organisation() || !terms.acceptedBy(user.id))) {
-    return res.status(403).json({
-      error: terms.organisation() ? 'Accept the terms of use to continue.' : user.role === 'admin' ? 'Accept the terms of use for your organisation to continue.' : 'An administrator must accept the terms of use before CxMissionZero can be used.',
-      termsRequired: true,
-    });
-  }
-  req.session = session;
-  req.user = user;
-  req.permissions = permissionsFor(user);
-  // The tenant this person works in now (their choice, if they still may).
-  const allowed = tenantsOf(user, req.permissions);
-  if (!allowed.length) return res.status(403).json({ error: 'You are not in any Checkmarx One tenant on this server any more. Ask a Super Admin to add you to one.' });
-  if (!allowed.includes(session.tenantId)) {
-    if (session.tenantId) session.lastScan = null; // fetched in another tenant
-    session.tenantId = allowed[0];
-  }
-  req.tenantId = session.tenantId;
-  const run = () =>
-    tenancy.run(req.tenantId, () => {
-      // Password sessions use the integration; make sure it is up (it is re-created from the stored key if needed).
-      if (session.linked && !integrationSession()) {
-        resolveAutomationSession().then(() => next(), next);
-        return;
-      }
-      next();
-    });
-  // Someone presenting their own branding: what this request makes carries it, and nothing after it does.
-  const own = ownBranding(user, req.permissions);
-  if (!own) return run();
-  const context = { own, done: false };
-  const end = () => (context.done = true);
-  res.on('finish', end);
-  res.on('close', end);
-  presenter.run(context, run);
-}
-
-/**
- * Settings → Your branding: a person's own names, logo and colours, for their
- * demonstrations. In use while they hold branding.personal and have it on; empty
- * fields keep the organisation's. It applies only to what their own requests make
- * (reports, reminder emails), never to scheduled runs or anyone else's.
- */
-function ownBranding(user, permissions = permissionsFor(user)) {
-  const own = user?.branding;
-  return own?.on && permissions.has('branding.personal') ? own : null;
-}
-/** The branding of whoever this request is for, while the request lasts; null for the organisation's. */
-function presenting() {
-  const context = presenter.getStore();
-  return context && !context.done ? context.own : null;
-}
-const brandingNow = (branding) => overlayBranding(branding, presenting());
-
-const can = (req, permission) => Boolean(req.permissions?.has(permission));
-
-/** Signed in, and holding at least one of `permissions`. */
-function requirePermission(...permissions) {
-  return (req, res, next) =>
-    requireSession(req, res, (error) => {
-      if (error) return next(error);
-      if (permissions.some((p) => req.permissions.has(p))) return next();
-      const labels = permissions.map((p) => PERMISSIONS.find((x) => x.id === p)?.label ?? p);
-      res.status(403).json({ error: `Your role does not allow this (needs “${labels.join('” or “')}”).`, permission: permissions[0] });
-    });
-}
-
-/** A feature held back for those an activation code has unlocked it for (features.js `unlockedBy`), while it has not. */
-function featureLocked(feature) {
-  return Boolean(feature?.unlockedBy) && !activations.feature(feature.unlockedBy)?.on;
-}
-
-/**
- * A Beta feature: in Labs, for roles holding Labs and the item's own permission; SLAs with Beta features; once an
- * Admin made it final, for everyone holding the feature's own permission too (src/features.js).
- */
-function requireFeature(id) {
-  return (req, res, next) =>
-    requireSession(req, res, (error) => {
-      if (error) return next(error);
-      if (featureLocked(featureById(id))) return res.status(403).json({ error: `“${featureById(id).name}” needs its activation code (Settings → Activation codes).`, locked: true });
-      if (mayUse(settingsStore.get(), id, req.permissions)) return next();
-      const feature = featureById(id);
-      if (feature?.labs) {
-        const needs = [LABS_VIEW, labsPermission(id)].filter((p) => !req.permissions.has(p));
-        const labels = needs.map((p) => PERMISSIONS.find((x) => x.id === p)?.label ?? p);
-        return res.status(403).json({ error: `“${feature.name}” is in Labs: your role needs “${labels.join('” and “') || 'its permission'}”${isFinal(settingsStore.get(), id) ? '' : ' until an Admin makes it final'}.`, permission: needs[0] ?? labsPermission(id) });
-      }
-      res.status(403).json({ error: `“${feature?.name ?? id}” is a Beta feature: your role needs “Beta features”${isFinal(settingsStore.get(), id) ? '' : ' until an Admin makes it final'}.`, permission: 'beta.use' });
-    });
-}
+// ---- What stands in front of a route (sign-in, permissions, the tenant): src/routes/guards.js ---------------------------
+const {
+  asyncRoute, permissionsFor, tenantsUnlocked, isSuperAdmin, tenantsOf, currentSession, requireSession, ownBranding,
+  presenting, brandingNow, can, requirePermission, featureLocked, requireFeature,
+} = createGuards({
+  presenter, sessions, tenancy, settingsStore, terms, iam, integrationSession, resolveAutomationSession, activations,
+});
 
 /** Deployment config with the administrator's pinned risks path layered on. */
 function activeConfig() {
@@ -1161,113 +1023,12 @@ const {
   integrationStatus: later(() => integrationStatus),
 });
 
-// ---------------------------------------------------------------------------
-// Connection
-// ---------------------------------------------------------------------------
-
-app.get('/api/health', (req, res) => {
-  res.json({
-    version: APP_VERSION,
-    problems: configProblems(config),
-    riskSource: config.risks.source,
-    buckets: AGE_BUCKETS.map(({ id, label }) => ({ id, label })),
-    windowPresets: WINDOW_PRESETS.map(({ id, label }) => ({ id, label })),
-    // The Workbench's "Findings open for": by age, beside new in the last week or month.
-    agePresets: AGE_PRESETS.map(({ id, label }) => ({ id, label })),
-    templateVariables: TEMPLATE_VARIABLES,
-    defaultTemplate: DEFAULT_TEMPLATE,
-    // The page's languages available here (Hebrew only once activated, and only for the people chosen).
-    languages: languageAccess.available(allowedLanguages(sessions.peek(readSessionCookie(req))?.userId)),
-    // Shown in the header before anyone connects.
-    app: {
-      name: settingsStore.get().branding.appName || 'CxMissionZero',
-      logoUrl: settingsStore.get().branding.logoUrl || '',
-      // Changes when the browser icon does, so the page can reload it.
-      iconVersion: iconVersion(),
-      // The organisation's look, whether people may pick their own, and where the menu sits.
-      // nextGen: false only when everyone has the classic look (as before there were looks to choose).
-      look: settingsStore.get().branding.look,
-      lookChoice: settingsStore.get().branding.lookChoice !== false,
-      nextGen: settingsStore.get().branding.nextGen !== false,
-      navPosition: settingsStore.get().branding.navPosition === 'top' ? 'top' : 'left',
-    },
-  });
+// ---- Health, the app icon, diagnostics and metrics: src/routes/diagnostics.js -------------------------------------------
+registerDiagnosticsRoutes(app, {
+  publicDir, dataDirSource, sessions, settingsStore, trackedReports, relayCache, audit, diagnostics, iam,
+  integrationSession, resolveAutomationSession, languageAccess, allowedLanguages, RELAY_MAX_IN_FLIGHT, relayStats,
+  asyncRoute, requireSession, requirePermission, adminActor,
 });
-
-/** A short fingerprint of the browser icon setting ('' for the built-in one). */
-const iconVersion = (url = settingsStore.get().branding?.iconUrl || '') => (url ? createHash('sha256').update(url).digest('hex').slice(0, 10) : '');
-
-/**
- * The browser tab's icon, for every page (signed in or not): the one set under
- * Settings → Branding, else CxMissionZero's own (public/mz-icon-64.png). An uploaded image is served
- * from here, locked down (an SVG's scripts never run); an https address is redirected to.
- */
-app.get('/app-icon', (req, res) => {
-  const url = settingsStore.get().branding?.iconUrl || '';
-  res.set({ 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox" });
-  const data = /^data:(image\/[\w.+-]+);base64,([A-Za-z0-9+/=]+)$/i.exec(url);
-  if (data) {
-    res.set('ETag', `"${iconVersion(url)}"`);
-    if (req.get('if-none-match') === `"${iconVersion(url)}"`) return res.status(304).end();
-    return res.type(data[1]).send(Buffer.from(data[2], 'base64'));
-  }
-  if (/^https:\/\//i.test(url)) return res.redirect(302, url);
-  res.type('image/png').sendFile(path.join(publicDir, 'mz-icon-64.png'));
-});
-
-/** Load and cache figures, for whoever operates this server. */
-/**
- * The troubleshooting log, for whoever maintains this server: which features
- * are used, where errors and discrepancies happen, and recommended fixes.
- * Holds no personal data, keys, findings or code (see src/diagnostics.js).
- */
-app.get('/api/diagnostics/download', requirePermission('diagnostics.export'), asyncRoute(async (req, res) => {
-  const actor = await adminActor(req);
-  const report = diagnostics.report({
-    extra: {
-      configuration: {
-        riskSource: config.risks.source,
-        fetchConcurrency: config.concurrency,
-        dataDirFrom: dataDirSource,
-        cxoneConnected: Boolean(integrationSession()),
-        smtpVerified: Boolean(settingsStore.get().verifiedFingerprint),
-        users: iam.users().length,
-        trackedReports: trackedReports.list?.().length ?? null,
-      },
-    },
-  });
-  audit.record({ type: 'audit', outcome: 'changed', reason: 'Troubleshooting log downloaded (no personal data, keys or findings).', actor });
-  const name = `mission-zero-troubleshooting-${APP_VERSION}-${new Date().toISOString().slice(0, 10)}.json`;
-  res.set('Content-Disposition', `attachment; filename="${name}"`).type('application/json').send(JSON.stringify(report, null, 2));
-}));
-
-/** Script errors in the page, so bugs in the browser show up in the troubleshooting log too. */
-app.post('/api/diagnostics/client-error', requireSession, (req, res) => {
-  const b = req.body ?? {};
-  const page = String(b.page ?? '').replace(/[^#/a-z-]/gi, '').slice(0, 40);
-  diagnostics.record('client-error', 'page-script-error', {
-    message: String(b.message ?? '').slice(0, 500),
-    source: String(b.source ?? '').slice(0, 2000).split('/').pop(),
-    line: Number(b.line) || 0,
-    column: Number(b.column) || 0,
-    page,
-    detail: String(b.stack ?? '').slice(0, 2000),
-  });
-  res.status(204).end();
-});
-
-app.get('/api/metrics', requirePermission('system.metrics'), asyncRoute(async (req, res) => {
-  const session = await resolveAutomationSession();
-  const memory = process.memoryUsage();
-  res.json({
-    uptimeSeconds: Math.round(process.uptime()),
-    memoryMb: { rss: Math.round(memory.rss / 1e6), heapUsed: Math.round(memory.heapUsed / 1e6) },
-    relay: { ...relayStats, maxInFlight: RELAY_MAX_IN_FLIGHT },
-    cache: { entries: relayCache.size, hits: relayCache.hits, misses: relayCache.misses },
-    projectReads: projectReads.stats,
-    checkmarxOne: session?.client?.load ?? null,
-  });
-}));
 
 // ---- Signing in and out, the first administrator, two-step sign-in, single sign-on: src/routes/session.js --------------
 const {
