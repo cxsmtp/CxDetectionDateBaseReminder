@@ -312,3 +312,12 @@ test('the words follow the menu, and every heading has its translation', () => {
     assert.ok(app.includes(sentence) && sentence in catalog, sentence);
   }
 });
+
+test('nothing the server\'s route modules say names a group that is gone', () => {
+  // src/server.js was split into src/routes/: what the server says to people is in those files now.
+  const files = fs.readdirSync(path.join(ROOT, 'src/routes')).filter((name) => name.endsWith('.js'));
+  assert.ok(files.length > 20, 'the route modules are there');
+  for (const name of files) {
+    assert.doesNotMatch(read(`src/routes/${name}`), /Settings → (?:AI & credits|Start|Security|Reports & brand|Risks endpoint|Links into Checkmarx One)\b|(?:Prove|Plan|Follow up) → (?!Prove, plus Set up)|own menu group/, name);
+  }
+});

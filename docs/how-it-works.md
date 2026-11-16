@@ -192,7 +192,9 @@ See [audit-and-backup.md](audit-and-backup.md) for backups and rebuilding a serv
 
 ```
 public/              Web app (no build step) and sample.env
-src/server.js        Express API, sign-in, permissions, relay, credits
+src/server.js        Where the server is put together: configuration, stores, middleware order, start-up, shutdown
+src/routes/          The routes, by area (sign-in, people, settings, the Workbench fetch, credits, the relay,
+                     tracked reports, backups, updates…), and what they share (guards.js, credit-rules.js)
 src/cxone/           Checkmarx One: auth, client (concurrency cap), projects, risks, initiators, AI ids
 src/reminder.js      Findings → template data → email
 src/html-report.js   The interactive report (+ src/report/report.client.js, which runs in it)
