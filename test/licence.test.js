@@ -80,7 +80,7 @@ test('the standalone calculator carries the gate before it starts, with the main
   assert.match(html, /if \(!window\.__mzBlocked\) window\.__mzStart\(\);/);
 });
 
-test('the kept code is what counts: a date edited in activation.json, or an entry without its code, changes nothing', () => {
+test('the kept code is what counts: a date edited in activation.json changes nothing; the product needs its code, older feature and tenant entries are honoured', () => {
   const file = path.join(fs.mkdtempSync(path.join(dir, 't-')), 'activation.json');
   const first = new ActivationStore({ file, keys: [publicKey] });
   first.record(checkCode(script('product', keyFile, '2027-06-30'), { keys: [publicKey] }), 'test');
@@ -103,14 +103,22 @@ test('the kept code is what counts: a date edited in activation.json, or an entr
   // A code signed by another key counts for nothing either.
   fs.writeFileSync(file, JSON.stringify({ ...raw, seenAt: '', expires: undefined }));
   assert.equal(new ActivationStore({ file, keys: [] }).product(at('2027-05-01T00:00:00Z')).active, false);
-  // A feature or tenant entry without its code (kept by an earlier version, or written by hand) counts for nothing
-  // either, and neither does one whose code was edited: the code is entered once more.
-  fs.writeFileSync(file, JSON.stringify({ features: { impact: { org: 'Acme', scope: 'feature:impact', action: 'activate', expires: '2028-01-01T00:00:00.000Z' }, govern: { org: 'Acme', scope: 'feature:govern', action: 'activate', expires: '2028-01-01T00:00:00.000Z', code: 'MZ1.e30.AAAA' } } }));
+  // A feature or tenants entry without its code is one a version before MZ-01.01.10 kept: it stays in force as it
+  // was kept, so an update takes nothing away (MZ-01.01.11 and .12 switched these off; the owner had them honoured
+  // again, for good). An entry whose code was edited still counts for nothing.
+  fs.writeFileSync(file, JSON.stringify({ features: { impact: { org: 'Acme', scope: 'feature:impact', action: 'activate', expires: '2028-01-01T00:00:00.000Z' }, faeFlush: { org: 'Acme', scope: 'feature:faeFlush', action: 'deactivate', expires: '2028-01-01T00:00:00.000Z' }, statusBoard: { org: 'Acme', scope: 'feature:statusBoard', action: 'activate', expires: '2027-01-01T00:00:00.000Z' }, govern: { org: 'Acme', scope: 'feature:govern', action: 'activate', expires: '2028-01-01T00:00:00.000Z', code: 'MZ1.e30.AAAA' } } }));
   const kept = new ActivationStore({ file, keys: [publicKey] });
-  assert.equal(kept.feature('impact', at('2027-06-01T00:00:00Z')), null);
-  assert.equal(kept.feature('govern', at('2027-06-01T00:00:00Z')), null);
-  fs.writeFileSync(file, JSON.stringify({ tenants: { org: 'Acme', scope: 'tenants', maxTenants: 999, expires: '2099-01-01T00:00:00.000Z' } }));
-  assert.equal(new ActivationStore({ file, keys: [publicKey] }).tenants(), null, 'no tenants unlocked by a line typed into the file');
+  assert.deepEqual([kept.feature('impact', at('2027-06-01T00:00:00Z')).on, kept.feature('impact', at('2027-06-01T00:00:00Z')).org], [true, 'Acme'], 'on, as the earlier version kept it');
+  assert.equal(kept.feature('faeFlush', at('2027-06-01T00:00:00Z')).on, false, 'one that was turned off stays off');
+  assert.deepEqual([kept.feature('statusBoard', at('2027-06-01T00:00:00Z')).on, kept.feature('statusBoard', at('2027-06-01T00:00:00Z')).expired], [false, true], 'and its date still ends it');
+  assert.equal(kept.feature('govern', at('2027-06-01T00:00:00Z')), null, 'an edited code unlocks nothing');
+  fs.writeFileSync(file, JSON.stringify({ tenants: { org: 'Acme', scope: 'tenants', maxTenants: 5, expires: '2028-01-01T00:00:00.000Z' } }));
+  const tenants = new ActivationStore({ file, keys: [publicKey] });
+  assert.deepEqual([tenants.tenants(at('2027-06-01T00:00:00Z')).maxTenants, tenants.tenants(at('2027-06-01T00:00:00Z')).valid], [5, true]);
+  assert.equal(tenants.tenants(at('2028-06-01T00:00:00Z')).valid, false, 'until its date');
+  // A code entered now replaces such an entry, and is then what counts: no older code is compared with it.
+  tenants.record(checkCode(script('issue', keyFile, 'Acme', '3'), { keys: [publicKey] }), 'admin');
+  assert.equal(new ActivationStore({ file, keys: [publicKey] }).tenants().maxTenants, 3);
   // Entered through the store, with its signed code, it holds across a restart.
   const real = new ActivationStore({ file, keys: [publicKey] });
   real.record(checkCode(script('issue', keyFile, 'Acme', '4'), { keys: [publicKey] }), 'admin');
