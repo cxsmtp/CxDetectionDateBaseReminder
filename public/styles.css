@@ -3851,6 +3851,9 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 /* Fusion page v2: the model, the results by severity in one cell, and the side panel's facts and AI lanes. */
 .fusion-model { font: 12px var(--mono); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-2); white-space: nowrap; }
 .fusion-sevs { white-space: nowrap; }
+/* The results column: the AI engine's figure, then (for a Fusion scan) the scan's SAST results in all, quieter. */
+.fusion-of-cell { white-space: nowrap; }
+.fusion-of { color: var(--muted); font-weight: 400; }
 .fusion-sev { display: inline-block; margin-inline-end: 4px; padding: 0 6px; border-radius: 99px; font-size: 11.5px; font-weight: 600; line-height: 18px; color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); }
 .fusion-sev-critical { --c: #dc2626; } .fusion-sev-high { --c: #ea580c; } .fusion-sev-medium { --c: #b7791f; } .fusion-sev-low { --c: #2563eb; }
 .fusion-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin-top: 12px; }

@@ -38975,5 +38975,29 @@
   "seen": [
    "MZ-01.01.17 › Labs → Fusion results"
   ]
+ },
+ "Fusion / total results": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.18 › Labs → Fusion results"
+  ]
+ },
+ "AI / total results": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.18 › Labs → Fusion results"
+  ]
+ },
+ "What the AI engine reported; for a Fusion scan, all of its latest scan's SAST results after the slash (12 / 140). Hover a figure for the AI engine's share": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.01.18 › Labs → Fusion results"
+  ]
+ },
+ "{0} found by the AI engine alone (a LAST scan)": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.01.18 › Labs → Fusion results"
+  ]
  }
 }

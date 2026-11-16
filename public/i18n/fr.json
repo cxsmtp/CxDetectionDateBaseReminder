@@ -5860,6 +5860,10 @@
   "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "Ce locataire n'a pas de connexion Checkmarx One enregistrée. Ouvrez le locataire et connectez-le une fois sous Paramètres → Checkmarx One.",
   "Total results": "Total des résultats",
   "All of its latest scan's SAST results, the AI engine's and traditional SAST's together; hover a figure for the AI engine's share": "Tous les résultats SAST de sa dernière analyse, ceux du moteur AI et ceux du SAST traditionnel réunis ; survolez un chiffre pour voir la part du moteur AI",
-  "{0} of {1} SAST results are the AI engine's: {2}%": "{0} sur {1} résultats SAST proviennent du moteur AI : {2} %"
+  "{0} of {1} SAST results are the AI engine's: {2}%": "{0} sur {1} résultats SAST proviennent du moteur AI : {2} %",
+  "Fusion / total results": "Fusion / total des résultats",
+  "AI / total results": "AI / total des résultats",
+  "What the AI engine reported; for a Fusion scan, all of its latest scan's SAST results after the slash (12 / 140). Hover a figure for the AI engine's share": "Ce que le moteur AI a signalé ; pour une analyse Fusion, après la barre oblique, tous les résultats SAST de sa dernière analyse (12 / 140). Survolez un chiffre pour voir la part du moteur AI",
+  "{0} found by the AI engine alone (a LAST scan)": "{0} trouvés par le seul moteur AI (une analyse LAST)"
  }
 }

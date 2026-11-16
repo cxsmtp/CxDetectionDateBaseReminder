@@ -5860,6 +5860,10 @@
   "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "このテナントには保存されたCheckmarx One接続がありません。テナントを開き、設定 → Checkmarx One で一度接続してください。",
   "Total results": "結果の合計",
   "All of its latest scan's SAST results, the AI engine's and traditional SAST's together; hover a figure for the AI engine's share": "最新スキャンのすべてのSAST結果（AIエンジンと従来のSASTの合計）。数値にカーソルを合わせるとAIエンジンの割合が表示されます",
-  "{0} of {1} SAST results are the AI engine's: {2}%": "SAST結果{1}件中{0}件がAIエンジンによるもの：{2}%"
+  "{0} of {1} SAST results are the AI engine's: {2}%": "SAST結果{1}件中{0}件がAIエンジンによるもの：{2}%",
+  "Fusion / total results": "Fusion / 結果の合計",
+  "AI / total results": "AI / 結果の合計",
+  "What the AI engine reported; for a Fusion scan, all of its latest scan's SAST results after the slash (12 / 140). Hover a figure for the AI engine's share": "AIエンジンが報告したもの。Fusionスキャンでは、スラッシュの後に最新スキャンのすべてのSAST結果の件数（12 / 140）。数値にカーソルを合わせるとAIエンジンの割合が表示されます",
+  "{0} found by the AI engine alone (a LAST scan)": "AIエンジンのみが検出：{0}件（LASTスキャン）"
  }
 }

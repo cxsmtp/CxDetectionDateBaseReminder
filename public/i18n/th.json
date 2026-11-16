@@ -5860,6 +5860,10 @@
   "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "เทนแนนต์นี้ไม่มีการเชื่อมต่อ Checkmarx One ที่บันทึกไว้ โปรดเปิดเทนแนนต์แล้วเชื่อมต่อหนึ่งครั้งที่ การตั้งค่า → Checkmarx One",
   "Total results": "ผลลัพธ์ทั้งหมด",
   "All of its latest scan's SAST results, the AI engine's and traditional SAST's together; hover a figure for the AI engine's share": "ผลลัพธ์ SAST ทั้งหมดของการสแกนล่าสุด รวมทั้งของเอนจิน AI และของ SAST แบบดั้งเดิม วางเมาส์เหนือตัวเลขเพื่อดูสัดส่วนของเอนจิน AI",
-  "{0} of {1} SAST results are the AI engine's: {2}%": "ผลลัพธ์ SAST {0} จาก {1} รายการมาจากเอนจิน AI: {2}%"
+  "{0} of {1} SAST results are the AI engine's: {2}%": "ผลลัพธ์ SAST {0} จาก {1} รายการมาจากเอนจิน AI: {2}%",
+  "Fusion / total results": "Fusion / ผลลัพธ์ทั้งหมด",
+  "AI / total results": "AI / ผลลัพธ์ทั้งหมด",
+  "What the AI engine reported; for a Fusion scan, all of its latest scan's SAST results after the slash (12 / 140). Hover a figure for the AI engine's share": "สิ่งที่เอนจิน AI รายงาน สำหรับการสแกน Fusion หลังเครื่องหมายทับคือผลลัพธ์ SAST ทั้งหมดของการสแกนล่าสุด (12 / 140) วางเมาส์เหนือตัวเลขเพื่อดูสัดส่วนของเอนจิน AI",
+  "{0} found by the AI engine alone (a LAST scan)": "{0} รายการที่พบโดยเอนจิน AI เพียงอย่างเดียว (การสแกน LAST)"
  }
 }

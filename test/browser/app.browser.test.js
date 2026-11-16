@@ -150,12 +150,23 @@ test('Fusion results: the total results of each project, and the severity of a r
   await admin.locator('#fusion-fetch').click();
   const first = admin.locator('#fusion-body tr').filter({ has: admin.locator('button[data-fusion-project]') }).first();
   await first.waitFor();
-  const headings = (await admin.locator('#fusion-head th').allTextContents()).map((t) => t.trim());
-  assert.ok(headings.includes('Total results') && !headings.includes('AI share of SAST'), `the count, not a share: ${headings.join(', ')}`);
-  // The scan's SAST results in all, as a number; the AI engine's share of them is what hovering says.
-  const cell = first.locator('td').nth(headings.indexOf('Total results'));
-  assert.match((await cell.textContent()).trim(), /^[\d,]+$/);
+  const headings = async () => (await admin.locator('#fusion-head th').allTextContents()).map((t) => t.trim());
+  // Fusion and LAST both ticked: each row by its own scan; a Fusion scan's AI results over all of its SAST results.
+  let shown = await headings();
+  assert.ok(shown.includes('AI / total results') && !shown.includes('AI share of SAST') && !shown.includes('Total results'), shown.join(', '));
+  const cell = first.locator('td').nth(shown.indexOf('AI / total results'));
+  assert.match((await cell.textContent()).replace(/\s+/g, ' ').trim(), /^[\d,]+ \/ [\d,]+$/);
   assert.match(await cell.getAttribute('title'), /^[\d,]+ of [\d,]+ SAST results are the AI engine's: \d+%$/);
+  // The heading says what the ticks show, and keeps its sort and filter controls.
+  await admin.locator('#fusion-show-last').uncheck();
+  await admin.locator('#fusion-head th').filter({ hasText: 'Fusion / total results' }).waitFor();
+  await admin.locator('#fusion-head th').filter({ hasText: 'Fusion / total results' }).locator('.tt-sort').waitFor();
+  await admin.locator('#fusion-show-last').check();
+  await admin.locator('#fusion-show-fusion').uncheck();
+  await admin.locator('#fusion-head th').filter({ hasText: 'LAST results' }).waitFor();
+  await admin.locator('#fusion-show-fusion').check();
+  await admin.locator('#fusion-head th').filter({ hasText: 'AI / total results' }).waitFor();
+  shown = await headings();
   // Its results: the severity is a word in that severity's colour, in the line under the name and in the details.
   await first.locator('button[data-fusion-project]').click();
   const result = admin.locator('#fusion-side-list .fusion-vuln').first();
