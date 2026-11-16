@@ -150,7 +150,10 @@ test('the developer goes first: once everything in scope is dealt with, they res
   const grant = new URL(links[0].link).searchParams.get('g');
   const page = await fetch(links[0].link).then((r) => r.text());
   assert.match(page, /Rescan now/);
-  assert.match(page, /48 hours left/);
+  // (An "hour" lasts 50 ms here, so a busy machine can be an hour or two on by the time the page is read:
+  // "47 hours left" failed this test once.)
+  const hoursLeft = Number(page.match(/(\d+) hours left/)?.[1]);
+  assert.ok(hoursLeft >= 40 && hoursLeft <= 48, `about 48 hours left, not ${hoursLeft}`);
   const state = await fetch(`${BASE}/api/relay/rescan-state`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ grant }) }).then((r) => r.json());
   assert.equal(state.state, 'ready');
   const forged = await fetch(`${BASE}/api/relay/rescan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ grant: `${grant.split('.')[0]}.x` }) });
