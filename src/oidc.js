@@ -18,7 +18,7 @@
  * - What a person is told is a plain sentence chosen by a short code; tokens, the client secret and
  *   the provider's own error text are never part of it, nor of what is logged.
  *
- * Nothing here knows about people or sessions: src/server.js decides who the email belongs to.
+ * Nothing here knows about people or sessions: src/routes/session.js decides who the email belongs to.
  */
 import { constants, createHash, createPublicKey, randomBytes, verify as verifySignature } from 'node:crypto';
 import dns from 'node:dns';

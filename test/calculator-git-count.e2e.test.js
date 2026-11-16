@@ -80,7 +80,7 @@ test.before(async () => {
   connected = await startGitHost(root, { tokens: [CONNECTION_TOKEN] });
   const env = {
     ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, TMPDIR: tmpDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
-    ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD,
+    ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, CALCULATOR_BUILTIN: 'on',
     // The Admin's git connection: a GitHub Enterprise-like host on this computer.
     GITHUB_TOKEN: CONNECTION_TOKEN, GITHUB_API_URL: `${connected.url}/api/v3`, GITHUB_ORG: 'globex',
   };

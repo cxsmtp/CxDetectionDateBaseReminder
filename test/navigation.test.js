@@ -8,11 +8,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { NAV_FLAT_MAX, NAV_GROUPS, OLD_NAV_GROUPS, SETTINGS_PARTS, navFoldsFrom, navIsFlat, settingsSectionFor } from '../public/nav-map.js';
+import { PAGE_SCRIPT_FILES, pageScript } from './page-script.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 const html = read('public/index.html');
-const app = read('public/app.js');
+// The page's script: public/app.js and its modules under public/app/ (test/page-script.js).
+const app = pageScript();
 
 /** The attributes of one opening tag: { class: 'tab', 'data-route': 'credits', 'data-advanced': '' }. */
 const attrs = (text) => Object.fromEntries([...text.matchAll(/([\w-]+)(?:="([^"]*)")?/g)].map((m) => [m[1], m[2] ?? '']));
@@ -32,7 +34,7 @@ const settingsNav = tags(between('<nav class="set-nav" id="set-nav"', '</nav>'),
 const settingsLinks = settingsNav.filter((el) => el.tag === 'a' && el['data-set']);
 const sections = Object.fromEntries([...html.matchAll(/<section class="panel[^"]*" id="set-([a-z]+)"([^>]*)>/g)].map((m) => [m[1], attrs(m[2])]));
 
-/** PAGE_PERMS in public/app.js: which permissions open each page (any one of them). */
+/** PAGE_PERMS in public/app/nav.js: which permissions open each page (any one of them). */
 const pagePerms = (() => {
   const body = app.slice(app.indexOf('const PAGE_PERMS = {'), app.indexOf('\n};', app.indexOf('const PAGE_PERMS = {')));
   return Object.fromEntries([...body.matchAll(/^ {2}(\w+): '([^']*)'/gm)].map((m) => [m[1], m[2]]));
@@ -145,9 +147,17 @@ test('a heading shows when a page under it does, and never hides one', () => {
   assert.match(fn, /const shown = navTabs\(\)\.filter\(\(tab\) => !tab\.classList\.contains\('perm-hidden'\)\);/);
   assert.match(fn, /const flat = navIsFlat\(shown\.length\);/);
   assert.match(fn, /group\.hidden = flat \|\| !shown\.some\(\(tab\) => tab\.dataset\.group === group\.dataset\.group\);/);
-  // It runs whenever what a person may do is applied, after a final feature has moved to its group.
+  // It runs whenever what a person may do is applied, after a final feature has moved to its group, and after the
+  // Cx Credits Calculator's item is shown or put away (it is in the menu only once an Admin turned it on).
   const stages = app.slice(app.indexOf('function renderFeatureStages() {'), app.indexOf('function placeNavTab('));
-  assert.ok(stages.indexOf('applyNavGroups();') > stages.indexOf("governTab.dataset.group = governFinal ? 'credits' : 'labs';"));
+  assert.ok(stages.indexOf('applyCalculatorAddress();') > stages.indexOf("governTab.dataset.group = governFinal ? 'credits' : 'labs';"));
+  const calculator = app.slice(app.indexOf('function applyCalculatorAddress() {'), app.indexOf('function renderCalculatorAddress('));
+  const putAway = calculator.indexOf("link.classList.toggle('perm-hidden', !pageAllowed('calculator'));");
+  assert.ok(putAway > 0 && calculator.indexOf('applyNavGroups();') > putAway);
+  // No calculator for this person (off, or not theirs): no menu item, no page, nothing in Jump to.
+  assert.match(app, /const calculatorOn = \(\) => Boolean\(state\.me\?\.calculator\);/);
+  assert.match(app, /const pageAllowed = \(page\) => page in PAGE_PERMS && \(!PAGE_PERMS\[page\] \|\| canAny\(PAGE_PERMS\[page\]\)\) && \(page !== 'calculator' \|\| calculatorOn\(\)\);/);
+  assert.match(app, /const target = pageAllowed\(name\) \? name : 'dashboard';/);
   assert.match(app, /function applyPermissions\(\) \{\n {2}for \(const el of document\.querySelectorAll\('\[data-perm\]'\)\) el\.classList\.toggle\('perm-hidden', !canAny\(el\.dataset\.perm\)\);[^]*?\n {2}renderFeatureStages\(\);/);
 });
 
@@ -305,10 +315,19 @@ test('the words follow the menu, and every heading has its translation', () => {
     assert.ok(sentence in catalog, `in the catalog: ${sentence}`);
   }
   // Nothing the page or the server says names a group that is gone.
-  for (const file of ['public/app.js', 'public/index.html', 'public/mobile.js', 'src/server.js', 'src/features.js', 'src/diagnostics.js', 'src/impact-summary.js']) {
+  for (const file of [...PAGE_SCRIPT_FILES, 'public/index.html', 'public/mobile.js', 'src/server.js', 'src/features.js', 'src/diagnostics.js', 'src/impact-summary.js']) {
     assert.doesNotMatch(read(file), /Settings → (?:AI & credits|Start|Security|Reports & brand|Risks endpoint|Links into Checkmarx One)\b|(?:Prove|Plan|Follow up) → (?!Prove, plus Set up)|own menu group/, file);
   }
   for (const sentence of ['Money: set an hourly cost and the price of one credit under Settings → AI & credit pool.', 'Off: add who gets it under Settings → AI & credit pool.']) {
     assert.ok(app.includes(sentence) && sentence in catalog, sentence);
+  }
+});
+
+test('nothing the server\'s route modules say names a group that is gone', () => {
+  // src/server.js was split into src/routes/: what the server says to people is in those files now.
+  const files = fs.readdirSync(path.join(ROOT, 'src/routes')).filter((name) => name.endsWith('.js'));
+  assert.ok(files.length > 20, 'the route modules are there');
+  for (const name of files) {
+    assert.doesNotMatch(read(`src/routes/${name}`), /Settings → (?:AI & credits|Start|Security|Reports & brand|Risks endpoint|Links into Checkmarx One)\b|(?:Prove|Plan|Follow up) → (?!Prove, plus Set up)|own menu group/, name);
   }
 });

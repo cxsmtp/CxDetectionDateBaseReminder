@@ -114,7 +114,7 @@ test('the page: three Fusion tabs (Checkmarx One, from Git, cloc-fusion), each w
   assert.doesNotMatch(html, /id="calc-sum-fusion-new"/);
   assert.match(html, /docker\.io\/aldanial\/cloc --json --quiet \/src &gt; payments-api\.json/);
   // Saved like the rest of a customer, on the server and in the standalone calculator.
-  for (const file of ['../src/server.js', '../public/calculator/standalone.js']) {
+  for (const file of ['../src/routes/calculator.js', '../public/calculator/standalone.js']) {
     assert.match(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), /\['name', 'tr', 'fusion', 'fusionNew', 'totals', 'scope', 'impact'\]/);
   }
 });

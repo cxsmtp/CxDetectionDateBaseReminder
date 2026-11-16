@@ -2,7 +2,7 @@
  * Runs inside the emailed HTML report.
  *
  * Triage and Remediate run Checkmarx One AI Triage and AI Remediation through
- * the reminder server, which calls Checkmarx One with its own stored
+ * the CxMissionZero server, which calls Checkmarx One with its own stored
  * connection (Checkmarx One refuses API calls from a page opened as a file).
  * When remediation is not allowed, Remediate is a link to Risk Hub instead. The report carries a signed grant for each finding,
  * and the server's administrator decides whether triage is allowed and how
@@ -30,7 +30,7 @@ const L = (text, ...values) => {
   return values.length ? out.replace(/\{(\d+)\}/g, (all, i) => (i < values.length ? String(values[i]) : all)) : out;
 };
 
-/** An http(s) address without user name, query or fragment (as a reminder server's), else ''. */
+/** An http(s) address without user name, query or fragment (as a CxMissionZero server's), else ''. */
 function webAddress(value) {
   try {
     const url = new URL(String(value ?? ''));
@@ -149,7 +149,7 @@ function reportMain() {
   const STATE_LABELS = new Proxy(STATE_WORDS, { get: (words, key) => (words[key] ? L(words[key]) : undefined) });
 
   let backend = null;
-  // Credits per project, from the reminder server: {triage: {allocated, used, remaining}, remediation: {...}}.
+  // Credits per project, from the CxMissionZero server: {triage: {allocated, used, remaining}, remediation: {...}}.
   const credits = {};
   const projectNames = new Map(findings.map((f) => [f.projectId, f.projectName]));
   let bulkRunning = false;
@@ -262,7 +262,7 @@ function reportMain() {
   const isCreditRefusal = (status, body) => status === 402 && (Boolean(body?.credits) || !/busy/i.test(body?.error || ''));
 
   // ---------------------------------------------------------------------------
-  // The reminder server relay
+  // The CxMissionZero server relay
   // ---------------------------------------------------------------------------
 
   const wire = (f) => ({
@@ -303,7 +303,7 @@ function reportMain() {
           return post(path, body, attempt, timeoutMs, offline + 1);
         }
         serverState(L('Unreachable'), 'bad');
-        throw fail('Cannot reach the reminder server at {0}. It must be running and reachable from this computer (company network or VPN). If it moved, use “Change” next to its address.', base);
+        throw fail('Cannot reach the CxMissionZero server at {0}. It must be running and reachable from this computer (company network or VPN). If it moved, use “Change” next to its address.', base);
       }
       reached = true;
       if (offline) serverState(L('Connected'), 'good', 'connected'); // back after a restart
@@ -320,7 +320,7 @@ function reportMain() {
           return post(path, body, attempt + 1);
         }
       }
-      if (!response.ok) throw new CxError(parsed?.error || L('The reminder server answered {0}.', response.status), response.status, parsed);
+      if (!response.ok) throw new CxError(parsed?.error || L('The CxMissionZero server answered {0}.', response.status), response.status, parsed);
       return parsed;
     }
 
@@ -459,7 +459,7 @@ function reportMain() {
   /** Fold an answer from the relay into the finding: its live state and AI Triage record. */
   function applyAnswer(f, answer) {
     if (answer?.state) f.state = answer.state;
-    // Sent for AI Triage through the reminder server: it stays "To verify" in
+    // Sent for AI Triage through the CxMissionZero server: it stays "To verify" in
     // Checkmarx One when judged vulnerable, so the state alone cannot say so.
     if (answer?.triagedAt) f.triagedAt = answer.triagedAt;
     if (answer?.stateError) stateErrors.add(answer.stateError);
@@ -1426,7 +1426,7 @@ function reportMain() {
     const stopped = new Set();
     let started = 0;
     try {
-      // One at a time: the reminder server checks each finding is confirmed and charges it, once.
+      // One at a time: the CxMissionZero server checks each finding is confirmed and charges it, once.
       for (const [i, f] of fits.entries()) {
         if (!backend) break;
         if (stopped.has(f.projectId) || f.remediation?.running || isRemediated(f)) continue;
@@ -1495,14 +1495,14 @@ function reportMain() {
   }
 
   /**
-   * Ask the reminder server for one project's report, then open it in a new tab and
+   * Ask the CxMissionZero server for one project's report, then open it in a new tab and
    * download it. The tab is opened at the click (later, a browser would block it) and
    * filled once the report arrives. Nothing here goes to Checkmarx One.
    */
   async function openProjectReport(p, button) {
     if (!p) return;
     if (!config.relayUrl) {
-      openServerForm(L('Enter the reminder server address to open the report for {0}.', p.projectName));
+      openServerForm(L('Enter the CxMissionZero server address to open the report for {0}.', p.projectName));
       return;
     }
     const tab = window.open('', '_blank');
@@ -1567,7 +1567,7 @@ function reportMain() {
       status = await candidate.connect();
     } catch (error) {
       // The server went HTTPS only, and says where: follow it (once), when it answers there.
-      if (!moved && error.status === 426 && error.body?.movedTo && (await switchServer(error.body.movedTo, L('The reminder server now uses HTTPS')))) {
+      if (!moved && error.status === 426 && error.body?.movedTo && (await switchServer(error.body.movedTo, L('The CxMissionZero server now uses HTTPS')))) {
         return connect({ quiet, moved: true });
       }
       throw error;
@@ -1587,7 +1587,7 @@ function reportMain() {
     showCredits(status.creditsRemaining);
     updateBulk();
     banner('');
-    if (!quiet) log(L('Connected to Checkmarx One ({0}) through the reminder server.', status.tenant), 'success');
+    if (!quiet) log(L('Connected to Checkmarx One ({0}) through the CxMissionZero server.', status.tenant), 'success');
     for (const f of findings) if (hasVerdict(f)) renderTriage(f);
     loadExistingTriage().catch(reportError);
     loadExistingRemediation().catch(reportError);
@@ -1595,7 +1595,7 @@ function reportMain() {
     if (config.rescan) candidate.rescanState().then(renderRescan).catch(() => {});
     // The server answers on HTTPS too: use it from now on, if it works from this computer.
     if (status.httpsUrl && /^http:/i.test(String(config.relayUrl || ''))) {
-      switchServer(status.httpsUrl, L('A secure (HTTPS) connection to the reminder server works from this computer'))
+      switchServer(status.httpsUrl, L('A secure (HTTPS) connection to the CxMissionZero server works from this computer'))
         .then((switched) => (switched ? connect({ quiet: true, moved: true }) : null))
         .catch(() => {});
     }
@@ -1651,7 +1651,7 @@ function reportMain() {
     });
   }
 
-  /** Use another address for the reminder server (kept in this browser), when it answers there. */
+  /** Use another address for the CxMissionZero server (kept in this browser), when it answers there. */
   async function switchServer(url, reason) {
     let base;
     try {
@@ -1685,7 +1685,7 @@ function reportMain() {
   function requireConnection(action) {
     if (backend) return action();
     if (!config.relayUrl) {
-      openServerForm(L('Enter the reminder server address to connect.'));
+      openServerForm(L('Enter the CxMissionZero server address to connect.'));
       return;
     }
     connecting ??= connect().finally(() => {
@@ -1695,7 +1695,7 @@ function reportMain() {
   }
 
   // ---------------------------------------------------------------------------
-  // Reminder server address: shown, checked, and correctable by the reader
+  // CxMissionZero server address: shown, checked, and correctable by the reader
   // ---------------------------------------------------------------------------
 
   const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\]|0\.0\.0\.0)$/i;
@@ -1735,7 +1735,7 @@ function reportMain() {
     $('server-input').focus();
   }
 
-  /** Is this address a reminder server? Resolves with the clean address, or throws a readable reason. */
+  /** Is this address a CxMissionZero server? Resolves with the clean address, or throws a readable reason. */
   async function checkServer(value, followed = false) {
     let url;
     try {
@@ -1752,13 +1752,13 @@ function reportMain() {
       const response = await fetch(`${base}/api/relay/ping`, { signal: controller?.signal, cache: 'no-store' });
       body = await response.json().catch(() => null);
     } catch {
-      throw fail('No reminder server answered at {0}. Check the address, and that you are on the company network or VPN.', base);
+      throw fail('No CxMissionZero server answered at {0}. Check the address, and that you are on the company network or VPN.', base);
     } finally {
       if (timer) clearTimeout(timer);
     }
     // An old http address of a server that is HTTPS only now: it says where it went.
     if (body?.movedTo && !followed) return checkServer(String(body.movedTo), true);
-    if (body?.service !== 'mission-zero-relay') throw fail('{0} answered, but it is not a reminder server. Check the address.', base);
+    if (body?.service !== 'mission-zero-relay') throw fail('{0} answered, but it is not a CxMissionZero server. Check the address.', base);
     return base;
   }
 
@@ -1771,7 +1771,7 @@ function reportMain() {
     if (backend) disconnect();
     showServer();
     $('server-form').hidden = true;
-    log(L('Reminder server set to {0}.', base), 'info');
+    log(L('CxMissionZero server set to {0}.', base), 'info');
     await connect();
   }
 
@@ -2439,7 +2439,7 @@ function reportMain() {
   updateBulk();
 
   // ---------------------------------------------------------------------------
-  // Connect on open: straight to the reminder server; if that fails, say why
+  // Connect on open: straight to the CxMissionZero server; if that fails, say why
   // and offer to connect (or to correct the address).
   // ---------------------------------------------------------------------------
 
@@ -2455,7 +2455,7 @@ function reportMain() {
   function autoConnect() {
     if (!config.relayUrl) {
       serverState(L('Needed to triage from this report'), 'warn');
-      showConnectPrompt(() => L('This report does not say which reminder server to use. Enter its address to connect.'));
+      showConnectPrompt(() => L('This report does not say which CxMissionZero server to use. Enter its address to connect.'));
       return;
     }
     serverState(L('Connecting…'));
@@ -2464,17 +2464,17 @@ function reportMain() {
       connecting = null;
     });
     connecting.then(
-      () => log(L('Connected to the reminder server automatically.'), 'success'),
+      () => log(L('Connected to the CxMissionZero server automatically.'), 'success'),
       (error) => {
         log(L('Could not connect automatically: {0}', error.message), 'error');
         if (serverKind !== 'connected' && serverKind !== 'unreachable') serverState(L('Not connected'), 'bad', 'not-connected');
-        showConnectPrompt(() => L('Could not connect to the reminder server automatically: {0}', said(error)));
+        showConnectPrompt(() => L('Could not connect to the CxMissionZero server automatically: {0}', said(error)));
       },
     );
   }
 
   $('server-connect').addEventListener('click', () => {
-    if (!config.relayUrl) return openServerForm(L('Enter the reminder server address to connect.'));
+    if (!config.relayUrl) return openServerForm(L('Enter the CxMissionZero server address to connect.'));
     autoConnect();
   });
   $('server-fix').addEventListener('click', () => openServerForm());

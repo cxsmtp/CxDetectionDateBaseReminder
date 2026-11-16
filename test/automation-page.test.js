@@ -66,7 +66,9 @@ test('focus: named applications, tags or projects (any of them), less those left
   assert.deepEqual(ids({ projects: ['*-API', 'PAY*'] }), ['1', '2'], 'any case');
   const started = Date.now();
   focusProjects([{ id: 'x', name: 'a'.repeat(60), tags: {} }], { projects: ['*a*a*a*a*a*a*a*a*a*a*ab'] });
-  assert.ok(Date.now() - started < 200, 'many stars do not backtrack for seconds');
+  // (Backtracking would take minutes here; two seconds is far above what a busy CI runner needs for the real thing,
+  // which is a fraction of a millisecond. A tighter limit failed once on a runner that paused at that moment.)
+  assert.ok(Date.now() - started < 2000, 'many stars do not backtrack for seconds');
   assert.deepEqual(mergeAutomation(DEFAULT_AUTOMATION, { focus: { projects: 'a, b,,a', exclude: ['  c '] } }).focus, { applications: [], tags: [], projects: ['a', 'b'], exclude: ['c'] });
 });
 

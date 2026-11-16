@@ -59,6 +59,54 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="nextgen.css" />
     <link rel="stylesheet" href="mobile.css" />
+    <!-- The page's script is app.js and the modules it imports, itself or through another (app/ and the files beside
+         it): asked for at once, not one after the other. test/page-modules.test.js keeps this list whole. -->
+    <link rel="modulepreload" href="app/access.js" />
+    <link rel="modulepreload" href="app/actions.js" />
+    <link rel="modulepreload" href="app/audit.js" />
+    <link rel="modulepreload" href="app/automation.js" />
+    <link rel="modulepreload" href="app/core.js" />
+    <link rel="modulepreload" href="app/credits.js" />
+    <link rel="modulepreload" href="app/format.js" />
+    <link rel="modulepreload" href="app/help.js" />
+    <link rel="modulepreload" href="app/impact.js" />
+    <link rel="modulepreload" href="app/labs.js" />
+    <link rel="modulepreload" href="app/nav.js" />
+    <link rel="modulepreload" href="app/profile.js" />
+    <link rel="modulepreload" href="app/projects.js" />
+    <link rel="modulepreload" href="app/reports.js" />
+    <link rel="modulepreload" href="app/session.js" />
+    <link rel="modulepreload" href="app/settings.js" />
+    <link rel="modulepreload" href="app/state.js" />
+    <link rel="modulepreload" href="app/system.js" />
+    <link rel="modulepreload" href="app/workbench.js" />
+    <link rel="modulepreload" href="calculator/charts.js" />
+    <link rel="modulepreload" href="calculator/explain.js" />
+    <link rel="modulepreload" href="calculator/levers.js" />
+    <link rel="modulepreload" href="calculator/model.js" />
+    <link rel="modulepreload" href="calculator/page.js" />
+    <link rel="modulepreload" href="calculator/profiles.js" />
+    <link rel="modulepreload" href="calculator/report.js" />
+    <link rel="modulepreload" href="calculator/slides.js" />
+    <link rel="modulepreload" href="column-prefs.js" />
+    <link rel="modulepreload" href="consolidated.js" />
+    <link rel="modulepreload" href="credit-tiers.js" />
+    <link rel="modulepreload" href="engines.js" />
+    <link rel="modulepreload" href="fae-flush.js" />
+    <link rel="modulepreload" href="fusion-view.js" />
+    <link rel="modulepreload" href="govern.js" />
+    <link rel="modulepreload" href="help-tips.js" />
+    <link rel="modulepreload" href="i18n.js" />
+    <link rel="modulepreload" href="labs-common.js" />
+    <link rel="modulepreload" href="look.js" />
+    <link rel="modulepreload" href="mobile.js" />
+    <link rel="modulepreload" href="nav-map.js" />
+    <link rel="modulepreload" href="qr.js" />
+    <link rel="modulepreload" href="speedsters.js" />
+    <link rel="modulepreload" href="status-board.js" />
+    <link rel="modulepreload" href="table-tools.js" />
+    <link rel="modulepreload" href="tenant-colour.js" />
+    <link rel="modulepreload" href="tenant-menu.js" />
   </head>
   <body>
     <div class="shell">
@@ -1695,7 +1743,7 @@
             </section>
 
             <section class="panel" id="set-server" data-edit-perm="settings.links">
-              <h2>Reminder server address</h2>
+              <h2>CxMissionZero server address</h2>
               <p class="hint wide">The address people use to reach this app from their emailed report.</p>
               <div class="server-field">
                 <label class="field">
@@ -1814,7 +1862,7 @@
                 <li class="https-step" id="https-step-switch">
                   <h3><span class="step-num">4</span> Switch to HTTPS only</h3>
                   <p class="hint">Then plain http answers with a redirect to https, and reports switch to the new address by themselves.</p>
-                  <label class="check"><input type="checkbox" id="https-update-address" checked /> <span id="https-update-address-label">Also put the https address into new reports (Reminder server address)</span></label>
+                  <label class="check"><input type="checkbox" id="https-update-address" checked /> <span id="https-update-address-label">Also put the https address into new reports (CxMissionZero server address)</span></label>
                   <div class="actions compact">
                     <button type="button" class="primary" id="https-switch">Switch to HTTPS only</button>
                     <button type="button" class="link" id="https-undo" hidden>Back to http and HTTPS side by side</button>
@@ -1875,8 +1923,11 @@
                 <div class="feat-head">
                   <h3>Cx Credits Calculator at its own address <span class="badge muted" id="calc-address-badge">Off</span></h3>
                 </div>
-                <p>The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.</p>
-                <p class="hint">Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.</p>
+                <p data-calc-builtin="off">The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.</p>
+                <p class="hint" data-calc-builtin="off">Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.</p>
+                <!-- Only on a server started with the built-in calculator (CALCULATOR_BUILTIN=on): what the switch means there. -->
+                <p data-calc-builtin="on" hidden>The calculator can run outside CxMissionZero, at an address of its own. Turned on, Cx Credits Calculator in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page is put away.</p>
+                <p class="hint" data-calc-builtin="on" hidden>Turned off, the built-in calculator is back with its saved customers and reports: nothing is deleted. CxMissionZero only links to the address; who may open it is decided there.</p>
                 <label class="field">
                   <span>The calculator's address</span>
                   <input id="calc-address-url" type="url" inputmode="url" spellcheck="false" autocomplete="off" placeholder="http://server:8333/" />

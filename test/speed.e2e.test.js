@@ -93,10 +93,11 @@ test('a project read moments ago is reused by the next fetch; fresh and triage s
 });
 
 test('big replies are compressed for clients that accept it; small, frequent ones and other clients get them plain', async () => {
-  const script = await fetch(`${BASE}/app.js`, { headers: { 'Accept-Encoding': 'br' } });
+  // The page's script is public/app.js and its modules (public/app/): the one that calls the server, with its flares.
+  const script = await fetch(`${BASE}/app/core.js`, { headers: { 'Accept-Encoding': 'br' } });
   assert.equal(script.headers.get('content-encoding'), 'br', 'the page script');
   assert.match(await script.text(), /flare/);
-  const plainScript = await fetch(`${BASE}/app.js`, { headers: { 'Accept-Encoding': 'identity' } });
+  const plainScript = await fetch(`${BASE}/app/core.js`, { headers: { 'Accept-Encoding': 'identity' } });
   assert.equal(plainScript.headers.get('content-encoding'), null);
   // A small reply (here a few projects' summaries) is not worth the CPU.
   const small = await admin('GET', '/api/scan', null, { 'Accept-Encoding': 'gzip, br' });

@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.13 | 498 and 511/s, 0 (main 490 and 516, 0; two pairs) | 5.5 and 5.1 s (5.6 and 3.2 s) | 358 and 295 ms (460 and 161 ms) | 1,225 + 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.12 | 513/s, 0 (main 507, 0) | 0.3 s (1.8 s) | 129 ms (183 ms) | 1,213 + 16 in a browser | 0 vulnerabilities | Scan d79bed45 of the release's code, every engine but the AI ones: 32 open (1 / 4 / 10 / 16, 1 info), none new, all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.11 | 509/s, 0 (main 514 and 508, 0; two pairs) | 1.0 and 3.4 s (4.4 and 0.7 s) | 142 and 293 ms (209 and 144 ms) | 1,202 + 9 in a browser | 0 vulnerabilities | Scan e20ac30a of the final code, every engine but the AI ones: 32 open (1 / 4 / 10 / 16, 1 info); 2 in this release's code, checked and not exploitable; an independent review's 6 findings fixed ([review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.10 | 501–515/s, 0 (main 493–510, 0; five pairs) | 1.0–5.6 s (0.2–2.0 s; 0.2–0.5 s inside the server on both) | 128–262 ms (119–206 ms) | 1,112 | 0 vulnerabilities | Scan dc0b5c87 of the final code, every engine but the AI ones: 31 open (1 / 4 / 9 / 16, 1 info), none new, all judged before; the release's own code has no result; an independent review's 6 fixes are in ([review](docs/security/mz-01.01.10-review.md)) |
@@ -98,6 +99,16 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.13 — 2026-11-16 08:25 UTC · [#135](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/135)
+
+- **The server has one name.** What the page, the emailed report and the emails called the "reminder server" is now the "CxMissionZero server", in all fourteen languages; audit entries written under the old name are shown under the new one.
+- **The Cx Credits Calculator runs on its own.** It is off on a new server: an Admin gives its address under Settings → Beta features and turns it on, and Cx Credits Calculator is then in the menu for the roles that may use it and opens that address in a new tab (`/calculator` on the server leads there too).
+- **The built-in calculator is muted.** The calculator that was a page of CxMissionZero is gone from the menu after this update and nothing under `/api/projections` answers; what it saved is kept, and a server started with `CALCULATOR_BUILTIN=on` has it as before.
+- **Features and tenants switched on before stay on.** MZ-01.01.11 turned off every feature and tenant activation entered before MZ-01.01.10 (FAE Flush, Govern, Status board, several tenants…) until its code was entered again; they now count again as they were, by themselves after updating, while the product licence still needs its signed code.
+- **The code in smaller files.** `src/server.js` went from 12,222 lines to 1,742, with its routes in 36 files under `src/routes/`, and the page's script from 13,733 lines to 19 modules under `public/app/`; the routes are registered in the same order and the page does what it did.
+- **Tests that say what failed.** The end of a test log now lists every failed test again, with why, and two tests that needed a fast machine no longer do; one of them stopped MZ-01.01.12's image from being published, so this release is the first image with the flatter menu.
+- **Status.** 1,225 tests pass (one is skipped when run as root and passes in CI), with 16 that drive the page in Chromium; `npm audit --omit=dev` finds nothing. Benchmark, two pairs against main, all four runs with 0 failed requests and no finding sent twice: 498 and 511 requests a second (main 490 and 516), report opens 5.5 and 5.1 s at p95 (main 5.6 and 3.2 s), triage polls 358 and 295 ms (main 460 and 161 ms), within what two runs of the same code give; the page's first load takes as long as before (622 ms against 654 ms from an empty cache). No new Checkmarx One scan, as the connector needs signing in again: the last, d79bed45 of MZ-01.01.12's code, has 32 results, all judged before.
 
 ## MZ-01.01.12 — 2026-11-16 05:10 UTC · [#134](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/134)
 

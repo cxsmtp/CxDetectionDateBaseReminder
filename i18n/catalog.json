@@ -301,7 +301,7 @@
    "interactive HTML report"
   ]
  },
- "{0} answered, but it is not a reminder server. Check the address.": {
+ "{0} answered, but it is not a CxMissionZero server. Check the address.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -2110,7 +2110,7 @@
    "Dashboard › p › More connections to the same host"
   ]
  },
- "A secure (HTTPS) connection to the reminder server works from this computer": {
+ "A secure (HTTPS) connection to the CxMissionZero server works from this computer": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -2571,12 +2571,12 @@
  "Address — blank uses <code>REPORT_SERVER_URL</code>, else the address this page is open on": {
   "kind": "html",
   "seen": [
-   "first start › span › Reminder server address",
-   "sign in › span › Reminder server address",
-   "Dashboard › span › Reminder server address"
+   "first start › span › CxMissionZero server address",
+   "sign in › span › CxMissionZero server address",
+   "Dashboard › span › CxMissionZero server address"
   ]
  },
- "Address of your reminder server — ask whoever sent this report if you do not know it.": {
+ "Address of your CxMissionZero server — ask whoever sent this report if you do not know it.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -3592,7 +3592,7 @@
    "Dashboard › strong › SLAs Beta"
   ]
  },
- "Also put the https address into new reports (Reminder server address)": {
+ "Also put the https address into new reports (CxMissionZero server address)": {
   "kind": "text",
   "seen": [
    "first start › span › HTTPS",
@@ -4204,9 +4204,9 @@
  "Automatic reminders (nobody at this page) use <strong>no address</strong> — set the address here to make them match.": {
   "kind": "html",
   "seen": [
-   "Dashboard › p › Reminder server address",
-   "Dashboard (advanced) › p › Reminder server address",
-   "connection: cxone › p › Reminder server address"
+   "Dashboard › p › CxMissionZero server address",
+   "Dashboard (advanced) › p › CxMissionZero server address",
+   "connection: cxone › p › CxMissionZero server address"
   ]
  },
  "Automatic reminders are off.": {
@@ -4808,7 +4808,7 @@
    "sign in › button › Create the first administrator"
   ]
  },
- "Cannot reach the reminder server at {0}. It must be running and reachable from this computer (company network or VPN). If it moved, use “Change” next to its address.": {
+ "Cannot reach the CxMissionZero server at {0}. It must be running and reachable from this computer (company network or VPN). If it moved, use “Change” next to its address.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -4898,7 +4898,7 @@
    "access › roles › small › Roles & permissions"
   ]
  },
- "Change links into Checkmarx One and the reminder server address.": {
+ "Change links into Checkmarx One and the CxMissionZero server address.": {
   "kind": "text",
   "seen": [
    "access › small › Roles & permissions",
@@ -6083,13 +6083,13 @@
    "busy line"
   ]
  },
- "Connected to Checkmarx One ({0}) through the reminder server.": {
+ "Connected to Checkmarx One ({0}) through the CxMissionZero server.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
   ]
  },
- "Connected to the reminder server automatically.": {
+ "Connected to the CxMissionZero server automatically.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -6239,7 +6239,7 @@
    "interactive HTML report"
   ]
  },
- "Could not connect to the reminder server automatically: {0}": {
+ "Could not connect to the CxMissionZero server automatically: {0}": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -8083,13 +8083,13 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
- "Enter the reminder server address to connect.": {
+ "Enter the CxMissionZero server address to connect.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
   ]
  },
- "Enter the reminder server address to open the report for {0}.": {
+ "Enter the CxMissionZero server address to open the report for {0}.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -12847,7 +12847,7 @@
    "message"
   ]
  },
- "No reminder server answered at {0}. Check the address, and that you are on the company network or VPN.": {
+ "No CxMissionZero server answered at {0}. Check the address, and that you are on the company network or VPN.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -13829,7 +13829,7 @@
    "credits › overview › span"
   ]
  },
- "Open one project's own report (built by the reminder server, opens in a new tab):": {
+ "Open one project's own report (built by the CxMissionZero server, opens in a new tab):": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -15463,27 +15463,27 @@
    "Dashboard › span › Hands-off: set it up once, then leave it"
   ]
  },
- "Reminder server": {
+ "CxMissionZero server": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
   ]
  },
- "Reminder server address": {
+ "CxMissionZero server address": {
   "kind": "text",
   "seen": [
-   "first start › h2 › Reminder server address",
-   "sign in › h2 › Reminder server address",
-   "Dashboard › h2 › Reminder server address"
+   "first start › h2 › CxMissionZero server address",
+   "sign in › h2 › CxMissionZero server address",
+   "Dashboard › h2 › CxMissionZero server address"
   ]
  },
- "Reminder server set to {0}.": {
+ "CxMissionZero server set to {0}.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
   ]
  },
- "reminder server<small>system</small>": {
+ "CxMissionZero server<small>system</small>": {
   "kind": "html",
   "seen": [
    "audit › td › Credit audit log",
@@ -17906,7 +17906,7 @@
    "interactive HTML report"
   ]
  },
- "Showing {0} of {1} findings. Open one project's own report (built by the reminder server, opens in a new tab):": {
+ "Showing {0} of {1} findings. Open one project's own report (built by the CxMissionZero server, opens in a new tab):": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -18814,7 +18814,7 @@
  "Test": {
   "kind": "text",
   "seen": [
-   "first start › button › Reminder server address",
+   "first start › button › CxMissionZero server address",
    "first start › button › GitLab",
    "first start › button › Azure DevOps"
   ]
@@ -18981,7 +18981,7 @@
    "settings › Email server / Checkmarx One / Quick setup (.env) / header connection chips › How to fix it"
   ]
  },
- "That language could not be loaded: the reminder server did not answer. The report stays in the language it was in.": {
+ "That language could not be loaded: the CxMissionZero server did not answer. The report stays in the language it was in.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -19016,9 +19016,9 @@
  "The address people use to reach this app from their emailed report.": {
   "kind": "text",
   "seen": [
-   "first start › p › Reminder server address",
-   "sign in › p › Reminder server address",
-   "Dashboard › p › Reminder server address"
+   "first start › p › CxMissionZero server address",
+   "sign in › p › CxMissionZero server address",
+   "Dashboard › p › CxMissionZero server address"
   ]
  },
  "The API key does not say which tenant it belongs to.": {
@@ -19649,13 +19649,13 @@
    "Dashboard › p › No certificate yet? Create a request (CSR) for IT"
   ]
  },
- "The reminder server answered {0}.": {
+ "The CxMissionZero server answered {0}.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
   ]
  },
- "The reminder server now uses HTTPS": {
+ "The CxMissionZero server now uses HTTPS": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -20014,13 +20014,13 @@
    "calculator (MZ-01.01.04: Count from git, Include scans from, Apply, the summary)"
   ]
  },
- "This report does not say which reminder server to use. Enter its address to connect.": {
+ "This report does not say which CxMissionZero server to use. Enter its address to connect.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
   ]
  },
- "This report talks only to your organisation's reminder server.": {
+ "This report talks only to your organisation's CxMissionZero server.": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -23812,13 +23812,13 @@
    "interactive HTML report"
   ]
  },
- "Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or high finding in this report, across all its projects. Remediate opens the finding in Checkmarx One. Fixes come from Checkmarx One AI Remediation only: this report never suggests one of its own. Triage goes through the reminder server shown above, which must be reachable from this computer (company network or VPN).": {
+ "Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or high finding in this report, across all its projects. Remediate opens the finding in Checkmarx One. Fixes come from Checkmarx One AI Remediation only: this report never suggests one of its own. Triage goes through the CxMissionZero server shown above, which must be reachable from this computer (company network or VPN).": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
   ]
  },
- "Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or high finding in this report, across all its projects. Remediate runs Checkmarx One AI Remediation and links to the fix it writes (or its pull request); “Remediate all” runs it on every confirmed finding your AI Remediation credits are allocated for, {0} credits each. Fixes come from Checkmarx One AI Remediation only: this report never suggests one of its own. Triage and Remediate go through the reminder server shown above, which must be reachable from this computer (company network or VPN).": {
+ "Triage runs Checkmarx One AI Triage and shows the verdict here; “Triage all” covers every critical or high finding in this report, across all its projects. Remediate runs Checkmarx One AI Remediation and links to the fix it writes (or its pull request); “Remediate all” runs it on every confirmed finding your AI Remediation credits are allocated for, {0} credits each. Fixes come from Checkmarx One AI Remediation only: this report never suggests one of its own. Triage and Remediate go through the CxMissionZero server shown above, which must be reachable from this computer (company network or VPN).": {
   "kind": "report",
   "seen": [
    "interactive HTML report"
@@ -38872,6 +38872,24 @@
    "impact › span › Monthly summary by email",
    "impact › exec › span › Monthly summary by email",
    "impact › detail › span › Monthly summary by email"
+  ]
+ },
+ "The Cx Credits Calculator runs on its own, at an address of its own and with its own sign-in. Turned on, Cx Credits Calculator is in the menu for the roles that may use the calculator, and opens that address in a new tab.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "Turned off, as it is to start with, the menu has no calculator; the address is kept. CxMissionZero only links to the address; who may open it is decided there.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features"
+  ]
+ },
+ "Saved. Cx Credits Calculator is off: the menu does not show it.": {
+  "kind": "text",
+  "seen": [
+   "settings › Beta features › status"
   ]
  }
 }

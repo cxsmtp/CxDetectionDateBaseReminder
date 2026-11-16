@@ -3,7 +3,7 @@
  * mail server, the automatic runs, its own error rate), tries to put right what
  * it can, and keeps the administrators told. This module is the bookkeeping:
  * which problems are open, since when, what was tried, when to tell people and
- * when to raise a support case. The checks and the repairs live in server.js.
+ * when to raise a support case. The checks and the repairs live in src/routes/hands-off.js.
  *
  *  - A problem seen on one check is noted; on the second check in a row the
  *    administrators get an email (MissionZero has tried to fix it by then).

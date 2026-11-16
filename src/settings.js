@@ -113,7 +113,7 @@ export const DEFAULT_SETTINGS = {
   support: { mode: '', email: '' },
   /** Hands-off mode (src/hands-off.js): the weekly status, pausing, and replies by email. */
   handsOff: { ...DEFAULT_HANDS_OFF },
-  // The Cx Credits Calculator at an address of its own (an Admin's switch): off, the built-in page is used.
+  // The Cx Credits Calculator, which runs on its own at an address an Admin gives (an Admin's switch): off, the menu has no calculator.
   calculator: { external: false, url: '' },
   /** SLAs (Beta, src/sla.js): days to fix each severity, and escalation of overdue findings. */
   sla: structuredClone(DEFAULT_SLA),
@@ -190,8 +190,16 @@ function calculatorAddress(value) {
 }
 
 /**
- * Where the Cx Credits Calculator opens: the built-in page, or (turned on by an Admin) an address of its own.
- * Turned on, it needs an address; turned off, the address is kept for the next time.
+ * CALCULATOR_BUILTIN=on (or 1, true, yes): the calculator built into CxMissionZero is in use on this server. Without
+ * it the built-in calculator is muted: its page is not shown and /api/projections answers 404. Its code stays (the
+ * standalone calculator is built from it), and so do the customers and reports it saved.
+ */
+export const calculatorBuiltIn = (env = process.env) => /^(on|1|true|yes)$/i.test(String(env.CALCULATOR_BUILTIN ?? '').trim());
+
+/**
+ * Where the Cx Credits Calculator opens: nowhere (it is off, and not in the menu), or, turned on by an Admin, the
+ * address of a calculator running on its own. Turned on, it needs an address; turned off, the address is kept for
+ * the next time.
  */
 export function mergeCalculator(current, incoming = null) {
   const out = { external: current?.external === true, url: calculatorAddress(current?.url) };

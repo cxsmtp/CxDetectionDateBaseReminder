@@ -1,6 +1,6 @@
 // Runs inside the report, right after public/i18n.js (inlined together as one module by
 // html-report.js): the report in the reader's language. The report carries its reader's own
-// language (#report-i18n); any other one they pick comes from the reminder server, once, and is
+// language (#report-i18n); any other one they pick comes from the CxMissionZero server, once, and is
 // kept in this browser. The reader's choice in this browser wins, then the language the report was
 // made in (its recipient's profile), then the browser's. Names, findings, addresses and what
 // Checkmarx One wrote stay as they are.
@@ -11,7 +11,7 @@
   const has = (code) => typeof code === 'string' && offered.some(([known]) => known === code);
   setAvailable(offered.map(([code]) => code));
 
-  /** An http(s) address without user name, query or fragment (as a reminder server's), else ''. */
+  /** An http(s) address without user name, query or fragment (as a CxMissionZero server's), else ''. */
   const webAddress = (value) => {
     try {
       const url = new URL(String(value ?? ''));
@@ -22,7 +22,7 @@
     }
   };
   /**
-   * The reminder server this report talks to: the one it was sent with, or a reader's correction
+   * The CxMissionZero server this report talks to: the one it was sent with, or a reader's correction
    * kept in this browser (report.client.js, switchServer), when that is a web address too.
    */
   function server() {
@@ -74,10 +74,10 @@
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = controller && setTimeout(() => controller.abort(), 5000);
     try {
-      // Asked of the reminder server only, at an http(s) address, without cookies; an answer from
+      // Asked of the CxMissionZero server only, at an http(s) address, without cookies; an answer from
       // anywhere else (a redirect to another origin) is not read.
       const target = new URL(`${server()}/api/relay/report-words/${encodeURIComponent(code)}`);
-      if (target.protocol !== 'https:' && target.protocol !== 'http:') throw new Error(`${code}: the reminder server address is not a web address`);
+      if (target.protocol !== 'https:' && target.protocol !== 'http:') throw new Error(`${code}: the CxMissionZero server address is not a web address`);
       const response = await fetch(target.href, { signal: controller?.signal, credentials: 'omit', referrerPolicy: 'no-referrer' });
       if (response.url && new URL(response.url).origin !== target.origin) throw new Error(`${code}: answered from another address`);
       const body = await response.json();
@@ -118,7 +118,7 @@
       } catch {
         picker.value = currentLanguage();
         picker.disabled = false;
-        alert(L('That language could not be loaded: the reminder server did not answer. The report stays in the language it was in.'));
+        alert(L('That language could not be loaded: the CxMissionZero server did not answer. The report stays in the language it was in.'));
         return;
       }
       const code = await setLanguage(wanted);

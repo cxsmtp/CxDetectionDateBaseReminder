@@ -64,6 +64,9 @@ test.before(async () => {
       CX_TENANT: 'acme',
       REPORT_SIGNING_KEY: SIGNING_KEY,
       ADMIN_EMAIL: '',
+      // The built-in calculator's routes are among those checked for each role (as installed, they answer nobody:
+      // test/calculator-muted.e2e.test.js).
+      CALCULATOR_BUILTIN: 'on',
       ADMIN_PASSWORD: '',
       FIRST_ADMIN: 'setup-code',
     },
@@ -281,7 +284,7 @@ test("the email's button downloads the very report that was attached, through a 
   const href = /href="([^"]+\/r\/[0-9a-f-]{36}\?s=[^"]+)"[^>]*>Let&#39;s start fixing the vulnerabilities</.exec(preview.body.html)?.[1];
   assert.ok(href, preview.body.html);
   const url = href.replace(/&amp;/g, '&');
-  assert.ok(url.startsWith(BASE), 'points at the reminder server');
+  assert.ok(url.startsWith(BASE), 'points at the CxMissionZero server');
 
   const res = await fetch(url);
   assert.equal(res.status, 200);
@@ -289,7 +292,7 @@ test("the email's button downloads the very report that was attached, through a 
   assert.match(res.headers.get('content-security-policy'), /sandbox/);
   const html = await res.text();
   assert.match(html, /id="report-data"/);
-  assert.match(html, new RegExp(`"relayUrl":"${BASE.replace(/[.]/g, '\\.')}/?"`), 'the downloaded report knows its reminder server');
+  assert.match(html, new RegExp(`"relayUrl":"${BASE.replace(/[.]/g, '\\.')}/?"`), 'the downloaded report knows its CxMissionZero server');
 
   const id = /\/r\/([0-9a-f-]{36})/.exec(url)[1];
   assert.equal((await fetch(url.replace(/s=[^&]+/, 's=forged'))).status, 404);

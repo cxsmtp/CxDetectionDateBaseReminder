@@ -91,7 +91,7 @@ Every option is listed, with what it is for, in the README's [Configure](../READ
   ```
 - With compose, a `.env` file next to `compose.yaml` (copy `.env.example`, which is the same sample). Compose passes on the variables `compose.yaml` lists (`TZ`, `ADMIN_EMAIL`, `REPORT_SERVER_URL`, `CX_API_KEY`, `NODE_OPTIONS`, plus `BIND_ADDRESS` and `PORT` for the published port). Upload the same file on the Settings page for the mail server.
 
-The connection settings in the file (Checkmarx One, mail server, reminder server address) can also be uploaded later on the Settings page, without restarting.
+The connection settings in the file (Checkmarx One, mail server, CxMissionZero server address) can also be uploaded later on the Settings page, without restarting.
 
 To publish on another port, change the left side: `-p 8080:3000`.
 

@@ -15,7 +15,7 @@
  * the addresses checked, no redirects for git (by hand, credentials dropped, for the API), counts seen only by
  * whoever started them, and temporary folders swept after a crash. Names and emails of the people who committed are
  * never kept: each repository keeps a count, and a run its count of different people (by a salted hash, in memory).
- * Used by CxMissionZero (src/server.js) and the standalone calculator's launcher (src/calculator-launcher.js), so
+ * Used by CxMissionZero (src/routes/calculator.js) and the standalone calculator's launcher (src/calculator-launcher.js), so
  * only Node.js and relative imports.
  */
 
@@ -380,7 +380,7 @@ function splitPair(secret) {
   return at > 0 ? { username: secret.slice(0, at), token: secret.slice(at + 1) } : { username: '', token: secret };
 }
 
-/** The same from one of the Admin's connections (src/scm/providers.js scmConfigs, src/server.js githubConfig). */
+/** The same from one of the Admin's connections (src/scm/providers.js scmConfigs, src/routes/git-connections.js githubConfig). */
 export function connectionSource(provider, cfg = {}, key = 'token') {
   if (provider === 'github') return gitSource({ provider, address: cfg.apiUrl, token: cfg.token, key });
   if (provider === 'gitlab') return gitSource({ provider, address: cfg.apiUrl, token: cfg.token, key });

@@ -1053,7 +1053,7 @@ label.button-like:focus-within { outline: 2px solid var(--accent); outline-offse
   .audit-filter-actions button { flex: 1; }
 }
 
-/* Reminder server address */
+/* CxMissionZero server address */
 .server-field { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
 .server-field .field { flex: 1 1 320px; margin: 0; }
 .server-effective { margin-top: 10px; display: grid; gap: 6px; font-size: 13px; }
@@ -1851,7 +1851,7 @@ main { max-width: 1760px; padding-bottom: 72px; }
 }
 .nav-group:first-child { margin-top: 2px; }
 .nav-group i { width: 8px; height: 8px; border-radius: 3px; background: var(--stage); flex: 0 0 auto; }
-/* Each group folds with a click on its name (public/app.js, applyNavFolds); the page open stays shown. */
+/* Each group folds with a click on its name (public/app/nav.js, applyNavFolds); the page open stays shown. */
 .nav-group[role="button"] { cursor: pointer; user-select: none; border-radius: 6px; }
 .nav-group[role="button"]:hover { color: var(--text); }
 .nav-group[role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

@@ -186,7 +186,7 @@ export function generateHtmlReport(reportData, options = {}) {
         }))
     : [];
   // Signed and relay-ready even without an address: a reader can enter the
-  // reminder server's address in the report and still triage.
+  // CxMissionZero server's address in the report and still triage.
   const remediateHere = Boolean(options.remediationViaRelay);
   const toClient = (f, index) => {
     const client = {
@@ -288,7 +288,7 @@ export function generateHtmlReport(reportData, options = {}) {
       : '';
 
 
-  // One project's full report: built by the reminder server and opened in a new tab.
+  // One project's full report: built by the CxMissionZero server and opened in a new tab.
   // There is no link to Checkmarx One here.
   const projectLinks = projectReports
     .map(
@@ -298,7 +298,7 @@ export function generateHtmlReport(reportData, options = {}) {
     .join('');
   const singleProject = projects.length === 1;
   // How many the table holds is said above it (the scope line); here, each project's own report.
-  const moreText = projectReports.length && !singleProject ? `Open one project's own report (built by the reminder server, opens in a new tab):` : '';
+  const moreText = projectReports.length && !singleProject ? `Open one project's own report (built by the CxMissionZero server, opens in a new tab):` : '';
 
   return `<!DOCTYPE html>
 <html lang="en"${look.ui === 'nextgen' ? ` data-ui="nextgen" data-accent="${look.accent}"` : ''}${lookPalette(look.look) ? ` data-look="${look.look}"` : ''}${look.theme === 'auto' ? '' : ` data-theme="${look.theme}"`}>
@@ -343,9 +343,9 @@ export function generateHtmlReport(reportData, options = {}) {
 <main>
   <div id="banner" class="banner" hidden></div>
 
-  <section class="server" id="server" aria-label="Reminder server">
+  <section class="server" id="server" aria-label="CxMissionZero server">
     <div class="server-row">
-      <span class="server-label">Reminder server</span>
+      <span class="server-label">CxMissionZero server</span>
       <code id="server-url" class="server-url" translate="no">${relayUrl ? escapeHtml(relayUrl.replace(/\/+$/, '')) : 'not set'}</code>
       <span id="server-state" class="server-state"></span>
       <button id="server-change" class="btn btn-outline btn-small" type="button">${relayUrl ? 'Change' : 'Enter address'}</button>
@@ -358,7 +358,7 @@ export function generateHtmlReport(reportData, options = {}) {
       </div>
     </div>
     <form id="server-form" class="server-form" hidden>
-      <label for="server-input" class="muted">Address of your reminder server — ask whoever sent this report if you do not know it.</label>
+      <label for="server-input" class="muted">Address of your CxMissionZero server — ask whoever sent this report if you do not know it.</label>
       <div class="server-form-row">
         <input id="server-input" type="text" inputmode="url" autocomplete="url" spellcheck="false" placeholder="https://cx-reminder.example.com" required />
         <button class="btn" type="submit">Check &amp; connect</button>
@@ -397,7 +397,7 @@ ${remediateHere ? `    <div class="bulk-row bulk-fix-row">
       high finding in this report, across all its projects. ${remediateHere
         ? 'Remediate runs Checkmarx One AI Remediation and links to the fix it writes (or its pull request); “Remediate all” runs it on every confirmed finding your AI Remediation credits are allocated for, 3 credits each.'
         : 'Remediate opens the finding in Checkmarx One.'} Fixes come from Checkmarx One AI Remediation only: this report never suggests one of its own.
-      ${remediateHere ? 'Triage and Remediate go' : 'Triage goes'} through the reminder server shown above, which must be reachable from this computer (company network or VPN).</p>
+      ${remediateHere ? 'Triage and Remediate go' : 'Triage goes'} through the CxMissionZero server shown above, which must be reachable from this computer (company network or VPN).</p>
     </details>
     ${resultsShown < shownAi.length
       ? `<p class="shared-explainer"><strong>${shownAi.length} findings here are ${resultsShown} Checkmarx One results.</strong> <span>Checkmarx One can list one result once per code path that reaches it; AI Triage works on the result, so those rows are triaged together and charged once.</span> <span>Rows that are the same result carry the same label and colour, and each one links to the other rows of its result.</span> <span class="shared-chips" translate="no">${[...labels.values()].slice(0, 3).map((n) => `<span class="shared-chip shared-c${n % SHARED_COLOURS}">R${n + 1}</span>`).join(' ')}${labels.size > 3 ? ' …' : ''}</span></p>`
@@ -455,7 +455,7 @@ ${findings.map((f, index) => findingRow(f, clientFindings[index], remediateHere,
     <summary><span>Activity</span> (<span id="activity-count">0</span>)</summary>
     <ul id="activity-list"></ul>
   </details>
-  <p class="onprem-note"><b>This report talks only to your organisation's reminder server.</b> <span>${escapeHtml(ON_PREMISE_NOTICE)}</span></p>
+  <p class="onprem-note"><b>This report talks only to your organisation's CxMissionZero server.</b> <span>${escapeHtml(ON_PREMISE_NOTICE)}</span></p>
   <p class="muted disclaimer"><span>${escapeHtml(SUPPORTING_NOTICE)}</span> <span>Triaging or remediating from this report means accepting those terms.</span></p>
 </main>
 <dialog id="credit-dialog" class="dialog" aria-labelledby="credit-dialog-title">

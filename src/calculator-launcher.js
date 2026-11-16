@@ -165,7 +165,7 @@ export async function startLauncher({ html, port = 0, fallback = false, host = '
       Object.assign(state, { client: null, connection: null, job: null, read: new TenantReadStore({ file: null }) });
       return { connected: false };
     },
-    // As CxMissionZero's calculator reads (src/server.js, /api/projections/read): in the background, followed by the page.
+    // As CxMissionZero's calculator reads (src/routes/calculator.js, /api/projections/read): in the background, followed by the page.
     'POST /api/projections/read': (input) => {
       if (!state.client) throw Object.assign(new Error('Connect to Checkmarx One first: paste the API key at the top.'), { status: 409 });
       if (state.job?.state === 'running') return readView(state.job);

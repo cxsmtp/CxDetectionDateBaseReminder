@@ -1,7 +1,7 @@
 /**
  * The interactive reports that went out by email, kept so the email's
  * "Let's start fixing the vulnerabilities" button can download the very same
- * file from the reminder server (mail clients cannot link to an attachment).
+ * file from the CxMissionZero server (mail clients cannot link to an attachment).
  *
  * One gzipped file per report, named by the report's id, in
  * <state folder>/report-files/. Files older than `ttlDays` (the life of the

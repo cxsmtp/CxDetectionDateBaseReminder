@@ -10,6 +10,7 @@ Improvements are welcome: bug reports, ideas, documentation and code.
    - `npm test` must pass, and new behaviour comes with a test. It runs every test with a temporary folder of its own, removed at the end (`npm test -- test/one.test.js` runs some of them). The same tests and `npm audit --omit=dev` run on every push and pull request, and nothing is published unless they pass.
    - `npm run test:browser` drives the page in a real browser (Chromium, through Playwright) against the real server and the mock Checkmarx One: the first administrator's setup, sign-in, the Workbench, Settings, People & roles, Labs per role and sign-out. It fails on any error nobody caught in the page and on any request to the server that failed or was refused. It needs Chromium once: `npx playwright install chromium` (on Linux, add `--with-deps`). It runs on every push and pull request too, and `npm test` does not run it. Run it when you change the page.
    - For speed-related changes, run `loadtest/benchmark.sh` (see docs/performance.md).
+   - The server's routes are in `src/routes/`, one module for each area; `src/server.js` puts the server together and calls them in the order their routes are registered. That order is behaviour (Express runs middleware and routes in it), and `npm test` compares it with `test/fixtures/routes.txt`. After adding or moving a route or a guard, run `node scripts/list-routes.mjs --write` and look at what changed in that file before committing it.
 4. **Keep the docs in step:**
    - README.md;
    - docs/user-guide.md;

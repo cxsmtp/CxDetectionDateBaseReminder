@@ -42,7 +42,7 @@ The sidebar is grouped by what you came to do:
 | Group | Pages | What you do there |
 | --- | --- | --- |
 | **Act** | Workbench, Automation, Dashboard | Load ageing findings, see who owns them, remind them, triage and remediate; set reminders to go out by themselves, preview them and brand their email; follow tracked scopes down to zero and schedule follow-ups. |
-| **Credits** | Credit Control, Impact, Audit, Cx Credits Calculator | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups; the credits a customer needs for triage and remediation of their backlog and for Fusion scans, with projection reports (the calculator is shown to Admins and the roles an Admin gives its permission to). **Govern** joins this group, after Audit, once an Admin makes it final. |
+| **Credits** | Credit Control, Impact, Audit, Cx Credits Calculator | Give and track AI Triage and Remediation credits; the hours AI saved and how fast the security debt shrinks; the credit audit log and backups; the credits a customer needs for triage and remediation of their backlog and for Fusion scans, with projection reports (the calculator is in the menu once an Admin has turned it on and given its address, for Admins and the roles an Admin gives its permission to). **Govern** joins this group, after Audit, once an Admin makes it final. |
 | **Set up** | People & roles, Settings, Logs | People and roles, configuration, troubleshooting. |
 | **Labs** | Code authors, Fusion results, FAE Flush, Status board, Consolidated, Govern | Early features, set apart at the bottom of the menu, each its own page: who wrote the vulnerable code, and their email; what Checkmarx One's AI engine found in SAST (Fusion and LAST) in the projects you load; Findings Analysis (FAE) on the whole tenant's backlog at once; budgets of AI credits per person, group, project or application (Govern). Shown to roles holding **Beta features**; Govern to the roles holding its own permissions. |
 
@@ -290,7 +290,7 @@ As an Admin, open **Settings** and work down this list.
 | 1 | Quick setup from a .env file | **Download the sample .env**, fill in your Checkmarx One key and mail server, and upload it. This does steps 2–4 in one go. |
 | 2 | Checkmarx One integration | Paste the API key, then **Connect & store**. |
 | 3 | Email server (SMTP) | Host, port, user and password. Then **Test connection** and **Send test email**. |
-| 4 | Reminder server address | The `https://` address people use to reach this server. Then **Test**. Serve it over HTTPS first: [Turn on HTTPS](#turn-on-https). |
+| 4 | CxMissionZero server address | The `https://` address people use to reach this server. Then **Test**. Serve it over HTTPS first: [Turn on HTTPS](#turn-on-https). |
 | 5 | AI Triage & Remediation from reports | Decide what developers may run from their reports, and set the credit pool. |
 | 6 | Branding | Company name, logo and colour for emails and reports. |
 | 7 | Automation (optional) | **Act → Automation**: set the age limits, preview who would get what, then turn it on. Start with **Test mode**. |
@@ -320,7 +320,7 @@ Admins only: **Settings → HTTPS**. It moves the running server from http to HT
    - **Read the check.** Nothing changes yet. Each line is a tick (fine), **!** (works, but some people may see a warning) or **✕** (cannot be used, and why):
      - the key belongs to the certificate;
      - the dates;
-     - the names it covers, compared with the address you are using and the Reminder server address;
+     - the names it covers, compared with the address you are using and the CxMissionZero server address;
      - who issued it: a public authority, your company's, or self-signed. Missing intermediate certificates are spotted here;
      - the key's strength and purpose.
    - **Use it.** Click **Use this certificate**. It goes into use at once; the one it replaces is kept.
@@ -453,7 +453,7 @@ For everyday use, switch to way A or B instead: every reader's machine would hav
 
    If the start fails, the log says why (see [Troubleshooting](#troubleshooting)).
 2. **The browser:** open `https://mz.company.com`. It shows the padlock, with no warning.
-3. **Settings → Reminder server address:** it should show `https://mz.company.com`. Click **Test**.
+3. **Settings → CxMissionZero server address:** it should show `https://mz.company.com`. Click **Test**.
    - The address comes from `REPORT_SERVER_URL`. If one was saved on this page before, that one wins: change it here.
    - New emailed reports carry this address.
 
@@ -461,7 +461,7 @@ For everyday use, switch to way A or B instead: every reader's machine would hav
 
 - **Everyone signs in once** at the new address. A browser keeps its sign-in per address, and the old `http://` one is no longer used.
 - **Reports emailed before the switch** still point at the old address.
-  - A reader clicks **Change** next to *Reminder server* at the top of the report, enters `https://mz.company.com`, and the report remembers it.
+  - A reader clicks **Change** next to *CxMissionZero server* at the top of the report, enters `https://mz.company.com`, and the report remembers it.
   - Alternatively, send new reports.
 - **Updating** works as before: `podman pull`, then the same command you started with, **including its HTTPS options**. Without a certificate option it still serves HTTPS, with the self-signed certificate.
 - **Ports 80 and 443 on Windows:** Podman may refuse them ("permission denied"). Either:
@@ -536,7 +536,7 @@ A feature starts in Beta: in Labs, only the roles holding **See Labs** and its o
 | **FAE Flush** | It moves out of Labs to the top of **Act** (FAE Flush, Workbench, Automation, Dashboard); the Workbench stays the home page. Anyone who manages the Checkmarx One integration can run it. |
 | **Govern** | It moves out of Labs to the **Credits** group of the menu, after Audit. Everyone holding a Govern permission uses it, without a Labs permission. |
 
-**Cx Credits Calculator at its own address** (from MZ-01.01.09), at the end of the same page, is a switch for moving the calculator out of CxMissionZero. Type **The calculator's address** (where it runs on its own, such as `http://server:8333/`; it must start with `http://` or `https://`), tick **Open the Cx Credits Calculator at this address** and **Save**. From then on **Cx Credits Calculator** in the menu opens that address in a new tab, for the roles that may use the calculator, and the built-in page only says where it went. Untick it and save to bring the built-in calculator back, with its saved customers and reports: nothing is deleted either way. CxMissionZero only links to the address: who may open the calculator there is decided there, so put it behind its own sign-in or your network's rules. Only an Admin can change it, and each change is in the audit log.
+**Cx Credits Calculator** (from MZ-01.01.13), at the end of the same page, turns the calculator on and says where it is. The calculator runs on its own, at an address of its own and with its own sign-in; CxMissionZero only sends people there. It is **off** on a new server: the menu has no calculator. To turn it on, type **The calculator's address** (such as `http://server:8333/`; it must start with `http://` or `https://`), tick **Show Cx Credits Calculator in the menu and open it at this address** and **Save**. From then on **Cx Credits Calculator** is in the menu (group **Credits**) for the roles that may use the calculator, and opens that address in a new tab; `/calculator` on this server, typed or kept as a bookmark, leads there too. Untick it and save to take it out of the menu again; the address is kept for the next time. Who may open the calculator is decided there, by its own sign-in. Only an Admin can change it, and each change is in the audit log. *Before MZ-01.01.13* the calculator was a page inside CxMissionZero. That built-in calculator is now muted: nothing it saved is deleted, and a server started with `CALCULATOR_BUILTIN=on` has it as before (see [Cx Credits Calculator](#cx-credits-calculator)).
 
 ### Hands-off (set it up once)
 
@@ -576,7 +576,7 @@ Sets the connections from one file, the same file you can start the container wi
 3. **Choose a .env file** (or drop it on the box).
 
 What happens when you upload:
-- **Section 1** of the file (Checkmarx One, mail server, reminder server address) applies at once, and each connection is checked.
+- **Section 1** of the file (Checkmarx One, mail server, CxMissionZero server address) applies at once, and each connection is checked.
 - **Blank values keep what is set now**, so you can upload only what changed.
 - **Section 2** (time zone, backups, tuning) only takes effect when the container starts with `--env-file`. An upload lists those variables as not applied.
 - **Only what you may change is applied.** Variables your role cannot set are refused by name.
@@ -714,7 +714,7 @@ Every finding in an email links straight to it in Checkmarx One (Risk Hub).
 - If links land in the wrong place, edit the **base URL**, **project link** or **finding link** template. The example underneath updates as you type.
 - Placeholders: `{baseUrl}`, `{projectId}`, `{scanId}`, `{engine}`, `{riskId}`.
 
-### Reminder server address
+### CxMissionZero server address
 The address people's browsers use to reach this server, put into every emailed report so readers can triage from it. For example `https://mission-zero.company.com`.
 - **Test** checks that it answers as this server.
 - You are warned if it is `localhost` (nobody else can reach it) or plain `http`.
@@ -940,17 +940,17 @@ Each run: when, how (scheduled or **Run once now**, in test mode or not), the fi
 1. **Open it.** Click the button (it downloads the report; the link works for 30 days) or open the attachment. Any browser works, and nothing needs installing.
    - It opens in your profile's language, else your browser's. **Language** at the top switches it.
    - It is in your profile's look (its colours, its band across the top and its face; Classic the classic one), light, dark or your device's, and your accent (see [Find your way](#find-your-way)). Without an account, it is in the organisation's default.
-   - Your profile's language works offline. Any other language comes from the reminder server the first time, and is then kept in your browser.
+   - Your profile's language works offline. Any other language comes from the CxMissionZero server the first time, and is then kept in your browser.
    - Finding titles, project names, code, and what Checkmarx One's AI wrote stay as they are.
-2. **It connects by itself** to the reminder server shown at the top.
+2. **It connects by itself** to the CxMissionZero server shown at the top.
    - If it cannot, it says why. Click **Connect** to try again.
-   - If the server moved, click **Change address**. The report checks that the new address really is the reminder server, and remembers it.
+   - If the server moved, click **Change address**. The report checks that the new address really is the CxMissionZero server, and remembers it.
    - You need to be on the company network or VPN.
 3. **Read the list.** The header sums it up: open findings, how many critical, high, medium and low, and the oldest. It shows the top 300 findings, worst severity first, then oldest, 50 a page: the page numbers are under the list.
    - **Search and filter every finding,** not only the 300: pick a severity (its button counts the whole report), search (finding, query, project, file), or tick **Only what AI can act on**. Every heading (**Severity**, **Finding**, **Type**, **Age**, **State**, **Triage result**) sorts on a click and filters with its funnel: type to keep what contains it (on **Age**, `>90` or `<=30` compare), or tick the values to keep. They combine; **Clear all** above the list resets them.
    - A match from beyond the top 300 is tagged **Beyond the top 300** and can be triaged and remediated like the others. A report holds up to 10,000 findings, worst first; past that, it says how many it left out.
    - On a phone the headings are a row of small buttons above the cards, each still sorting and filtering.
-   - **How this report works** explains Triage, Remediate and the reminder server.
+   - **How this report works** explains Triage, Remediate and the CxMissionZero server.
    - Each finding shows:
      - its live Checkmarx One state;
      - a link into Checkmarx One.
@@ -983,7 +983,7 @@ Each run: when, how (scheduled or **Run once now**, in test mode or not), the fi
    - **Copy git command** copies one line to run in the repository folder (cmd, PowerShell or a shell): `curl -fsSL "<link>" -o mz-fix.patch && git apply --recount mz-fix.patch`. The link is signed for that one finding and works for 7 days; each download is in the audit log.
 7. **Refresh** re-reads states at any time. The report also refreshes by itself.
 8. **One project's own report.** A report covering several projects lists them at the bottom.
-   - Clicking one asks the reminder server for that project's own report: the same kind of report, for that project alone, read fresh, and limited to the severities and age the original covered.
+   - Clicking one asks the CxMissionZero server for that project's own report: the same kind of report, for that project alone, read fresh, and limited to the severities and age the original covered.
    - It opens in a new tab and is downloaded too. If the browser blocks the tab, the download still arrives; allow pop-ups for the report to get the tab as well.
    - These buttons never lead to Checkmarx One.
 
@@ -1364,6 +1364,8 @@ Send it to whoever maintains CxMissionZero when something goes wrong. **It captu
 
 ## Cx Credits Calculator
 
+**From MZ-01.01.13 the calculator runs on its own**, at its own address and with its own sign-in. In CxMissionZero it is off until an Admin gives that address and turns it on (**Settings → Beta features → Cx Credits Calculator**); the menu's **Cx Credits Calculator** then opens it in a new tab. The calculator that used to be a page of CxMissionZero is muted: its menu item, its page and everything under `/api/projections` are switched off, and the customers and reports it saved stay in `/data` (and in every backup), untouched. To use the built-in calculator on a server all the same, for instance to reach what it had saved, start that server with `CALCULATOR_BUILTIN=on`: with the address turned off, the menu then opens the built-in page as before. The rest of this section describes the calculator itself, which is the same on its own and built in.
+
 **Cx Credits Calculator** (menu group **Credits**; on a phone, under **More**) works out the credits a customer needs, from their own data, and makes a report of it. It is for Admins, and for any role an Admin gives the **Cx Credits Calculator** permission to. Each **customer** is saved on this server as you go: **Customer ▾** at the top lists them, with **+ New customer**, **Rename…** and **Delete…** (from MZ-01.01.08; with none, one is made straight away, so the page is never left switched off); **New customer** starts one, named after your organisation (the name given with the terms) while no customer has it, **Customer** switches between them, **Delete customer** removes one (its reports stay). The first time, the calculator starts that customer by itself.
 
 **One click.** **Generate projection report** reads Checkmarx One first when nothing is read yet, then makes the report with every default in place. **Email the report** sends it, in the page's language, to up to 10 addresses (through Settings → Email server). Once it is made, **Download PDF summary** gives the pages to present: triage & remediation with the backlog forecast, Checkmarx Fusion, the total credits required and the impact. **Include the calculations in the PDF**, beside **Generate projection report** (unticked by default), adds the trend with how each number is worked out and an appendix with every calculation. The report opens with the vulnerabilities in scope and which severities are included and excluded, and keeps where the data came from in a closed **Data source** section at the end. Downloaded reports open light. **Start again** clears every choice made for the customer and reads Checkmarx One again (the Fusion models stay).
@@ -1455,9 +1457,9 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
+| **MZ-01.01.13** | 498/s and 511/s, 0 failed (main 490/s and 516/s, 0; two pairs) | 5.5 and 5.1 s (main 5.6 and 3.2 s) | 358 and 295 ms (main 460 and 161 ms) | 1,225 pass, and 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](security/mz-01.01.11-review.md)) |
 | **MZ-01.01.12** | 513/s, 0 failed (main 507/s, 0) | 0.3 s (main 1.8 s) | 129 ms (main 183 ms) | 1,213 pass, and 16 in a browser | 0 vulnerabilities | Scan d79bed45 of the release's code, every engine but the AI ones: 32 open (1 / 4 / 10 / 16, 1 info), none new, all judged before ([MZ-01.01.11's review](security/mz-01.01.11-review.md)) |
 | **MZ-01.01.11** | 509/s, 0 failed (main 514/s and 508/s, 0; two pairs) | 1.0 and 3.4 s (main 4.4 and 0.7 s) | 142 and 293 ms (main 209 and 144 ms) | 1,202 pass, and 9 in a browser | 0 vulnerabilities | Scan e20ac30a of the final code, every engine but the AI ones: 32 open (1 / 4 / 10 / 16, 1 info); 2 in this release's code, checked and not exploitable; an independent review's 6 findings fixed ([review](security/mz-01.01.11-review.md)) |
-| **MZ-01.01.10** | 501–515/s, 0 failed (main 493–510/s, 0; five pairs) | 1.0–5.6 s (main 0.2–2.0 s; 0.2–0.5 s inside the server on both) | 128–262 ms (main 119–206 ms) | 1,112 pass | 0 vulnerabilities | Scan dc0b5c87 of the final code, every engine but the AI ones: 31 open (1 / 4 / 9 / 16, 1 info), none new, all judged before; the release's own code has no result; an independent review's 6 fixes are in ([review](security/mz-01.01.10-review.md)) |
 | **MZ-01.01.09** | 507/s, 0 failed (main 502/s, 0) | 4.1 s (main 6.3 s) | 115 ms (main 288 ms) | 1,055 pass | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, e4657d28 of MZ-01.01.08's final code: 75 open (7 / 23 / 27 / 17, 1 info), 15 to verify |
 | **MZ-01.01.08** | 509/s, 0 failed (main 521/s, 0) | 412 ms (main 563 ms) | 97 ms (main 70 ms) | 1,037 pass | 0 vulnerabilities | Scan e4657d28 of the final code: 75 open (7 / 23 / 27 / 17, 1 info), none new; nodemailer CVE-2026-125755 and the launcher's timing fixed in the release, 15 to verify (by design, not shipped, or unchanged code under newer rules) |
 | **MZ-01.01.07** | 446/s, 192 failed (connection failures on the host; main 435/s, 303) | 17.5 s | 3.2 s | 1028 pass | 0 vulnerabilities (qs 6.16.2) | Rescan 9477a871 of the final code (cad438d): 70 open (1 / 32 / 21 / 15, 1 info), none new; the qs SCA result fixed (6.16.2, CVE-2026-110910), the other 69 SAST + 1 KICS judged not exploitable before ([review](security/mz-01.01.07-review.md)) |
@@ -1585,7 +1587,7 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | Hebrew is on (Settings → Activation codes) but not in the language list | Only roles with the **Hebrew** permission are offered it (Admins always). On **People & roles**, tick **Hebrew** for the role, then **Save**; it applies at once. |
 | Gmail refuses the password | Use an App Password, not your normal password. |
 | An uploaded .env file "Not applied" | That line has a mistake (listed with its line number and how to fix it); the setting that worked is kept. Fix the line and upload again. |
-| The report says it cannot reach the server | Be on the company network or VPN. Check **Settings → Reminder server address**, and use **Change address** in the report if the server moved. |
+| The report says it cannot reach the server | Be on the company network or VPN. Check **Settings → CxMissionZero server address**, and use **Change address** in the report if the server moved. |
 | More rows than credits needed | Several rows can be one Checkmarx One result (marked **Same result R1** …). You are charged per result. |
 | "Fetch still running" when you click Allocate or Triage | Wait for the green **Data fetch complete** flare. |
 | "Could not be confirmed twice" when allocating | Someone was triaging, or a scan finished, between the two reads. Wait a minute and use **Check the numbers again**. |
@@ -1599,7 +1601,7 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | **HTTPS:** a reverse proxy (Caddy, nginx) answers 502 Bad Gateway | CxMissionZero serves HTTPS by default, and the proxy speaks http to it. Add `-e HTTPS=off` to CxMissionZero's `podman run` line. |
 | **HTTPS:** "HTTPS must be on, off or both" in the log | `HTTPS` takes `on`, `off` or `both` (also `true`/`false`, `yes`/`no`, `1`/`0`). |
 | "Accept the terms of use to continue" / "An administrator must accept the terms of use" | An Admin signs in and accepts the terms for the organisation, then each person accepts them once ([Terms of use](#terms-of-use)). |
-| A report says "This reminder server is not in use yet" | An Admin has not accepted the terms of use yet. Once they do, the report works (reload it). |
+| A report says "This CxMissionZero server is not in use yet" | An Admin has not accepted the terms of use yet. Once they do, the report works (reload it). |
 | **HTTPS:** locked out of the Settings page after a change | On the server: `podman exec mission-zero node scripts/https.mjs both`. Within 5 seconds http works next to HTTPS again, with HSTS off. |
 | **HTTPS:** **Switch to HTTPS only** is greyed out | Open the page over HTTPS (the link under the button) and switch there. It also needs **HTTP + HTTPS side by side** first (step 2). |
 | **HTTPS:** "The private key is missing" | Add the `.key` file IT gave with the certificate, or upload a `.pfx` that holds both. If the request was made on this page, the key is already on the server: upload the certificate IT sent for *that* request. |
@@ -1608,5 +1610,5 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | **HTTPS:** "permission denied" when starting on ports 80 / 443 | Podman on Windows: `podman machine stop`, `podman machine set --rootful`, `podman machine start`. Or use `-p 8443:3000 -e HTTPS_PUBLIC_PORT=8443`. |
 | **HTTPS:** Let's Encrypt (Caddy) gets no certificate | `podman logs mz-caddy` says why. Usually the DNS name does not point at this machine yet, or port 80 is blocked from the internet. |
 | **HTTPS:** a renewed certificate is not being used | Wait 5 minutes. If the log says *The changed certificate could not be used*, the new files do not fit together; the old certificate stays in use meanwhile. |
-| **HTTPS:** reports cannot reach the server after the switch | Reports sent before carry the old address. In the report, click **Change** next to the reminder server and enter the `https://` address. Check **Settings → Reminder server address** shows it too. |
+| **HTTPS:** reports cannot reach the server after the switch | Reports sent before carry the old address. In the report, click **Change** next to the CxMissionZero server and enter the `https://` address. Check **Settings → CxMissionZero server address** shows it too. |
 | Anything else | Logs page → **Download troubleshooting log** and send it to your maintainer. |

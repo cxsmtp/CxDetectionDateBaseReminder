@@ -115,7 +115,7 @@ test('AI actions are enabled only for SAST/SCA findings whose Checkmarx One ids 
   assert.ok(!/apiKey|refresh_token"\s*:/.test(JSON.stringify(island(html))), 'no credential is embedded');
 });
 
-test("beyond the top 50, each project opens its own report from the reminder server, never Checkmarx One", () => {
+test("beyond the top 50, each project opens its own report from the CxMissionZero server, never Checkmarx One", () => {
   const connection = { baseUrl: 'https://eu.ast.checkmarx.net' };
   const risks = [risk(1, 'HIGH'), { ...risk(2, 'LOW'), projectId: 'p2', projectName: 'Other' }];
   const data = buildReportData(risks, { tenant: 't', connection, links: DEFAULT_LINK_TEMPLATES });
@@ -131,7 +131,7 @@ test("beyond the top 50, each project opens its own report from the reminder ser
   assert.doesNotMatch(single, /data-project-report=|See every finding in Checkmarx One|Open in Checkmarx One:/);
 });
 
-test("the report email's button downloads the attached report from the reminder server", () => {
+test("the report email's button downloads the attached report from the CxMissionZero server", () => {
   const connection = { baseUrl: 'https://eu.ast.checkmarx.net' };
   const data = buildReportData([risk(1, 'HIGH')], { connection, links: DEFAULT_LINK_TEMPLATES });
   const url = 'https://cx-reminder.corp.example/r/0f8fad5b-d9cb-469f-a165-70867728950e?s=abc';
@@ -174,7 +174,7 @@ test('"Triage all critical / high" cover every critical and high finding, not on
   assert.match(html, /data-severity="HIGH"[^>]*>Triage all high \(150\)/);
 });
 
-test('Remediate runs through the reminder server only when the administrator allowed it', () => {
+test('Remediate runs through the CxMissionZero server only when the administrator allowed it', () => {
   const resolved = { ...risk(1, 'CRITICAL'), state: 'CONFIRMED', alternateId: 'alt-1', groupId: '1', scanId: 's1', url: 'https://eu.ast.checkmarx.net/riskhub/p1?resultId=r1' };
   const build = (remediationViaRelay) =>
     generateHtmlReport(buildReportData([resolved], { tenant: 't' }), {
@@ -211,7 +211,7 @@ test('the report carries the re-triage switch, a valid administrator contact and
   assert.match(html, /<dialog id="credit-dialog"/);
 });
 
-test('the report shows its reminder server address, and one without an address can still be connected', () => {
+test('the report shows its CxMissionZero server address, and one without an address can still be connected', () => {
   const resolved = { ...risk(1, 'CRITICAL'), state: 'CONFIRMED', alternateId: 'alt-1', groupId: '1', scanId: 's1' };
   const build = (relayUrl) =>
     generateHtmlReport(buildReportData([resolved], { tenant: 't' }), {

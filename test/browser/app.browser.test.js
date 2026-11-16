@@ -229,10 +229,11 @@ test('Labs is in the menu only for a role that holds Labs permissions', async ()
 test('the menu: an Admin sees four groups, each with its pages', async () => {
   assert.deepEqual(await menuSeen(admin), [
     '[Act]', 'Workbench', 'Automation', 'Dashboard',
-    '[Credits]', 'Credit Control', 'Impact', 'Audit', 'Cx Credits Calculator',
+    '[Credits]', 'Credit Control', 'Impact', 'Audit',
     '[Set up]', 'People & roles', 'Settings', 'Logs',
     '[Labs]', 'Code authors', 'Fusion results',
   ]);
+  // (No Cx Credits Calculator: it is in the menu only once an Admin has given its address and turned it on.)
   assert.equal(await admin.locator('#nav').evaluate((nav) => nav.classList.contains('nav-flat')), false);
   // The label beside a page's title is as it was: Credit Control is still "Prove", the Dashboard "Follow up".
   await open(admin, 'credits', 'page-credits');
@@ -256,7 +257,7 @@ test('the menu: an Admin sees four groups, each with its pages', async () => {
   await admin.locator('#nav-fold-all').click();
   assert.deepEqual(await menuSeen(admin), ['[Act]', '[Credits]', 'Audit', '[Set up]', '[Labs]']);
   await admin.locator('#nav-fold-all').click();
-  assert.equal((await menuSeen(admin)).length, 16);
+  assert.equal((await menuSeen(admin)).length, 15);
 
   // A pinned page sits at the top, and Focus shows only the pinned pages and the one that is open.
   await admin.locator('#nav > a[data-route="impact"]').hover();
@@ -270,29 +271,43 @@ test('the menu: an Admin sees four groups, each with its pages', async () => {
   await admin.locator('#nav > a[data-route="impact"]').hover();
   await admin.locator('#nav > .nav-pin[data-route="impact"]').click();
   assert.equal(await admin.locator('#nav-pinned a.tab').count(), 0);
-  assert.equal((await menuSeen(admin)).length, 16);
+  assert.equal((await menuSeen(admin)).length, 15);
   nothingWentWrong();
 });
 
-test('the Cx Credits Calculator in the menu opens its own address when an Admin turned that on', async () => {
+test('the Cx Credits Calculator is off until an Admin gives its address; then the menu opens it there', async () => {
   const item = admin.locator('#nav > a[data-route="calculator"]');
-  assert.equal(await item.getAttribute('href'), '#/calculator');
+  // As installed: not in the menu, and its old address leads to the Workbench.
+  assert.equal(await item.isVisible(), false);
+  assert.equal((await menuSeen(admin)).includes('Cx Credits Calculator'), false);
+  await goTo(admin, '#/audit', 'page-audit');
+  await goTo(admin, '#/calculator', 'page-dashboard');
+  assert.equal(await admin.evaluate(() => location.hash), '#/dashboard');
+  assert.equal(await admin.locator('#page-calculator').isVisible(), false);
   // Settings → Beta features, under Organisation since the regrouping.
   await open(admin, 'settings', 'page-settings');
   await admin.locator('#set-nav [data-set="features"]').click();
+  assert.equal((await admin.locator('#calc-address-badge').textContent()).trim(), 'Off');
+  assert.match(await admin.locator('#calc-address p:visible').first().textContent(), /runs on its own, at an address of its own and with its own sign-in/);
   await admin.locator('#calc-address-url').fill('http://127.0.0.1:8333/');
   await admin.locator('#calc-address-on').check();
   await admin.locator('#calc-address-save').click();
   await admin.locator('#calc-address-status').filter({ hasText: 'in the menu now opens this address' }).waitFor();
+  assert.equal(await item.isVisible(), true);
   assert.equal(await item.getAttribute('href'), 'http://127.0.0.1:8333/');
   assert.equal(await item.getAttribute('target'), '_blank');
-  assert.deepEqual((await menuSeen(admin)).slice(4, 9), ['[Credits]', 'Credit Control', 'Impact', 'Audit', 'Cx Credits Calculator'], 'in its place in the menu');
-  // Off again: the built-in page.
+  assert.deepEqual((await menuSeen(admin)).slice(4, 10), ['[Credits]', 'Credit Control', 'Impact', 'Audit', 'Cx Credits Calculator', '[Set up]'], 'in its place in the menu');
+  // Its page in CxMissionZero only says where the calculator is; the built-in calculator stays put away.
+  await goTo(admin, '#/calculator', 'calc-moved');
+  assert.equal(await admin.locator('#calc-moved-open').getAttribute('href'), 'http://127.0.0.1:8333/');
+  assert.equal(await admin.locator('#page-calculator').isVisible(), false);
+  // Off again: gone from the menu.
+  await goTo(admin, '#/settings/features', 'page-settings');
   await admin.locator('#calc-address-on').uncheck();
   await admin.locator('#calc-address-save').click();
-  await admin.locator('#calc-address-status').filter({ hasText: 'opens in CxMissionZero' }).waitFor();
-  assert.equal(await item.getAttribute('href'), '#/calculator');
-  assert.equal(await item.getAttribute('target'), null);
+  await admin.locator('#calc-address-status').filter({ hasText: 'is off: the menu does not show it' }).waitFor();
+  assert.equal(await item.isVisible(), false);
+  assert.equal((await menuSeen(admin)).length, 15);
   nothingWentWrong();
 });
 
@@ -359,7 +374,7 @@ test('folded groups and pinned pages a browser kept from before the regrouping s
   await goTo(admin, '#/dashboard', 'page-dashboard');
   await admin.evaluate(() => {
     localStorage.setItem('mz-nav-folded', JSON.stringify(['prove', 'followup']));
-    localStorage.setItem('mz-nav-pins', JSON.stringify(['reports', 'calculator', 'a-page-there-never-was']));
+    localStorage.setItem('mz-nav-pins', JSON.stringify(['reports', 'impact', 'a-page-there-never-was']));
   });
   await admin.reload();
   await signedInAs(admin, ADMIN.name);
@@ -371,10 +386,10 @@ test('folded groups and pinned pages a browser kept from before the regrouping s
     '[Set up]', 'People & roles', 'Settings', 'Logs',
     '[Labs]', 'Code authors', 'Fusion results',
   ], 'Prove folded is Credits folded; the Dashboard, alone under Follow up before, stays in view under Act');
-  assert.deepEqual((await admin.locator('#nav-pinned a.tab').allTextContents()).map((t) => t.trim()), ['Dashboard', 'Cx Credits Calculator']);
+  assert.deepEqual((await admin.locator('#nav-pinned a.tab').allTextContents()).map((t) => t.trim()), ['Dashboard', 'Impact']);
   // A pinned page opens its page.
-  await admin.locator('#nav-pinned a.tab[data-route="calculator"]').click();
-  await admin.locator('#page-calculator').waitFor({ state: 'visible' });
+  await admin.locator('#nav-pinned a.tab[data-route="impact"]').click();
+  await admin.locator('#page-impact').waitFor({ state: 'visible' });
   // Unfolding writes today's names.
   await admin.locator('#nav .nav-group[data-group="credits"]').click();
   assert.equal(await admin.evaluate(() => localStorage.getItem('mz-nav-folded')), '[]');
@@ -382,7 +397,7 @@ test('folded groups and pinned pages a browser kept from before the regrouping s
   await admin.reload();
   await signedInAs(admin, ADMIN.name);
   await admin.locator('#nav > a[data-route="dashboard"]').waitFor({ state: 'visible' });
-  assert.equal((await menuSeen(admin)).length, 16);
+  assert.equal((await menuSeen(admin)).length, 15);
   nothingWentWrong();
 });
 
@@ -459,7 +474,7 @@ test('at a phone\'s width the Admin\'s menu keeps its four groups in the More sh
   const groups = await sheet.evaluate((pages) => [...pages.children].map((el) => (el.matches('.m-group-label') ? `[${el.textContent.trim()}]` : [...el.querySelectorAll('a.tab > span:not(.badge)')].map((s) => s.textContent.trim()).join(', '))));
   assert.deepEqual(groups, [
     '[Act]', 'Workbench, Automation, Dashboard',
-    '[Credits]', 'Credit Control, Impact, Audit, Cx Credits Calculator',
+    '[Credits]', 'Credit Control, Impact, Audit',
     '[Set up]', 'People & roles, Settings, Logs',
     '[Labs]', 'Code authors, Fusion results',
   ]);
@@ -524,7 +539,7 @@ test('a feature made final leaves Labs for its group: FAE Flush to the top of Ac
     await reloaded();
     assert.deepEqual(await menuSeen(page), [
       '[Act]', 'Workbench', 'Automation', 'Dashboard',
-      '[Credits]', 'Credit Control', 'Impact', 'Audit', 'Cx Credits Calculator',
+      '[Credits]', 'Credit Control', 'Impact', 'Audit',
       '[Set up]', 'People & roles', 'Settings', 'Logs',
       '[Labs]', 'Code authors', 'Fusion results', 'FAE Flush', 'Govern',
     ]);
@@ -535,7 +550,7 @@ test('a feature made final leaves Labs for its group: FAE Flush to the top of Ac
     await reloaded();
     assert.deepEqual(await menuSeen(page), [
       '[Act]', 'FAE Flush', 'Workbench', 'Automation', 'Dashboard',
-      '[Credits]', 'Credit Control', 'Impact', 'Audit', 'Govern', 'Cx Credits Calculator',
+      '[Credits]', 'Credit Control', 'Impact', 'Audit', 'Govern',
       '[Set up]', 'People & roles', 'Settings', 'Logs',
       '[Labs]', 'Code authors', 'Fusion results',
     ]);
@@ -554,14 +569,14 @@ test('a feature made final leaves Labs for its group: FAE Flush to the top of Ac
     const sheet = page.locator('.m-menu .m-pages');
     await sheet.waitFor({ state: 'visible' });
     const groups = await sheet.evaluate((pages) => [...pages.children].map((el) => (el.matches('.m-group-label') ? `[${el.textContent.trim()}]` : [...el.querySelectorAll('a.tab > span:not(.badge)')].map((s) => s.textContent.trim()).join(', '))));
-    assert.deepEqual(groups.slice(0, 4), ['[Act]', 'FAE Flush, Workbench, Automation, Dashboard', '[Credits]', 'Credit Control, Impact, Audit, Govern, Cx Credits Calculator']);
+    assert.deepEqual(groups.slice(0, 4), ['[Act]', 'FAE Flush, Workbench, Automation, Dashboard', '[Credits]', 'Credit Control, Impact, Audit, Govern']);
     await page.setViewportSize({ width: 1440, height: 900 });
 
     // Back in Beta: both return to Labs, in their places.
     await stage('faeFlush', 'beta');
     await stage('govern', 'beta');
     await reloaded();
-    assert.deepEqual((await menuSeen(page)).slice(13), ['[Labs]', 'Code authors', 'Fusion results', 'FAE Flush', 'Govern']);
+    assert.deepEqual((await menuSeen(page)).slice(12), ['[Labs]', 'Code authors', 'Fusion results', 'FAE Flush', 'Govern']);
     assert.deepEqual(visit.problems(), []);
   } finally {
     await visit.close();

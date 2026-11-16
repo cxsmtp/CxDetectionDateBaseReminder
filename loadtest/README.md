@@ -17,7 +17,7 @@ LAT=200 loadtest/run.sh 3000 120   # slower tenant, more readers
 ```
 
 It starts a mock Checkmarx One (200 projects × 60 findings, 80 ms per call,
-counting every call), a reminder server on port 3997 with a throwaway data
+counting every call), a CxMissionZero server on port 3997 with a throwaway data
 directory, and then simulates the readers. Each one connects, reads its credits
 and remediation state, one in five triages five findings, one in twenty
 remediates one, and every reader polls triage results for its 50 findings

@@ -2,6 +2,8 @@
 // Analysts once an Admin ticks it); customers saved and reopened; the Fusion read against the mock
 // Checkmarx One (lines of code, criticality, how often each project is scanned); reports kept,
 // downloaded again and deleted by Admins only; the organisation name; and off again by unticking it.
+// This is the calculator built into CxMissionZero, which a server has only when started with
+// CALCULATOR_BUILTIN=on (test/calculator-muted.e2e.test.js is the server without it).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -49,7 +51,7 @@ test.before(async () => {
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', ORGANISATION_NAME: 'Acme Partners',
       CX_API_KEY: mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' }), CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme',
-      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD,
+      ADMIN_EMAIL: 'admin@acme.io', ADMIN_PASSWORD: FIRST_PASSWORD, CALCULATOR_BUILTIN: 'on',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -277,9 +279,12 @@ test('unticked again, the calculator is gone for that role; the customers stay f
 });
 
 test('the calculator at its own address: an Admin\'s switch and address; the menu follows it for whoever may use the calculator', async () => {
-  // Off from the start: nobody is sent anywhere.
-  assert.equal((await admin('GET', '/api/me')).body.calculator, null);
-  assert.deepEqual((await admin('GET', '/api/calculator/address')).body.calculator, { external: false, url: '' });
+  // Off from the start: nobody is sent anywhere, and on this server the built-in page is the calculator.
+  assert.deepEqual((await admin('GET', '/api/me')).body.calculator, { builtIn: true });
+  assert.equal((await uma('GET', '/api/me')).body.calculator, null, 'not for a role without the calculator');
+  const address = (await admin('GET', '/api/calculator/address')).body;
+  assert.deepEqual(address.calculator, { external: false, url: '' });
+  assert.equal(address.builtIn, true);
   // Only an Admin (Make Beta features final) sets it; a Security Analyst, even with the calculator, does not.
   assert.equal((await ana('PUT', '/api/calculator/address', { url: 'http://calc.acme.io:8333/', external: true })).status, 403);
   assert.equal((await ana('GET', '/api/calculator/address')).status, 403);
@@ -292,10 +297,10 @@ test('the calculator at its own address: an Admin\'s switch and address; the men
     assert.equal(refused.status, 400, url);
     assert.match(refused.body.error, /must start with http:\/\/ or https:\/\//);
   }
-  assert.equal((await admin('GET', '/api/me')).body.calculator, null, 'a refused address changes nothing');
+  assert.deepEqual((await admin('GET', '/api/me')).body.calculator, { builtIn: true }, 'a refused address changes nothing');
   // The address alone, not turned on: still the built-in page.
   assert.deepEqual((await admin('PUT', '/api/calculator/address', { url: 'http://calc.acme.io:8333' })).body.calculator, { external: false, url: 'http://calc.acme.io:8333/' });
-  assert.equal((await admin('GET', '/api/me')).body.calculator, null);
+  assert.deepEqual((await admin('GET', '/api/me')).body.calculator, { builtIn: true });
   // Turned on: whoever may use the calculator is told where it is; a role without it is told nothing.
   const on = await admin('PUT', '/api/calculator/address', { external: true });
   assert.deepEqual(on.body.calculator, { external: true, url: 'http://calc.acme.io:8333/' });
@@ -309,9 +314,9 @@ test('the calculator at its own address: an Admin\'s switch and address; the men
   // Nothing is deleted: the saved customers are still there, and turning it off brings the built-in page back.
   assert.equal((await admin('GET', '/api/projections')).body.customers.length, 1);
   assert.deepEqual((await admin('PUT', '/api/calculator/address', { external: false })).body.calculator, { external: false, url: 'http://calc.acme.io:8333/' });
-  assert.equal((await admin('GET', '/api/me')).body.calculator, null);
+  assert.deepEqual((await admin('GET', '/api/me')).body.calculator, { builtIn: true });
   // Each change is in the audit log, with who made it.
   const reasons = (await admin('GET', '/api/audit?limit=50')).body.entries.map((e) => e.reason).join('\n');
-  assert.match(reasons, /The Cx Credits Calculator now opens at its own address, http:\/\/calc\.acme\.io:8333\//);
+  assert.match(reasons, /The Cx Credits Calculator was turned on: the menu opens http:\/\/calc\.acme\.io:8333\//);
   assert.match(reasons, /opens in CxMissionZero again/);
 });

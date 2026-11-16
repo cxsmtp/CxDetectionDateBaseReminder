@@ -8,7 +8,9 @@
  * What is kept of an accepted code is the signed code itself, and it is checked again each time this starts:
  * a date changed by hand in activation.json counts for nothing. A product entry kept by a version before
  * MZ-01.01.10 has no code with it, so it no longer counts until the code is entered again (the built-in date
- * still applies); entries of the other scopes kept by those versions stay as they were.
+ * still applies). A feature or tenants entry kept by those versions has no code either and stays in force as it
+ * was kept (MZ-01.01.11 and MZ-01.01.12 switched those off until their codes were entered again; the owner
+ * decided they are honoured for good, so that an update never takes away what an installation had).
  *
  * Multi-tenant mode itself works on every installation. Adding tenants, switching between
  * them and approving a tenant's own email server need an activation code issued by the
@@ -144,13 +146,15 @@ export class ActivationStore {
   /**
    * Each kept entry as its signed code says it: the scope, the action, the date and the tenant count are read from
    * the code, not from the file. An entry whose code does not verify (edited, or from another key) counts for
-   * nothing. So does an entry without a code (kept by a version before MZ-01.01.10, or written by hand): the
-   * code is entered once more, for the product, for several tenants and for every feature alike.
+   * nothing. An entry without a code is one a version before MZ-01.01.10 kept (it did not keep the code): for the
+   * product it counts for nothing, so the licence's date always comes from a signed code or the built-in date; for
+   * several tenants and for a feature it stays in force as it was kept. (That is the owner's decision, knowing what
+   * it leaves open: someone who can write the data folder can write such an entry by hand.)
    */
   #seal() {
     const sealed = (entry, scope) => {
       if (!entry || typeof entry !== 'object') return null;
-      if (!entry.code) return null;
+      if (!entry.code) return scope === 'product' ? null : entry;
       // now: 0, so an expired code still reads (its date then says it is over).
       const checked = checkCode(entry.code, { now: 0, ...(this.#keys ? { keys: this.#keys } : {}) });
       if (!checked.valid || checked.scope !== scope) return null;

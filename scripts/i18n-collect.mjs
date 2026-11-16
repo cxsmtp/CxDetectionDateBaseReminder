@@ -33,7 +33,7 @@ function start(env) {
   let log = '';
   const server = spawn(process.execPath, ['src/server.js'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(APP_PORT), HOST: '127.0.0.1', HTTPS: 'off', DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-')), BACKUP_INTERVAL_HOURS: '0', CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', SMTP_HOST: '', GITHUB_TOKEN: '', UPDATE_IMAGE: '127.0.0.1:1/none/none', ...env },
+    env: { ...process.env, PORT: String(APP_PORT), HOST: '127.0.0.1', HTTPS: 'off', DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-')), BACKUP_INTERVAL_HOURS: '0', CALCULATOR_BUILTIN: 'on', CX_API_KEY: KEY, CX_BASE_URL: MOCK, CX_IAM_URL: MOCK, CX_TENANT: 'acme', SMTP_HOST: '', GITHUB_TOKEN: '', UPDATE_IMAGE: '127.0.0.1:1/none/none', ...env },
   });
   server.stdout.on('data', (d) => (log += d));
   server.stderr.on('data', (d) => (log += d));
@@ -241,7 +241,10 @@ try {
 }
 
 // Wording the page builds in code and only shows while something runs.
-const source = fs.readFileSync(path.join(ROOT, 'public/app.js'), 'utf8');
+// The page's script: public/app.js and the modules it imports from public/app/, read as one text.
+const modules = path.join(ROOT, 'public/app');
+const sourceFiles = ['public/app.js', ...fs.readdirSync(modules).filter((f) => f.endsWith('.js')).sort().map((f) => `public/app/${f}`)];
+const source = sourceFiles.map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');
 const literal = /'((?:[^'\\\n]|\\.)*)'/g;
 const block = (start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
 where.place = 'busy line';

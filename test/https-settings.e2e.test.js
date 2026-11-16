@@ -162,7 +162,7 @@ test('an Admin moves a running server from http to HTTPS from the Settings page,
   assert.equal(fromHttp.json.needsHttps, true);
   const switched = await as(HTTPS_, 'POST', '/api/https/mode', { mode: 'https', updateAddress: true }, { ca: chain.rootCert });
   assert.equal(switched.status, 200, switched.text);
-  assert.equal(switched.json.addressChanged, `https://127.0.0.1:${port}`, 'the reminder server address follows');
+  assert.equal(switched.json.addressChanged, `https://127.0.0.1:${port}`, 'the CxMissionZero server address follows');
 
   // Plain http now: pages redirect, API calls and reports are told where to go.
   const page = await call(`${HTTP}/dashboard?x=1`);
