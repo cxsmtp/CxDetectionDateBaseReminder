@@ -3,7 +3,10 @@
  * its lines of code, how many AI scans it had over a period, and the Checkmarx One credits it used then.
  *
  *   - Scan type: Fusion when the latest scan ran the AI engine with Fusion on (scan.config.ai.fusionEnabled, in the
- *     scan's own settings), LAST when it ran it with Fusion off (LLM-based scanning), none otherwise.
+ *     scan's own settings); LAST when it lists the AI engine with Fusion off (LLM-based scanning) and the AI engine
+ *     reported at least one result in it (the results Checkmarx One marks "LLM-Based: Yes"); none otherwise. The AI
+ *     engine is on every scan's list on a tenant where LAST is on by default, whether or not it found anything, so
+ *     the list alone does not make a LAST scan (from MZ-01.01.16).
  *   - Model: the latest scan's own configuration when it says (`llmModel`); else what Checkmarx One resolved for
  *     that scan (GET /api/configuration/scan), with where it was set: the project, the tenant, or Checkmarx One's
  *     own ("Environment"). Each is said with where it came from.
@@ -249,16 +252,51 @@ export async function scanLanguages(client, scans, { concurrency = 2, background
 }
 
 /**
+ * How many results the AI engine reported in a scan: the SAST results Checkmarx One marks LLM-based
+ * (GET /api/sast-results?scan-id=…&is-ai-generated=1, one row asked for, its totalCount read). null when Checkmarx
+ * One does not say (no permission, an older tenant).
+ */
+export async function aiResultCount(client, scanId, { background = true, trace = null } = {}) {
+  const body = await quiet(() => client.request('/api/sast-results', { query: { 'scan-id': scanId, 'is-ai-generated': 1, 'is-ai-generated-operation': 'EQUAL', limit: 1, offset: 0 }, retries: 1, background, trace }));
+  if (!body || typeof body !== 'object') return null;
+  const total = Number(body.totalCount);
+  if (body.totalCount !== undefined && body.totalCount !== null && Number.isFinite(total)) return total;
+  return Array.isArray(body.results) ? body.results.length : null;
+}
+
+/**
+ * Whether a scan that lists the AI engine with Fusion off found anything with it, kept by scan id: a completed scan
+ * does not change, so each is asked about once while the server runs (the oldest answers go first when there are
+ * very many). Only an answer is kept: a scan Checkmarx One did not answer for is asked again next time.
+ */
+const lastFound = new Map();
+const LAST_FOUND_MAX = 50_000;
+/** Counts being asked for now, by scan id: several people loading the same projects at once ask once. */
+const lastAsking = new Map();
+/** These counts are one small call a scan, asked a few at a time (the connection's own limit still holds). */
+const LAST_COUNTS_AT_ONCE = 6;
+function keepLastFound(scanId, found) {
+  if (lastFound.size >= LAST_FOUND_MAX) lastFound.delete(lastFound.keys().next().value);
+  lastFound.set(scanId, found);
+}
+
+/**
  * What kind of scan each project's latest scan was (`scans`: { projectId: scan }): { projectId: 'fusion' | 'last' |
  * 'none' }. A scan whose engines say no AI is 'none' without asking; the others are read a hundred at a time
  * (GET /api/scans?scan-ids=…) for their own AI settings. Projects Checkmarx One does not answer for are left out.
+ *
+ * A scan that lists the AI engine with Fusion off is 'last' only if the AI engine reported at least one result in
+ * it (aiResultCount, a call per such scan the first time it is seen): with none it is 'none', as a scan without the
+ * AI engine is. Where Checkmarx One does not say how many, it stays 'last', as before.
  */
 export async function scanTypes(client, scans, { concurrency = 4, background = true, trace = null, engines = null } = {}) {
   const out = {};
   const ask = [];
+  const scanOf = {};
   for (const [projectId, scan] of Object.entries(scans ?? {})) {
     const id = text(scan?.id ?? scan?.scanId, 80);
     if (!id) continue;
+    scanOf[projectId] = id;
     // `engines` (optional): each latest scan's engines, as given or as read here (Labs → Status board), at no extra call.
     if (engines && Array.isArray(scan.engines)) engines[projectId] = scan.engines.map((e) => text(e, 40));
     if (Array.isArray(scan.engines) && scanAiConfig(scan)) out[projectId] = scanTypeOf(scan.engines, flag(scanAiConfig(scan).fusionEnabled));
@@ -276,6 +314,23 @@ export async function scanTypes(client, scans, { concurrency = 4, background = t
       if (engines) engines[projectId] = scan.engines.map((e) => text(e, 40));
       out[projectId] = scanTypeOf(scan.engines, flag(scanAiConfig(scan)?.fusionEnabled));
     }
+  });
+  // The AI engine on the list, Fusion off: a LAST scan only if LAST found something in it.
+  const candidates = Object.keys(out).filter((projectId) => out[projectId] === 'last');
+  await mapWithConcurrency(candidates, Math.max(concurrency, LAST_COUNTS_AT_ONCE), async (projectId) => {
+    const id = scanOf[projectId];
+    if (!lastFound.has(id)) {
+      // (A read that fails leaves this scan as it was, and never the other projects without their kind.)
+      let asking = lastAsking.get(id);
+      if (!asking) {
+        asking = aiResultCount(client, id, { background, trace }).catch(() => null).finally(() => lastAsking.delete(id));
+        lastAsking.set(id, asking);
+      }
+      const count = await asking;
+      if (count === null) return;
+      keepLastFound(id, count > 0);
+    }
+    if (!lastFound.get(id)) out[projectId] = 'none';
   });
   return out;
 }

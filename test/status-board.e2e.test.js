@@ -45,7 +45,7 @@ async function signIn(b, email) {
 
 test.before(async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'status-board-'));
-  children.push(spawn(process.execPath, ['loadtest/mock-cxone.mjs'], { env: { ...process.env, PORT: String(MOCK_PORT), LAT: '1', PROJECTS: '12', RISKS: '8', FAILED_SCANS: '1' }, stdio: 'ignore' }));
+  children.push(spawn(process.execPath, ['loadtest/mock-cxone.mjs'], { env: { ...process.env, PORT: String(MOCK_PORT), LAT: '1', PROJECTS: '12', RISKS: '8', FAILED_SCANS: '1', LAST_FOUND_NOTHING: 'p10' }, stdio: 'ignore' }));
   const server = spawn(process.execPath, ['src/server.js'], {
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0',
@@ -141,6 +141,9 @@ test('built from the Workbench fetch: severities, engines, applications, failed 
   // Fusion and LAST scans (the mock: every sixth project from 4 ran LAST; projects not 2 mod 3 ran the AI engine).
   assert.equal(board.rows.find((r) => r.projectId === 'p4').scanType, 'last');
   assert.equal(board.rows.find((r) => r.projectId === 'p0').scanType, 'fusion');
+  // Project 10's scan lists the AI engine with Fusion off as project 4's does, but none of its results is LLM-based
+  // (LAST on by default, nothing found): not a LAST scan.
+  assert.ok(!['last', 'fusion'].includes(board.rows.find((r) => r.projectId === 'p10').scanType), JSON.stringify(board.rows.find((r) => r.projectId === 'p10').scanType));
 });
 
 test('the side panel: a project\'s last scans, with the failed one first and why', async () => {
