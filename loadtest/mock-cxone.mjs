@@ -65,6 +65,9 @@ const branchOfScan = (id) => {
 const VULNS = [['SQL_Injection', 89], ['Reflected_XSS_All_Clients', 79], ['SSRF', 918], ['Path_Traversal', 22], ['Hardcoded_password_in_Connection_String', 798], ['Stored_XSS', 79], ['Command_Injection', 78], ['Missing_HSTS_Header', 319], ['Blind_SQL_Injections', 89], ['Server_Side_Request_Forgery', 918], ['XML_External_Entity', 611], ['Log_Forging', 117]];
 // LAST scans (the AI engine with Fusion off): project 4, and every sixth project after it.
 const lastScanProject = (i) => i % 6 === 4;
+// LAST_FOUND_NOTHING=p10,p16: projects whose scans list the AI engine (as every scan does on a tenant with LAST on by
+// default) but in which it found nothing: none of their results is marked LLM-based.
+const LAST_FOUND_NOTHING = new Set(String(process.env.LAST_FOUND_NOTHING ?? '').split(',').map((s) => s.trim()).filter(Boolean));
 // FAILED_SCANS=1: project 3, and every seventh after it, has a scan that failed (SAST out of memory) after its latest
 // completed one (Labs → Status board). Asked for with ?statuses=Failed, tenant-wide or for the project.
 const FAILED_SCANS = process.env.FAILED_SCANS === '1';
@@ -493,7 +496,7 @@ http.createServer((req, res) => {
           const file = last ? `contracts/Token${k % 4}.sol` : `src/routes/file${k % 4}.ts`;
           const language = last ? 'Solidity' : 'TypeScript';
           return { resultHash: r.id, similarityID: r.groupId,  ...(u.searchParams.getAll('visible-columns').includes('attack-vector-id') ? { attackVectorID: attackVectorOf(r.groupId) } : {}), queryName: r.riskName.replace(/ /g, '_'), queryID: k % 3 === 0 ? 0 : 1000 + k, group: k % 3 === 0 ? `${language}_${r.severity}` : 'TypeScript_High_Risk', languageName: language, cweID: [287, 89, 79][k % 3], severity: r.severity, state: r.state, status: k % 2 ? 'RECURRENT' : 'NEW', firstFoundAt: r.firstDetectionDate, foundAt: day(1), confidenceLevel: 0, nodes: [{ fileName: file, line: 40 + k, column: 13, name: 'input', method: 'handler' }, { fileName: file, line: 42 + k, column: 31, name: 'query', method: 'handler' }], isAiGenerated: k % 3 === 0, ...(k % 3 === 0 ? { description: `<p>The <code>input</code> parameter of <b>handler</b> reaches a ${last ? 'contract call' : 'database query'} in ${file} without being checked, so an attacker can change what it does.</p>` } : {}) };
-        }).filter((r) => (ai === '1' ? r.isAiGenerated : ai === '0' ? !r.isAiGenerated : true));
+        }).map((r) => (LAST_FOUND_NOTHING.has(pid) ? { ...r, isAiGenerated: false } : r)).filter((r) => (ai === '1' ? r.isAiGenerated : ai === '0' ? !r.isAiGenerated : true));
         if (u.pathname === '/api/sast-results') {
           const lim = Number(u.searchParams.get('limit') || 20);
           return send(200, { results: rows.slice(offset, offset + lim), totalCount: rows.length });

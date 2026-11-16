@@ -262,10 +262,36 @@ test('the Workbench’s scan types: no AI said by the engines is none; the rest 
     '/api/scans': (q) => ({ scans: q['scan-ids'].map((id) => ({ id, engines: ['sast', 'ai'], metadata: { configs: [{ type: 'ai', value: { fusionEnabled: id === 's2' ? 'false' : 'true' } }] } })) }),
   });
   const types = await scanTypes(client, { p1: { id: 's1' }, p2: { id: 's2', engines: ['sast', 'ai'] }, p3: { id: 's3', engines: ['sast', 'sca'] }, p4: { id: 's4', engines: ['ai'], metadata: { configs: [{ type: 'ai', value: { fusionEnabled: 'false' } }] } }, p5: {} });
+  // (This Checkmarx One does not say how many results the AI engine reported: a scan with it on, Fusion off, stays LAST.)
   assert.deepEqual(types, { p1: 'fusion', p2: 'last', p3: 'none', p4: 'last' });
-  assert.equal(client.calls.length, 1, 'one call for the scans that do not say');
+  assert.equal(client.calls.filter((c) => c.path === '/api/scans').length, 1, 'one call for the scans that do not say');
   assert.deepEqual(client.calls[0].query['scan-ids'], ['s1', 's2']);
   assert.deepEqual(await scanTypes(fakeClient({}), { p1: { id: 's1' } }), {}, 'not answered: not known');
+});
+
+test('a LAST scan is one the AI engine found something in: the engine on the scan\'s list alone does not make one', async () => {
+  const { aiResultCount, scanTypes } = await import('../src/fusion-usage.js');
+  // As a tenant with LAST on by default: every scan lists "ai", Fusion off. Only l1 has results marked LLM-based.
+  const found = { l1: 3, l2: 0, l3: 0, f1: 0 };
+  const make = () => fakeClient({
+    '/api/scans': (q) => ({ scans: q['scan-ids'].map((id) => ({ id, engines: ['sast', 'sca', 'ai'], metadata: { configs: [{ type: 'ai', value: { fusionEnabled: id === 'f1' ? 'true' : 'false' } }] } })) }),
+    '/api/sast-results': (q) => ({ results: found[q['scan-id']] ? [{ resultHash: 'x' }] : [], totalCount: found[q['scan-id']] }),
+  });
+  const client = make();
+  const scans = { a: { id: 'l1' }, b: { id: 'l2' }, c: { id: 'l3', engines: ['sast', 'ai'], metadata: { configs: [{ type: 'ai', value: { fusionEnabled: false } }] } }, d: { id: 'f1' } };
+  assert.deepEqual(await scanTypes(client, scans), { a: 'last', b: 'none', c: 'none', d: 'fusion' }, 'no LLM-based result: not a LAST scan; a Fusion scan is one by its settings');
+  const asked = client.calls.filter((c) => c.path === '/api/sast-results');
+  assert.deepEqual(asked.map((c) => c.query['scan-id']).sort(), ['l1', 'l2', 'l3'], 'asked only of scans with the AI engine on and Fusion off');
+  assert.ok(asked.every((c) => c.query['is-ai-generated'] === 1 && c.query.limit === 1), 'one row, for its count');
+  // A completed scan does not change: the next load asks nothing more about these.
+  const again = make();
+  assert.deepEqual(await scanTypes(again, scans), { a: 'last', b: 'none', c: 'none', d: 'fusion' });
+  assert.equal(again.calls.filter((c) => c.path === '/api/sast-results').length, 0);
+  // The count itself; and a Checkmarx One that does not say leaves it unknown (the scan then stays LAST, and is asked again).
+  assert.equal(await aiResultCount(make(), 'l1'), 3);
+  assert.equal(await aiResultCount(fakeClient({}), 'l9'), null);
+  const silent = fakeClient({ '/api/scans': (q) => ({ scans: q['scan-ids'].map((id) => ({ id, engines: ['ai'], metadata: { configs: [{ type: 'ai', value: { fusionEnabled: 'false' } }] } })) }) });
+  assert.deepEqual(await scanTypes(silent, { z: { id: 'l9' } }), { z: 'last' });
 });
 
 test('the tenant’s credits and AI settings, as Checkmarx One gives them', async () => {
