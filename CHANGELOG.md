@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.15 | 507/s, 0 (main 496, 0) | 4.9 s (5.3 s) | 293 ms (364 ms) | 1,232 + 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.14 | 488 and 499/s, 0 (main 497 and 477, 0 and 31; two pairs) | 6.7 and 5.3 s (7.1 and 10.6 s) | 718 and 376 ms (630 and 998 ms) | 1,232 + 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.13 | 498 and 511/s, 0 (main 490 and 516, 0; two pairs) | 5.5 and 5.1 s (5.6 and 3.2 s) | 358 and 295 ms (460 and 161 ms) | 1,225 + 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.12 | 513/s, 0 (main 507, 0) | 0.3 s (1.8 s) | 129 ms (183 ms) | 1,213 + 16 in a browser | 0 vulnerabilities | Scan d79bed45 of the release's code, every engine but the AI ones: 32 open (1 / 4 / 10 / 16, 1 info), none new, all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
@@ -100,6 +101,12 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.15 — 2026-11-16 10:40 UTC · [#137](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/137)
+
+- **MZ-01.01.14, published.** Nothing that runs on your server changes from MZ-01.01.14: its image was never published, because one test failed on the build of main, and this release is the same code with that test put right.
+- **A test that failed now and then.** The backup-encryption test removed its folder while its test server was still writing there, and failed about once in six runs; that is what kept MZ-01.01.12's image and MZ-01.01.14's from being published, and it now stops the server first.
+- **Status.** 1,232 tests pass (one is skipped when run as root and passes in CI), with 16 that drive the page in Chromium; the corrected test file passed 14 runs in a row; `npm audit --omit=dev` finds nothing. Benchmark against main, both runs with 0 failed requests and no finding sent twice: 507 requests a second (main 496), report opens 4.9 s at p95 (main 5.3 s), triage polls 293 ms (main 364 ms), as two runs of the same code give, since only a test changed. No new Checkmarx One scan, as the connector needs signing in again: the last, d79bed45 of MZ-01.01.12's code, has 32 results, all judged before.
 
 ## MZ-01.01.14 — 2026-11-16 10:20 UTC · [#136](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/136)
 
