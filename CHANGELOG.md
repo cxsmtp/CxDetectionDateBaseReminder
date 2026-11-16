@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.14 | 488 and 499/s, 0 (main 497 and 477, 0 and 31; two pairs) | 6.7 and 5.3 s (7.1 and 10.6 s) | 718 and 376 ms (630 and 998 ms) | 1,232 + 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.13 | 498 and 511/s, 0 (main 490 and 516, 0; two pairs) | 5.5 and 5.1 s (5.6 and 3.2 s) | 358 and 295 ms (460 and 161 ms) | 1,225 + 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.12 | 513/s, 0 (main 507, 0) | 0.3 s (1.8 s) | 129 ms (183 ms) | 1,213 + 16 in a browser | 0 vulnerabilities | Scan d79bed45 of the release's code, every engine but the AI ones: 32 open (1 / 4 / 10 / 16, 1 info), none new, all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.11 | 509/s, 0 (main 514 and 508, 0; two pairs) | 1.0 and 3.4 s (4.4 and 0.7 s) | 142 and 293 ms (209 and 144 ms) | 1,202 + 9 in a browser | 0 vulnerabilities | Scan e20ac30a of the final code, every engine but the AI ones: 32 open (1 / 4 / 10 / 16, 1 info); 2 in this release's code, checked and not exploitable; an independent review's 6 findings fixed ([review](docs/security/mz-01.01.11-review.md)) |
@@ -99,6 +100,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.14 — 2026-11-16 10:20 UTC · [#136](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/136)
+
+- **The Consolidated view loads every tenant itself.** Opening it reads every tenant not loaded yet (or not for a day), each with its own saved Checkmarx One connection, findings and credits: nobody has to open each tenant and load its Workbench first.
+- **Refresh, and progress you can see.** Refresh every tenant reads them all again, Load or Refresh on a card reads one, and each card says how far it has got; a tenant that cannot be read says why and is tried again only when asked.
+- **A tenant's figures there are every open finding.** A Workbench load narrowed to an age, a search or named projects no longer replaces a tenant's figures in the Consolidated view.
+- **The Workbench starts with what is new this week.** "Findings open for" starts at New this week instead of Any age, so a first load is quick; a load made before brings back the scope it was made with, and Any age is still one click away.
+- **Status.** 1,232 tests pass (one is skipped when run as root and passes in CI), with 16 that drive the page in Chromium; `npm audit --omit=dev` finds nothing. Benchmark, two pairs against main, no finding sent twice in any run: the release served 488 and 499 requests a second with 0 failed requests (main 497 and 477, with 31 failed in its second run on a host that was busier than usual), report opens 6.7 and 5.3 s at p95 (main 7.1 and 10.6 s), triage polls 718 and 376 ms (main 630 and 998 ms); the benchmark does not call the new routes. No new Checkmarx One scan, as the connector needs signing in again: the last, d79bed45 of MZ-01.01.12's code, has 32 results, all judged before.
 
 ## MZ-01.01.13 — 2026-11-16 08:25 UTC · [#135](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/135)
 
