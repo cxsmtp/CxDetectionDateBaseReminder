@@ -1588,6 +1588,7 @@ The buttons turn gold once the credits cover the work. Credits given, taken back
 | SMTP test times out | Usually the port and **Secure connection from the start** do not match: 465 needs it on, 587 needs it off. Otherwise a firewall is blocking the port. |
 | Hebrew is on (Settings → Activation codes) but not in the language list | Only roles with the **Hebrew** permission are offered it (Admins always). On **People & roles**, tick **Hebrew** for the role, then **Save**; it applies at once. |
 | Gmail refuses the password | Use an App Password, not your normal password. |
+| A page looks different in Safari than in Chrome or Edge | From MZ-01.01.17 lists that open, search fields and blurred backgrounds are drawn by the page itself, the same in every browser. If something still looks out of place, update to that version and reload with **⌥⌘R**; if it stays, send your administrator a picture of the page and Safari's version (**Safari → About Safari**): older versions of Safari lack some of what the pages use. |
 | An uploaded .env file "Not applied" | That line has a mistake (listed with its line number and how to fix it); the setting that worked is kept. Fix the line and upload again. |
 | The report says it cannot reach the server | Be on the company network or VPN. Check **Settings → CxMissionZero server address**, and use **Change address** in the report if the server moved. |
 | More rows than credits needed | Several rows can be one Checkmarx One result (marked **Same result R1** …). You are charged per result. |
