@@ -5857,6 +5857,9 @@
   "Each tenant loads by itself when this page is opened: its projects show here as it finishes.": "이 페이지를 열면 각 테넌트를 자동으로 불러옵니다. 불러오기가 끝나면 해당 프로젝트가 여기에 표시됩니다.",
   "Each tenant's figures are what it holds now: every open finding as last loaded, the credits it last read and its credit pool (and Govern's budgets where Govern runs). For people who may fetch findings, this page loads each tenant by itself when it is opened, with that tenant's own Checkmarx One connection; Refresh every tenant reads them all again. Loading reads Checkmarx One and changes nothing there or in a tenant. The \"Go to\" buttons take you into the tenant, as the tenant switcher does.": "각 테넌트의 수치는 현재 보유한 값입니다: 마지막으로 불러온 모든 미해결 탐지 결과, 마지막으로 읽은 크레딧, 크레딧 풀(거버넌스가 실행 중이면 거버넌스 예산 포함). 탐지 결과를 가져올 수 있는 사용자의 경우, 이 페이지를 열면 각 테넌트 자체의 Checkmarx One 연결로 각 테넌트를 자동으로 불러옵니다. 모든 테넌트 새로 고침을 누르면 전부 다시 읽습니다. 불러오기는 Checkmarx One을 읽기만 하며 Checkmarx One이나 테넌트의 어떤 것도 변경하지 않습니다. \"이동\" 버튼을 누르면 테넌트 전환 메뉴와 마찬가지로 해당 테넌트로 이동합니다.",
   "Reads every tenant's open findings and credits from Checkmarx One again, each with its own connection": "각 테넌트의 미해결 탐지 결과와 크레딧을 각자의 연결로 Checkmarx One에서 다시 읽습니다",
-  "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "이 테넌트에는 저장된 Checkmarx One 연결이 없습니다. 테넌트를 열고 설정 → Checkmarx One에서 한 번 연결하세요."
+  "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "이 테넌트에는 저장된 Checkmarx One 연결이 없습니다. 테넌트를 열고 설정 → Checkmarx One에서 한 번 연결하세요.",
+  "Total results": "전체 결과",
+  "All of its latest scan's SAST results, the AI engine's and traditional SAST's together; hover a figure for the AI engine's share": "최근 스캔의 전체 SAST 결과(AI 엔진과 기존 SAST의 결과 합계)입니다. 숫자에 마우스를 올리면 AI 엔진의 비율이 표시됩니다",
+  "{0} of {1} SAST results are the AI engine's: {2}%": "SAST 결과 {1}건 중 {0}건이 AI 엔진의 결과: {2}%"
  }
 }

@@ -3810,6 +3810,12 @@ button.help-q.help-q:hover, button.help-q.help-q[aria-expanded="true"] { color: 
 .fusion-vuln > summary .sev-dot { margin: 0; }
 .fusion-vuln-name { font-weight: 600; overflow-wrap: anywhere; }
 .fusion-vuln-sub { grid-column: 2 / 4; color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+/* A result's severity in words, in the severity's own colour: dark enough to read as text on a light panel, light enough on a dark one. */
+.sev-word { font-weight: 600; color: var(--c, inherit); }
+.sev-word-critical { --c: #c81e1e; } .sev-word-high { --c: #c2410c; } .sev-word-medium { --c: #a16207; } .sev-word-low { --c: #1d4ed8; }
+:root[data-theme="dark"] .sev-word-critical { --c: #f87171; } :root[data-theme="dark"] .sev-word-high { --c: #fb923c; } :root[data-theme="dark"] .sev-word-medium { --c: #fbbf24; } :root[data-theme="dark"] .sev-word-low { --c: #60a5fa; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sev-word-critical { --c: #f87171; } :root:not([data-theme="light"]) .sev-word-high { --c: #fb923c; } :root:not([data-theme="light"]) .sev-word-medium { --c: #fbbf24; } :root:not([data-theme="light"]) .sev-word-low { --c: #60a5fa; } }
+.sev-word-pill { display: inline-block; padding: 0 9px; border-radius: 99px; line-height: 20px; font-size: 12.5px; border: 1px solid color-mix(in srgb, var(--c, currentColor) 45%, transparent); background: color-mix(in srgb, var(--c, currentColor) 9%, transparent); }
 .fusion-vuln dl { display: grid; grid-template-columns: minmax(96px, max-content) 1fr; gap: 6px 14px; margin: 0; padding: 2px 14px 14px 32px; font-size: 13px; }
 .fusion-vuln dt { color: var(--muted); }
 .fusion-vuln dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }

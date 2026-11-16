@@ -5857,6 +5857,9 @@
   "Each tenant loads by itself when this page is opened: its projects show here as it finishes.": "各テナントは、このページを開くと自動的に読み込まれます。読み込みが終わると、そのプロジェクトがここに表示されます。",
   "Each tenant's figures are what it holds now: every open finding as last loaded, the credits it last read and its credit pool (and Govern's budgets where Govern runs). For people who may fetch findings, this page loads each tenant by itself when it is opened, with that tenant's own Checkmarx One connection; Refresh every tenant reads them all again. Loading reads Checkmarx One and changes nothing there or in a tenant. The \"Go to\" buttons take you into the tenant, as the tenant switcher does.": "各テナントの数値は、そのテナントが現在保持している内容です：最後に読み込んだ時点のすべての未解決の検出結果、最後に読み取ったクレジット、クレジットプール（統制が稼働している場合は統制の予算）。検出結果を取得できるユーザーの場合、このページを開くと、各テナント自身のCheckmarx One接続を使って各テナントが自動的に読み込まれます。「すべてのテナントを更新」を押すと、すべてを再度読み取ります。読み込みはCheckmarx Oneを読み取るだけで、Checkmarx Oneもテナントも変更しません。「移動」ボタンを押すと、テナント切り替えと同様にそのテナントに移動します。",
   "Reads every tenant's open findings and credits from Checkmarx One again, each with its own connection": "各テナントの未解決の検出結果とクレジットを、それぞれの接続でCheckmarx Oneから再度読み取ります",
-  "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "このテナントには保存されたCheckmarx One接続がありません。テナントを開き、設定 → Checkmarx One で一度接続してください。"
+  "This tenant has no stored Checkmarx One connection. Open the tenant and connect it once under Settings → Checkmarx One.": "このテナントには保存されたCheckmarx One接続がありません。テナントを開き、設定 → Checkmarx One で一度接続してください。",
+  "Total results": "結果の合計",
+  "All of its latest scan's SAST results, the AI engine's and traditional SAST's together; hover a figure for the AI engine's share": "最新スキャンのすべてのSAST結果（AIエンジンと従来のSASTの合計）。数値にカーソルを合わせるとAIエンジンの割合が表示されます",
+  "{0} of {1} SAST results are the AI engine's: {2}%": "SAST結果{1}件中{0}件がAIエンジンによるもの：{2}%"
  }
 }
