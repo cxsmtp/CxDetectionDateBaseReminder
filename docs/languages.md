@@ -133,7 +133,7 @@ These now have separate entries.
 
 **Added after collection.** Six entries were translated afterwards and then reviewed twice in all nine languages: the date-range "From"/"To", the code-author confidence badges "Sure", "Check" and "Unsure", and the calendar "Last month".
 
-**Added in MZ-01.01.18.** 5 entries in all fourteen languages, on **Labs → Fusion results**: the three headings of the results column (**Fusion / total results**, **LAST results**, **AI / total results**), its tooltip, and what hovering a LAST scan's figure says. Product names (Fusion, LAST, AI, SAST) stay in English, as elsewhere. Translated once and not yet reviewed a second time. **Total results** and its two sentences from MZ-01.01.17 stay in the files, unused.
+**Added in MZ-01.01.18.** 4 entries in all fourteen languages, on **Labs → Fusion results**: two headings of the results column (**Fusion / total results**, **AI / total results**; the third, **LAST results**, was already translated for the page's figures), its tooltip, and what hovering a LAST scan's figure says. Product names (Fusion, LAST, AI, SAST) stay in English, as elsewhere. Translated once and not yet reviewed a second time. **Total results** and its two sentences from MZ-01.01.17 stay in the files, unused.
 
 **Added in MZ-01.01.17.** 3 entries in all fourteen languages, on **Labs → Fusion results**: the heading **Total results**, its tooltip, and what hovering a figure says (how many of the scan's SAST results are the AI engine's, and the share). Translated once and not yet reviewed a second time. The three entries of the column it replaces (**AI share of SAST**) stay in the files, unused.
 
