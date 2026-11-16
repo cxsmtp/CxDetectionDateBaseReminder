@@ -396,7 +396,5 @@ export function registerFusionRoutes(app, d) {
     }),
   );
 
-  return {
-    initiatorLogins,
-  };
+  return { initiatorLogins };
 }

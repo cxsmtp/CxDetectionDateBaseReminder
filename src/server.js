@@ -71,41 +71,42 @@ import { checkOutboundUrl } from './outbound-url.js';
 import { SessionStore, readSessionCookie } from './session.js';
 // What the route modules (src/routes/) and this file share that needs nothing of the running server.
 import { SYSTEM_ACTOR, clientIp, logSafe } from './routes/shared.js';
-import { registerCodeAuthorRoutes } from './routes/code-authors.js';
-import { registerFaeFlushRoutes } from './routes/fae-flush.js';
-import { registerFusionRoutes } from './routes/fusion.js';
-import { createGitConnections, registerGitConnectionRoutes } from './routes/git-connections.js';
-import { registerBackupRoutes } from './routes/backups.js';
-import { registerSystemReportRoute, registerUpdateRoutes, registerIntegrityRoutes } from './routes/updates.js';
-import { registerFeatureRoutes } from './routes/features.js';
-import { registerAuditRoutes } from './routes/audit.js';
-import { registerReportRoutes } from './routes/reports.js';
-import { registerCreditUsageRoute, registerCreditRoutes, registerCreditRunRoutes } from './routes/credits.js';
-import { registerHandsOffPageRoutes, registerHandsOff } from './routes/hands-off.js';
-import { registerSupportRoutes } from './routes/support.js';
-import { registerImpactRoutes } from './routes/impact.js';
-import { registerTrackedReportRoutes } from './routes/tracked-reports.js';
-import { registerRelayRoutes, registerRelayPingRoutes } from './routes/relay.js';
-import { createReportServerAddress } from './routes/report-server.js';
-import { registerTenantRoutes } from './routes/tenants.js';
-import { registerLicenceRoutes } from './routes/licence.js';
-import { registerHttpsRoutes } from './routes/https.js';
-import { createActors } from './routes/actors.js';
-import { registerCalculatorRoutes } from './routes/calculator.js';
+// The server's areas (src/routes/), in the order they are put together below.
 import { createCreditRules, createCreditView } from './routes/credit-rules.js';
-import { registerReminderRoutes } from './routes/reminders.js';
-import { registerScanRoutes } from './routes/scan.js';
-import { registerAutomationRoutes, createSlaIssues } from './routes/automation.js';
-import { registerSettingsRoutes } from './routes/settings.js';
-import { registerConnectionRoutes } from './routes/connections.js';
-import { registerNetworkRoutes } from './routes/network.js';
-import { registerTrustRoutes } from './routes/trust.js';
-import { registerPeopleRoutes } from './routes/people.js';
-import { registerAccountRoutes } from './routes/account.js';
-import { registerSessionRoutes } from './routes/session.js';
-import { registerDiagnosticsRoutes } from './routes/diagnostics.js';
-import { createGuards } from './routes/guards.js';
 import { createIntegrationSession } from './routes/integration-session.js';
+import { createSlaIssues, registerAutomationRoutes } from './routes/automation.js';
+import { createGuards } from './routes/guards.js';
+import { createActors } from './routes/actors.js';
+import { createReportServerAddress } from './routes/report-server.js';
+import { createGitConnections, registerGitConnectionRoutes } from './routes/git-connections.js';
+import { registerDiagnosticsRoutes } from './routes/diagnostics.js';
+import { registerSessionRoutes } from './routes/session.js';
+import { registerAccountRoutes } from './routes/account.js';
+import { registerPeopleRoutes } from './routes/people.js';
+import { registerTrustRoutes } from './routes/trust.js';
+import { registerNetworkRoutes } from './routes/network.js';
+import { registerConnectionRoutes } from './routes/connections.js';
+import { registerSettingsRoutes } from './routes/settings.js';
+import { registerScanRoutes } from './routes/scan.js';
+import { registerReminderRoutes } from './routes/reminders.js';
+import { registerRelayPingRoutes, registerRelayRoutes } from './routes/relay.js';
+import { registerCalculatorRoutes } from './routes/calculator.js';
+import { registerHttpsRoutes } from './routes/https.js';
+import { registerLicenceRoutes } from './routes/licence.js';
+import { registerTenantRoutes } from './routes/tenants.js';
+import { registerCreditRunRoutes, registerCreditRoutes, registerCreditUsageRoute } from './routes/credits.js';
+import { registerTrackedReportRoutes } from './routes/tracked-reports.js';
+import { registerImpactRoutes } from './routes/impact.js';
+import { registerSupportRoutes } from './routes/support.js';
+import { registerHandsOff, registerHandsOffPageRoutes } from './routes/hands-off.js';
+import { registerReportRoutes } from './routes/reports.js';
+import { registerAuditRoutes } from './routes/audit.js';
+import { registerIntegrityRoutes, registerUpdateRoutes, registerSystemReportRoute } from './routes/updates.js';
+import { registerFeatureRoutes } from './routes/features.js';
+import { registerBackupRoutes } from './routes/backups.js';
+import { registerFusionRoutes } from './routes/fusion.js';
+import { registerFaeFlushRoutes } from './routes/fae-flush.js';
+import { registerCodeAuthorRoutes } from './routes/code-authors.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 /** Whose own branding (Settings → Your branding) the current request is made with: see presenting(). */
@@ -492,6 +493,7 @@ const supportDesk = new SupportDesk({ file: path.join(dataDir, 'support.json') }
 const touchedProjects = scoped(tenancy, 'touchedProjects');
 const touchProject = (projectId) => touchedProjects.set(projectId, Date.now());
 
+// ---- A project's credits as the dashboard shows them: src/routes/credit-rules.js ------------------------------------------
 const { creditView } = createCreditView({ creditLedger, allocations, SEVERITIES });
 
 const reportGrants = new ReportGrants({
@@ -522,6 +524,7 @@ const {
   connectCheckmarxOne: later(() => connectCheckmarxOne),
 });
 
+// ---- SLAs (Beta), issues for findings past their SLA: src/routes/automation.js ------------------------------------------
 const { openSlaIssuesFor } = createSlaIssues({
   // Made further down: looked up when used, never before.
   gitSets: later(() => gitSets),
@@ -801,6 +804,13 @@ app.use('/api/relay', (req, res, next) => {
   next();
 });
 
+// ---------------------------------------------------------------------------
+// The routes, by area (src/routes/). Each call below puts one area together and registers its routes,
+// in the order they were always registered: Express runs middleware and routes in that order, so it is
+// behaviour, and test/route-order.test.js keeps it (test/fixtures/routes.txt). An area is handed what it
+// needs of the server; what it makes for other areas comes back from the call and is handed on.
+// ---------------------------------------------------------------------------
+
 // ---- What stands in front of a route (sign-in, permissions, the tenant): src/routes/guards.js ---------------------------
 const {
   asyncRoute, permissionsFor, tenantsUnlocked, isSuperAdmin, tenantsOf, currentSession, requireSession, ownBranding,
@@ -821,9 +831,7 @@ const { reportActor, adminActor } = createActors({ iam, reportGrants });
 // ---- This server's address as others reach it: src/routes/report-server.js ---------------------------------------------
 const {
   LOOPBACK, requestOrigin, resolveReportServer, reportServerUrl, reportServerWarnings, requestHost,
-} = createReportServerAddress({
-  tstate, settingsStore, httpsManager, can,
-});
+} = createReportServerAddress({ tstate, settingsStore, httpsManager, can });
 
 // ---- The git connections (GitHub, GitLab, Azure DevOps, Bitbucket): src/routes/git-connections.js ----------------------
 // Their helpers are made here, before the areas that use them; the route is registered further down.
@@ -959,6 +967,7 @@ const {
   labs: laterObject(() => labs),
 });
 
+// ---- The relay's two routes that need no connection: src/routes/relay.js ------------------------------------------------
 registerRelayPingRoutes(app);
 
 // ---- The Cx Credits Calculator: src/routes/calculator.js ---------------------------------------------------------------
@@ -974,9 +983,7 @@ const { reportOpens } = registerHttpsRoutes(app, {
 });
 
 // ---- The product licence and the activation codes: src/routes/licence.js ------------------------------------------------
-registerLicenceRoutes(app, {
-  audit, activations, languageAccess, asyncRoute, can, requirePermission, refusalListed, adminActor,
-});
+registerLicenceRoutes(app, { audit, activations, languageAccess, asyncRoute, can, requirePermission, refusalListed, adminActor });
 
 // ---- Several Checkmarx One tenants: src/routes/tenants.js --------------------------------------------------------------
 const { tenantName } = registerTenantRoutes(app, {
@@ -1073,11 +1080,13 @@ process.on('uncaughtException', (error) => {
   if (updates.supervised) lastWords(`it crashed: ${String(error?.message ?? error).slice(0, 200)}`, Date.now() + 8000).finally(() => process.exit(1));
 });
 
+// ---- The Hands-off page's own routes: src/routes/hands-off.js -----------------------------------------------------------
 registerHandsOffPageRoutes(app, {
   settingsStore, audit, integrationSession, resolveAutomationSession, scheduler, asyncRoute, can, requirePermission,
   sendingSettings, adminActor, audienceSetting, serverUrl, sendStatus, selfCheck, healthView,
 });
 
+// ---- The credit usage chart: src/routes/credits.js ----------------------------------------------------------------------
 registerCreditUsageRoute(app, { creditLedger, allocations, requirePermission, creditPool });
 
 // ---- The interactive HTML report, built, downloaded and emailed: src/routes/reports.js ----------------------------------
@@ -1211,6 +1220,7 @@ const integrity = new IntegrityService({
 });
 integrity.start();
 
+// ---- Software integrity's routes: src/routes/updates.js -----------------------------------------------------------------
 registerIntegrityRoutes(app, { asyncRoute, requirePermission, integrity });
 
 const updateStore = new VersionStore({
@@ -1247,6 +1257,7 @@ const updates = new UpdateService({
   }, Math.min(60_000, every)).unref();
 }
 
+// ---- New versions, rollback and restart: src/routes/updates.js ----------------------------------------------------------
 registerUpdateRoutes(app, { dataDir, audit, asyncRoute, requirePermission, backupToFolder, updates });
 
 // ---- Settings → Beta features: src/routes/features.js -----------------------------------------------------------------
@@ -1254,6 +1265,7 @@ registerFeatureRoutes(app, {
   settingsStore, audit, scheduler, asyncRoute, requireSession, can, requirePermission, featureLocked,
 });
 
+// ---- The troubleshooting report: src/routes/updates.js ------------------------------------------------------------------
 registerSystemReportRoute(app, {
   dataDir, sessions, tstate, audit, httpsManager, relayStats, requirePermission, cxonePending, smtpPending,
   serverTimeZone, lastBackup: () => lastBackup, updates,
@@ -1267,6 +1279,7 @@ registerBackupRoutes(app, {
 
 setCloneHostCheck(cloneHostAllowed);
 
+// ---- The header's connection chips (GET /api/connections): src/routes/git-connections.js -------------------------------
 registerGitConnectionRoutes(app, { asyncRoute, requireSession, connectionsStatus });
 
 // ---- Fusion results (Labs): src/routes/fusion.js ----------------------------------------------------------------------
@@ -1333,6 +1346,7 @@ const labs = registerLabsRoutes(app, {
   iamView,
   iam,
 });
+
 // ---- Identity matching and code authors (Labs): src/routes/code-authors.js ------------------------------------------
 const { notifyCodeAuthors } = registerCodeAuthorRoutes(app, {
   settingsStore, asyncRoute, requirePermission, requireFeature, sendingSettings, NOT_EXPLOITABLE_STATES,

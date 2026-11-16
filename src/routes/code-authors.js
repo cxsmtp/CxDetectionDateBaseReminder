@@ -483,7 +483,5 @@ export function registerCodeAuthorRoutes(app, d) {
     return { to: author.email, count: items.length, subject: `${items.length} vulnerabilit${items.length === 1 ? 'y' : 'ies'} in code you wrote`, html, text };
   }
 
-  return {
-    notifyCodeAuthors,
-  };
+  return { notifyCodeAuthors };
 }
