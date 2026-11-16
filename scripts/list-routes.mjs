@@ -104,7 +104,7 @@ export async function listRoutes({ withCode = false } = {}) {
         LETSENCRYPT_DOMAIN: '',
         HTTP_REDIRECT_PORT: '',
         TRUST_PROXY: '',
-        COMPRESSION: '',
+        HTTP_COMPRESSION: '',
         LIST_ROUTES_CODE: withCode ? '1' : '',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -123,7 +123,7 @@ export async function listRoutes({ withCode = false } = {}) {
 if (process.argv[2] === '--from-app') {
   // In the process started above: every route is registered once the module has been evaluated.
   const { app } = await import(pathToFileURL(path.join(ROOT, 'src', 'server.js')).href);
-  fs.writeFileSync(process.argv[3], format(linesOf(app._router.stack)));
+  fs.writeFileSync(process.argv[3], format(linesOf((app._router ?? app.router).stack)));
   process.exit(0);
 } else if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const list = await listRoutes({ withCode: process.argv[2] === '--code' });
