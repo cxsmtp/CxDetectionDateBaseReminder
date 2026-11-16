@@ -271,6 +271,10 @@ export async function aiResultCount(client, scanId, { background = true, trace =
  */
 const lastFound = new Map();
 const LAST_FOUND_MAX = 50_000;
+/** Counts being asked for now, by scan id: several people loading the same projects at once ask once. */
+const lastAsking = new Map();
+/** These counts are one small call a scan, asked a few at a time (the connection's own limit still holds). */
+const LAST_COUNTS_AT_ONCE = 6;
 function keepLastFound(scanId, found) {
   if (lastFound.size >= LAST_FOUND_MAX) lastFound.delete(lastFound.keys().next().value);
   lastFound.set(scanId, found);
@@ -313,11 +317,16 @@ export async function scanTypes(client, scans, { concurrency = 4, background = t
   });
   // The AI engine on the list, Fusion off: a LAST scan only if LAST found something in it.
   const candidates = Object.keys(out).filter((projectId) => out[projectId] === 'last');
-  await mapWithConcurrency(candidates, concurrency, async (projectId) => {
+  await mapWithConcurrency(candidates, Math.max(concurrency, LAST_COUNTS_AT_ONCE), async (projectId) => {
     const id = scanOf[projectId];
     if (!lastFound.has(id)) {
       // (A read that fails leaves this scan as it was, and never the other projects without their kind.)
-      const count = await aiResultCount(client, id, { background, trace }).catch(() => null);
+      let asking = lastAsking.get(id);
+      if (!asking) {
+        asking = aiResultCount(client, id, { background, trace }).catch(() => null).finally(() => lastAsking.delete(id));
+        lastAsking.set(id, asking);
+      }
+      const count = await asking;
       if (count === null) return;
       keepLastFound(id, count > 0);
     }

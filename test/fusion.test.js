@@ -287,6 +287,16 @@ test('a LAST scan is one the AI engine found something in: the engine on the sca
   const again = make();
   assert.deepEqual(await scanTypes(again, scans), { a: 'last', b: 'none', c: 'none', d: 'fusion' });
   assert.equal(again.calls.filter((c) => c.path === '/api/sast-results').length, 0);
+  // Two people loading the same projects at the same moment: each scan is asked about once.
+  const together = fakeClient({
+    '/api/scans': (q) => ({ scans: q['scan-ids'].map((id) => ({ id, engines: ['ai'], metadata: { configs: [{ type: 'ai', value: { fusionEnabled: 'false' } }] } })) }),
+    '/api/sast-results': async () => {
+      await new Promise((r) => setTimeout(r, 20));
+      return { results: [], totalCount: 0 };
+    },
+  });
+  assert.deepEqual(await Promise.all([scanTypes(together, { m: { id: 'm1' } }), scanTypes(together, { m: { id: 'm1' } })]), [{ m: 'none' }, { m: 'none' }]);
+  assert.equal(together.calls.filter((c) => c.path === '/api/sast-results').length, 1);
   // The count itself; and a Checkmarx One that does not say leaves it unknown (the scan then stays LAST, and is asked again).
   assert.equal(await aiResultCount(make(), 'l1'), 3);
   assert.equal(await aiResultCount(fakeClient({}), 'l9'), null);

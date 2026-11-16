@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.16 | 510/s, 0 (main 486, 0) | 5.6 s (3.9 s) | 197 ms (265 ms) | 1,233 + 16 in a browser | 0 vulnerabilities | No new scan of this code yet (the connector was signed in again during this release); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.15 | 507/s, 0 (main 496, 0) | 4.9 s (5.3 s) | 293 ms (364 ms) | 1,232 + 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.14 | 488 and 499/s, 0 (main 497 and 477, 0 and 31; two pairs) | 6.7 and 5.3 s (7.1 and 10.6 s) | 718 and 376 ms (630 and 998 ms) | 1,232 + 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
 | MZ-01.01.13 | 498 and 511/s, 0 (main 490 and 516, 0; two pairs) | 5.5 and 5.1 s (5.6 and 3.2 s) | 358 and 295 ms (460 and 161 ms) | 1,225 + 16 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](docs/security/mz-01.01.11-review.md)) |
@@ -101,6 +102,12 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.16 — 2026-11-16 15:55 UTC · [#138](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/138)
+
+- **LAST means the AI engine found something.** A project is shown as LAST (pink) only when its latest scan has results that Checkmarx One marks "LLM-Based: Yes"; before, every scan that merely listed the AI engine counted, which on a tenant with LAST on by default was every scan without Fusion.
+- **"No AI" counts again.** A project whose scan lists the AI engine but found nothing with it now shows as a scan without AI, on the Workbench's colours, legend and Scan type filter, the Status board, the Consolidated view and Labs → Fusion results; Fusion is decided by the scan's settings, as before.
+- **Status.** 1,233 tests pass (one is skipped when run as root and passes in CI), with 16 that drive the page in Chromium; `npm audit --omit=dev` finds nothing. Benchmark against main, both runs with 0 failed requests and no finding sent twice: 510 requests a second (main 486), report opens 5.6 s at p95 (main 3.9 s, a figure that moves this much between two runs of the same code), triage polls 197 ms (main 265 ms); the first load of a tenant asks Checkmarx One one more small question for each scan with the AI engine on and Fusion off. Checked against two projects of a real tenant through the Checkmarx One connector; no new scan of this code yet.
 
 ## MZ-01.01.15 — 2026-11-16 10:40 UTC · [#137](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/137)
 
