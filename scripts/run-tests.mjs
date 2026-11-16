@@ -29,10 +29,42 @@ const clean = () => {
   }
 };
 
-const child = spawn(process.execPath, ['--test', ...options, ...files], { cwd: ROOT, stdio: 'inherit', env: { ...process.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp } });
+const child = spawn(process.execPath, ['--test', ...options, ...files], { cwd: ROOT, stdio: ['inherit', 'pipe', 'inherit'], env: { ...process.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp } });
+
+// What the tests print goes straight on, as before. Every test that failed is also kept, with why, and listed once
+// more at the very end: a run prints thousands of lines, and whoever reads only the end of a long log (a CI page
+// does, and so does a tool that fetches its last lines) must still see which test it was.
+const failed = [];
+let open = null; // the failure whose details are being read
+let rest = '';
+child.stdout.on('data', (chunk) => {
+  process.stdout.write(chunk);
+  const lines = (rest + chunk).split('\n');
+  rest = lines.pop();
+  for (const line of lines) {
+    if (/^\s*not ok \d+ - /.test(line)) {
+      open = { name: line.trim(), details: [] };
+      failed.push(open);
+    } else if (open) {
+      if (/^\s*\.\.\.\s*$/.test(line) || /^\s*(not )?ok \d+ - /.test(line) || /^\s*# Subtest: /.test(line)) open = null;
+      else if (open.details.length < 30 && !/^\s*---\s*$/.test(line)) open.details.push(line);
+    }
+  }
+});
+const listFailed = () => {
+  if (!failed.length) return;
+  console.log(`\n# ${failed.length} failed (listed again here, so the end of the log names them):`);
+  for (const { name, details } of failed) {
+    console.log(`# ${name}`);
+    for (const line of details) console.log(`#   ${line.trimEnd()}`);
+  }
+};
+
 // Ctrl+C reaches the tests too (same terminal); wait for them, then tidy up.
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal));
-child.on('exit', (code, signal) => {
+// (close, not exit: everything the tests printed has been read by then.)
+child.on('close', (code, signal) => {
+  listFailed();
   clean();
   process.exit(code ?? (signal ? 1 : 0));
 });
