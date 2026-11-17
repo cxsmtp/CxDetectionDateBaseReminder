@@ -26,6 +26,7 @@ import { loadUserActivity, renderAudit, reportVisit, userActivity } from './audi
 import { loadAccess } from './access.js';
 import { loadPool, loadUsage, usageTimer } from './credits.js';
 import { loadImpact } from './impact.js';
+import { loadFusionCredits } from './fusion-credits.js';
 
 /** Which permissions open each page (any one of them). */
 export const PAGE_PERMS = {
@@ -33,6 +34,7 @@ export const PAGE_PERMS = {
   automation: 'settings.view settings.automation',
   reports: 'reports.view',
   credits: 'credits.view',
+  fusioncredits: 'credits.allocate',
   impact: 'reports.view',
   audit: 'audit.view backup.view',
   settings: '', // everyone has what is under You, and About & terms of use; the rest needs settings.view
@@ -133,10 +135,10 @@ const ROUTE_ALIASES = { iam: 'access', 'credit-control': 'credits' };
  * Act → Follow up → Prove, plus Set up: what each page is for, shown as the coloured label beside its title.
  * The menu groups the pages more coarsely (Act, Credits, Set up, Labs: data-group in index.html).
  */
-const STAGES = { govern: 'labs', status: 'labs', consolidated: 'labs', flush: 'labs', dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
+const STAGES = { govern: 'labs', status: 'labs', consolidated: 'labs', flush: 'labs', dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', fusioncredits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' };
 export const STAGE_LABELS = { act: 'Act', followup: 'Follow up', prove: 'Prove', govern: 'Govern', plan: 'Plan', setup: 'Set up', labs: 'Labs' };
 /** The tab group on each page (data-ptabs). */
-const PAGE_TABS = { govern: 'govern', consolidated: 'consolidated', flush: 'flush', dashboard: 'dash', automation: 'automation', credits: 'credits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
+const PAGE_TABS = { govern: 'govern', consolidated: 'consolidated', flush: 'flush', dashboard: 'dash', automation: 'automation', credits: 'credits', fusioncredits: 'fusioncredits', impact: 'impact', audit: 'audit', access: 'access', beta: 'beta', logs: 'logs', calculator: 'calculator' };
 export const visitedPages = new Set();
 export const scrollMemory = new Map();
 
@@ -352,6 +354,7 @@ const PAGE_LOADERS = {
   automation: () => loadAutomation(),
   settings: reloadSettingsPage,
   credits: () => loadUsage(),
+  fusioncredits: () => loadFusionCredits(),
   impact: () => loadImpact(),
   logs: () => renderLogsPage(),
   reports: () => loadTrackedReports(),
@@ -388,6 +391,7 @@ const PAGE_RETURN = {
   automation: () => loadAutomation(),
   settings: reloadSettingsPage,
   credits: () => loadUsage(),
+  fusioncredits: () => loadFusionCredits({ quiet: true }),
   impact: () => loadImpact(),
   logs: () => renderLogsPage(),
   reports: () => loadTrackedReports(),
@@ -770,6 +774,7 @@ const PAGE_TITLES = {
   automation: ['Automation', 'Reminders and everything else that runs by itself'],
   reports: ['Dashboard', 'Follow every tracked scope to zero'],
   credits: ['Credit Control', 'Credits given, used and left'],
+  fusioncredits: ['Fusion credits', 'Credits for Fusion scans only'],
   impact: ['Impact', 'What AI saved and cleared'],
   settings: ['Settings', 'Saved as you type'],
   logs: ['Logs', 'Activity and troubleshooting'],

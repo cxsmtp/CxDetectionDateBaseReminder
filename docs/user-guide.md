@@ -1103,6 +1103,23 @@ How the credit pool is being used, in three tabs. Everyone with **credits.view**
 
 ---
 
+## Fusion credits
+
+From MZ-01.01.19, **Credits → Fusion credits** (for **credits.allocate**) gives projects credits for **Fusion scans only**. They cannot be spent on AI Triage or AI Remediation, and Credit Control's cannot be spent on Fusion; together they never hold more than the tenant has left in Checkmarx One. The full page: [Fusion credits](fusion-credits.md).
+
+| Part | Meaning |
+| --- | --- |
+| **Plan & allocate** → plan | The Cx Credits Calculator's Fusion plan: a customer saved in the calculator here (**Use this plan**), or a file from **Fusion → Download the Fusion plan** in the calculator. Its models, period, rules by frequency or criticality, and each project's scans, model, branch and criticality are used as they are. The period and a frequency's scans can be changed here and saved. |
+| **Read projects** | Every project: its branch (the primary branch, else main or master), model, lines of code and blocks of 10,000, scans a year, Fusion scans, and the tenant's credits: left, held for Triage & Remediation, held for Fusion, free. |
+| **Branch** | Select it to pick another branch: the usual protected branches (main, master, trunk, develop, release, security, hotfix, prod) come first. The project is read again on it. |
+| **Recommended** | Blocks × the plan's scans × the model's rate. **Allocate recommended** gives every ticked project its recommendation in one click, after a confirmation. |
+| **Schedule planned scans** | One click: each ticked project's planned Fusion scans not run yet, spread over the rest of the period, the first now, each only while it has credits for it. **Used & scheduled → Stop planned scans** stops them. |
+| **More credits needed** | Checked every half hour: when a project's lines of code grow so that its credits no longer cover the rest of its plan, every Admin and Security Analyst is emailed the extra credits needed, once for each growth. |
+| **Spent** | The Admins and the owner are emailed; Fusion is paused in the project's Checkmarx One settings until credits are added (or, with **Warn only**, left on). |
+| **Rates** (Admins) | Credits per 10,000 lines of code for each model: Opus 5.5 = 2, Opus 4.7 = 2.5, Haiku 4.5 = 1.5. Add or remove a model; choose pause or warn only. |
+
+Usage is estimated from the Fusion scans since the allocation, as the calculator estimates it. A pipeline that asks for Fusion in the scan itself is not stopped by pausing.
+
 ## Impact
 
 What AI Triage and AI Remediation did for the backlog. Open it from **Credits → Impact**; anyone who may view tracked reports can. The full explanation of each figure is in [Impact](impact.md).
@@ -1459,6 +1476,7 @@ How fast and how safe the version you run is. Each release is measured with 3000
 
 | Version | Requests/s, failed (3000 users, 2 vCPU) | Report opens p95 | Triage polls p95 | Tests | Dependencies (`npm audit`) | Checkmarx One scan of this code |
 | --- | --- | --- | --- | --- | --- | --- |
+| **MZ-01.01.19** | 485/s and 513/s, 0 failed (main 485/s and 497/s, 0; two pairs) | 5.7 s and 4.4 s (main 5.0 s and 6.1 s) | 668 ms and 427 ms (main 565 ms and 407 ms) | 1,249 pass, and 19 in a browser | 0 vulnerabilities | Scan 09e66411 of this code: 226 open (1 / 6 / 94 / 122, 3 info), all still to verify in Checkmarx One; the critical and the 6 high are the last scan's, the 16 first reported (10 "PCI" on the credit figures, 6 low reported again on hardened lines) judged not exploitable ([review](security/mz-01.01.19-review.md)). |
 | **MZ-01.01.18** | 507/s and 511/s, 0 failed (main 499/s and 484/s, 0; two pairs) | 2.7 s and 147 ms (main 177 ms and 5.1 s) | 194 ms and 70 ms (main 78 ms and 214 ms) | 1,239 pass, and 17 in a browser | 0 vulnerabilities | No new scan: this release changes the page only (one table column, its translations). The last, fb266f9f of MZ-01.01.17's first commit: 217 open (1 / 6 / 85 / 122, 3 info), all still to verify in Checkmarx One; 4 fixed and 5 hardened in MZ-01.01.17, 181 judged not exploitable ([review](security/mz-01.01.17-review.md)) |
 | **MZ-01.01.17** | 499/s, 0 failed (main 524/s, 0) | 477 ms (main 360 ms) | 141 ms (main 145 ms) | 1,239 pass, and 17 in a browser | 0 vulnerabilities | Scan fb266f9f of this release's first commit, every engine but the AI ones: 217 open (1 / 6 / 85 / 122, 3 info), all still to verify in Checkmarx One. 190 are first reports: earlier scans listed nothing in the two largest files, which MZ-01.01.13 split, so the earlier "32 open" never covered them. All 190 read: 4 real and fixed (none reachable without an Analyst's or Admin's rights), 5 hardened, 181 not exploitable ([review](security/mz-01.01.17-review.md)) |
 | **MZ-01.01.16** | 510/s, 0 failed (main 486/s, 0) | 5.6 s (main 3.9 s) | 197 ms (main 265 ms) | 1,233 pass, and 16 in a browser | 0 vulnerabilities | No new scan of this code yet (the connector was signed in again during this release); the last, d79bed45 of MZ-01.01.12's code: 32 open (1 / 4 / 10 / 16, 1 info), all judged before ([MZ-01.01.11's review](security/mz-01.01.11-review.md)) |

@@ -85,6 +85,8 @@ export function createCreditRules(d) {
   const {
     settingsStore, creditLedger, allocations, audit, diagnostics, reportGrants, resolveAutomationSession, labs,
   } = d;
+  /** Credits given to projects for Fusion scans and not used yet (Credits → Fusion credits): never for Triage or Remediation. */
+  const fusionHeld = () => Number(d.fusionHeld?.()) || 0;
 
   // ---------------------------------------------------------------------------
   // Relay for the emailed report
@@ -516,9 +518,11 @@ export function createCreditRules(d) {
     if (!given) return null;
     const tenant = await tenantCreditsOf(req);
     if (!tenant) return null;
-    const held = (pool.outstanding?.total ?? 0) + given;
+    // What Fusion holds counts too: the tenant's credits are given once, to Triage & Remediation or to Fusion.
+    const fusion = fusionHeld();
+    const held = (pool.outstanding?.total ?? 0) + fusion + given;
     if (held <= tenant.available) return null;
-    return `Checkmarx One has ${tenant.available.toLocaleString('en')} credit${tenant.available === 1 ? '' : 's'} left for this tenant; projects would then hold ${held.toLocaleString('en')} (${(pool.outstanding?.total ?? 0).toLocaleString('en')} given and not used yet, ${given.toLocaleString('en')} more).`;
+    return `Checkmarx One has ${tenant.available.toLocaleString('en')} credit${tenant.available === 1 ? '' : 's'} left for this tenant; projects would then hold ${held.toLocaleString('en')} (${(pool.outstanding?.total ?? 0).toLocaleString('en')} given and not used yet${fusion ? `, ${fusion.toLocaleString('en')} given for Fusion scans and not used yet` : ''}, ${given.toLocaleString('en')} more).`;
   }
 
   function creditPool(settings = settingsStore.get(), list = allocations.list()) {
@@ -534,7 +538,8 @@ export function createCreditRules(d) {
     const left = tenantLeft();
     const overTenant = left !== null && pool.limited && pool.remaining > left;
     // Nor can projects be given more than the tenant has left.
-    const unallocated = overTenant ? Math.min(pool.unallocated, Math.max(0, left - pool.outstanding.total)) : pool.unallocated;
+    const fusion = fusionHeld();
+    const unallocated = overTenant || (left !== null && fusion > 0) ? Math.min(pool.unallocated, Math.max(0, left - pool.outstanding.total - fusion)) : pool.unallocated;
     return { ...pool, unallocated, tenantLeft: left, overTenant };
   }
 

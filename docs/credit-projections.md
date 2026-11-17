@@ -218,6 +218,13 @@ The table lists the projects in the scope, the most often scanned first, 100 at 
 
 Click a column's heading to sort the table by it (project, criticality, how often it is scanned, lines of code, 10K units, Fusion scans, model or credits), and again for the other way: names start A to Z, numbers largest first, and a value shown as — (not known, or a project left out) always comes last. The choice is remembered in this browser. **Download CSV** downloads the table, in the same order.
 
+### Using the plan for Fusion credits (from MZ-01.01.19)
+
+Once the customer agrees the Fusion plan, it gives each project its credits on CxMissionZero's **Credits → Fusion credits** page, where they can be spent on Fusion scans only ([Fusion credits](fusion-credits.md)):
+
+- With the calculator here, pick the customer under **Choose a plan saved in the calculator…** on that page.
+- With the calculator at its own address, **Download the Fusion plan** (on the Fusion · Checkmarx One tab) saves a file, `<customer>_fusion-plan_<date>.json`, to open there. It holds the models and their credits per 10K LOC, the projection period, how frequency and criticality combine, the default scans and model, each frequency's and criticality's scans and model, and each project's own scans, model, branch, criticality and whether it is included. Projects added by hand are skipped when the plan is used: they are not in Checkmarx One to give credits to.
+
 ## Fusion — new customer (code counted from git, a cloc-fusion report or cloc)
 
 For a customer whose code is not in Checkmarx One yet (or to compare with what is), the lines of code are counted from git on **Fusion · from Git**, or read from a cloc-fusion report or cloc results on **Fusion · cloc-fusion**. Each way, each repository becomes a project, counted the same way (below); each tab shows its own, leads with its tiles (repositories, lines of code, developers, Fusion scans), keeps the repositories counted as a log folded under them, and lists the languages under **What counts as code**. **+ Add a project by hand** (on Fusion · from Git) is for a repository that cannot be counted from here. Counted from git or read from a cloc-fusion report, a project also says how often it changes (its commits on the default branch), which sets its Fusion scans, and how many people work on it.

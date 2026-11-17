@@ -119,6 +119,8 @@ import { registerIntegrityRoutes, registerUpdateRoutes, registerSystemReportRout
 import { registerFeatureRoutes } from './routes/features.js';
 import { registerBackupRoutes } from './routes/backups.js';
 import { registerFusionRoutes } from './routes/fusion.js';
+import { registerFusionCreditRoutes } from './routes/fusion-credits.js';
+import { FusionCredits } from './fusion-credits.js';
 import { registerFaeFlushRoutes } from './routes/fae-flush.js';
 import { registerCodeAuthorRoutes } from './routes/code-authors.js';
 
@@ -338,6 +340,8 @@ function buildTenant({ id, dir }) {
     settingsStore,
     creditLedger,
     allocations: new CreditAllocations({ file: path.join(dir, 'credit-allocations.json'), ledger: creditLedger }),
+    // Credits given to projects for their Fusion scans only (Credits → Fusion credits).
+    fusionCredits: new FusionCredits({ file: path.join(dir, 'fusion-credits.json') }),
     trackedReports: new TrackedReports({ file: path.join(dir, 'tracked-reports.json') }),
     projections: new ProjectionStore({ file: path.join(dir, 'projections.json') }),
     projectionReports: new ReportStore({ dir: path.join(dir, 'projection-reports') }),
@@ -432,6 +436,7 @@ function recordCreditUse(entry) {
   return creditLedger.record(entry);
 }
 const allocations = scoped(tenancy, 'allocations');
+const fusionCredits = scoped(tenancy, 'fusionCredits');
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const trackedReports = scoped(tenancy, 'trackedReports');
@@ -986,6 +991,7 @@ const {
   settingsStore, creditLedger, allocations, audit, diagnostics, reportGrants, resolveAutomationSession,
   // Made further down: looked up when used, never before.
   labs: laterObject(() => labs),
+  fusionHeld: later(() => fusionHeld),
 });
 
 // ---- The relay's two routes that need no connection: src/routes/relay.js ------------------------------------------------
@@ -1057,6 +1063,12 @@ registerCreditRoutes(app, {
   sessions, tstate, settingsStore, creditLedger, allocations, audit, creditView, asyncRoute, requirePermission,
   afterFetch, creditsRemaining, adminActor, allocationSnapshot, auditAllocation, cleanSeverities, notifyOnBehalf,
   adminTriage, creditFor, currentFindings, goneText, remediateConfirmed, tenantCreditsOf, tenantRefusal, creditPool,
+});
+
+// ---- Credits → Fusion credits (for Fusion scans only): src/routes/fusion-credits.js --------------------------------------
+const { fusionHeld } = registerFusionCreditRoutes(app, {
+  tenancy, fusionCredits, projections, audit, iam, asyncRoute, requirePermission, can, resolveAutomationSession, creditPool, adminActor,
+  sendingSettings: later(() => sendingSettings), settingsStore,
 });
 
 // ---- The Impact page and its monthly summary: src/routes/impact.js -----------------------------------------------------

@@ -3156,6 +3156,14 @@ export function initCalculator({ api, $, esc, toast, setStatus, showError, handl
     download(new Blob([rows.map((r) => r.map(cell).join(',')).join('\n')], { type: 'text/csv' }), `${String(c.open.name).replace(/[^\w.-]+/g, '_').slice(0, 60) || 'customer'}_fusion_${new Date().toISOString().slice(0, 10)}.csv`);
   });
 
+  // The Fusion plan as a file (its period, its rules, each project's own scans, model and branch, and the models'
+  // rates): CxMissionZero opens it under Credits → Fusion credits to allocate its credits and schedule its scans.
+  $('calc-fusion-plan')?.addEventListener('click', () => {
+    if (!c.open) return;
+    const file = { kind: 'cx-fusion-plan', version: 1, customer: c.open.name, exportedAt: new Date().toISOString(), fusion: fusion() };
+    download(new Blob([JSON.stringify(file, null, 1)], { type: 'application/json' }), `${String(c.open.name).replace(/[^\w.-]+/g, '_').slice(0, 60) || 'customer'}_fusion-plan_${new Date().toISOString().slice(0, 10)}.json`);
+  });
+
   // ---- Projection reports -------------------------------------------------------------------
 
   function download(blob, name) {

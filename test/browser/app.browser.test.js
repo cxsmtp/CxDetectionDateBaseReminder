@@ -195,6 +195,59 @@ test('Fusion results: the total results of each project, and the severity of a r
   nothingWentWrong();
 });
 
+test('the Ashoka Chakra says what it stands for while it is the logo; a company logo takes its place, and a reset brings it back', async () => {
+  const chakra = admin.locator('.sidebar .brand-mark');
+  const words = 'Ashoka Chakra: a 24-spoke wheel that stands for duty and progress around the clock, as Mission Zero works day and night to eliminate vulnerabilities and keep applications secure.';
+  assert.equal(await chakra.getAttribute('title'), words);
+  assert.equal(await chakra.getAttribute('aria-label'), words);
+  assert.equal(await chakra.isVisible(), true);
+  // A company logo: the Chakra, and what it says, go.
+  const logo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+  const set = await admin.request.put('/api/settings', { data: { branding: { logoUrl: logo } } });
+  assert.equal(set.status(), 200, await set.text());
+  await admin.reload();
+  await signedInAs(admin, ADMIN.name);
+  await admin.locator('#app-logo').waitFor({ state: 'visible' });
+  assert.equal(await chakra.isVisible(), false);
+  // Reset: the Chakra and its words are back.
+  assert.equal((await admin.request.put('/api/settings', { data: { branding: { logoUrl: '' } } })).status(), 200);
+  await admin.reload();
+  await signedInAs(admin, ADMIN.name);
+  await chakra.waitFor({ state: 'visible' });
+  assert.equal(await chakra.getAttribute('title'), words);
+  nothingWentWrong();
+});
+
+test('Fusion credits: read the projects, set the rates, allocate what the plan recommends', async () => {
+  await goTo(admin, '#/fusioncredits', 'page-fusioncredits');
+  assert.equal((await admin.locator('#page-title').textContent()).trim(), 'Fusion credits');
+  await admin.locator('#fc-read').click();
+  await admin.locator('#fc-body [data-fc-pick]').first().waitFor({ timeout: 30000 });
+  // Projects 0 and 1 ran Fusion last; their models have no rate yet.
+  assert.equal(await admin.locator('#fc-body tr').count(), 2);
+  assert.match(await admin.locator('#fc-body').innerText(), /mythos-5\.1/);
+  assert.equal(await admin.locator('#fc-allocate').isDisabled(), true, 'nothing to allocate without a rate');
+  // An Admin sets the rates.
+  await admin.locator('[data-ptabs="fusioncredits"] [data-pt="rates"]').click();
+  await admin.locator('[data-fc-rate="mythos-5.1"]').fill('3');
+  await admin.locator('[data-fc-rate="opus-5.0"]').fill('1');
+  await admin.locator('#fc-rates-save').click();
+  await admin.locator('#fc-rates-status').filter({ hasText: 'Rates saved.' }).waitFor();
+  // Back to the plan: both are recommended, and given it in one click.
+  await admin.locator('[data-ptabs="fusioncredits"] [data-pt="plan"]').click();
+  const allocate = admin.locator('#fc-allocate');
+  await allocate.filter({ hasText: 'Allocate recommended to 2 project(s)' }).waitFor();
+  admin.once('dialog', (dialog) => dialog.accept());
+  await allocate.click();
+  await admin.locator('#fc-body .fc-chip.good').nth(1).waitFor();
+  assert.equal(await admin.locator('#fc-body .fc-chip.good').count(), 2, 'both on plan');
+  // The used tab lists them.
+  await admin.locator('[data-ptabs="fusioncredits"] [data-pt="used"]').click();
+  assert.equal(await admin.locator('#fc-used-body tr').count(), 2);
+  await open(admin, 'dashboard', 'page-dashboard');
+  nothingWentWrong();
+});
+
 test('Settings and People & roles open, with what the Admin may see', async () => {
   await open(admin, 'settings', 'page-settings');
   const sections = (await admin.locator('#set-nav [data-set]:visible').allTextContents()).map((t) => t.trim());
@@ -283,7 +336,7 @@ test('Labs is in the menu only for a role that holds Labs permissions', async ()
 test('the menu: an Admin sees four groups, each with its pages', async () => {
   assert.deepEqual(await menuSeen(admin), [
     '[Act]', 'Workbench', 'Automation', 'Dashboard',
-    '[Credits]', 'Credit Control', 'Impact', 'Audit',
+    '[Credits]', 'Credit Control', 'Fusion credits', 'Impact', 'Audit',
     '[Set up]', 'People & roles', 'Settings', 'Logs',
     '[Labs]', 'Code authors', 'Fusion results',
   ]);
@@ -311,7 +364,7 @@ test('the menu: an Admin sees four groups, each with its pages', async () => {
   await admin.locator('#nav-fold-all').click();
   assert.deepEqual(await menuSeen(admin), ['[Act]', '[Credits]', 'Audit', '[Set up]', '[Labs]']);
   await admin.locator('#nav-fold-all').click();
-  assert.equal((await menuSeen(admin)).length, 15);
+  assert.equal((await menuSeen(admin)).length, 16);
 
   // A pinned page sits at the top, and Focus shows only the pinned pages and the one that is open.
   await admin.locator('#nav > a[data-route="impact"]').hover();
@@ -325,7 +378,7 @@ test('the menu: an Admin sees four groups, each with its pages', async () => {
   await admin.locator('#nav > a[data-route="impact"]').hover();
   await admin.locator('#nav > .nav-pin[data-route="impact"]').click();
   assert.equal(await admin.locator('#nav-pinned a.tab').count(), 0);
-  assert.equal((await menuSeen(admin)).length, 15);
+  assert.equal((await menuSeen(admin)).length, 16);
   nothingWentWrong();
 });
 
@@ -350,7 +403,7 @@ test('the Cx Credits Calculator is off until an Admin gives its address; then th
   assert.equal(await item.isVisible(), true);
   assert.equal(await item.getAttribute('href'), 'http://127.0.0.1:8333/');
   assert.equal(await item.getAttribute('target'), '_blank');
-  assert.deepEqual((await menuSeen(admin)).slice(4, 10), ['[Credits]', 'Credit Control', 'Impact', 'Audit', 'Cx Credits Calculator', '[Set up]'], 'in its place in the menu');
+  assert.deepEqual((await menuSeen(admin)).slice(4, 11), ['[Credits]', 'Credit Control', 'Fusion credits', 'Impact', 'Audit', 'Cx Credits Calculator', '[Set up]'], 'in its place in the menu');
   // Its page in CxMissionZero only says where the calculator is; the built-in calculator stays put away.
   await goTo(admin, '#/calculator', 'calc-moved');
   assert.equal(await admin.locator('#calc-moved-open').getAttribute('href'), 'http://127.0.0.1:8333/');
@@ -361,7 +414,7 @@ test('the Cx Credits Calculator is off until an Admin gives its address; then th
   await admin.locator('#calc-address-save').click();
   await admin.locator('#calc-address-status').filter({ hasText: 'is off: the menu does not show it' }).waitFor();
   assert.equal(await item.isVisible(), false);
-  assert.equal((await menuSeen(admin)).length, 15);
+  assert.equal((await menuSeen(admin)).length, 16);
   nothingWentWrong();
 });
 
@@ -451,7 +504,7 @@ test('folded groups and pinned pages a browser kept from before the regrouping s
   await admin.reload();
   await signedInAs(admin, ADMIN.name);
   await admin.locator('#nav > a[data-route="dashboard"]').waitFor({ state: 'visible' });
-  assert.equal((await menuSeen(admin)).length, 15);
+  assert.equal((await menuSeen(admin)).length, 16);
   nothingWentWrong();
 });
 
@@ -528,7 +581,7 @@ test('at a phone\'s width the Admin\'s menu keeps its four groups in the More sh
   const groups = await sheet.evaluate((pages) => [...pages.children].map((el) => (el.matches('.m-group-label') ? `[${el.textContent.trim()}]` : [...el.querySelectorAll('a.tab > span:not(.badge)')].map((s) => s.textContent.trim()).join(', '))));
   assert.deepEqual(groups, [
     '[Act]', 'Workbench, Automation, Dashboard',
-    '[Credits]', 'Credit Control, Impact, Audit',
+    '[Credits]', 'Credit Control, Fusion credits, Impact, Audit',
     '[Set up]', 'People & roles, Settings, Logs',
     '[Labs]', 'Code authors, Fusion results',
   ]);
@@ -593,7 +646,7 @@ test('a feature made final leaves Labs for its group: FAE Flush to the top of Ac
     await reloaded();
     assert.deepEqual(await menuSeen(page), [
       '[Act]', 'Workbench', 'Automation', 'Dashboard',
-      '[Credits]', 'Credit Control', 'Impact', 'Audit',
+      '[Credits]', 'Credit Control', 'Fusion credits', 'Impact', 'Audit',
       '[Set up]', 'People & roles', 'Settings', 'Logs',
       '[Labs]', 'Code authors', 'Fusion results', 'FAE Flush', 'Govern',
     ]);
@@ -604,7 +657,7 @@ test('a feature made final leaves Labs for its group: FAE Flush to the top of Ac
     await reloaded();
     assert.deepEqual(await menuSeen(page), [
       '[Act]', 'FAE Flush', 'Workbench', 'Automation', 'Dashboard',
-      '[Credits]', 'Credit Control', 'Impact', 'Audit', 'Govern',
+      '[Credits]', 'Credit Control', 'Fusion credits', 'Impact', 'Audit', 'Govern',
       '[Set up]', 'People & roles', 'Settings', 'Logs',
       '[Labs]', 'Code authors', 'Fusion results',
     ]);
@@ -623,14 +676,14 @@ test('a feature made final leaves Labs for its group: FAE Flush to the top of Ac
     const sheet = page.locator('.m-menu .m-pages');
     await sheet.waitFor({ state: 'visible' });
     const groups = await sheet.evaluate((pages) => [...pages.children].map((el) => (el.matches('.m-group-label') ? `[${el.textContent.trim()}]` : [...el.querySelectorAll('a.tab > span:not(.badge)')].map((s) => s.textContent.trim()).join(', '))));
-    assert.deepEqual(groups.slice(0, 4), ['[Act]', 'FAE Flush, Workbench, Automation, Dashboard', '[Credits]', 'Credit Control, Impact, Audit, Govern']);
+    assert.deepEqual(groups.slice(0, 4), ['[Act]', 'FAE Flush, Workbench, Automation, Dashboard', '[Credits]', 'Credit Control, Fusion credits, Impact, Audit, Govern']);
     await page.setViewportSize({ width: 1440, height: 900 });
 
     // Back in Beta: both return to Labs, in their places.
     await stage('faeFlush', 'beta');
     await stage('govern', 'beta');
     await reloaded();
-    assert.deepEqual((await menuSeen(page)).slice(12), ['[Labs]', 'Code authors', 'Fusion results', 'FAE Flush', 'Govern']);
+    assert.deepEqual((await menuSeen(page)).slice(13), ['[Labs]', 'Code authors', 'Fusion results', 'FAE Flush', 'Govern']);
     assert.deepEqual(visit.problems(), []);
   } finally {
     await visit.close();
