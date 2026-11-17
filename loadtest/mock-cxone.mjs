@@ -111,6 +111,11 @@ const FAE_SCAN_MS = Number(process.env.FAE_SCAN_MS || RESCAN_MS);
 const FAE_LINK_REFUSED = process.env.FAE_LINK_REFUSED === '1'; // POST /api/scans refuses Checkmarx One's signed storage address
 const FAE_FAIL = new Set(String(process.env.FAE_FAIL || '').split(',').filter(Boolean)); // these projects' FAE scans fail
 const faeProjects = new Map(); // id -> { name, tags }
+// Settings set on a real project (PATCH /api/configuration/project): project id -> { key: value }. Fusion credits pause
+// Fusion this way, and put it back by setting it again or by removing the project's own (DELETE).
+const projectSettings = new Map();
+// Fusion scans completed "now" (GET /__fusion-scan?project=p1&count=2): what a project uses after it is given credits.
+const freshScans = new Map(); // project id -> [scan]
 const faeScans = new Map(); // scanId -> { projectId, source: 'p3', at }
 const predicates = new Map(); // `${projectId}|${similarityId}` -> state
 const uploads = new Set();
@@ -168,6 +173,14 @@ http.createServer((req, res) => {
       if (u.pathname === '/__gone') { const id = u.searchParams.get('id'); if (u.searchParams.get('on') === '1') gone.add(id); else gone.delete(id); return send(200, { gone: [...gone] }); }
       // A SAST setting Checkmarx One refuses to set on a project (403), as a live tenant may: /__refuse-setting?key=…
       if (u.pathname === '/__triage-by') { TRIAGE_BY = u.searchParams.get('by') === 'av' ? 'av' : 'similarity'; return send(200, { by: TRIAGE_BY }); }
+      if (u.pathname === '/__project-settings') return send(200, Object.fromEntries(projectSettings));
+      if (u.pathname === '/__fusion-scan') {
+        const pid = u.searchParams.get('project') ?? 'p0';
+        const list = freshScans.get(pid) ?? [];
+        for (let k = 0; k < Number(u.searchParams.get('count') || 1); k += 1) list.push({ id: `fresh-${pid}-${list.length}`, projectId: pid, status: 'Completed', sourceOrigin: 'Jenkins', engines: ['sast', 'sca', 'ai'], metadata: { configs: [{ type: 'ai', value: { fusionEnabled: 'true', ...(u.searchParams.get('model') ? { llmModel: u.searchParams.get('model') } : {}) } }] }, createdAt: new Date().toISOString() });
+        freshScans.set(pid, list);
+        return send(200, { project: pid, fresh: list.length });
+      }
       if (u.pathname === '/__refuse-setting') { REFUSE_SETTING = u.searchParams.get('key') ?? ''; return send(200, { key: REFUSE_SETTING }); }
       if (u.pathname === '/__tenant-credits') { TENANT_CREDITS = Number(u.searchParams.get('n') ?? TENANT_CREDITS); return send(200, { available: TENANT_CREDITS }); }
       if (u.pathname === '/__changing') { changing = u.searchParams.get('on') === '1'; return send(200, { changing }); }
@@ -235,7 +248,24 @@ http.createServer((req, res) => {
         bump('project-delete');
         return faeProjects.delete(decodeURIComponent(sm0[1])) ? send(204) : send(404, { message: 'project not found' });
       }
-      if (req.method === 'PATCH' && u.pathname === '/api/configuration/project') { bump('configuration-patch'); if (REFUSE_SETTING && JSON.parse(b || '[]').some?.((e) => e?.key === REFUSE_SETTING)) return send(403, { code: 403, message: 'Forbidden' }); return faeProjects.has(u.searchParams.get('project-id')) ? send(204) : send(404, {}); }
+      if (req.method === 'PATCH' && u.pathname === '/api/configuration/project') {
+        bump('configuration-patch');
+        const entries = JSON.parse(b || '[]');
+        if (REFUSE_SETTING && entries.some?.((e) => e?.key === REFUSE_SETTING)) return send(403, { code: 403, message: 'Forbidden' });
+        const pid = u.searchParams.get('project-id');
+        if (faeProjects.has(pid)) return send(204);
+        if (!/^p\d+$/.test(pid ?? '') || Number(pid.slice(1)) >= PROJECTS) return send(404, {});
+        const own = projectSettings.get(pid) ?? {};
+        for (const e of Array.isArray(entries) ? entries : []) if (e?.key) own[e.key] = String(e.value);
+        projectSettings.set(pid, own);
+        return send(204);
+      }
+      if (req.method === 'DELETE' && u.pathname === '/api/configuration/project') {
+        bump('configuration-delete');
+        const own = projectSettings.get(u.searchParams.get('project-id')) ?? {};
+        for (const key of u.searchParams.getAll('config-keys').flatMap((v) => v.split(','))) delete own[key];
+        return send(204);
+      }
       if (req.method === 'POST' && u.pathname === '/api/uploads') { bump('uploads'); const path = `/__upload/${(uploadsMade += 1)}-${Date.now()}`; uploads.add(path); return send(200, { url: `http://127.0.0.1:${process.env.PORT || 4101}${path}` }); }
       // A scan's source code, as Checkmarx One keeps it (a zip).
       if ((sm0 = u.pathname.match(/^\/api\/repostore\/(code|scans)\/(?:(?:scan|feat)-)?p(\d+)$/))) {
@@ -305,7 +335,7 @@ http.createServer((req, res) => {
           const n = perYear[i % 5];
           const own = BRANCHES ? [...(hasFeature(i) ? [{ id: `feat-p${i}`, projectId: pid, status: 'Completed', createdAt: day(0.5) }] : []), { id: `scan-p${i}`, projectId: pid, status: 'Completed', createdAt: day(1) }] : [];
           // Every other scan also ran the AI engine (Labs → Fusion results counts those).
-          const all = [...own, ...Array.from({ length: n }, (_, k) => histScan(i, k, n)), { id: `old-p${i}`, projectId: pid, status: 'Completed', sourceOrigin: originOf(i), createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
+          const all = [...own, ...(freshScans.get(pid) ?? []), ...Array.from({ length: n }, (_, k) => histScan(i, k, n)), { id: `old-p${i}`, projectId: pid, status: 'Completed', sourceOrigin: originOf(i), createdAt: new Date(Date.now() - 400 * 86400000).toISOString() }];
           // Every state asked for (no statuses): the failed scan too.
           if (failedProject(i) && !statuses.length) all.push(failedScanOf(i));
           const fromDate = Date.parse(u.searchParams.get('from-date') ?? '');
@@ -459,7 +489,7 @@ http.createServer((req, res) => {
         bump('configuration');
         const i = Number(String(u.searchParams.get('project-id') ?? '').replace(/^p/, ''));
         const value = u.pathname.endsWith('tenant') ? 'opus-5.5' : i % 3 === 1 ? 'opus-5.0' : '';
-        return send(200, [...(u.pathname.endsWith('tenant') ? [{ key: 'scan.config.sast.advancedTriageMode', name: 'Grouping Similar Results', value: TRIAGE_BY === 'av' ? 'Attack Vector ID' : 'Similarity ID', originLevel: 'Tenant' }] : []), { key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: 'true' }, { key: 'scan.config.sast.extendedAnalysis', name: 'LLM-based scanning', value: 'true', originLevel: 'Project' }, { key: 'scan.config.sast.presetName', name: 'presetName', value: '', originLevel: 'Project' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', value, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
+        return send(200, [...(u.pathname.endsWith('tenant') ? [{ key: 'scan.config.sast.advancedTriageMode', name: 'Grouping Similar Results', value: TRIAGE_BY === 'av' ? 'Attack Vector ID' : 'Similarity ID', originLevel: 'Tenant' }] : []), (() => { const own = u.pathname.endsWith('project') ? projectSettings.get(u.searchParams.get('project-id'))?.['scan.config.ai.fusionEnabled'] : undefined; return own === undefined ? { key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: 'true' } : { key: 'scan.config.ai.fusionEnabled', name: 'Fusion Scan', value: own, originLevel: 'Project' }; })(), { key: 'scan.config.sast.extendedAnalysis', name: 'LLM-based scanning', value: 'true', originLevel: 'Project' }, { key: 'scan.config.sast.presetName', name: 'presetName', value: '', originLevel: 'Project' }, { key: 'scan.config.ai.llmModel', name: 'LLM Model', value, valuetype: 'List', valuetypeparams: 'opus-4.7,haiku-4.5,opus-5.0,opus-5.5,mythos-5.1' }]);
       }
       // Credits used, by project (as CxCreditGuard reads it): project i used 4i + 6, with i % 3 triage and i % 2 remediation actions.
       if (u.pathname === '/api/credits/consumption') {
