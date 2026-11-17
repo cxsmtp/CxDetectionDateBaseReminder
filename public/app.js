@@ -3,6 +3,8 @@
 // that code has always run in, and starts the page: the server's health, the session, the first route.
 
 // The files that were here before app/, first and in the order they have always been imported in: they load in that order.
+import { wireBranchPicks } from './app/branches.js';
+import { wirePrimaryBranches } from './app/primary-branches.js';
 import './speedsters.js';
 import './calculator/page.js';
 import './fae-flush.js';
@@ -57,6 +59,9 @@ wireCreditPool();
 wireSettings();
 wireScope();
 wireColumns();
+// A project's branch chosen in the table: the Workbench loads again (projects read moments ago are reused).
+wireBranchPicks(() => document.getElementById('fetch')?.click());
+wirePrimaryBranches();
 wireRescanLinks();
 wireFetchStop();
 wireSignIn();

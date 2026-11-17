@@ -22,6 +22,8 @@ export const BRANCH_HOW = {
   none: 'none', // its primary branch was never scanned (to completion): nothing of it counts
   unknown: 'unknown', // the tenant's scans do not say their branch: the latest scan, as before
   any: 'any', // every branch was asked for
+  chosen: 'chosen', // a branch chosen on the Workbench, for this project or for every project that has it
+  protected: 'protected', // no primary branch set: the protected branch its git host suggests (src/protected-branches.js)
 };
 
 const GUESSES = ['main', 'master'];
@@ -88,18 +90,33 @@ async function recentScans(client, projectId, branch, gate, background = false) 
  * `scans` has no entry for a project whose primary branch was never scanned. `anyBranch` is the
  * latest scan of any branch (who ran it is who a reminder goes to, as before).
  * With `all`, every project's latest scan of any branch, as before.
+ *
+ * `chosen` ({projectId: branch}): a branch chosen for one project, used instead of its primary branch.
+ * `one` (a name or glob, e.g. develop or release/*): every project that has a scan on it is read on it (the
+ * latest such scan); the others on their primary branch, with `wanted` saying what was asked.
+ * `suggested` ({projectId: {branch, why}}): for a project with no primary branch, the branch its git host
+ * protects (why 'protected') or that matches the usual names (why 'pattern'), tried before main and master.
  */
-export async function primaryScans(client, projects, { all = false, identity = '', gate = null, concurrency = 8, lastScans = null, background = false } = {}) {
+export async function primaryScans(client, projects, { all = false, identity = '', gate = null, concurrency = 8, lastScans = null, background = false, chosen = null, one = '', suggested = null } = {}) {
   const owner = keyOf(client, identity);
   const anyBranch = lastScans ?? (await getLastScans(client, projects.map((p) => p.id)));
   const scans = Object.create(null);
   const branches = Object.create(null);
   const counts = Object.fromEntries(Object.values(BRANCH_HOW).map((how) => [how, 0]));
-  const set = (project, scan, branch, how) => {
+  const set = (project, scan, branch, how, wanted = '') => {
     if (scan) scans[project.id] = scan;
-    branches[project.id] = { branch, how };
+    branches[project.id] = wanted ? { branch, how, wanted } : { branch, how };
     counts[how] += 1;
   };
+  const oneWanted = String(one ?? '').trim();
+  const wantOf = (project) => branchName(chosen?.[project.id]);
+  const guessesOf = (project) => {
+    const hint = suggested?.[project.id];
+    const first = branchName(hint?.branch);
+    return { list: [...new Set([first, ...GUESSES].filter(Boolean))], first, how: first && hint?.why === 'protected' ? BRANCH_HOW.protected : BRANCH_HOW.guessed };
+  };
+  // A glob ("release/*") is matched in the browser's terms: * for any run of characters.
+  const matches = (name, pattern) => Boolean(name) && new RegExp(`^${pattern.split('*').map((x) => x.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`, 'i').test(name);
   learn(owner, Object.values(anyBranch));
 
   const toLookUp = [];
@@ -107,43 +124,71 @@ export async function primaryScans(client, projects, { all = false, identity = '
     const latest = anyBranch[project.id] ?? null;
     const latestBranch = branchOf(latest);
     const primary = branchName(project.mainBranch);
+    const want = wantOf(project);
+    const guesses = guessesOf(project);
     if (all) set(project, latest, latestBranch, BRANCH_HOW.any);
     // The tenant does not say which branch a scan was on: as before.
     else if (latest && !latestBranch) set(project, latest, '', BRANCH_HOW.unknown);
-    else if (!latest) set(project, null, primary, primary ? BRANCH_HOW.none : BRANCH_HOW.latest);
+    else if (!latest) set(project, null, want || primary, want || primary ? BRANCH_HOW.none : BRANCH_HOW.latest);
+    else if (want && latestBranch === want) set(project, latest, want, BRANCH_HOW.chosen);
+    else if (!want && oneWanted && matches(latestBranch, oneWanted)) set(project, latest, latestBranch, BRANCH_HOW.chosen);
+    else if (want || oneWanted) toLookUp.push({ project, latest, primary, want, guesses });
     else if (primary && latestBranch === primary) set(project, latest, primary, BRANCH_HOW.primary);
-    else if (!primary && GUESSES.includes(latestBranch)) set(project, latest, latestBranch, BRANCH_HOW.guessed);
-    else toLookUp.push({ project, latest, primary });
+    // No primary branch: the suggested one when that is the latest scan's; with no suggestion, main or master as before.
+    else if (!primary && (guesses.first ? latestBranch === guesses.first : GUESSES.includes(latestBranch))) set(project, latest, latestBranch, guesses.first ? guesses.how : BRANCH_HOW.guessed);
+    else toLookUp.push({ project, latest, primary, want: '', guesses });
   }
 
-  // The latest scan is on another branch: look for the primary (or main, or master) among the project's recent scans.
-  await mapWithConcurrency(toLookUp, concurrency, async ({ project, latest, primary }) => {
-    const key = `${owner}\u0000${project.id}\u0000${scanIdOf(latest)}\u0000${primary}`;
+  // The latest scan is on another branch: look for the one wanted (or the primary, or a guess) among the project's recent scans.
+  await mapWithConcurrency(toLookUp, concurrency, async ({ project, latest, primary, want, guesses }) => {
+    const asked = want || (oneWanted ? `one:${oneWanted}` : '');
+    const key = `${owner}\u0000${project.id}\u0000${scanIdOf(latest)}\u0000${primary}\u0000${asked}\u0000${guesses.list.join(',')}`;
     const known = lookedUp.get(key);
-    if (known) return set(project, known.scan, known.branch, known.how);
-    const found = await lookUp(project, latest, primary);
+    if (known) return set(project, known.scan, known.branch, known.how, known.wanted);
+    const found = await lookUp(project, latest, primary, want, guesses);
     if (found.how !== BRANCH_HOW.latest || found.read) remember(lookedUp, key, found);
-    return set(project, found.scan, found.branch, found.how);
+    return set(project, found.scan, found.branch, found.how, found.wanted);
   });
 
-  async function lookUp(project, latest, primary) {
+  async function lookUp(project, latest, primary, want, guesses) {
+    // A branch chosen for this project: its latest scan there, or nothing when it was never scanned.
+    if (want) {
+      try {
+        const recent = await recentScans(client, project.id, want, gate, background);
+        learn(owner, recent);
+        const found = recent.find((x) => branchOf(x) === want);
+        return found ? { scan: found, branch: want, how: BRANCH_HOW.chosen } : { scan: null, branch: want, how: BRANCH_HOW.none };
+      } catch {
+        return { scan: latest, branch: branchOf(latest), how: BRANCH_HOW.latest, read: false };
+      }
+    }
     let recent = [];
     try {
-      recent = await recentScans(client, project.id, primary || '', gate, background);
-      learn(owner, recent);
+      // One branch (or glob) for every project: the project's latest scan on it, when it has one.
+      if (oneWanted) {
+        recent = await recentScans(client, project.id, oneWanted.includes('*') ? '' : oneWanted, gate, background);
+        learn(owner, recent);
+        const found = recent.find((x) => matches(branchOf(x), oneWanted));
+        if (found) return { scan: found, branch: branchOf(found), how: BRANCH_HOW.chosen };
+      }
+      if (primary || !oneWanted || !oneWanted.includes('*')) {
+        recent = await recentScans(client, project.id, primary || '', gate, background);
+        learn(owner, recent);
+      }
     } catch {
       // Not readable now: the latest scan stands in, and says it is not the primary branch's (not remembered).
       return { scan: latest, branch: branchOf(latest), how: BRANCH_HOW.latest, read: false };
     }
+    const wanted = oneWanted || '';
     if (primary) {
       const found = recent.find((x) => branchOf(x) === primary);
-      return found ? { scan: found, branch: primary, how: BRANCH_HOW.primary } : { scan: null, branch: primary, how: BRANCH_HOW.none };
+      return found ? { scan: found, branch: primary, how: BRANCH_HOW.primary, wanted } : { scan: null, branch: primary, how: BRANCH_HOW.none, wanted };
     }
-    for (const guess of GUESSES) {
+    for (const guess of guesses.list) {
       const found = recent.find((x) => branchOf(x) === guess);
-      if (found) return { scan: found, branch: guess, how: BRANCH_HOW.guessed };
+      if (found) return { scan: found, branch: guess, how: guess === guesses.first ? guesses.how : BRANCH_HOW.guessed, wanted };
     }
-    return { scan: latest, branch: branchOf(latest), how: BRANCH_HOW.latest, read: true };
+    return { scan: latest, branch: branchOf(latest), how: BRANCH_HOW.latest, read: true, wanted };
   }
 
   return { scans, branches, counts, anyBranch, all };

@@ -1,4 +1,5 @@
 // The Workbench's table of projects: rows, filters, optional columns, export, and the people who started the scans.
+import { branchCell } from './branches.js';
 import { sortAndFilter } from '../table-tools.js';
 import { SCAN_TYPE_LABEL, fusionTotalOf } from '../fusion-view.js';
 import { $, can, state } from './state.js';
@@ -343,7 +344,7 @@ const shownColumns = (() => {
 /** Columns this person may add (SLA columns need SLAs: Beta, or final). */
 const availableColumns = () => OPTIONAL_COLUMNS.filter((c) => !c.perm || can(c.perm));
 const activeColumns = () => availableColumns().filter((c) => shownColumns.has(c.id) || (!columnsChosen && c.byDefault));
-const projectColspan = () => 7 + activeColumns().length;
+const projectColspan = () => 8 + activeColumns().length;
 
 export function renderColumnMenu() {
   const active = new Set(activeColumns().map((c) => c.id));
@@ -376,10 +377,10 @@ function exportProjectsCsv() {
   if (!rows.length) return;
   const cellText = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ''));
   const credit = (p, kind, key) => p.credits?.[kind]?.[key] ?? '';
-  const header = ['Project', 'Project id', 'Open findings', ...availableColumns().map((c) => `${c.group}: ${c.label}`), 'Oldest open since', 'Oldest (days)', 'Last scanned by', 'Initiator email',
+  const header = ['Project', 'Project id', 'Branch', 'Open findings', ...availableColumns().map((c) => `${c.group}: ${c.label}`), 'Oldest open since', 'Oldest (days)', 'Last scanned by', 'Initiator email',
     'Triage allocated', 'Triage used', 'Triage left', 'Triage needed', 'Remediation allocated', 'Remediation used', 'Remediation left', 'Remediation needed'];
   const lines = rows.map((p) => [
-    p.projectName, p.projectId, p.totalRisks, ...availableColumns().map((c) => c.value(p)), formatDate(p.oldestFirstDetectedAt), p.maxAgeDays ?? '', p.initiator ?? '', p.initiatorEmail ?? '',
+    p.projectName, p.projectId, p.branch ?? '', p.totalRisks, ...availableColumns().map((c) => c.value(p)), formatDate(p.oldestFirstDetectedAt), p.maxAgeDays ?? '', p.initiator ?? '', p.initiatorEmail ?? '',
     credit(p, 'triage', 'allocated'), credit(p, 'triage', 'used'), credit(p, 'triage', 'remaining'), p.credits?.need?.triage ?? '',
     credit(p, 'remediation', 'allocated'), credit(p, 'remediation', 'used'), credit(p, 'remediation', 'remaining'), p.credits?.need?.remediation ?? '',
   ]);
@@ -422,6 +423,7 @@ const ROW_PAGE = 100;
 const projectColumns = () => [
   null,
   (p) => p.projectName,
+  (p) => p.branch ?? '',
   (p) => p.totalRisks,
   ...activeColumns().map((c) => (p) => c.value(p)),
   { value: (p) => p.maxAgeDays ?? null, text: (p) => formatDate(p.oldestFirstDetectedAt) },
@@ -472,6 +474,7 @@ export function renderProjects() {
               ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.projectName)}</a>`
               : escapeHtml(p.projectName)
           }${Array.isArray(p.languages) && p.languages.length ? `<span class="proj-langs" title="Languages its latest scan has results in">${escapeHtml(p.languages.join(' · '))}</span>` : ''}${p.error ? `<span class="err">${escapeHtml(p.error)}</span>` : ''}${sevStrip(p.bySeverity)}</td>
+          ${branchCell(p)}
           <td class="num c-count" data-label="Open findings">${p.totalRisks}</td>
           ${activeColumns().map((c) => {
             const v = c.value(p);

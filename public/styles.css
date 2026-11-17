@@ -1359,6 +1359,48 @@ button.credit-edit .need-tag { flex-basis: 100%; }
 .focus-menu .engine-opt > * { white-space: normal; }
 .focus-menu .engine-opt > .muted { grid-column: 2; font-size: 12px; margin-bottom: 8px; }
 .focus-menu .engine-opt > small { display: none; }
+/* Which branch (MZ-01.01.20): three choices, the branch for every project under the second. */
+.focus-pick .col-menu { max-width: min(440px, 92vw); }
+.branch-modes { display: contents; }
+.branch-one { grid-column: 1 / -1; display: grid; gap: 6px; margin: 0 0 10px 26px; }
+.branch-one[hidden] { display: none; }
+.branch-one input { width: 100%; font-family: var(--mono, ui-monospace, monospace); font-size: 12.5px; }
+.branch-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.branch-chips .hint { font-size: 12px; margin: 0; }
+.branch-sep { grid-column: 1 / -1; border: 0; border-top: 1px solid var(--border); margin: 2px 0 8px; width: 100%; }
+.br-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font: 12px/1.6 var(--mono, ui-monospace, monospace); cursor: pointer; white-space: nowrap; }
+.br-chip small { color: var(--muted); font-family: inherit; }
+.br-chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
+.br-chip.on small { color: inherit; opacity: 0.8; }
+.br-lock { width: 11px; height: 11px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; vertical-align: -1px; margin-inline-start: 3px; }
+/* The Branch column: the branch as a small button, and why it was used under it. */
+.c-branch { white-space: nowrap; }
+.br-pick, .br-name { display: inline-flex; align-items: center; gap: 4px; max-width: 220px; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font: 12.5px/1.6 var(--mono, ui-monospace, monospace); overflow: hidden; text-overflow: ellipsis; }
+.br-pick { cursor: pointer; }
+.br-pick:hover, .br-pick[aria-expanded="true"] { border-color: var(--accent); }
+.br-pick.chosen { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.br-caret { font-size: 10px; color: var(--muted); }
+.br-why { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.br-pop { position: absolute; z-index: 60; width: min(360px, 92vw); max-height: min(420px, 70vh); overflow: auto; padding: 6px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow); font-size: 13px; }
+.br-pop h6 { margin: 8px 8px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.br-pop .hint { margin: 6px 8px; }
+.br-pop hr { border: 0; border-top: 1px solid var(--border); margin: 6px 0; }
+.br-opt { display: flex; width: 100%; justify-content: space-between; align-items: baseline; gap: 10px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: var(--text); text-align: start; cursor: pointer; font: inherit; }
+.br-opt b { display: inline-flex; align-items: center; font: 600 12.5px var(--mono, ui-monospace, monospace); }
+.br-opt small { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+.br-opt:hover:not(:disabled), .br-opt.on { background: var(--surface-2, rgba(127, 127, 127, 0.12)); }
+.br-opt:disabled { opacity: 0.55; cursor: default; }
+/* Settings → Primary branches. */
+.pb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0; }
+.pb-order { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
+.pb-order .br-chip { cursor: default; }
+.pb-gt { color: var(--muted); }
+.pb-order-edit { display: grid; gap: 6px; max-width: 520px; margin: 6px 0 10px; }
+.pb-order-edit textarea { font: 12.5px/1.6 var(--mono, ui-monospace, monospace); }
+.pb-filter { display: inline-flex; align-items: center; gap: 6px; }
+.pb-table td { vertical-align: middle; }
+.pb-table select { max-width: 280px; }
+.pb-act { white-space: nowrap; }
 /* A phone: the picker's menu spans the screen, never past its edge. */
 @media (max-width: 600px) { .engine-pick .col-menu { position: fixed; top: auto; inset-inline: 16px; width: auto; max-width: none; margin-top: 6px; } .engine-pick .col-menu .engine-opt > * { white-space: normal; } }
 .col-picker > .col-menu.to-end { left: auto; right: 0; }
