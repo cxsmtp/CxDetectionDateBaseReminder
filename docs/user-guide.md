@@ -1103,6 +1103,23 @@ How the credit pool is being used, in three tabs. Everyone with **credits.view**
 
 ---
 
+## Fusion credits
+
+From MZ-01.01.19, **Credits → Fusion credits** (for **credits.allocate**) gives projects credits for **Fusion scans only**. They cannot be spent on AI Triage or AI Remediation, and Credit Control's cannot be spent on Fusion; together they never hold more than the tenant has left in Checkmarx One. The full page: [Fusion credits](fusion-credits.md).
+
+| Part | Meaning |
+| --- | --- |
+| **Plan & allocate** → plan | The Cx Credits Calculator's Fusion plan: a customer saved in the calculator here (**Use this plan**), or a file from **Fusion → Download the Fusion plan** in the calculator. Its models, period, rules by frequency or criticality, and each project's scans, model, branch and criticality are used as they are. The period and a frequency's scans can be changed here and saved. |
+| **Read projects** | Every project: its branch (the primary branch, else main or master), model, lines of code and blocks of 10,000, scans a year, Fusion scans, and the tenant's credits: left, held for Triage & Remediation, held for Fusion, free. |
+| **Branch** | Select it to pick another branch: the usual protected branches (main, master, trunk, develop, release, security, hotfix, prod) come first. The project is read again on it. |
+| **Recommended** | Blocks × the plan's scans × the model's rate. **Allocate recommended** gives every ticked project its recommendation in one click, after a confirmation. |
+| **Schedule planned scans** | One click: each ticked project's planned Fusion scans not run yet, spread over the rest of the period, the first now, each only while it has credits for it. **Used & scheduled → Stop planned scans** stops them. |
+| **More credits needed** | Checked every half hour: when a project's lines of code grow so that its credits no longer cover the rest of its plan, every Admin and Security Analyst is emailed the extra credits needed, once for each growth. |
+| **Spent** | The Admins and the owner are emailed; Fusion is paused in the project's Checkmarx One settings until credits are added (or, with **Warn only**, left on). |
+| **Rates** (Admins) | Credits per 10,000 lines of code for each model: Opus 5.5 = 2, Opus 4.7 = 2.5, Haiku 4.5 = 1.5. Add or remove a model; choose pause or warn only. |
+
+Usage is estimated from the Fusion scans since the allocation, as the calculator estimates it. A pipeline that asks for Fusion in the scan itself is not stopped by pausing.
+
 ## Impact
 
 What AI Triage and AI Remediation did for the backlog. Open it from **Credits → Impact**; anyone who may view tracked reports can. The full explanation of each figure is in [Impact](impact.md).
