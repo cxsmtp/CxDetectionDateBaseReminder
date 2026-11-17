@@ -158,6 +158,8 @@ test('only an Admin changes the order, and the suggestions follow it', async () 
 test('an Admin writes a primary branch to Checkmarx One; nobody else can', async () => {
   assert.equal((await analyst('POST', '/api/branches/primary', { projects: [{ id: 'p3', branch: 'main' }] })).status, 403);
   assert.equal((await admin('POST', '/api/branches/primary', { projects: [{ id: 'p3', branch: 'release/*' }] })).status, 400, 'a pattern is not a branch');
+  assert.equal((await admin('POST', '/api/branches/primary', { projects: [{ id: 'p3', branch: 'main\nforged line' }] })).status, 400, 'nor a name with a line break');
+  assert.equal((await admin('GET', '/api/branches/project?id=p3%0Ax')).status, 400);
   const before = (await stats())['project-update'] ?? 0;
   const r = await admin('POST', '/api/branches/primary', { projects: [{ id: 'p3', branch: 'main' }, { id: 'p7', branch: 'trunk' }] });
   assert.equal(r.status, 200, r.raw);

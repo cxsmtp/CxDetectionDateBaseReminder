@@ -20,6 +20,8 @@ import { isProtected, rankIn, readProtected, sortByOrder } from '../protected-br
 import { logSafe } from './shared.js';
 
 const MAX_PROJECTS = 5000;
+const SAFE_ID = /^[\w-]{1,80}$/;
+const SAFE_BRANCH = /^[\w./+@-]{1,200}$/;
 const MAX_WRITES = 500;
 
 /** A project's scans in Checkmarx One, newest first: each branch once, with its latest completed scan. */
@@ -127,7 +129,8 @@ export function registerBranchRoutes(app, d) {
     const client = req.session?.client;
     if (!client) return noClient(res);
     const list = (Array.isArray(req.body?.projects) ? req.body.projects : []).slice(0, MAX_WRITES).map((p) => ({ id: String(p?.id ?? '').slice(0, 80), branch: branchName(String(p?.branch ?? '').slice(0, 200)) }));
-    if (!list.length || list.some((p) => !p.id || !p.branch || p.branch.includes('*'))) return res.status(400).json({ error: 'Choose the projects, and a branch name (not a pattern) for each.' });
+    // Plain branch names and project ids only (no pattern, no control characters): nothing else reaches Checkmarx One or a log line.
+    if (!list.length || list.some((p) => !SAFE_ID.test(p.id) || !SAFE_BRANCH.test(p.branch))) return res.status(400).json({ error: 'Choose the projects, and a branch name (not a pattern) for each.' });
     const actor = await adminActor(req);
     const results = await mapWithConcurrency(list, 4, async ({ id, branch }) => {
       try {
@@ -162,7 +165,7 @@ export function registerBranchRoutes(app, d) {
     const client = req.session?.client;
     if (!client) return noClient(res);
     const id = String(req.query.id ?? '').slice(0, 80);
-    if (!id) return res.status(400).json({ error: 'Which project?' });
+    if (!SAFE_ID.test(id)) return res.status(400).json({ error: 'Which project?' });
     const order = branchSettings.order;
     let known = branchSettings.project(id);
     const scanned = await scannedBranches(client, id);
