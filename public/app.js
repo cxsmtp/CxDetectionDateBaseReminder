@@ -41,6 +41,7 @@ import { wireAudit } from './app/audit.js';
 import { wireAccess } from './app/access.js';
 import { wireCreditControl, wireCreditPool, wireTakeBack } from './app/credits.js';
 import { wireImpact } from './app/impact.js';
+import { wireFusionCredits } from './app/fusion-credits.js';
 
 wireCore();
 wireAdvancedAndFeatures();
@@ -135,6 +136,7 @@ wireServerConnections();
 wireAccess();
 wireTakeBack();
 wireImpact();
+wireFusionCredits();
 wireCreditControl();
 wireHttps();
 wireTerms();

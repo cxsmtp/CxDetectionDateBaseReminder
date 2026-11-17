@@ -46,6 +46,8 @@ const PAGES_BEFORE = {
   automation: 'settings.view settings.automation',
   reports: 'reports.view',
   credits: 'credits.view',
+  // From MZ-01.01.19: credits given to projects for Fusion scans only.
+  fusioncredits: 'credits.allocate',
   impact: 'reports.view',
   audit: 'audit.view backup.view',
   calculator: 'projections.use',
@@ -124,7 +126,7 @@ test('the menu has four groups: Act, Credits, Set up and Labs', () => {
   assert.deepEqual(menuGroups, [
     ['pinned', 'Pinned', []],
     ['act', 'Act', ['dashboard', 'automation', 'reports']],
-    ['credits', 'Credits', ['credits', 'impact', 'audit', 'calculator']],
+    ['credits', 'Credits', ['credits', 'fusioncredits', 'impact', 'audit', 'calculator']],
     ['setup', 'Set up', ['access', 'settings', 'logs']],
     ['labs', 'Labs', ['beta', 'fusion', 'flush', 'status', 'consolidated', 'govern']],
   ]);
@@ -132,8 +134,8 @@ test('the menu has four groups: Act, Credits, Set up and Labs', () => {
   assert.equal(menuGroups.flatMap(([, , routes]) => routes).length, menuItems.length, 'every item is in a group');
   // The colour and the label beside each page title are as they were: Dashboard is still Follow up, the credit pages Prove, the calculator Plan.
   const stage = Object.fromEntries(menuItems.map((a) => [a['data-route'], a['data-stage']]));
-  assert.deepEqual(stage, { dashboard: 'act', automation: 'act', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup', beta: 'labs', fusion: 'labs', flush: 'labs', status: 'labs', consolidated: 'labs', govern: 'labs' });
-  assert.match(app, /const STAGES = \{ govern: 'labs', status: 'labs', consolidated: 'labs', flush: 'labs', dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' \};/);
+  assert.deepEqual(stage, { dashboard: 'act', automation: 'act', reports: 'followup', credits: 'prove', fusioncredits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup', beta: 'labs', fusion: 'labs', flush: 'labs', status: 'labs', consolidated: 'labs', govern: 'labs' });
+  assert.match(app, /const STAGES = \{ govern: 'labs', status: 'labs', consolidated: 'labs', flush: 'labs', dashboard: 'act', automation: 'act', beta: 'labs', fusion: 'labs', reports: 'followup', credits: 'prove', fusioncredits: 'prove', impact: 'prove', audit: 'prove', calculator: 'plan', access: 'setup', settings: 'setup', logs: 'setup' \};/);
   assert.match(app, /const STAGE_LABELS = \{ act: 'Act', followup: 'Follow up', prove: 'Prove', govern: 'Govern', plan: 'Plan', setup: 'Set up', labs: 'Labs' \};/);
   assert.match(html, /<p class="sidebar-foot">Act · Follow up · Prove — down to zero<\/p>/, 'and so is the line under the menu');
 });

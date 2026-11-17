@@ -4693,3 +4693,32 @@ body.calc-presenting-on .calc-heart-compact, body.calc-presenting-on .calc-setup
 .calc-future :is(.calc-fh-used, #sa-connect-status.ok) { background: linear-gradient(90deg, rgb(52 245 164 / 0.16), rgb(94 231 255 / 0.12)) !important; color: var(--ok) !important; border: 1px solid rgb(52 245 164 / 0.35) !important; box-shadow: 0 0 18px -8px rgb(52 245 164 / 0.6); }
 .calc-future .calc-mix-bar, .calc-future .calc-readfx-fill { filter: drop-shadow(0 0 6px var(--fx-glow)); }
 .calc-future a, .calc-future button.link { color: var(--fx-cyan); }
+
+/* Credits → Fusion credits: the plan's frequencies, the projects' states and branches, the rates. */
+.fusion-credits .panel { margin-bottom: 16px; }
+.fc-plan-from { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; margin: 8px 0 14px; }
+.fc-plan-from .field { min-width: 260px; }
+.fc-plan-file { flex: 1 1 320px; }
+.fc-plan-edit { display: grid; gap: 10px; }
+.fc-period { max-width: 220px; }
+.fc-freq { display: flex; flex-wrap: wrap; gap: 6px; }
+.fc-freq-item { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px; border: 1px solid var(--border); border-radius: 99px; background: var(--surface-2); font-size: 12.5px; }
+.fc-freq-item input { width: 64px; min-height: 28px; padding: 2px 6px; text-align: right; }
+.fc-table td, .fc-table th, .fc-used-table td, .fc-used-table th { white-space: nowrap; }
+.fc-table td.fc-state { white-space: normal; min-width: 180px; }
+.fc-table tr.fc-spent td, .fc-used-table tr.fc-spent td { background: color-mix(in srgb, #dc2626 7%, transparent); }
+.fc-table tr.fc-low td, .fc-used-table tr.fc-low td { background: color-mix(in srgb, #d97706 7%, transparent); }
+.fc-bad { color: #c81e1e; font-weight: 700; } .fc-warn { color: #a16207; font-weight: 600; }
+:root[data-theme="dark"] .fc-bad { color: #f87171; } :root[data-theme="dark"] .fc-warn { color: #fbbf24; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fc-bad { color: #f87171; } :root:not([data-theme="light"]) .fc-warn { color: #fbbf24; } }
+.fc-chip { display: inline-block; padding: 1px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; border: 1px solid currentColor; color: var(--muted); margin-inline-end: 6px; }
+.fc-chip.bad { color: #c81e1e; } .fc-chip.warn { color: #a16207; } .fc-chip.good { color: #15803d; }
+:root[data-theme="dark"] .fc-chip.bad { color: #f87171; } :root[data-theme="dark"] .fc-chip.warn { color: #fbbf24; } :root[data-theme="dark"] .fc-chip.good { color: #4ade80; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fc-chip.bad { color: #f87171; } :root:not([data-theme="light"]) .fc-chip.warn { color: #fbbf24; } :root:not([data-theme="light"]) .fc-chip.good { color: #4ade80; } }
+.fc-branch { font-family: var(--mono); font-size: 12.5px; }
+.fc-branch-kind { font-size: 11px; padding: 0 6px; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); }
+.fc-branch-pick select { min-height: 30px; max-width: 220px; }
+.fc-rates input { width: 110px; text-align: right; }
+.fc-spent { border: 0; padding: 0; margin: 14px 0 0; display: grid; gap: 8px; max-width: 980px; }
+.fc-spent legend { font-weight: 600; margin-bottom: 6px; }
+.fc-spent label { align-items: flex-start; gap: 10px; }
