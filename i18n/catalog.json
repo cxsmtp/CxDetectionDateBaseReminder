@@ -38999,5 +38999,665 @@
   "seen": [
    "MZ-01.01.18 › Labs → Fusion results"
   ]
+ },
+ "Plan & allocate": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Used & scheduled": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Rates": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Read projects": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "The plan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "How many Fusion scans each project is planned for, from how often its branch is scanned today (its scans in the last year), as in the calculator. Take the plan from the Cx Credits Calculator, or change it here.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Plan from the Cx Credits Calculator": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Choose a plan saved in the calculator…": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Use this plan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Or open a Fusion plan file (Cx Credits Calculator → Fusion → Download the Fusion plan)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Fusion scans planned for each change frequency": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Save the plan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Projects whose latest scan on their branch ran Fusion, and those given Fusion credits. LAST scans use no Fusion credits and are not listed. Click a branch to read the project on another one.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Allocate recommended": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Each chosen project's planned Fusion scans, spread over the plan's period, the first now; each starts only while the project has Fusion credits for it": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Schedule planned scans": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "LOC ({0}K blocks)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Scanned today → planned": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Recommended": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Used: the Fusion scans each project ran on its branch since its credits were first allocated, × its {0}K blocks × the rate of the model each ran with (Checkmarx One does not say one scan's own credits). Recommended is the plan; Allocate gives exactly that, and more can be added.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Each project given Fusion credits: what it used and has left, its planned scans and when the next one starts, whether Fusion is paused for it in Checkmarx One, and the extra credits it needs when its lines of code have grown. Checked every half hour.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Stop planned scans": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Take back unused": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Fusion scans since": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Planned scans": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Needs": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Fusion in Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Credits one Fusion scan costs for every {0},{1} lines of code, for each model: the rates of your Checkmarx One agreement. Only an Admin changes them; a new rate applies to plans and usage from then on, and every change is in the audit log.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Credits per {0}K lines": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "In the calculator's plan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "When a project's Fusion credits are spent": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Save rates": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Reading the Fusion projects' models and lines of code…": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Reading their scans: {0} of {1}…": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Reading…": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "The read stopped: {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Nobody has read the tenant's Fusion projects yet.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Tenant credits left (Checkmarx One)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "read {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "No plan saved in the calculator here: open a plan file": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Set a rate for {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Left out of the plan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Spent · Fusion paused": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Spent": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Add {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Allocate {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Less than one scan left": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "On plan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Not known yet": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Needs {0} more": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Chosen for this project": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "(chosen)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "A usual protected branch": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "(not in the last read)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "The model the plan names for it": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "(its own)": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "No rate for its model yet": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "No project's latest scan ran Fusion.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Read projects to list them.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Allocate recommended to {0} project(s) · {1} credits": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Schedule planned scans for {0}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "{0} planned, not scheduled": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "all {0} started": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "· waiting for credits": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "· last start failed": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "{0} more: lines of code {1} → {2}": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "No project has been given Fusion credits yet.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Only an Admin changes the rates.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Rates saved.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Its primary branch": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Plan saved: the recommendations follow it.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "The calculator's plan is the plan now.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Planned Fusion scans scheduled: the first of each has started.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "That file is not a Fusion plan from the Cx Credits Calculator.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "{0} project(s) given {1} Fusion credits.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "{0} Fusion credits taken back.": {
+  "kind": "message",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Give {0} project(s) {1} Fusion credits, as the plan recommends? They can only be spent on Fusion scans.": {
+  "kind": "dialog",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Schedule {0} planned Fusion scan(s) for {1} project(s), spread over the plan's period, the first of each now? Each starts only while its project has Fusion credits for it.": {
+  "kind": "dialog",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Take back what {0} project(s) have not used? A project with nothing left has Fusion paused, if that is the choice on the Rates tab.": {
+  "kind": "dialog",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "The model's name, as Checkmarx One gives it (for example opus-{0}.{1}):": {
+  "kind": "dialog",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Reading the project on that branch…": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "more than {0} a week": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "{0}–{1} a week": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "once in {0} weeks": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "once a month": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "once in {0} months": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "once a year": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "not in the last year": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Fusion recommended, {0} months": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "{0} project(s) with Fusion scans": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "allocated, not used yet": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "for either, never both": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Free to allocate": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Held for Fusion": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Held for Triage & Remediation": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "not read yet": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Rates, credits per {0}K lines (Rates tab):": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "no rate yet": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "The plan is this page's own: {0} months, the Fusion scans for each change frequency below.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Read projects to see the tenant's Fusion projects and what each needs.": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Credits for Fusion scans only": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Download the Fusion plan": {
+  "kind": "text",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "The Fusion plan as a file: open it in CxMissionZero under Credits → Fusion credits to allocate its credits and schedule its scans": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Ashoka Chakra: a {0}-spoke wheel that stands for duty and progress around the clock, as Mission Zero works day and night to eliminate vulnerabilities and keep applications secure.": {
+  "kind": "attr:title",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "<strong>Warn and pause Fusion</strong>: the Admins and the project's owner are emailed, and CxMissionZero switches Fusion off in that project's settings in Checkmarx One (its scans go on without the AI engine), and back as it was once credits are added. A pipeline that asks for Fusion in the scan itself is not stopped by the project's setting.": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "<strong>Warn only</strong>: the project is flagged here and the Admins and its owner are emailed; its Fusion scans in Checkmarx One go on.": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Credits for <strong>Fusion scans only</strong>, given to projects. They cannot be spent on AI Triage or AI Remediation, and the Triage and Remediation credits on Credit Control cannot be spent on Fusion. What each project needs is worked out as in the Cx Credits Calculator's Fusion plan: its lines of code in {0}K blocks × the Fusion scans planned for it × its model's rate.": {
+  "kind": "html",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Credits per {0}K lines for haiku-{1}.{2}": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Credits per {0}K lines for mythos-{1}.{2}": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
+ },
+ "Credits per {0}K lines for opus-{1}.{2}": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "MZ-01.01.19 › Credits → Fusion credits"
+  ]
  }
 }
