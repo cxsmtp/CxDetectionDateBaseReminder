@@ -31,7 +31,7 @@ import { logSafe } from './shared.js';
 export function registerScanRoutes(app, d) {
   const {
     saveFetchedData, tenancy, settingsStore, findingJournal, diagnostics, creditView, asyncRoute, requirePermission,
-    activeConfig, labs,
+    activeConfig, labs, branchSettings,
   } = d;
 
   // ---------------------------------------------------------------------------
@@ -124,6 +124,24 @@ export function registerScanRoutes(app, d) {
     return apiKey ? createHash('sha256').update(`${baseUrl}\u0000${tenant}\u0000${apiKey}`).digest('base64url').slice(0, 22) : '';
   }
 
+  /** Branches chosen for single projects on the Workbench: {projectId: branch}, from a JSON query value (500 at most). */
+  function chosenOf(value) {
+    if (!value) return null;
+    let parsed;
+    try {
+      parsed = JSON.parse(String(value).slice(0, 60_000));
+    } catch {
+      throw Object.assign(new Error('The branches chosen for projects could not be read.'), { status: 400 });
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const out = Object.create(null);
+    for (const [id, branch] of Object.entries(parsed).slice(0, 500)) {
+      const name = String(branch ?? '').trim().slice(0, 200);
+      if (id && name && /^[\w./+@-]+$/.test(name) && id !== '__proto__') out[String(id).slice(0, 80)] = name;
+    }
+    return Object.keys(out).length ? out : null;
+  }
+
   async function runScan(req, { onStart, onProject, shouldStop = () => false } = {}) {
     const { client } = req.session;
     const active = activeConfig();
@@ -158,12 +176,19 @@ export function registerScanRoutes(app, d) {
     }
     // One branch per project (its primary branch, else main, else master: src/cxone/branches.js), unless every branch is asked for.
     const branchScope = branchScopeOf(req.query.branches);
+    // One branch (or glob) for every project that has it, and branches chosen for single projects on the Workbench.
+    const oneBranch = req.query.branches === 'one' ? String(req.query.branch ?? '').trim().slice(0, 120) : '';
+    if (oneBranch && !/^[\w./*+@-]+$/.test(oneBranch)) throw Object.assign(new Error('That is not a branch name or pattern.'), { status: 400 });
+    const chosenBranches = branchScope === 'all' ? null : chosenOf(req.query.branchFor);
+    // Projects with no primary branch: the protected branch their git host suggests (Settings → Primary branches).
+    const suggested = branchScope === 'all' ? null : branchSettings?.suggestions?.() ?? null;
     // Projects whose scan counted no lines of code are left out unless kept; those with no finding, when asked.
     const leaveOutNoCode = req.query.zeroLoc !== 'keep';
     const leaveOutNoFindings = req.query.noFindings === 'leave-out';
     const identity = readerIdentity(req.session);
     const gate = readGate(client);
-    const pickScans = (list) => primaryScans(client, list, { all: branchScope === 'all', identity, gate, concurrency: config.concurrency });
+    const branchOptions = { chosen: chosenBranches, one: oneBranch, suggested };
+    const pickScans = (list) => primaryScans(client, list, { all: branchScope === 'all', identity, gate, concurrency: config.concurrency, ...branchOptions });
     let projects, skipped, warning, choice;
     if (scope.projectIds.length || scope.initiators.length || scope.applications.length) {
       if (scope.initiators.length) choice = await pickScans(allProjects);
@@ -178,7 +203,7 @@ export function registerScanRoutes(app, d) {
         const anyBranch = await getLastScans(client, allProjects.map((p) => p.id)).catch(() => null);
         if (anyBranch) {
           candidates = allProjects.filter((p) => withinWindow(activityWindow, lastScanDate(anyBranch[p.id])));
-          choice = await primaryScans(client, candidates, { all: branchScope === 'all', identity, gate, concurrency: config.concurrency, lastScans: anyBranch }).catch(() => null);
+          choice = await primaryScans(client, candidates, { all: branchScope === 'all', identity, gate, concurrency: config.concurrency, lastScans: anyBranch, ...branchOptions }).catch(() => null);
         }
       }
       ({ projects, warning } = await filterProjectsByActivity(client, candidates, activityWindow, { lastScans: choice?.scans ?? null }));
@@ -200,7 +225,8 @@ export function registerScanRoutes(app, d) {
     onStart?.({ total: projects.length, projectsTotal: allProjects.length, projectsSkipped: skipped });
 
     // The branch each project's findings are from, and how it was chosen (src/cxone/branches.js).
-    const branched = (summary) => Object.assign(summary, { branch: choice.branches[summary.projectId]?.branch ?? '', branchHow: choice.branches[summary.projectId]?.how ?? '' });
+    const branched = (summary) => Object.assign(summary, { branch: choice.branches[summary.projectId]?.branch ?? '', branchHow: choice.branches[summary.projectId]?.how ?? '', branchWanted: choice.branches[summary.projectId]?.wanted ?? '', mainBranch: mainBranchOf.get(summary.projectId) ?? '' });
+    const mainBranchOf = new Map(allProjects.map((p) => [p.id, p.mainBranch ?? '']));
     // Rows shown while the rest is still being read: the initiator comes from the
     // latest scan already in hand; addresses and confidence follow with the result.
     const earlyRow = (summary) => {
@@ -281,6 +307,7 @@ export function registerScanRoutes(app, d) {
     // Asked to: projects with no finding left (in this scope) are not part of the result.
     if (leaveOutNoFindings) result.projects = result.projects.filter((p) => (p.totalRisks > 0 || p.error ? true : ((leftOut.noFindings += 1), false)));
     result.branchScope = branchScope;
+    result.oneBranch = oneBranch;
     result.leaveOut = { noCode: leaveOutNoCode, noFindings: leaveOutNoFindings };
     result.leftOut = leftOut;
     // Searched: the projects with no finding of that vulnerability are not part of the result.
@@ -297,11 +324,12 @@ export function registerScanRoutes(app, d) {
     // complete for the engines read: what it no longer lists of theirs was fixed. A narrowed read only adds
     // what it saw. Only the branch that counts is recorded: a read of every branch would mix in others' findings.
     const whole = !detectionWindow && !vulnerability;
-    if (branchScope === 'primary') for (const summary of result.projects) findingJournal.observe(summary, summary.risks, { complete: whole && !summary.error, engines });
+    // A project read on a branch chosen on the Workbench is not its primary branch: not recorded.
+    if (branchScope === 'primary') for (const summary of result.projects) if (summary.branchHow !== 'chosen') findingJournal.observe(summary, summary.risks, { complete: whole && !summary.error, engines });
     req.session.lastScan = result;
     // The tenant's copy for the consolidated view is every open finding on the branch that counts: a load narrowed
     // to an age, a search, or named applications, projects or people does not replace it.
-    const narrowed = Boolean(detectionWindow || vulnerability || scope.projectIds.length || scope.initiators.length || scope.applications.length || branchScope !== 'primary');
+    const narrowed = Boolean(detectionWindow || vulnerability || scope.projectIds.length || scope.initiators.length || scope.applications.length || branchScope !== 'primary' || oneBranch || chosenBranches);
     labs.noteFetch(req, result, allProjects.length, { narrowed });
 
     const response = {
@@ -366,7 +394,8 @@ export function registerScanRoutes(app, d) {
         applicationNames: scope.applicationNames ?? [],
         vulnerability: result.vulnerability,
         engines: engines ?? [],
-        branches: branchScope,
+        branches: oneBranch ? 'one' : branchScope,
+        branch: oneBranch,
         zeroLoc: leaveOutNoCode ? '' : 'keep',
         noFindings: leaveOutNoFindings ? 'leave-out' : '',
       },

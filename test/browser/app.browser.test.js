@@ -248,6 +248,45 @@ test('Fusion credits: read the projects, set the rates, allocate what the plan r
   nothingWentWrong();
 });
 
+test("the Branch column names each project's branch; another is chosen from its menu, and Settings → Primary branches writes one to Checkmarx One", async () => {
+  await open(admin, 'dashboard', 'page-dashboard');
+  await admin.locator('#fetch').click();
+  await admin.locator('#table-meta').filter({ hasText: `${PROJECTS} of ${PROJECTS} project(s) shown` }).waitFor({ timeout: 30000 });
+  // This mock's scans do not say their branch: the column says so rather than guess.
+  const first = admin.locator('#projects-body [data-branch-pick="p0"]');
+  assert.equal((await first.innerText()).replace('▾', '').trim(), '—');
+  assert.match(await admin.locator('#projects-body tr[data-id="p0"] .br-why').innerText(), /branch not reported/);
+  // Its menu: with no git host connected, it says its branches come from Checkmarx One only.
+  await first.click();
+  await admin.locator('#branch-pop').filter({ hasText: 'No git host connected for it' }).waitFor();
+  await admin.keyboard.press('Escape');
+  assert.equal(await admin.locator('#branch-pop').count(), 0);
+  // The picker: one branch for every project, from a typed name.
+  await admin.locator('#focus-pick summary').click();
+  await admin.locator('#branch-mode-one').check();
+  await admin.locator('#branch-one-name').fill('develop');
+  await admin.locator('#branch-one-name').press('Enter');
+  assert.equal((await admin.locator('#focus-summary').innerText()).trim(), 'One branch · develop');
+  await admin.locator('#branch-mode-primary').check();
+  assert.match((await admin.locator('#focus-summary').innerText()).trim(), /^Primary branch/);
+  await admin.locator('#focus-pick summary').click();
+
+  // Settings → Primary branches: read, then the suggestion written to Checkmarx One by the Admin.
+  await goTo(admin, '#/settings/branches', 'page-settings');
+  await admin.locator('#set-branches').waitFor({ state: 'visible' });
+  await admin.locator('#pb-read').click();
+  await admin.locator('#pb-body tr[data-pb-row]').nth(PROJECTS - 1).waitFor({ timeout: 30000 });
+  assert.match(await admin.locator('#pb-order').innerText(), /main/);
+  const setAll = admin.locator('#pb-set-all');
+  await setAll.filter({ hasText: `Set all ${PROJECTS} suggested in Checkmarx One` }).waitFor();
+  admin.once('dialog', (dialog) => dialog.accept());
+  await setAll.click();
+  await admin.locator('#pb-body tr[data-pb-row="p0"]').filter({ hasText: 'Primary branch set' }).waitFor();
+  assert.equal(await setAll.isVisible(), false, 'nothing left to suggest');
+  await open(admin, 'dashboard', 'page-dashboard');
+  nothingWentWrong();
+});
+
 test('Settings and People & roles open, with what the Admin may see', async () => {
   await open(admin, 'settings', 'page-settings');
   const sections = (await admin.locator('#set-nav [data-set]:visible').allTextContents()).map((t) => t.trim());
@@ -428,7 +467,7 @@ test('Settings has five groups, and the old addresses and the section a browser 
     );
   assert.deepEqual(await listed(), [
     '[You]', 'Your profile', 'Your appearance', 'Your branding',
-    '[Connections]', 'Quick setup (.env)', 'Checkmarx One', 'Email server', 'Network & proxy', 'HTTPS', 'Server address',
+    '[Connections]', 'Quick setup (.env)', 'Checkmarx One', 'Primary branches', 'Email server', 'Network & proxy', 'HTTPS', 'Server address',
     '[Reminders]', 'Hands-off', 'Developer addresses', 'Automation', 'SLAs',
     '[Organisation]', 'AI & credit pool', 'Branding', 'Beta features', 'Get help',
     '[About]', 'Activation codes', 'Update & recovery', 'About & terms of use',
@@ -533,7 +572,7 @@ test('a User and a Security Champion have seven pages or fewer: one flat list, w
     const sections = (await page.locator('#set-nav [data-set]:visible').allTextContents()).map((t) => t.trim());
     if (person.role === 'user') {
       assert.deepEqual(groups, ['You', 'Connections', 'Reminders', 'Organisation', 'About']);
-      assert.deepEqual(sections, ['Your profile', 'Your appearance', 'Checkmarx One', 'Email server', 'Server address', 'Hands-off', 'Developer addresses', 'AI & credit pool', 'About & terms of use']);
+      assert.deepEqual(sections, ['Your profile', 'Your appearance', 'Checkmarx One', 'Primary branches', 'Email server', 'Server address', 'Hands-off', 'Developer addresses', 'AI & credit pool', 'About & terms of use']);
     } else {
       // No "View settings": only what is under You, and About & terms of use, where the version in the menu leads.
       assert.deepEqual(groups, ['You', 'About']);

@@ -538,6 +538,8 @@ function showSettingsSection(id) {
     localStorage.setItem(SETTINGS_KEY, link.dataset.set);
   } catch {}
   if (id && id !== link.dataset.set) history.replaceState(null, '', `#/settings/${link.dataset.set}`);
+  // A section that reads something when it opens (Primary branches) listens for this.
+  document.dispatchEvent(new CustomEvent('mz:settings-section', { detail: link.dataset.set }));
   if (state.page === 'settings' && id) window.scrollTo({ top: 0, behavior: 'instant' });
   // Asked for by its old address: the part is opened and, once the page has settled, brought into view
   // (it shows with "Show advanced options" on, as its section did).

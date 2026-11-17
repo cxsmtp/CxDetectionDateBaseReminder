@@ -71,6 +71,8 @@ const SETTINGS_BEFORE = {
   import: ['integration.cxone integration.smtp settings.links beta.use', 'integration.cxone integration.smtp settings.links beta.use', ''],
   handsoff: ['settings.automation settings.view', 'settings.automation settings.view', 'settings.automation'],
   connection: ['', '', 'integration.cxone'],
+  // MZ-01.01.20: Primary branches, for whoever loads findings (what Admins may change, the section itself decides).
+  branches: ['findings.fetch', '', ''],
   smtp: ['', '', 'integration.smtp'],
   network: ['integration.cxone integration.smtp', 'integration.cxone integration.smtp', 'integration.cxone'],
   endpoint: ['', '', 'integration.cxone'],
@@ -227,7 +229,7 @@ test('Settings has five groups, with every link in its place', () => {
   }
   assert.deepEqual(groups, [
     ['You', ['profile', 'appearance', 'mybrand']],
-    ['Connections', ['import', 'connection', 'smtp', 'network', 'https', 'server']],
+    ['Connections', ['import', 'connection', 'branches', 'smtp', 'network', 'https', 'server']],
     ['Reminders', ['handsoff', 'initiators', 'template', '→ automation', 'sla']],
     ['Organisation', ['ai', 'branding', 'features', 'support']],
     ['About', ['activation', 'tenants', 'update', 'about']],

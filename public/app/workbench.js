@@ -1,5 +1,6 @@
 // The Workbench: what to load (ages, engines, branches, named projects and people), loading it, the journey,
 // the action rail and getting started.
+import { branchChips, branchInfo, chosenParam, loadBranchInfo } from './branches.js';
 import { DEFAULT_ENGINES, ENGINES, cleanEngines, describeEngines } from '../engines.js';
 import { $, can, state } from './state.js';
 import { escapeHtml } from './format.js';
@@ -36,6 +37,15 @@ export function windowParams() {
   params.set('engines', [...enginePick].join(','));
   // Each project's primary branch unless every branch is ticked; projects with nothing to analyse left out as chosen.
   if (focusPick.allBranches) params.set('branches', 'all');
+  else {
+    // One branch (or pattern) for every project that has it; and the branches chosen for single projects in the table.
+    if (focusPick.oneBranch) {
+      params.set('branches', 'one');
+      params.set('branch', focusPick.oneBranch);
+    }
+    const chosen = chosenParam();
+    if (chosen) params.set('branchFor', chosen);
+  }
   if (!focusPick.leaveOutNoCode) params.set('zeroLoc', 'keep');
   if (focusPick.leaveOutNoFindings) params.set('noFindings', 'leave-out');
   for (const prefix of ['activity', 'detection']) {
@@ -186,28 +196,47 @@ function setEnginePick(engines) {
 // ---------------------------------------------------------------------------
 
 const FOCUS_KEY = 'mz-focus';
-const DEFAULT_FOCUS = { allBranches: false, leaveOutNoCode: true, leaveOutNoFindings: false };
+const DEFAULT_FOCUS = { allBranches: false, oneBranch: '', leaveOutNoCode: true, leaveOutNoFindings: false };
+const BRANCH_TEXT = /^[\w./*+@-]{1,120}$/;
 function savedFocus() {
   try {
     const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
-    if (saved && typeof saved === 'object') return { allBranches: saved.allBranches === true, leaveOutNoCode: saved.leaveOutNoCode !== false, leaveOutNoFindings: saved.leaveOutNoFindings === true };
+    if (saved && typeof saved === 'object') return { allBranches: saved.allBranches === true, oneBranch: typeof saved.oneBranch === 'string' && BRANCH_TEXT.test(saved.oneBranch) ? saved.oneBranch : '', leaveOutNoCode: saved.leaveOutNoCode !== false, leaveOutNoFindings: saved.leaveOutNoFindings === true };
   } catch {}
   return { ...DEFAULT_FOCUS };
 }
 export const focusPick = savedFocus();
-const FOCUS_BOXES = { allBranches: 'focus-all-branches', leaveOutNoCode: 'focus-no-code', leaveOutNoFindings: 'focus-no-findings' };
+const FOCUS_BOXES = { leaveOutNoCode: 'focus-no-code', leaveOutNoFindings: 'focus-no-findings' };
+const saveFocus = () => {
+  try {
+    localStorage.setItem(FOCUS_KEY, JSON.stringify(focusPick));
+  } catch {}
+};
 
 /** What a load was made with (a load made before these choices: every branch, nothing left out). */
 function focusOf(request) {
   if (!request) return null;
-  return { allBranches: request.branches !== 'primary', leaveOutNoCode: request.branches ? request.zeroLoc !== 'keep' : false, leaveOutNoFindings: request.noFindings === 'leave-out' };
+  return { allBranches: !['primary', 'one'].includes(request.branches), oneBranch: request.branches === 'one' ? String(request.branch ?? '') : '', leaveOutNoCode: request.branches ? request.zeroLoc !== 'keep' : false, leaveOutNoFindings: request.noFindings === 'leave-out' };
+}
+
+/** The branches the projects loaded are on, most common first: "main, master". */
+function branchesInUse() {
+  const count = new Map();
+  for (const p of state.projects) if (p.branch) count.set(p.branch, (count.get(p.branch) ?? 0) + 1);
+  return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([name]) => name).join(', ');
 }
 
 export function renderFocusPick() {
   for (const [key, id] of Object.entries(FOCUS_BOXES)) $(id).checked = focusPick[key];
-  $('focus-summary').textContent = focusPick.allBranches ? 'Every branch' : 'Primary branch';
+  const mode = focusPick.allBranches ? 'all' : focusPick.oneBranch ? 'one' : 'primary';
+  for (const radio of document.querySelectorAll('input[name="branch-mode"]')) radio.checked = radio.value === (oneDraft && mode === 'primary' ? 'one' : mode);
+  $('branch-one').hidden = !$('branch-mode-one').checked;
+  if (document.activeElement !== $('branch-one-name')) $('branch-one-name').value = focusPick.oneBranch;
+  $('branch-chips').innerHTML = branchChips(focusPick.oneBranch);
+  const inUse = mode === 'primary' && state.projects.length ? branchesInUse() : '';
+  $('focus-summary').textContent = mode === 'all' ? 'Every branch' : mode === 'one' ? `One branch · ${focusPick.oneBranch}` : `Primary branch${inUse ? ` · ${inUse}` : ''}`;
   const loaded = focusOf(state.lastScan?.request ?? (state.lastScan ? { branches: state.lastScan.branchScope, zeroLoc: state.lastScan.leaveOut?.noCode === false ? 'keep' : '', noFindings: state.lastScan.leaveOut?.noFindings ? 'leave-out' : '' } : null));
-  const changed = loaded && Object.keys(FOCUS_BOXES).some((key) => loaded[key] !== focusPick[key]);
+  const changed = loaded && ['allBranches', 'oneBranch', ...Object.keys(FOCUS_BOXES)].some((key) => loaded[key] !== focusPick[key]);
   const hint = $('focus-hint');
   hint.textContent = changed ? 'Changed: load findings again to apply it.' : '';
   hint.hidden = !hint.textContent;
@@ -339,16 +368,60 @@ function renderScopeChips() {
 
 const scopeStore = (kind) => (kind === 'application' ? scopePick.applications : kind === 'project' ? scopePick.projects : scopePick.initiators);
 
+// "One branch for every project" ticked, its branch not given yet.
+let oneDraft = false;
+function setOneBranch(name) {
+  const value = String(name ?? '').trim();
+  if (value && !BRANCH_TEXT.test(value)) return;
+  focusPick.oneBranch = value;
+  focusPick.allBranches = false;
+  oneDraft = !value;
+  saveFocus();
+  renderFocusPick();
+}
+
 export function wireScope() {
   for (const [key, id] of Object.entries(FOCUS_BOXES)) {
     $(id).addEventListener('change', (event) => {
       focusPick[key] = event.target.checked;
-      try {
-        localStorage.setItem(FOCUS_KEY, JSON.stringify(focusPick));
-      } catch {}
+      saveFocus();
       renderFocusPick();
     });
   }
+  // Which branch: each project's primary branch, one branch for every project, or every branch.
+  for (const radio of document.querySelectorAll('input[name="branch-mode"]')) {
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      if (radio.value === 'one') {
+        loadBranchInfo().then(() => renderFocusPick());
+        oneDraft = !focusPick.oneBranch;
+        focusPick.allBranches = false;
+        if (!focusPick.oneBranch) $('branch-one').hidden = false;
+        renderFocusPick();
+        if (!focusPick.oneBranch) $('branch-one-name').focus();
+        return;
+      }
+      oneDraft = false;
+      focusPick.allBranches = radio.value === 'all';
+      focusPick.oneBranch = '';
+      saveFocus();
+      renderFocusPick();
+    });
+  }
+  $('branch-chips').addEventListener('click', (event) => {
+    const chip = event.target.closest('[data-branch-chip]');
+    if (chip) setOneBranch(chip.dataset.branchChip);
+  });
+  $('branch-one-name').addEventListener('change', (event) => setOneBranch(event.target.value));
+  $('branch-one-name').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      setOneBranch(event.target.value);
+    }
+  });
+  $('focus-pick').addEventListener('toggle', () => {
+    if ($('focus-pick').open && !branchInfo.loaded) loadBranchInfo().then(() => renderFocusPick());
+  });
   for (const [inputId, kind] of [['scope-application-input', 'application'], ['scope-project-input', 'project'], ['scope-initiator-input', 'initiator']]) {
     const input = $(inputId);
     input.addEventListener('focus', () => loadScopeOptions());
@@ -695,6 +768,8 @@ async function fetchProjects() {
   };
   fetchFlare('busy', 'Data fetching is still in progress — finding projects…');
   renderProjects();
+  // What each project's git host protects (Settings → Primary branches' last read): a lock beside its branch.
+  if (!branchInfo.loaded) loadBranchInfo().then(() => !state.fetching && renderProjects());
 
   try {
     fetchAbort = new AbortController();

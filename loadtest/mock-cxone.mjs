@@ -47,11 +47,18 @@ const MOCK_ENGINES = ['SAST', 'SCA', 'SAST', 'KICS', 'SAST', 'Containers'];
 // had its primary branch scanned. Every even project also has a newer feature/login scan, and one finding in
 // five of it comes from that scan. i % 10 = 5 counted 0 lines of code; i % 10 = 9 has no findings.
 const BRANCHES = process.env.BRANCHES === '1';
+// REPOS=1: each project has a repository address on this mock, which also answers as GitHub (at /api/v3) with the
+// branches it protects: trunk for i % 8 = 7, else its primary branch (main when unset) and develop.
+const REPOS = process.env.REPOS === '1';
+const repoUrlOf = (i) => (REPOS ? `http://127.0.0.1:${process.env.PORT || 4101}/acme/project-${i}` : undefined);
+const protectedOf = (i) => (i % 8 === 7 ? ['trunk'] : [['main', 'master', 'develop', ''][i % 4] || 'main', 'develop'].filter((v, k, a) => a.indexOf(v) === k));
+// A primary branch set through PUT /api/projects/{id} (what CxMissionZero's Settings → Primary branches writes).
+const projectEdits = new Map();
 // Fusion (Labs → Fusion): FUSION=0 is a tenant without it (every Fusion path answers 404).
 const FUSION = process.env.FUSION !== '0' && process.env.FUSION !== 'risk';
 // FUSION=risk: no correlation service; Fusion's scored results through Application Risk Management, as some tenants serve them.
 const RISK_MGMT = process.env.FUSION === 'risk';
-const mainBranchOf = (i) => ['main', 'master', 'develop', ''][i % 4];
+const mainBranchOf = (i) => (projectEdits.has(`p${i}`) ? projectEdits.get(`p${i}`).mainBranch : ['main', 'master', 'develop', ''][i % 4]);
 const primaryScanBranch = (i) => (i % 8 === 6 ? 'feature/old' : i % 8 === 7 ? 'trunk' : mainBranchOf(i) || 'main');
 const hasFeature = (i) => BRANCHES && i % 2 === 0;
 /** The branch a mock scan ran on. */
@@ -237,6 +244,12 @@ http.createServer((req, res) => {
         issued.add(token);
         return send(200, { access_token: token, expires_in: 3600 });
       }
+      // GitHub, for REPOS=1: what each repository protects (GitHub reads need no Checkmarx One token).
+      let gm0;
+      if ((gm0 = u.pathname.match(/^\/api\/v3\/repos\/acme\/project-(\d+)\/branches$/)) && REPOS) {
+        bump('github-branches');
+        return send(200, u.searchParams.get('protected') === 'true' ? protectedOf(Number(gm0[1])).map((name) => ({ name, protected: true })) : []);
+      }
       if (!issued.has(String(req.headers.authorization || '').replace(/^Bearer /, ''))) return send(401, {});
       let sm0;
       const offset = Number(u.searchParams.get('offset') || 0);
@@ -289,7 +302,20 @@ http.createServer((req, res) => {
         return res.end();
       }
       // Projects FAE Flush made are listed too (tagged), as in Checkmarx One.
-      if (u.pathname === '/api/projects') { bump('projects'); const all = [...Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800), groups: [`team-${'abc'[i % 3]}`], ...(BRANCHES ? { mainBranch: mainBranchOf(i) } : {}), ...(GOVERN && i % 2 === 0 ? { repoId: 228400 + i } : {}) })), ...[...faeProjects].map(([id, p]) => ({ id, name: p.name, tags: p.tags, groups: p.groups, createdAt: day(0) }))]; const total = all.length; const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: total }); }
+      if ((req.method === 'GET' || req.method === 'PUT') && (sm0 = u.pathname.match(/^\/api\/projects\/(p\d+)$/))) {
+        const i = Number(sm0[1].slice(1));
+        if (!(i < PROJECTS) || gone.has(sm0[1])) return send(404, { message: 'project not found' });
+        if (req.method === 'PUT') {
+          bump('project-update');
+          const body = JSON.parse(b || '{}');
+          if (!body.name) return send(400, { message: 'name is required' });
+          projectEdits.set(sm0[1], { mainBranch: String(body.mainBranch ?? '') });
+          return send(204);
+        }
+        bump('project-get');
+        return send(200, { id: sm0[1], name: `Project ${i}`, criticality: (i % 5) + 1, groups: [`team-${'abc'[i % 3]}`], tags: {}, origin: 'mock', repoUrl: repoUrlOf(i) ?? '', mainBranch: BRANCHES ? mainBranchOf(i) : '' });
+      }
+      if (u.pathname === '/api/projects') { bump('projects'); const all = [...Array.from({ length: PROJECTS }, (_, i) => ({ id: `p${i}`, name: `Project ${i}`, criticality: (i % 5) + 1, createdAt: day(800), groups: [`team-${'abc'[i % 3]}`], ...(BRANCHES ? { mainBranch: mainBranchOf(i) } : {}), ...(REPOS ? { repoUrl: repoUrlOf(i) } : {}), ...(GOVERN && i % 2 === 0 ? { repoId: 228400 + i } : {}) })), ...[...faeProjects].map(([id, p]) => ({ id, name: p.name, tags: p.tags, groups: p.groups, createdAt: day(0) }))]; const total = all.length; const lim = Number(u.searchParams.get('limit') || 100); return send(200, { projects: all.slice(offset, offset + lim), totalCount: total }); }
       if (u.pathname === '/api/applications') {
         bump('applications');
         // Four applications, each grouping every fourth project.

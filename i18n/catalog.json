@@ -39659,5 +39659,371 @@
   "seen": [
    "MZ-01.01.19 › Credits → Fusion credits"
   ]
+ },
+ "Each project's primary branch": {
+  "kind": "text",
+  "seen": [
+   "Workbench, the Branch drop-down above the projects (which git branch each project's findings come from): first choice, the default (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "The default: as set in Checkmarx One; with none set, the protected branch its git host suggests (Settings → Primary branches), else main or master": {
+  "kind": "text",
+  "seen": [
+   "Workbench, the Branch drop-down above the projects (which git branch each project's findings come from): line under the first choice (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "One branch for every project": {
+  "kind": "text",
+  "seen": [
+   "Workbench, the Branch drop-down above the projects (which git branch each project's findings come from): second choice (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Projects with a scan on it are loaded on it; the others stay on their primary branch, and the table says so": {
+  "kind": "text",
+  "seen": [
+   "Workbench, the Branch drop-down above the projects (which git branch each project's findings come from): line under the second choice (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "A branch or pattern: develop, release/*": {
+  "kind": "attr:placeholder",
+  "seen": [
+   "Workbench, the Branch drop-down above the projects (which git branch each project's findings come from): box to type a branch name; keep develop and release/* as they are (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "The branch for every project": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "Workbench, the Branch drop-down above the projects (which git branch each project's findings come from): the same box, for a screen reader (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Every branch's latest scan: a finding scanned on several branches counts once for each": {
+  "kind": "text",
+  "seen": [
+   "Workbench, the Branch drop-down above the projects (which git branch each project's findings come from): line under the third choice \"Every branch\" (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Which branch": {
+  "kind": "attr:aria-label",
+  "seen": [
+   "Workbench, the Branch drop-down above the projects (which git branch each project's findings come from): the three choices, for a screen reader (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Read the projects under Settings → Primary branches to list the protected branches here.": {
+  "kind": "text",
+  "seen": [
+   "Workbench, the Branch drop-down above the projects (which git branch each project's findings come from): shown where the protected branches would be listed as buttons (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "The branch each project's findings are from, and why. Select a project's branch to load it on another one.": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench, projects table, the Branch column (the git branch each row's findings come from, and under it why that branch was used): tooltip of the heading (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Load this project on another branch": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench, projects table, the Branch column (the git branch each row's findings come from, and under it why that branch was used): tooltip of a branch name button (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "primary in Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "Workbench, projects table, the Branch column (the git branch each row's findings come from, and under it why that branch was used): why: it is the primary branch set in Checkmarx One (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "no primary set: protected branch": {
+  "kind": "text",
+  "seen": [
+   "Workbench, projects table, the Branch column (the git branch each row's findings come from, and under it why that branch was used): why: no primary branch set, so the branch the git host protects (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "no primary set: main or master": {
+  "kind": "text",
+  "seen": [
+   "Workbench, projects table, the Branch column (the git branch each row's findings come from, and under it why that branch was used): why (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "no primary set: latest scan": {
+  "kind": "text",
+  "seen": [
+   "Workbench, projects table, the Branch column (the git branch each row's findings come from, and under it why that branch was used): why: the branch of the latest scan (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "one branch for every project": {
+  "kind": "text",
+  "seen": [
+   "Workbench, projects table, the Branch column (the git branch each row's findings come from, and under it why that branch was used): why: the branch chosen above for every project (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "chosen here": {
+  "kind": "text",
+  "seen": [
+   "Workbench, projects table, the Branch column (the git branch each row's findings come from, and under it why that branch was used): why: someone chose this branch for this project in this table (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "every branch": {
+  "kind": "text",
+  "seen": [
+   "Workbench, projects table, the Branch column (the git branch each row's findings come from, and under it why that branch was used): why: every branch is loaded (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "branch not reported": {
+  "kind": "text",
+  "seen": [
+   "Workbench, projects table, the Branch column (the git branch each row's findings come from, and under it why that branch was used): why: Checkmarx One does not say which branch the scan was on (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ " (protected)": {
+  "kind": "text",
+  "seen": [
+   "After a branch name, for a screen reader only: the branch is protected by its git host. Keep the leading space (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Reading its branches…": {
+  "kind": "text",
+  "seen": [
+   "Workbench, the menu that opens from a project's branch (choose another branch for that project): while it loads (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Protected": {
+  "kind": "text",
+  "seen": [
+   "Workbench, the menu that opens from a project's branch (choose another branch for that project): heading above the protected branches (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Its git host protects no branch.": {
+  "kind": "text",
+  "seen": [
+   "Workbench, the menu that opens from a project's branch (choose another branch for that project) (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "No git host connected for it: its branches come from Checkmarx One only.": {
+  "kind": "text",
+  "seen": [
+   "Workbench, the menu that opens from a project's branch (choose another branch for that project) (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Other branches scanned in Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "Workbench, the menu that opens from a project's branch (choose another branch for that project): heading (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "No completed scan on this branch yet": {
+  "kind": "attr:title",
+  "seen": [
+   "Workbench, the menu that opens from a project's branch (choose another branch for that project): tooltip of a branch that cannot be chosen (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "never scanned": {
+  "kind": "text",
+  "seen": [
+   "Workbench, the menu that opens from a project's branch (choose another branch for that project): next to a branch (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Primary branches": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): menu link and heading (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "The Workbench reads each project on its primary branch, as set in Checkmarx One. A project with none set is read on the branch its git host protects (GitHub, GitLab, Azure DevOps, Bitbucket: the connections under Beta features), in the order below, else main or master. Admins can write a primary branch to Checkmarx One, so every tool uses the same one; nothing is written there without that click.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): introduction (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Read the projects": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): button that reads every project's branches from Checkmarx One and the git hosts (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "The order protected branches are suggested in": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): heading above the list main › master › trunk… (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "One entry a line, first suggested first. Several names on a line: separate them with |. * stands for any characters (release/*).": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): help above the box where an Admin edits the order; keep | and * and release/* (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Save the order": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): button (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "The usual order": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): button that puts the default order back (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Edit the order": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): button (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "No primary branch: one suggested": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): filter option (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Checkmarx One and the git host differ": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): filter option (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "No primary branch, nothing to suggest": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): filter option (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Primary branch set": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): filter option (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Primary in Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): table heading (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Set in Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches: button (Admins) that writes the chosen primary branch to the project in Checkmarx One (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Suggested: protected": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): state of a row (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Suggested: a usual name": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): state of a row (main, master or trunk) (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Nothing protected or usual to suggest": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): state of a row (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "No git host: from Checkmarx One only": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): state of a row (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "no repository": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): the project has no repository address (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "No branch known": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly) (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ " (as in Checkmarx One)": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): after a branch name in the drop-down; keep the leading space (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ " (suggested)": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): after a branch name in the drop-down; keep the leading space (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ " · not scanned": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): after a branch name in the drop-down; keep the leading space and the dot (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Not read yet: Read the projects to see what each git host protects.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): status line (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "No protected branch found in the repositories read.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly) (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "No project is on a connected git host: suggestions come from the branch names Checkmarx One has scanned.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly) (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Order saved: the Workbench uses it on its next load.": {
+  "kind": "message",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): message after saving (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Reading what a git host protects needs a token allowed to see it: GitHub, Contents read; GitLab, read_api, usually with the Maintainer role; Azure DevOps, Code read; Bitbucket, repository admin. When a host refuses, the project's row says so and its branches come from Checkmarx One only, as for a project uploaded without a repository.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches (each project's main git branch; \"protected\" = a branch the git host (GitHub, GitLab…) does not let anyone push to directly): note at the bottom; keep Contents read, read_api, Maintainer, Code read as product terms (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Set all {0} suggested in Checkmarx One": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches: button (Admins) that writes every suggested primary branch to Checkmarx One; {0} = a number of projects (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Showing {0} of {1}: find a project to narrow the list.": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches: under the table (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Reading the projects… {0} of {1}": {
+  "kind": "message",
+  "seen": [
+   "Settings → Primary branches: status while reading (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Protected across {0} repositories:": {
+  "kind": "text",
+  "seen": [
+   "Settings → Primary branches: followed by branch names and counts (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Primary branch set in Checkmarx One for {0} project(s).": {
+  "kind": "message",
+  "seen": [
+   "Settings → Primary branches: message after writing (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
+ },
+ "Set the suggested primary branch in Checkmarx One for {0} project(s) that have none? Each is in the audit log.": {
+  "kind": "dialog",
+  "seen": [
+   "Settings → Primary branches: confirmation before writing every suggestion (MZ-01.01.20 › Workbench branches, Settings → Primary branches)"
+  ]
  }
 }

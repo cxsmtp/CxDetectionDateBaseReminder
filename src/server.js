@@ -121,6 +121,8 @@ import { registerBackupRoutes } from './routes/backups.js';
 import { registerFusionRoutes } from './routes/fusion.js';
 import { registerFusionCreditRoutes } from './routes/fusion-credits.js';
 import { FusionCredits } from './fusion-credits.js';
+import { registerBranchRoutes } from './routes/branches.js';
+import { BranchSettings } from './branch-settings.js';
 import { registerFaeFlushRoutes } from './routes/fae-flush.js';
 import { registerCodeAuthorRoutes } from './routes/code-authors.js';
 
@@ -342,6 +344,7 @@ function buildTenant({ id, dir }) {
     allocations: new CreditAllocations({ file: path.join(dir, 'credit-allocations.json'), ledger: creditLedger }),
     // Credits given to projects for their Fusion scans only (Credits → Fusion credits).
     fusionCredits: new FusionCredits({ file: path.join(dir, 'fusion-credits.json') }),
+    branchSettings: new BranchSettings({ file: path.join(dir, 'branch-settings.json') }),
     trackedReports: new TrackedReports({ file: path.join(dir, 'tracked-reports.json') }),
     projections: new ProjectionStore({ file: path.join(dir, 'projections.json') }),
     projectionReports: new ReportStore({ dir: path.join(dir, 'projection-reports') }),
@@ -437,6 +440,7 @@ function recordCreditUse(entry) {
 }
 const allocations = scoped(tenancy, 'allocations');
 const fusionCredits = scoped(tenancy, 'fusionCredits');
+const branchSettings = scoped(tenancy, 'branchSettings');
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const trackedReports = scoped(tenancy, 'trackedReports');
@@ -966,9 +970,14 @@ const { automationReport } = registerAutomationRoutes(app, {
 // ---- The Workbench fetch: src/routes/scan.js ----------------------------------------------------------------------------
 const { fetchInProgress, afterFetch, projectRow, readerIdentity, scanAttribution, creditFor, runScan } = registerScanRoutes(app, {
   saveFetchedData, tenancy, settingsStore, findingJournal, diagnostics, creditView, asyncRoute, requirePermission,
-  activeConfig,
+  activeConfig, branchSettings,
   // Made further down: looked up when used, never before.
   labs: laterObject(() => labs),
+});
+
+// ---- Primary branches (Settings → Primary branches; the Workbench's branch choices): src/routes/branches.js -------------
+registerBranchRoutes(app, {
+  tenancy, branchSettings, audit, asyncRoute, requirePermission, adminActor, githubConfig, githubClient, scmHosts, settingsStore,
 });
 
 // ---- Reminder emails from the Workbench: src/routes/reminders.js -------------------------------------------------------

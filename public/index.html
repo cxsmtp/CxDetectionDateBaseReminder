@@ -65,6 +65,8 @@
     <link rel="modulepreload" href="app/actions.js" />
     <link rel="modulepreload" href="app/audit.js" />
     <link rel="modulepreload" href="app/fusion-credits.js" />
+    <link rel="modulepreload" href="app/branches.js" />
+    <link rel="modulepreload" href="app/primary-branches.js" />
     <link rel="modulepreload" href="app/automation.js" />
     <link rel="modulepreload" href="app/core.js" />
     <link rel="modulepreload" href="app/credits.js" />
@@ -504,7 +506,16 @@
                       <span id="focus-summary">Primary branch</span>
                     </summary>
                     <div class="col-menu engine-menu focus-menu" id="focus-menu">
-                      <label class="engine-opt"><input type="checkbox" id="focus-all-branches" /><b>Every branch</b><span class="muted">Unticked: each project's primary branch only</span><small></small></label>
+                      <div class="branch-modes" role="radiogroup" aria-label="Which branch">
+                        <label class="engine-opt branch-mode"><input type="radio" name="branch-mode" value="primary" id="branch-mode-primary" checked /><b>Each project's primary branch</b><span class="muted">The default: as set in Checkmarx One; with none set, the protected branch its git host suggests (Settings → Primary branches), else main or master</span><small></small></label>
+                        <label class="engine-opt branch-mode"><input type="radio" name="branch-mode" value="one" id="branch-mode-one" /><b>One branch for every project</b><span class="muted">Projects with a scan on it are loaded on it; the others stay on their primary branch, and the table says so</span><small></small></label>
+                        <div class="branch-one" id="branch-one" hidden>
+                          <div class="branch-chips" id="branch-chips"></div>
+                          <input type="text" id="branch-one-name" placeholder="A branch or pattern: develop, release/*" maxlength="120" spellcheck="false" autocomplete="off" aria-label="The branch for every project" />
+                        </div>
+                        <label class="engine-opt branch-mode"><input type="radio" name="branch-mode" value="all" id="focus-all-branches" /><b>Every branch</b><span class="muted">Every branch's latest scan: a finding scanned on several branches counts once for each</span><small></small></label>
+                      </div>
+                      <hr class="branch-sep" />
                       <label class="engine-opt"><input type="checkbox" id="focus-no-code" checked /><b>Leave out projects with no lines of code</b><span class="muted">Nothing to analyse</span><small></small></label>
                       <label class="engine-opt"><input type="checkbox" id="focus-no-findings" /><b>Leave out projects with no open findings</b><span class="muted">Keep them in for a compliance report</span><small></small></label>
                     </div>
@@ -635,6 +646,7 @@
                     <tr id="projects-head">
                       <th class="checkbox"><input type="checkbox" id="select-all" title="Select all" aria-label="Select all" /></th>
                       <th data-sort="projectName">Project</th>
+                      <th data-sort="branch" class="c-branch-h" title="The branch each project's findings are from, and why. Select a project's branch to load it on another one.">Branch</th>
                       <th class="num" data-sort="totalRisks" title="Open findings of every severity, in the period chosen above. A finding is one place where Checkmarx One found a vulnerability in the project.">Open findings</th>
                       <!-- Optional columns (chosen under "Columns") are inserted here. -->
                       <th data-sort="maxAgeDays" title="When the oldest open finding was first found, and how many days ago">Oldest open since</th>
@@ -644,7 +656,7 @@
                     </tr>
                   </thead>
                   <tbody id="projects-body">
-                    <tr class="empty"><td colspan="7">Press <strong>Load findings</strong> to see your projects and how long their findings have been open.</td></tr>
+                    <tr class="empty"><td colspan="8">Press <strong>Load findings</strong> to see your projects and how long their findings have been open.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1096,6 +1108,7 @@
                 <p class="set-group">Connections</p>
                   <a href="#/settings/import" data-set="import" data-perm="integration.cxone integration.smtp settings.links beta.use">Quick setup (.env)</a>
                   <a href="#/settings/connection" data-set="connection">Checkmarx One</a>
+                  <a href="#/settings/branches" data-set="branches" data-perm="findings.fetch">Primary branches</a>
                   <a href="#/settings/smtp" data-set="smtp">Email server</a>
                   <a href="#/settings/network" data-set="network" data-perm="integration.cxone integration.smtp">Network &amp; proxy</a>
                   <a href="#/settings/https" data-set="https" data-perm="security.https">HTTPS</a>
@@ -1467,6 +1480,52 @@
                 </label>
                 <div id="probe-results" hidden></div>
               </details>
+            </section>
+            <section class="panel" id="set-branches">
+              <h2>Primary branches</h2>
+              <p class="hint wide">
+                The Workbench reads each project on its primary branch, as set in Checkmarx One. A project with none set
+                is read on the branch its git host protects (GitHub, GitLab, Azure DevOps, Bitbucket: the connections
+                under Beta features), in the order below, else main or master. Admins can write a primary branch to
+                Checkmarx One, so every tool uses the same one; nothing is written there without that click.
+              </p>
+              <div class="pb-bar">
+                <button type="button" class="primary" id="pb-read" data-perm="integration.cxone">Read the projects</button>
+                <span class="status" id="pb-status"></span>
+              </div>
+              <h3>The order protected branches are suggested in</h3>
+              <div class="pb-order" id="pb-order"></div>
+              <div class="pb-order-edit" id="pb-order-edit" hidden>
+                <label for="pb-order-text">One entry a line, first suggested first. Several names on a line: separate them with |. * stands for any characters (release/*).</label>
+                <textarea id="pb-order-text" rows="8" spellcheck="false" maxlength="2500"></textarea>
+                <div class="pb-bar">
+                  <button type="button" class="primary" id="pb-order-save">Save the order</button>
+                  <button type="button" class="secondary" id="pb-order-reset">The usual order</button>
+                  <button type="button" class="link" id="pb-order-cancel">Cancel</button>
+                </div>
+              </div>
+              <p class="hint" id="pb-found"></p>
+              <div class="pb-bar pb-tools" id="pb-tools" hidden>
+                <label class="pb-filter"><span>Show</span>
+                  <select id="pb-filter">
+                    <option value="all">Every project</option>
+                    <option value="suggested">No primary branch: one suggested</option>
+                    <option value="differs">Checkmarx One and the git host differ</option>
+                    <option value="none">No primary branch, nothing to suggest</option>
+                    <option value="set">Primary branch set</option>
+                  </select>
+                </label>
+                <input type="search" id="pb-search" placeholder="Find a project" aria-label="Find a project" />
+                <button type="button" id="pb-set-all" class="secondary" data-admin-only hidden>Set all suggested in Checkmarx One</button>
+              </div>
+              <div class="table-wrap" id="pb-wrap" hidden>
+                <table class="data-table pb-table" id="pb-table">
+                  <thead><tr><th>Project</th><th>Repository</th><th>Primary in Checkmarx One</th><th>Primary branch</th><th></th></tr></thead>
+                  <tbody id="pb-body"></tbody>
+                </table>
+              </div>
+              <p class="hint" id="pb-more"></p>
+              <p class="hint">Reading what a git host protects needs a token allowed to see it: GitHub, Contents read; GitLab, read_api, usually with the Maintainer role; Azure DevOps, Code read; Bitbucket, repository admin. When a host refuses, the project's row says so and its branches come from Checkmarx One only, as for a project uploaded without a repository.</p>
             </section>
 
             <section class="panel" id="set-network" data-perm="integration.cxone integration.smtp" data-edit-perm="integration.cxone">
