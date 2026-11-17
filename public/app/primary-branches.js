@@ -52,7 +52,7 @@ function render() {
 }
 
 function stateCell(p) {
-  if (p.state === 'set') return '<span class="muted">Set in Checkmarx One</span>';
+  if (p.state === 'set') return '<span class="muted">Primary branch set</span>';
   if (p.state === 'differs') return `<span class="fc-chip warn">${escapeHtml(`Checkmarx One says ${p.mainBranch}; ${p.better} is protected and comes first`)}</span>`;
   if (p.state === 'none') return `<span class="muted">${escapeHtml(p.error || (p.provider ? 'Nothing protected or usual to suggest' : 'No git host: from Checkmarx One only'))}</span>`;
   return `<span class="muted">${escapeHtml(p.suggestion.why === 'protected' ? 'Suggested: protected' : 'Suggested: a usual name')}</span>`;

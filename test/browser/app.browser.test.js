@@ -281,7 +281,7 @@ test("the Branch column names each project's branch; another is chosen from its 
   await setAll.filter({ hasText: `Set all ${PROJECTS} suggested in Checkmarx One` }).waitFor();
   admin.once('dialog', (dialog) => dialog.accept());
   await setAll.click();
-  await admin.locator('#pb-body tr[data-pb-row="p0"]').filter({ hasText: 'Set in Checkmarx One' }).waitFor();
+  await admin.locator('#pb-body tr[data-pb-row="p0"]').filter({ hasText: 'Primary branch set' }).waitFor();
   assert.equal(await setAll.isVisible(), false, 'nothing left to suggest');
   await open(admin, 'dashboard', 'page-dashboard');
   nothingWentWrong();
