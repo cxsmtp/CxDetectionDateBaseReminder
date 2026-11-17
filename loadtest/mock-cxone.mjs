@@ -30,7 +30,9 @@ const latestRescan = (pid) => [...rescans.entries()].filter(([, s]) => s.project
 const fixedByRescan = (pid, alt, riskId) => { const last = latestRescan(pid); const t = remediated.get(alt); return Boolean(last && t && t < last[1].at && !INEFFECTIVE.has(riskId)); };
 const day = (n) => new Date(Date.now() - n * 86400000).toISOString();
 /** Lines of code project p<i>'s last scan counted: fixed per project, 1,500 to 49,499. */
-const mockLoc = (i) => 1500 + ((i * 7919) % 48000);
+// A project's lines of code; GET /__loc?project=p3&times=2 makes a project grow (Fusion credits: more lines, more credits).
+const locScale = new Map();
+const mockLoc = (i) => Math.round((1500 + ((i * 7919) % 48000)) * (locScale.get(`p${i}`) ?? 1));
 // SHARED=1: like a real tenant, some findings are another code path into the same vulnerable code
 // (risk i+4 shares risk i's similarity group, for i in 0–3, 8–11, …), so they are one result.
 const SHARED = process.env.SHARED === '1';
@@ -56,6 +58,8 @@ const hasFeature = (i) => BRANCHES && i % 2 === 0;
 const branchOfScan = (id) => {
   const re = rescans.get(id);
   if (re) return re.branch ?? 'main';
+  const fresh = String(id).match(/^fresh-p(\d+)-\d+$/);
+  if (fresh) return primaryScanBranch(Number(fresh[1]));
   const m = String(id).match(/^(feat|scan|old)-p(\d+)$|^hist-p(\d+)-(\d+)$/);
   if (!m) return '';
   if (m[1] === 'feat') return 'feature/login';
@@ -173,6 +177,7 @@ http.createServer((req, res) => {
       if (u.pathname === '/__gone') { const id = u.searchParams.get('id'); if (u.searchParams.get('on') === '1') gone.add(id); else gone.delete(id); return send(200, { gone: [...gone] }); }
       // A SAST setting Checkmarx One refuses to set on a project (403), as a live tenant may: /__refuse-setting?key=…
       if (u.pathname === '/__triage-by') { TRIAGE_BY = u.searchParams.get('by') === 'av' ? 'av' : 'similarity'; return send(200, { by: TRIAGE_BY }); }
+      if (u.pathname === '/__loc') { locScale.set(u.searchParams.get('project') ?? 'p0', Number(u.searchParams.get('times') || 1)); return send(200, Object.fromEntries(locScale)); }
       if (u.pathname === '/__project-settings') return send(200, Object.fromEntries(projectSettings));
       if (u.pathname === '/__fusion-scan') {
         const pid = u.searchParams.get('project') ?? 'p0';
@@ -260,6 +265,12 @@ http.createServer((req, res) => {
         projectSettings.set(pid, own);
         return send(204);
       }
+      // A project's branches (GET /api/projects/branches?project-id=): its primary, the usual protected ones, and a feature branch.
+      if (u.pathname === '/api/projects/branches') {
+        bump('project-branches');
+        const i = Number(String(u.searchParams.get('project-id') ?? '').replace(/^p/, ''));
+        return send(200, [...new Set([mainBranchOf(i) || 'main', 'main', 'develop', 'release/2.1', 'security/patch-7', `feature/login-${i}`])]);
+      }
       if (req.method === 'DELETE' && u.pathname === '/api/configuration/project') {
         bump('configuration-delete');
         const own = projectSettings.get(u.searchParams.get('project-id')) ?? {};
@@ -308,7 +319,7 @@ http.createServer((req, res) => {
         }
         if (!pid || body.type !== 'git' || !body.handler?.repoUrl || !body.handler?.branch || !Array.isArray(body.config)) return send(400, { message: 'bad scan request' });
         const id = `rescan-${pid}-${rescans.size + 1}`;
-        rescans.set(id, { projectId: pid, at: Date.now(), tags: body.tags ?? {}, branch: body.handler.branch });
+        rescans.set(id, { projectId: pid, at: Date.now(), tags: body.tags ?? {}, branch: body.handler.branch, config: body.config });
         return send(201, { id, status: 'Queued' });
       }
       if (u.pathname === '/api/scans') {

@@ -1067,7 +1067,7 @@ registerCreditRoutes(app, {
 
 // ---- Credits → Fusion credits (for Fusion scans only): src/routes/fusion-credits.js --------------------------------------
 const { fusionHeld } = registerFusionCreditRoutes(app, {
-  tenancy, fusionCredits, audit, iam, asyncRoute, requirePermission, can, resolveAutomationSession, creditPool, adminActor,
+  tenancy, fusionCredits, projections, audit, iam, asyncRoute, requirePermission, can, resolveAutomationSession, creditPool, adminActor,
   sendingSettings: later(() => sendingSettings), settingsStore,
 });
 

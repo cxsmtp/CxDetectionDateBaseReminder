@@ -22,8 +22,9 @@
  */
 import { mapWithConcurrency } from './cxone/client.js';
 import { getLastScans, listProjects } from './cxone/projects.js';
-import { branchOf, primaryScans } from './cxone/branches.js';
-import { FREQUENCIES, frequencyOf, fusionEstimate, suggestedScans, unitsOf } from '../public/calculator/model.js';
+import { branchName, branchOf, primaryScans } from './cxone/branches.js';
+import { rescanRequest } from './verification.js';
+import { COMBINE, CRITICALITIES, FREQUENCIES, frequencyOf, fusionEstimate, suggestedScans, unitsOf } from '../public/calculator/model.js';
 import { modelIn, projectFacts, scanAiConfig, scanTypeOf, scanTypes, tenantAi, tenantCredits } from './fusion-usage.js';
 import { readState, writeState } from './state-file.js';
 
@@ -54,36 +55,100 @@ export function cleanCredits(value) {
 }
 const round2 = (n) => Math.round(n * 100) / 100;
 
-/** The plan, made safe: a period of 1 to 60 months and the Fusion scans planned for each change frequency. */
+/**
+ * The plan, made safe, as the Cx Credits Calculator's Fusion plan keeps it (public/calculator/model.js, fusionSettings),
+ * with models by name: a period of 1 to 60 months; the Fusion scans (and model) planned for each change frequency and
+ * each criticality, and which wins; the scans and model when neither says; where the plan came from; and each
+ * project's own choices (its scans, model, branch, criticality, and whether it is counted).
+ */
 export function cleanPlan(value = {}) {
   const v = value && typeof value === 'object' ? value : {};
   const periodMonths = Math.min(60, Math.max(1, Math.round(Number(v.periodMonths) || 12)));
-  const byFrequency = {};
-  for (const f of FREQUENCIES) {
-    const given = Number(v.byFrequency?.[f.id]);
-    byFrequency[f.id] = Number.isFinite(given) && given >= 0 ? Math.min(10_000, Math.round(given)) : suggestedScans(f.id, periodMonths);
+  const scans = (n) => (n === null || n === undefined || n === '' || !Number.isFinite(Number(n)) || Number(n) < 0 ? null : Math.min(10_000, Math.round(Number(n))));
+  const rule = (r, fallback = null) => {
+    const given = r && typeof r === 'object' ? r : { scans: r };
+    return { scans: scans(given.scans) ?? fallback, model: modelKey(given.model) || null };
+  };
+  const byFrequency = Object.fromEntries(FREQUENCIES.map((f) => [f.id, rule(v.byFrequency?.[f.id], v.byFrequency ? null : suggestedScans(f.id, periodMonths))]));
+  const byCriticality = Object.fromEntries(CRITICALITIES.map((c) => [c, rule(v.byCriticality?.[c])]));
+  const projects = {};
+  for (const [id, p] of Object.entries(v.projects && typeof v.projects === 'object' ? v.projects : {}).slice(0, 50_000)) {
+    const key = text(id, 100);
+    if (!key || !p || typeof p !== 'object') continue;
+    projects[key] = {
+      scans: scans(p.scans),
+      model: modelKey(p.model) || null,
+      branch: text(p.branch, 200),
+      criticality: CRITICALITIES.includes(Number(p.criticality)) ? Number(p.criticality) : null,
+      included: p.included !== false,
+    };
   }
-  return { periodMonths, byFrequency };
+  return {
+    periodMonths,
+    combine: COMBINE.includes(v.combine) ? v.combine : 'frequency',
+    defaultScans: scans(v.defaultScans) ?? 1,
+    defaultModel: modelKey(v.defaultModel) || null,
+    byFrequency,
+    byCriticality,
+    projects,
+    // Where it came from: { kind: 'calculator' | 'file' | 'here', name, at, by }; and the rates the calculator used (shown beside the Admin's).
+    source: v.source && typeof v.source === 'object' ? { kind: ['calculator', 'file', 'here'].includes(v.source.kind) ? v.source.kind : 'here', name: text(v.source.name, 200), at: text(v.source.at, 40), by: text(v.source.by, 200) } : { kind: 'here', name: '', at: '', by: '' },
+    calculatorRates: v.calculatorRates && typeof v.calculatorRates === 'object' ? Object.fromEntries(Object.entries(v.calculatorRates).slice(0, MAX_RATES).map(([k, r]) => [modelKey(k), cleanRate(r)]).filter(([k]) => k)) : {},
+  };
 }
 
 /**
- * Every project's recommendation under the rates and the plan, exactly as the calculator's Fusion plan works it out:
- * `rows` are the projects read ({ id, name, loc, frequency, model }).
+ * A Cx Credits Calculator plan (a customer's saved Fusion projection, or the file the calculator exports) as this
+ * page keeps it: the calculator names models by id, kept here by name; its projects by their Checkmarx One ids.
+ */
+export function planFromCalculator(fusion, { name = '', kind = 'calculator', by = '', at = new Date().toISOString() } = {}) {
+  const f = fusion && typeof fusion === 'object' ? fusion : {};
+  const models = Array.isArray(f.models) ? f.models : [];
+  const nameOf = (id) => modelKey(models.find((m) => m?.id === id)?.name ?? '') || null;
+  const rule = (r) => ({ scans: r?.scans ?? null, model: nameOf(r?.model) });
+  const projects = {};
+  for (const p of Array.isArray(f.projects) ? f.projects : []) {
+    const id = text(p?.id, 100);
+    // Projects typed in by hand (no Checkmarx One id) are not in the tenant: left out.
+    if (!id || /^manual-/.test(id)) continue;
+    projects[id] = { scans: p.scansOverride ?? null, model: nameOf(p.modelOverride), branch: text(p.branch, 200), criticality: p.criticality ?? null, included: p.included !== false };
+  }
+  return cleanPlan({
+    periodMonths: f.periodMonths,
+    combine: f.combine,
+    defaultScans: f.defaultScans,
+    defaultModel: nameOf(f.defaultModel),
+    byFrequency: Object.fromEntries(Object.entries(f.byFrequency ?? {}).map(([k, r]) => [k, rule(r)])),
+    byCriticality: Object.fromEntries(Object.entries(f.byCriticality ?? {}).map(([k, r]) => [k, rule(r)])),
+    projects,
+    source: { kind, name, at, by },
+    calculatorRates: Object.fromEntries(models.filter((m) => m?.name).map((m) => [m.name, m.creditsPer10k ?? null])),
+  });
+}
+
+/**
+ * Every project's recommendation under the rates and the plan, exactly as the calculator's Fusion plan works it out
+ * (fusionEstimate): `rows` are the projects read ({ id, name, loc, frequency, model }); a project's own choices in
+ * the plan (scans, model, criticality, counted or not) apply, and a model it names wins over the one it runs with.
  */
 export function recommend(rows, rates, plan) {
   const p = cleanPlan(plan);
-  const names = new Set([...Object.keys(rates ?? {}), ...rows.map((r) => modelKey(r.model)).filter(Boolean)]);
+  const names = new Set([...Object.keys(rates ?? {}), ...rows.map((r) => modelKey(r.model)).filter(Boolean), ...Object.values(p.projects).map((x) => x.model).filter(Boolean), ...[p.defaultModel].filter(Boolean)]);
   const models = [...names].map((name) => ({ id: name, name, creditsPer10k: rates?.[name] ?? null }));
   const settings = {
     periodMonths: p.periodMonths,
-    defaultScans: 1,
-    combine: 'frequency',
+    defaultScans: p.defaultScans,
+    combine: p.combine,
     models,
-    byFrequency: Object.fromEntries(Object.entries(p.byFrequency).map(([id, scans]) => [id, { scans }])),
-    defaultModel: null,
+    byFrequency: p.byFrequency,
+    byCriticality: p.byCriticality,
+    defaultModel: p.defaultModel,
   };
-  const estimate = fusionEstimate(rows.map((r) => ({ id: r.id, name: r.name, loc: r.loc, frequency: r.frequency, modelOverride: modelKey(r.model) || null })), settings);
-  return new Map(estimate.rows.map((r) => [r.id, { units: r.units, scans: r.scans, rate: r.rate, credits: r.credits === null ? null : round2(r.credits) }]));
+  const estimate = fusionEstimate(rows.map((r) => {
+    const own = p.projects[r.id] ?? {};
+    return { id: r.id, name: r.name, loc: r.loc, frequency: r.frequency ?? 'rare', criticality: own.criticality, scansOverride: own.scans, modelOverride: own.model || modelKey(r.model) || null, included: own.included !== false };
+  }), settings);
+  return new Map(estimate.rows.map((r) => [r.id, { units: r.units, scans: r.scans, scansFrom: r.scansFrom, model: r.model, rate: r.rate, included: r.included, credits: r.credits === null ? null : round2(r.credits) }]));
 }
 
 /**
@@ -140,6 +205,8 @@ export class FusionCredits {
       pauseWhenSpent: raw.pauseWhenSpent !== false,
       projects: raw.projects && typeof raw.projects === 'object' ? raw.projects : {},
       read: raw.read && typeof raw.read === 'object' ? raw.read : null,
+      // The branch chosen for a project here (else the plan's, else its primary branch).
+      branches: raw.branches && typeof raw.branches === 'object' ? Object.fromEntries(Object.entries(raw.branches).map(([k, v]) => [text(k, 80), text(v, 200)]).filter(([k, v]) => k && v)) : {},
     };
   }
 
@@ -183,8 +250,32 @@ export class FusionCredits {
     this.save();
   }
 
-  setPlan(plan) {
+  /** The plan as changed on this page: the period and the scans for each frequency; the rest (and its source) kept. */
+  setPlan(plan, { by = '' } = {}) {
+    const before = this.plan;
+    const byFrequency = Object.fromEntries(FREQUENCIES.map((f) => [f.id, { scans: plan?.byFrequency?.[f.id] ?? before.byFrequency[f.id].scans, model: before.byFrequency[f.id].model }]));
+    this.#state.plan = cleanPlan({ ...before, periodMonths: plan?.periodMonths ?? before.periodMonths, byFrequency, source: { ...before.source, kind: before.source.kind, changedAt: new Date().toISOString(), by } });
+    this.save();
+  }
+
+  /** A whole plan, from the Cx Credits Calculator (planFromCalculator). */
+  usePlan(plan) {
     this.#state.plan = cleanPlan(plan);
+    this.save();
+  }
+
+  /** Branches: chosen here, else the plan's, for each project ({ projectId: branch }). */
+  get branches() {
+    const fromPlan = Object.fromEntries(Object.entries(this.plan.projects).filter(([, p]) => p.branch).map(([id, p]) => [id, p.branch]));
+    return { ...fromPlan, ...this.#state.branches };
+  }
+
+  /** Read a project on this branch from now on ('' : its primary branch again). */
+  setBranch(projectId, branch) {
+    const id = text(projectId, 80);
+    if (!id) return;
+    if (text(branch, 200)) this.#state.branches[id] = text(branch, 200);
+    else delete this.#state.branches[id];
     this.save();
   }
 
@@ -201,7 +292,7 @@ export class FusionCredits {
    * Give a project credits: `mode` 'set' makes its allocation this many, 'add' adds them. Its usage is counted from
    * the first allocation on (a later one adds to it); taking back what is unused sets it to what was used.
    */
-  allocate(projectId, projectName, credits, { mode = 'set', by = '', now = new Date() } = {}) {
+  allocate(projectId, projectName, credits, { mode = 'set', by = '', now = new Date(), plan = null } = {}) {
     const id = text(projectId, 80);
     const amount = cleanCredits(credits);
     if (!id || amount === null) throw Object.assign(new Error('Give a number of credits, 0 or more.'), { status: 400 });
@@ -214,6 +305,9 @@ export class FusionCredits {
     entry.history = [...(entry.history ?? []), { at: now.toISOString(), by: text(by, 200), from: before, to: entry.allocated }].slice(-MAX_HISTORY);
     // More credits: a warning already sent may be sent again when these are spent too.
     if (entry.allocated > before) entry.warnedAt = '';
+    // What the credits were worked out for: the plan's scans, model and branch, and the lines of code then (the
+    // baseline that tells when more lines need more credits). Kept from the first allocation unless a plan is given.
+    if (plan) entry.plan = { ...plan, at: now.toISOString() };
     return { before, after: entry.allocated };
   }
 
@@ -233,6 +327,22 @@ export class FusionCredits {
   setWarned(projectId, at) {
     const entry = this.#state.projects[projectId];
     if (entry) entry.warnedAt = at;
+  }
+
+  /** Note the lines of code for which more credits were asked for (one email for each growth). */
+  setLocAlert(projectId, alert) {
+    const entry = this.#state.projects[projectId];
+    if (entry) entry.locAlert = alert;
+  }
+
+  /**
+   * Schedule a project's planned Fusion scans: `count` of them, one every `everyMs`, the first at `firstAt`.
+   * null stops it. Each one CxMissionZero starts is kept ({ at, scanId }).
+   */
+  setSchedule(projectId, schedule) {
+    const entry = this.#state.projects[projectId];
+    if (!entry) return;
+    entry.schedule = schedule ? { ...schedule, started: schedule.started ?? [] } : null;
   }
 
   save() {
@@ -369,3 +479,59 @@ export async function resumeFusion(client, projectId, before) {
     return 'on';
   }
 }
+
+/**
+ * Branches that are usually protected, in the order they are offered after a project's primary branch: main or
+ * master, then develop, release, security, hotfix and production branches. Everything else follows by name.
+ */
+export const PROTECTED_PATTERNS = Object.freeze([
+  { id: 'main', re: /^(main|master|trunk)$/i },
+  { id: 'develop', re: /^(develop|development|dev)$/i },
+  { id: 'release', re: /^(release|releases|rel)([/_-]|$)/i },
+  { id: 'security', re: /^(security|sec|secure)([/_-]|$)/i },
+  { id: 'hotfix', re: /^(hotfix|hotfixes)([/_-]|$)/i },
+  { id: 'production', re: /^(prod|production|stable|live)$/i },
+]);
+/** Which usual protected pattern a branch matches ('' for none). */
+export const protectedPattern = (name) => PROTECTED_PATTERNS.find((p) => p.re.test(branchName(name)))?.id ?? '';
+
+/** A project's branches, its primary first, then the usual protected ones, then the rest by name. */
+export function orderBranches(names, primary = '') {
+  const rank = (n) => (n === primary ? -1 : PROTECTED_PATTERNS.findIndex((p) => p.re.test(n)) >>> 0);
+  return [...new Set(names.map(branchName).filter(Boolean))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+}
+
+/** A project's branches in Checkmarx One (GET /api/projects/branches), else those its recent scans ran on. */
+export async function projectBranches(client, projectId) {
+  let names = [];
+  try {
+    const body = await client.request('/api/projects/branches', { query: { 'project-id': projectId, limit: 500, offset: 0 }, retries: 1 });
+    names = Array.isArray(body) ? body : Array.isArray(body?.branches) ? body.branches : [];
+  } catch {}
+  if (!names.length) {
+    const body = await client.request('/api/scans', { query: { 'project-id': projectId, limit: 200, offset: 0, sort: '-created_at' }, retries: 1 }).catch(() => null);
+    names = (Array.isArray(body?.scans) ? body.scans : []).map(branchOf);
+  }
+  return [...new Set(names.map((n) => branchName(typeof n === 'string' ? n : n?.name ?? n?.branch)).filter(Boolean))].slice(0, 500);
+}
+
+/**
+ * The request that starts one planned Fusion scan of a project: its code as its latest scan on the branch had it
+ * (the same repository; the branch chosen), its engines with SAST, and the AI engine with Fusion on and the plan's
+ * model. Code uploaded from a pipeline cannot be fetched by Checkmarx One: then { waiting, reason }.
+ */
+export function fusionScanRequest(projectId, scan, { branch = '', model = '', requestedBy = '' } = {}) {
+  const r = rescanRequest(projectId, scan, {}, { requestedBy });
+  if (r.waiting) return r;
+  const body = structuredClone(r.body);
+  if (branch) body.handler.branch = branch;
+  const config = body.config.filter((c) => c.type !== 'ai');
+  if (!config.some((c) => c.type === 'sast')) config.unshift({ type: 'sast', value: { incremental: 'false' } });
+  config.push({ type: 'ai', value: { fusionEnabled: 'true', ...(model ? { llmModel: model } : {}) } });
+  body.config = config;
+  body.tags = { ...body.tags, cxmissionzero: 'fusion-plan' };
+  return { body, repoUrl: r.repoUrl, branch: body.handler.branch, engines: config.map((c) => c.type) };
+}
+
+/** The months of a plan as days, for spreading its scans: a month is 30.44 days. */
+export const MONTH_MS = 30.4375 * DAY;
