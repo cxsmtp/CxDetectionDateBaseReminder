@@ -38,13 +38,33 @@ To turn **Several tenants** off again, remove the other tenants first.
 
 ## What stays separate
 
-- **Settings and connections:** each tenant has its own. The deployment's own options (`CX_API_KEY`, `SMTP_*` and the like) belong to the first tenant.
+- **Settings and connections:** each tenant has its own. The deployment's own options (`CX_API_KEY`, `CX_BASE_URL`, `CX_IAM_URL`, `CX_TENANT`, `SMTP_*` and the like) belong to the first tenant, and only to it (from MZ-01.01.21; see [below](#each-tenant-on-its-own-checkmarx-one)).
+- **Checkmarx One data:** a tenant reads only the Checkmarx One its own key connects to. A tenant with no key of its own says it is not connected; it never falls back to another tenant's connection.
 - **Emailed reports** act only in the tenant they were sent from. Every link and grant in a report is signed for that tenant, so it cannot be used in another one. Reports sent before several tenants were turned on belong to the first tenant and keep working.
 - **Automation, follow-ups and verification** run for each tenant on its own schedule, with its own connection.
 - **The audit log:**
   - Each tenant has its own log.
   - Events that concern the whole server go to the first tenant's log: people and sign-ins, backups, updates, HTTPS, activation codes, and adding or removing tenants.
   - When a Super Admin adds a tenant or opens one they were not added to, the event is also written to that tenant's own log, so its admins see it.
+
+## Each tenant on its own Checkmarx One
+
+Connect each tenant under **Settings → Checkmarx One** while working in it, with an API key made in that tenant's Checkmarx One. The key says where it belongs (its issuer: the IAM address and the tenant name), and that is where the tenant connects. Type the API URL, IAM URL or tenant name under **Advanced** only when the key's own are not right (a private deployment, a proxy).
+
+**Fixed in MZ-01.01.21.** Until then, a server started with the first tenant's endpoints in its environment (`CX_BASE_URL`, `CX_IAM_URL`, `CX_TENANT`, as in most `.env` files) applied them to every tenant's key, ahead of what the key itself said. A tenant added later and connected with a key alone was therefore sent to the first tenant's Checkmarx One, and its Workbench, reports and Impact page showed the first tenant's projects and findings. Now those endpoints apply to the first tenant only.
+
+At the first start after the update, CxMissionZero looks once at every tenant added before it:
+
+- A tenant whose key, without the first tenant's endpoints, connects somewhere else read the first tenant's data. What it read is **set aside**, never deleted, in `tenants/<id>/set-aside-<date>/`: its Impact history (`finding-journal.json`), the calculator's read, the initiator addresses it learned, scan attribution and FAE Flush records, and the last read kept in Fusion credits and Primary branches (their rates, plans, allocations, order and choices stay). Sign-ins kept across the restart keep nothing they had loaded there.
+- Its audit log says so: *This tenant was connected to the first tenant's Checkmarx One (…); it now connects to its own (…)*.
+- What was done through that connection before the update (AI triage, remediation, credit allocations, FAE Flush, reminders) happened in the first tenant's Checkmarx One, and cannot be undone by CxMissionZero. The tenant's audit log names each, with its project.
+- Then load the Workbench again in that tenant: it reads its own Checkmarx One.
+
+Each tenant is looked at once (`cxone-origin.json` in its folder records it); a tenant added from MZ-01.01.21 on never needs it.
+
+**Two tenants on one Checkmarx One.** When another tenant on this server is connected to the same Checkmarx One tenant (the same API address and tenant name), **Settings → Checkmarx One** says which, in red, and connecting records it in the audit log. It is allowed (two business units sharing a tenant), but rarely meant.
+
+**How many.** As many tenants as the activation code allows. Thirty tenants, each on its own Checkmarx One, are tested on every change (`test/tenants-connections.e2e.test.js`): each reads only its own, before and after a restart. Each tenant's stores are opened when it is first used, and its connection and automation run on their own, so a further tenant costs its own reads and little else.
 
 ## When the code expires
 

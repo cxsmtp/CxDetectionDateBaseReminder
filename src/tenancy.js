@@ -16,6 +16,11 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { readState, writeState } from './state-file.js';
 
 export const DEFAULT_TENANT = 'default';
+/**
+ * In a tenant's folder: where its Checkmarx One data comes from was checked (src/tenant-origin.js). A tenant added
+ * from MZ-01.01.21 has it from the start: it never took the first tenant's endpoints.
+ */
+export const ORIGIN_FILE = 'cxone-origin.json';
 const ID = /^[a-z0-9][a-z0-9-]{1,39}$/;
 const fail = (status, message) => Object.assign(new Error(message), { status });
 
@@ -111,6 +116,7 @@ export class Tenancy {
     if (id === DEFAULT_TENANT || this.has(id)) id = `${id.slice(0, 30)}-${randomBytes(3).toString('hex')}`;
     const tenant = { id, name: label, createdAt: new Date().toISOString(), createdBy: String(by) };
     fs.mkdirSync(this.dirOf(id), { recursive: true, mode: 0o700 });
+    writeState(path.join(this.dirOf(id), ORIGIN_FILE), { checkedAt: tenant.createdAt, setAside: false, added: true }, { space: 2 });
     this.#state.tenants.push(tenant);
     this.#save();
     return { ...tenant };

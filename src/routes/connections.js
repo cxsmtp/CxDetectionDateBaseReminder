@@ -25,7 +25,7 @@ import { SYSTEM_ACTOR } from './shared.js';
 export function registerConnectionRoutes(app, d) {
   const {
     sessions, tenancy, tstate, settingsStore, guard, audit, integrationOverrides, integrationSession,
-    keyForEndpoints, cxoneFingerprint, activateIntegration, resolveAutomationSession, productActive, asyncRoute,
+    keyForEndpoints, cxoneFingerprint, activateIntegration, resolveAutomationSession, environmentOverrides, productActive, asyncRoute,
     requireSession, presenting, can, requirePermission, adminActor, ssoAddressProblem, connectCheckmarxOne,
     settingsFor,
   } = d;
@@ -33,6 +33,25 @@ export function registerConnectionRoutes(app, d) {
   // ---------------------------------------------------------------------------
   // Checkmarx One integration: the server's own connection (Admin)
   // ---------------------------------------------------------------------------
+
+  /**
+   * The other tenants on this server connected to the same Checkmarx One tenant (same API address and tenant name):
+   * rarely meant, and how a tenant reading another's data shows. Their names, for a warning on Settings → Checkmarx One.
+   */
+  function sharedWith(connection) {
+    if (!connection || !tenancy.enabled) return [];
+    const here = tenancy.current().id;
+    const out = [];
+    for (const id of tenancy.ids()) {
+      if (id === here) continue;
+      let other = null;
+      try {
+        other = tenancy.run(id, () => integrationSession()?.connection ?? null);
+      } catch {}
+      if (other && other.tenant === connection.tenant && other.baseUrl === connection.baseUrl) out.push(tenancy.get(id)?.name || 'The first tenant');
+    }
+    return out;
+  }
 
   function integrationStatus() {
     const session = integrationSession();
@@ -48,6 +67,7 @@ export function registerConnectionRoutes(app, d) {
       environmentKey: Boolean(config.bootstrapApiKey),
       overrides: settings.integrationOverrides ?? { baseUrl: '', iamUrl: '', tenant: '' },
       connection,
+      sharedWith: sharedWith(connection),
       // Saved but not working yet: the running connection stays the last known good one.
       pending: cxonePending(settings),
       lastGood: lastGoodView('cxone'),
@@ -75,15 +95,18 @@ export function registerConnectionRoutes(app, d) {
       // Typed addresses are checked before the key goes anywhere: https, never a link-local or metadata address.
       if (overrides.baseUrl) overrides.baseUrl = checkServiceUrl(overrides.baseUrl, 'API URL');
       if (overrides.iamUrl) overrides.iamUrl = checkServiceUrl(overrides.iamUrl, 'IAM URL');
+      // The deployment's endpoints are the first tenant's: another tenant's key goes where it says, or where typed.
+      const deployed = environmentOverrides();
       const session = await connectCheckmarxOne(key, {
-        baseUrl: overrides.baseUrl || config.overrides.baseUrl,
-        iamUrl: overrides.iamUrl || config.overrides.iamUrl,
-        tenant: overrides.tenant || config.overrides.tenant,
+        baseUrl: overrides.baseUrl || deployed.baseUrl,
+        iamUrl: overrides.iamUrl || deployed.iamUrl,
+        tenant: overrides.tenant || deployed.tenant,
       });
       settingsStore.save({ automationApiKey: key, integrationOverrides: overrides });
       activateIntegration(session, key, overrides);
       noteConnectionHelp('cxone', { ok: true });
-      audit.record({ type: 'settings', outcome: 'changed', reason: `Checkmarx One integration connected to tenant ${session.connection.tenant}.`, actor: await adminActor(req), details: { tenant: session.connection.tenant, baseUrl: session.connection.baseUrl } });
+      const shared = sharedWith(session.connection);
+      audit.record({ type: 'settings', outcome: 'changed', reason: `Checkmarx One integration connected to tenant ${session.connection.tenant}.${shared.length ? ` The same Checkmarx One tenant is used by: ${shared.join(', ')}.` : ''}`, actor: await adminActor(req), details: { tenant: session.connection.tenant, baseUrl: session.connection.baseUrl, ...(shared.length ? { sharedWith: shared } : {}) } });
       res.json(integrationStatus());
     }),
   );

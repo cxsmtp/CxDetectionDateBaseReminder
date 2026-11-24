@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.21 | 498/s, 0 (main 500, 0) | 4.7 s (5.3 s) | 275 ms (475 ms) | 1,265 + 20 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, 85de11ec of MZ-01.01.20: 228 open (1 / 6 / 94 / 124, 3 info), all still to verify. This release's changes are not scanned yet. |
 | MZ-01.01.20 | 446 and 458/s, 0 (main 446 and 462, 11 and 101; a busier host, two pairs) | 7.2 and 6.8 s (12.0 and 10.5 s) | 2.6 and 1.7 s (2.8 and 1.5 s) | 1,261 + 20 in a browser | 0 vulnerabilities | Scan 85de11ec of this code: 228 open (1 / 6 / 94 / 124, 3 info), all still to verify in Checkmarx One; the 2 first reported judged not exploitable and hardened ([review](docs/security/mz-01.01.20-review.md)). |
 | MZ-01.01.19 | 485 and 513/s, 0 (main 485 and 497, 0; two pairs) | 5.7 and 4.4 s (5.0 and 6.1 s) | 668 and 427 ms (565 and 407 ms) | 1,249 + 19 in a browser | 0 vulnerabilities | Scan 09e66411 of this code: 226 open (1 / 6 / 94 / 122, 3 info), all still to verify in Checkmarx One; the 16 first reported judged not exploitable ([review](docs/security/mz-01.01.19-review.md)). |
 | MZ-01.01.18 | 507 and 511/s, 0 (main 499 and 484, 0; two pairs) | 2.7 s and 147 ms (177 ms and 5.1 s) | 194 and 70 ms (78 and 214 ms) | 1,239 + 17 in a browser | 0 vulnerabilities | No new scan: this release changes the page only (one table column, its translations). The last, fb266f9f of MZ-01.01.17's first commit: 217 open (1 / 6 / 85 / 122, 3 info), all still to verify in Checkmarx One; 4 fixed and 5 hardened in MZ-01.01.17, 181 judged not exploitable ([review](docs/security/mz-01.01.17-review.md)) |
@@ -106,6 +107,15 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.21 — 2026-11-24 05:50 UTC · [#143](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/143)
+
+- **Each tenant reads its own Checkmarx One.** A tenant connected with its own key now reads the Checkmarx One that key belongs to. Until now, on a server started with the first tenant's Checkmarx One address in its settings (`CX_BASE_URL`, `CX_IAM_URL`, `CX_TENANT`), every further tenant was sent to the first tenant's Checkmarx One and showed its projects and findings.
+- **No fallback to the first tenant.** Those settings now belong to the first tenant only; a tenant without a key of its own says it is not connected.
+- **What was read from the first tenant is set aside.** At the first start after the update, each tenant that read the first tenant's data has it moved to a dated folder in its own folder (never deleted): the Impact history, the calculator's read, learned addresses, scan attribution, FAE Flush records and the last reads of Fusion credits and Primary branches. Its audit log says so. Load the Workbench again there to read its own.
+- **A warning when two tenants share one Checkmarx One.** Settings → Checkmarx One says, in red, when another tenant on this server is connected to the same Checkmarx One tenant.
+- **Thirty tenants, tested.** Every change now runs 30 tenants, each on its own Checkmarx One, and checks each reads only its own, before and after a restart.
+- **Status.** 1,265 tests pass (one is skipped when run as root and passes in CI), with 20 that drive the page in Chromium; `npm audit --omit=dev` finds nothing. Benchmark against main, both runs with 0 failed requests and no finding sent twice: 498 requests a second (main 500), report opens 4.7 s at p95 (main 5.3 s). No new Checkmarx One scan: the connector used for scans needs signing in again; the last, 85de11ec of MZ-01.01.20, is in [its review](docs/security/mz-01.01.20-review.md). What a tenant did through the first tenant's connection before this update (triage, remediation, credits, FAE Flush) happened there and is not undone; its audit log names each.
 
 ## MZ-01.01.20 — 2026-11-17 19:35 UTC · [#142](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/142)
 

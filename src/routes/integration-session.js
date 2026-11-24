@@ -11,12 +11,23 @@ import { config } from '../config.js';
 import { createHash } from 'node:crypto';
 import { deriveConnection } from '../cxone/endpoints.js';
 import { hostOfUrl } from '../settings.js';
+import { DEFAULT_TENANT } from '../tenancy.js';
 
 /**
  * @param {object} d  what src/server.js hands over (listed where it calls this)
  */
 export function createIntegrationSession(d) {
-  const { sessions, tstate, settingsStore, guard, scheduler, connectCheckmarxOne } = d;
+  const { sessions, tstate, settingsStore, guard, scheduler, connectCheckmarxOne, tenantOf = () => DEFAULT_TENANT } = d;
+
+  /**
+   * The deployment's Checkmarx One endpoints (CX_BASE_URL, CX_IAM_URL, CX_TENANT): the first tenant's. Another
+   * tenant's key goes where the key itself says (its issuer), or where its own Admin typed: with the first
+   * tenant's endpoints filled in, a key for another Checkmarx One tenant was sent to the first one, and every
+   * tenant added on a server started with them read the first tenant's data.
+   */
+  function environmentOverrides() {
+    return tenantOf() === DEFAULT_TENANT ? config.overrides : {};
+  }
 
   /**
    * The session unattended runs use. Automation has no browser to paste a key,
@@ -27,10 +38,11 @@ export function createIntegrationSession(d) {
   /** Where the stored integration key connects: what the administrator entered, else the deployment's overrides. */
   function integrationOverrides(settings = settingsStore.get()) {
     const stored = settings.integrationOverrides ?? {};
+    const deployed = environmentOverrides();
     return {
-      baseUrl: stored.baseUrl || config.overrides.baseUrl,
-      iamUrl: stored.iamUrl || config.overrides.iamUrl,
-      tenant: stored.tenant || config.overrides.tenant,
+      baseUrl: stored.baseUrl || deployed.baseUrl,
+      iamUrl: stored.iamUrl || deployed.iamUrl,
+      tenant: stored.tenant || deployed.tenant,
     };
   }
 
@@ -47,10 +59,11 @@ export function createIntegrationSession(d) {
    * own issuer where none is set), so a change of host can be told from a change of tenant.
    */
   function cxoneHosts(key, overrides = {}) {
+    const deployed = environmentOverrides();
     const effective = {
-      baseUrl: overrides.baseUrl || config.overrides.baseUrl,
-      iamUrl: overrides.iamUrl || config.overrides.iamUrl,
-      tenant: overrides.tenant || config.overrides.tenant,
+      baseUrl: overrides.baseUrl || deployed.baseUrl,
+      iamUrl: overrides.iamUrl || deployed.iamUrl,
+      tenant: overrides.tenant || deployed.tenant,
     };
     let { iamUrl, baseUrl } = effective;
     try {
@@ -128,6 +141,6 @@ export function createIntegrationSession(d) {
 
   return {
     integrationOverrides, integrationSession, keyForEndpoints, cxoneFingerprint, activateIntegration,
-    resolveAutomationSession,
+    resolveAutomationSession, environmentOverrides,
   };
 }

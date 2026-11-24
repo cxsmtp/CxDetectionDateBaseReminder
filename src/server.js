@@ -123,6 +123,8 @@ import { registerFusionCreditRoutes } from './routes/fusion-credits.js';
 import { FusionCredits } from './fusion-credits.js';
 import { registerBranchRoutes } from './routes/branches.js';
 import { BranchSettings } from './branch-settings.js';
+import { setAsideFirstTenantReads } from './tenant-origin.js';
+import { deriveConnection } from './cxone/endpoints.js';
 import { registerFaeFlushRoutes } from './routes/fae-flush.js';
 import { registerCodeAuthorRoutes } from './routes/code-authors.js';
 
@@ -328,6 +330,15 @@ const settingsFile = config.settingsFile || path.join(dataDir, 'settings.json');
 // background job runs inside one tenant's context.
 // ---------------------------------------------------------------------------
 const tenancy = new Tenancy({ dataDir, build: buildTenant });
+// What a tenant read from the first tenant's Checkmarx One (until MZ-01.01.20, a tenant connected with a key alone
+// took the deployment's endpoints, the first tenant's): set aside once, before any tenant opens its files.
+const firstTenantReads = setAsideFirstTenantReads({
+  tenancy,
+  environment: config.overrides,
+  readSettings: (file) => new SettingsStore({ file }).get(),
+  connectionOf: (key, overrides) => deriveConnection(key, overrides),
+});
+for (const t of firstTenantReads) console.warn(`! [tenants] ${t.id} read Checkmarx One tenant ${t.from.tenant} (the first tenant's) and now connects to ${t.to.tenant}, its own: what it had read is set aside in ${t.folder}.`);
 function buildTenant({ id, dir }) {
   const first = id === DEFAULT_TENANT;
   const settingsStore = new SettingsStore({ file: first ? settingsFile : path.join(dir, 'settings.json') });
@@ -540,9 +551,10 @@ const scheduler = scoped(tenancy, 'scheduler');
 // ---- The server's own Checkmarx One connection: src/routes/integration-session.js --------------------------------------
 const {
   integrationOverrides, integrationSession, keyForEndpoints, cxoneFingerprint, activateIntegration,
-  resolveAutomationSession,
+  resolveAutomationSession, environmentOverrides,
 } = createIntegrationSession({
   sessions, tstate, settingsStore, guard, scheduler,
+  tenantOf: () => tenancy.current().id,
   // Made further down: looked up when used, never before.
   connectCheckmarxOne: later(() => connectCheckmarxOne),
 });
@@ -941,7 +953,7 @@ const {
   checkConnections,
 } = registerConnectionRoutes(app, {
   sessions, tenancy, tstate, settingsStore, guard, audit, integrationOverrides, integrationSession, keyForEndpoints,
-  cxoneFingerprint, activateIntegration, resolveAutomationSession, productActive, asyncRoute, requireSession,
+  cxoneFingerprint, activateIntegration, resolveAutomationSession, environmentOverrides, productActive, asyncRoute, requireSession,
   presenting, can, requirePermission, adminActor, ssoAddressProblem, connectCheckmarxOne,
   // Made further down: looked up when used, never before.
   settingsFor: later(() => settingsFor),
@@ -1517,7 +1529,10 @@ if (restoredAtStart) {
 } else {
   const saved = sessionPersistence.load();
   if (saved.length) {
-    const kept = sessions.adopt(saved, integrationSession, (key) => sessionPersistence.readScan(key));
+    // A sign-in kept in a tenant whose reads were set aside keeps its sign-in, not what it had loaded from the first tenant.
+    const setAside = new Set(firstTenantReads.map((t) => t.id));
+    const noScan = new Set(saved.filter((e) => setAside.has(e.tenantId)).map((e) => e.key));
+    const kept = sessions.adopt(saved.map((e) => (noScan.has(e.key) ? { ...e, lastScan: null } : e)), integrationSession, (key) => (noScan.has(key) ? null : sessionPersistence.readScan(key)));
     saveSignInsSoon();
     console.log(`[sessions] Kept ${kept} sign-in(s) and their fetched data from before this start.`);
   }
@@ -1599,6 +1614,17 @@ const server = httpsManager.listen({ app, httpsOnly: httpsOnlyAnswer, port: conf
     await verifyEnvironmentSmtp();
   });
   for (const id of tenancy.ids()) await tenancy.run(id, () => resolveAutomationSession());
+  // Said in each tenant whose data from the first tenant's Checkmarx One was set aside at this start.
+  for (const t of firstTenantReads) {
+    if (!tenancy.has(t.id)) continue;
+    tenancy.context(t.id).audit.record({
+      type: 'settings',
+      outcome: 'changed',
+      actor: SYSTEM_ACTOR,
+      reason: `This tenant was connected to the first tenant's Checkmarx One (${t.from.tenant}) because its key took the server's own endpoints; it now connects to its own (${t.to.tenant}). What it had read from ${t.from.tenant} is set aside in ${t.folder} in its folder: ${[...t.moved, ...t.cleared.map((n) => `the last read in ${n}`)].join(', ') || 'nothing kept'}. Triage, remediation, credits and FAE Flush done here before this went to ${t.from.tenant}; this log names each.`,
+      details: { setAside: { from: t.from.tenant, to: t.to.tenant, folder: t.folder, moved: t.moved, cleared: t.cleared } },
+    });
+  }
   tenancy.run(DEFAULT_TENANT, () => seedLastKnownGood());
   // LETSENCRYPT_DOMAIN: get the certificate now (unless a current one for those names is in use), then keep it renewed.
   if (LETSENCRYPT_DOMAIN) {
