@@ -8,6 +8,7 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 
 | Version | Requests/s, failed | Report opens p95 | Triage polls p95 | Tests | Dependencies | Checkmarx One |
 | --- | --- | --- | --- | --- | --- | --- |
+| MZ-01.01.22 | 483 and 488/s, 7 and 0 (main 490 and 504, 0; two pairs) | 10.3 and 5.4 s (7.2 and 6.1 s) | 1.1 s and 545 ms (623 and 898 ms) | 1,267 + 20 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, 85de11ec of MZ-01.01.20: 228 open (1 / 6 / 94 / 124, 3 info), all still to verify. MZ-01.01.21 and this release are not scanned yet. |
 | MZ-01.01.21 | 498/s, 0 (main 500, 0) | 4.7 s (5.3 s) | 275 ms (475 ms) | 1,265 + 20 in a browser | 0 vulnerabilities | No new scan (the Checkmarx One connector needs signing in again); the last, 85de11ec of MZ-01.01.20: 228 open (1 / 6 / 94 / 124, 3 info), all still to verify. This release's changes are not scanned yet. |
 | MZ-01.01.20 | 446 and 458/s, 0 (main 446 and 462, 11 and 101; a busier host, two pairs) | 7.2 and 6.8 s (12.0 and 10.5 s) | 2.6 and 1.7 s (2.8 and 1.5 s) | 1,261 + 20 in a browser | 0 vulnerabilities | Scan 85de11ec of this code: 228 open (1 / 6 / 94 / 124, 3 info), all still to verify in Checkmarx One; the 2 first reported judged not exploitable and hardened ([review](docs/security/mz-01.01.20-review.md)). |
 | MZ-01.01.19 | 485 and 513/s, 0 (main 485 and 497, 0; two pairs) | 5.7 and 4.4 s (5.0 and 6.1 s) | 668 and 427 ms (565 and 407 ms) | 1,249 + 19 in a browser | 0 vulnerabilities | Scan 09e66411 of this code: 226 open (1 / 6 / 94 / 122, 3 info), all still to verify in Checkmarx One; the 16 first reported judged not exploitable ([review](docs/security/mz-01.01.19-review.md)). |
@@ -107,6 +108,14 @@ Measured for every release: 3000 people at once on a 2 vCPU server, all tests, `
 | MZ-01.00.25 | 501/s, 0 | 6.2 s | 689 ms | 331 | 0 | Scan 0d6b0f2e: SAST 4 / 19 / 38 / 77 + 5 API; fixed in MZ-01.00.26 |
 | MZ-01.00.21 | 505/s, 0 | 6.2 s | 0.7 s | 314 | 0 | not scanned |
 | MZ-01.00.17 | 494/s, 6 | 2.1 s | 240 ms | 303 | 0 | not scanned |
+
+## MZ-01.01.22 — 2026-11-26 16:07 UTC · [#144](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/144)
+
+- **Signed in with your own API key, each tenant still reads its own.** A key sign-in is checked against the first tenant's Checkmarx One, and that key went with you into every tenant, so another tenant's Workbench showed the first tenant's findings. Outside the first tenant you now read through that tenant's own connection, and a tenant not connected yet says so.
+- **"The key you signed in with" stays in the first tenant.** Connecting another tenant with an empty key field stored the first tenant's key as that tenant's connection; it is offered only in the first tenant now.
+- **The first tenant's Checkmarx One is the first tenant's only.** No other tenant can connect to it: such a key is refused before it is sent anywhere, one already stored is not used, and Settings → Checkmarx One says why and asks for a key made in the tenant's own Checkmarx One.
+- **What came from the first tenant is set aside.** At the first start after the update, a tenant whose stored key was the first tenant's has what it read moved to a dated folder in its own folder (never deleted), with a note in its audit log.
+- **Status.** 1,267 tests pass (one is skipped when run as root and passes in CI), with 20 that drive the page in Chromium; `npm audit --omit=dev` finds nothing. Two benchmark pairs against main: 7 failed requests on the branch in the first, one or two across unrelated operations on a loaded host, and none in the second, with the faster tail (report opens 5.4 s at p95, main 6.1 s). No new Checkmarx One scan: the connector used for scans needs signing in again.
 
 ## MZ-01.01.21 — 2026-11-24 05:50 UTC · [#143](https://github.com/cxsmtp/CxDetectionDateBaseReminder/pull/143)
 
