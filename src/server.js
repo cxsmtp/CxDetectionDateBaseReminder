@@ -337,8 +337,19 @@ const firstTenantReads = setAsideFirstTenantReads({
   environment: config.overrides,
   readSettings: (file) => new SettingsStore({ file }).get(),
   connectionOf: (key, overrides) => deriveConnection(key, overrides),
+  first: (() => {
+    // The first tenant's Checkmarx One: where its stored key goes, else CX_API_KEY.
+    try {
+      const own = new SettingsStore({ file: settingsFile }).get();
+      const o = own.integrationOverrides ?? {};
+      if (own.automationApiKey) return deriveConnection(own.automationApiKey, { baseUrl: o.baseUrl || config.overrides.baseUrl, iamUrl: o.iamUrl || config.overrides.iamUrl, tenant: o.tenant || config.overrides.tenant });
+      return config.bootstrapApiKey ? deriveConnection(config.bootstrapApiKey, config.overrides) : null;
+    } catch {
+      return null;
+    }
+  })(),
 });
-for (const t of firstTenantReads) console.warn(`! [tenants] ${t.id} read Checkmarx One tenant ${t.from.tenant} (the first tenant's) and now connects to ${t.to.tenant}, its own: what it had read is set aside in ${t.folder}.`);
+for (const t of firstTenantReads) console.warn(`! [tenants] ${t.id} read Checkmarx One tenant ${t.from.tenant}, the first tenant's: what it had read is set aside in ${t.folder}.`);
 function buildTenant({ id, dir }) {
   const first = id === DEFAULT_TENANT;
   const settingsStore = new SettingsStore({ file: first ? settingsFile : path.join(dir, 'settings.json') });
@@ -551,10 +562,11 @@ const scheduler = scoped(tenancy, 'scheduler');
 // ---- The server's own Checkmarx One connection: src/routes/integration-session.js --------------------------------------
 const {
   integrationOverrides, integrationSession, keyForEndpoints, cxoneFingerprint, activateIntegration,
-  resolveAutomationSession, environmentOverrides,
+  resolveAutomationSession, environmentOverrides, sameCheckmarxOne, firstTenantCheckmarxOne, refuseFirstTenantKey,
 } = createIntegrationSession({
   sessions, tstate, settingsStore, guard, scheduler,
   tenantOf: () => tenancy.current().id,
+  inFirstTenant: (fn) => tenancy.run(DEFAULT_TENANT, fn),
   // Made further down: looked up when used, never before.
   connectCheckmarxOne: later(() => connectCheckmarxOne),
 });
@@ -856,7 +868,7 @@ app.use('/api/relay', (req, res, next) => {
 // ---- What stands in front of a route (sign-in, permissions, the tenant): src/routes/guards.js ---------------------------
 const {
   asyncRoute, permissionsFor, tenantsUnlocked, isSuperAdmin, tenantsOf, currentSession, requireSession, ownBranding,
-  presenting, brandingNow, can, requirePermission, featureLocked, requireFeature,
+  presenting, brandingNow, can, requirePermission, featureLocked, requireFeature, inTenant,
 } = createGuards({
   presenter, sessions, tenancy, settingsStore, terms, iam, integrationSession, resolveAutomationSession, activations,
 });
@@ -899,7 +911,7 @@ const {
 } = registerSessionRoutes(app, {
   MAINTAINER_EMAIL, dataDir, backupKey, sessions, saveSignInsSoon, tenancy, tstate, settingsStore, guard, audit,
   terms, iam, integrationSession, activations, languageAccess, allowedLanguages, asyncRoute, permissionsFor,
-  isSuperAdmin, tenantsOf, currentSession, requireSession, ownBranding, can, requirePermission, featureLocked,
+  isSuperAdmin, tenantsOf, currentSession, requireSession, ownBranding, can, requirePermission, featureLocked, inTenant,
   adminActor, LOOPBACK, requestOrigin,
   // Made further down: looked up when used, never before.
   iamView: later(() => iamView),
@@ -953,7 +965,7 @@ const {
   checkConnections,
 } = registerConnectionRoutes(app, {
   sessions, tenancy, tstate, settingsStore, guard, audit, integrationOverrides, integrationSession, keyForEndpoints,
-  cxoneFingerprint, activateIntegration, resolveAutomationSession, environmentOverrides, productActive, asyncRoute, requireSession,
+  cxoneFingerprint, activateIntegration, resolveAutomationSession, environmentOverrides, refuseFirstTenantKey, productActive, asyncRoute, requireSession,
   presenting, can, requirePermission, adminActor, ssoAddressProblem, connectCheckmarxOne,
   // Made further down: looked up when used, never before.
   settingsFor: later(() => settingsFor),
@@ -1621,8 +1633,10 @@ const server = httpsManager.listen({ app, httpsOnly: httpsOnlyAnswer, port: conf
       type: 'settings',
       outcome: 'changed',
       actor: SYSTEM_ACTOR,
-      reason: `This tenant was connected to the first tenant's Checkmarx One (${t.from.tenant}) because its key took the server's own endpoints; it now connects to its own (${t.to.tenant}). What it had read from ${t.from.tenant} is set aside in ${t.folder} in its folder: ${[...t.moved, ...t.cleared.map((n) => `the last read in ${n}`)].join(', ') || 'nothing kept'}. Triage, remediation, credits and FAE Flush done here before this went to ${t.from.tenant}; this log names each.`,
-      details: { setAside: { from: t.from.tenant, to: t.to.tenant, folder: t.folder, moved: t.moved, cleared: t.cleared } },
+      reason: `${t.why === 'first-key'
+        ? `This tenant's stored Checkmarx One key is for ${t.from.tenant}, the first tenant's Checkmarx One: it is no longer used here, and this tenant is not connected until an Admin connects it with a key made in its own Checkmarx One.`
+        : `This tenant was connected to the first tenant's Checkmarx One (${t.from.tenant}) because its key took the server's own endpoints; it now connects to its own (${t.to.tenant}).`} What it had read from ${t.from.tenant} is set aside in ${t.folder} in its folder: ${[...t.moved, ...t.cleared.map((n) => `the last read in ${n}`)].join(', ') || 'nothing kept'}. Triage, remediation, credits and FAE Flush done here before this went to ${t.from.tenant}; this log names each.`,
+      details: { setAside: { from: t.from.tenant, to: t.to.tenant, why: t.why, folder: t.folder, moved: t.moved, cleared: t.cleared } },
     });
   }
   tenancy.run(DEFAULT_TENANT, () => seedLastKnownGood());

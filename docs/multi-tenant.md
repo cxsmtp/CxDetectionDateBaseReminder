@@ -62,7 +62,14 @@ At the first start after the update, CxMissionZero looks once at every tenant ad
 
 Each tenant is looked at once (`cxone-origin.json` in its folder records it); a tenant added from MZ-01.01.21 on never needs it.
 
-**Two tenants on one Checkmarx One.** When another tenant on this server is connected to the same Checkmarx One tenant (the same API address and tenant name), **Settings → Checkmarx One** says which, in red, and connecting records it in the audit log. It is allowed (two business units sharing a tenant), but rarely meant.
+**Fixed again in MZ-01.01.22: the first tenant's Checkmarx One is the first tenant's only.** Two more ways led another tenant to the first tenant's data:
+
+- *Signing in with your own Checkmarx One API key.* A key sign-in is checked against the first tenant's Checkmarx One, so the key is the first tenant's, and until MZ-01.01.22 it went with you into every tenant: another tenant's Workbench read the first tenant's findings. Now, in any tenant but the first, you read through that tenant's own connection, as everyone who signs in with a password does; in a tenant not connected yet, it says so. The connection shown at the top of the page is the tenant's.
+- *Connecting a tenant with "the key you signed in with".* Leaving the key empty while signed in with your own key stored that key, the first tenant's, as the tenant's connection, so everyone in that tenant read the first tenant's data. It is offered only in the first tenant now.
+
+And as a rule: **no tenant but the first may connect to the first tenant's Checkmarx One** (the same tenant name at the same IAM address). Connecting with such a key is refused before the key is sent anywhere. A tenant that already holds one does not use it: Settings → Checkmarx One says *This key is for … the first tenant's Checkmarx One*, the tenant reads nothing until an Admin connects it with a key made in its own Checkmarx One, and at the first start after the update what it read is set aside as described above, with a note in its audit log. Each tenant is looked at once more for this (`checks: 2` in `cxone-origin.json`).
+
+**Two other tenants on one Checkmarx One.** When another tenant on this server (not the first) is connected to the same Checkmarx One tenant (the same API address and tenant name), **Settings → Checkmarx One** says which, in red, and connecting records it in the audit log. It is allowed (two business units sharing a tenant), but rarely meant.
 
 **How many.** As many tenants as the activation code allows. Thirty tenants, each on its own Checkmarx One, are tested on every change (`test/tenants-connections.e2e.test.js`): each reads only its own, before and after a restart. Each tenant's stores are opened when it is first used, and its connection and automation run on their own, so a further tenant costs its own reads and little else.
 

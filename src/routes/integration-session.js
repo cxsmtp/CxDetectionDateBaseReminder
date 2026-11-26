@@ -17,7 +17,7 @@ import { DEFAULT_TENANT } from '../tenancy.js';
  * @param {object} d  what src/server.js hands over (listed where it calls this)
  */
 export function createIntegrationSession(d) {
-  const { sessions, tstate, settingsStore, guard, scheduler, connectCheckmarxOne, tenantOf = () => DEFAULT_TENANT } = d;
+  const { sessions, tstate, settingsStore, guard, scheduler, connectCheckmarxOne, tenantOf = () => DEFAULT_TENANT, inFirstTenant = (fn) => fn() } = d;
 
   /**
    * The deployment's Checkmarx One endpoints (CX_BASE_URL, CX_IAM_URL, CX_TENANT): the first tenant's. Another
@@ -91,7 +91,35 @@ export function createIntegrationSession(d) {
    * Make `session` the integration: it replaces the previous one, and the key and
    * endpoints it was made from become the last known good Checkmarx One configuration.
    */
+  /**
+   * No tenant but the first reads the first tenant's Checkmarx One (from MZ-01.01.22): refused before anything is
+   * asked of it, from where the key and endpoints would connect (`connection`: worked out, or a live session's).
+   */
+  function refuseFirstTenant(connection) {
+    if (tenantOf() === DEFAULT_TENANT || !connection) return;
+    const first = firstTenantCheckmarxOne();
+    if (first && sameCheckmarxOne(first, connection)) {
+      throw Object.assign(new Error(`This key is for ${connection.tenant}, the first tenant's Checkmarx One. Each tenant here reads only its own: connect this tenant with a key made in its own Checkmarx One.`), { status: 409, firstTenant: true });
+    }
+  }
+  /** The same, for a key and endpoints not yet used: where they would connect, worked out without a call. */
+  function refuseFirstTenantKey(key, overrides = {}) {
+    let connection = null;
+    try {
+      connection = deriveConnection(key, overrides);
+    } catch {
+      return; // not a key that can be read: connecting says why
+    }
+    refuseFirstTenant(connection);
+  }
+
   function activateIntegration(session, key, overrides = {}) {
+    try {
+      refuseFirstTenant(session.connection);
+    } catch (error) {
+      sessions.destroy(session.id);
+      throw error;
+    }
     session.pinned = true;
     const previous = tstate.automationSessionId;
     tstate.automationSessionId = session.id;
@@ -101,6 +129,33 @@ export function createIntegrationSession(d) {
     const { tenant, baseUrl, iamUrl } = session.connection;
     guard.recordGood('cxone', { apiKey: key, overrides: { baseUrl: overrides.baseUrl ?? '', iamUrl: overrides.iamUrl ?? '', tenant: overrides.tenant ?? '' }, connection: { tenant, baseUrl, iamUrl } });
     scheduler.sync();
+  }
+
+  /** The same Checkmarx One tenant: the same tenant name at the same IAM host. */
+  function sameCheckmarxOne(a, b) {
+    const host = (url) => hostOfUrl(url ?? '').toLowerCase();
+    return Boolean(a?.tenant && b?.tenant) && String(a.tenant).toLowerCase() === String(b.tenant).toLowerCase() && host(a.iamUrl) === host(b.iamUrl);
+  }
+
+  /**
+   * The first tenant's Checkmarx One: its running connection, else where its stored key (or CX_API_KEY) goes.
+   * null when it has none.
+   */
+  function firstTenantCheckmarxOne() {
+    return inFirstTenant(() => {
+      try {
+        const live = integrationSession()?.connection;
+        if (live) return live;
+      } catch {}
+      const settings = settingsStore.get();
+      const key = settings.automationApiKey || config.bootstrapApiKey;
+      if (!key) return null;
+      try {
+        return deriveConnection(key, settings.automationApiKey ? integrationOverrides(settings) : config.overrides);
+      } catch {
+        return null;
+      }
+    });
   }
 
   /**
@@ -121,6 +176,14 @@ export function createIntegrationSession(d) {
     if (tstate.integrationFailure.fingerprint === fingerprint && Date.now() < tstate.integrationFailure.until) return null;
     if (tstate.integrationAttempt?.fingerprint === fingerprint) return tstate.integrationAttempt.promise;
 
+    // The first tenant's Checkmarx One from another tenant: never asked, and said on Settings → Checkmarx One.
+    try {
+      refuseFirstTenantKey(storedKey, integrationOverrides(settings));
+    } catch (error) {
+      if (tstate.integrationFailure.fingerprint !== fingerprint) console.warn(`! Stored automation key not used: ${error.message}`);
+      tstate.integrationFailure = { fingerprint, until: Date.now() + 30_000 + Math.floor(Math.random() * 30_000), error };
+      return null;
+    }
     const promise = (async () => {
       try {
         const session = await connectCheckmarxOne(storedKey, integrationOverrides(settings));
@@ -141,6 +204,6 @@ export function createIntegrationSession(d) {
 
   return {
     integrationOverrides, integrationSession, keyForEndpoints, cxoneFingerprint, activateIntegration,
-    resolveAutomationSession, environmentOverrides,
+    resolveAutomationSession, environmentOverrides, sameCheckmarxOne, firstTenantCheckmarxOne, refuseFirstTenantKey,
   };
 }

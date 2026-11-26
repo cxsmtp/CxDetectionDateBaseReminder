@@ -59,6 +59,35 @@ export function createGuards(d) {
     return user.tenants.filter((id) => tenancy.has(id));
   }
 
+  /**
+   * A session as one tenant sees it. Someone who signed in with their own Checkmarx One API key holds a key of the
+   * first tenant's Checkmarx One (a key sign-in is checked there, src/routes/session.js). In any other tenant that key
+   * must never read anything: the session reads through that tenant's own connection, as a password sign-in does,
+   * and with none it is "not connected". Everything else (who they are, what they loaded) is the session itself.
+   * Until MZ-01.01.22 the key went with them, and another tenant's Workbench showed the first tenant's findings.
+   */
+  function inTenant(session, tenantId) {
+    if (!session || session.linked || !tenantId || tenantId === DEFAULT_TENANT) return session;
+    const integration = () => {
+      const target = tenancy.run(tenantId, () => integrationSession());
+      if (!target) throw Object.assign(new Error('This tenant is not connected to Checkmarx One yet: an Admin of this tenant connects it under Settings → Checkmarx One. Your own API key is for the first tenant\'s Checkmarx One and is used there only.'), { status: 503 });
+      return target;
+    };
+    return new Proxy(session, {
+      get(target, prop) {
+        if (prop === 'client') return integration().client;
+        if (prop === 'connection') return integration().connection;
+        // Its own key is not this tenant's: nothing here may use it (connecting a tenant with "the key you signed in with").
+        if (prop === 'ownKeyElsewhere') return true;
+        return Reflect.get(target, prop);
+      },
+      set(target, prop, value) {
+        target[prop] = value;
+        return true;
+      },
+    });
+  }
+
   /** The caller's signed-in session (every person signs in; there is no shared fallback). */
   const currentSession = (req) => {
     const session = sessions.get(readSessionCookie(req));
@@ -98,10 +127,12 @@ export function createGuards(d) {
       session.tenantId = allowed[0];
     }
     req.tenantId = session.tenantId;
+    // A key sign-in reads through this tenant's own connection outside the first tenant (inTenant above).
+    req.session = inTenant(session, req.tenantId);
     const run = () =>
       tenancy.run(req.tenantId, () => {
         // Password sessions use the integration; make sure it is up (it is re-created from the stored key if needed).
-        if (session.linked && !integrationSession()) {
+        if ((session.linked || req.session !== session) && !integrationSession()) {
           resolveAutomationSession().then(() => next(), next);
           return;
         }
@@ -174,6 +205,6 @@ export function createGuards(d) {
 
   return {
     asyncRoute, permissionsFor, tenantsUnlocked, isSuperAdmin, tenantsOf, currentSession, requireSession,
-    ownBranding, presenting, brandingNow, can, requirePermission, featureLocked, requireFeature,
+    ownBranding, presenting, brandingNow, can, requirePermission, featureLocked, requireFeature, inTenant,
   };
 }

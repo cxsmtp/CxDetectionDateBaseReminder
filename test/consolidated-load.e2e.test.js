@@ -17,6 +17,11 @@ const PORT = await freePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
 const KEY = mockApiKey({ iss: `${MOCK}/auth/realms/acme`, azp: 'integration' });
+// The second tenant has its own Checkmarx One (from MZ-01.01.22 no other tenant may use the first tenant's): the same
+// data, at another address, tenant "acme-eu".
+const MOCK2_PORT = await freePort();
+const MOCK2 = `http://127.0.0.1:${MOCK2_PORT}`;
+const KEY2 = mockApiKey({ iss: `${MOCK2}/auth/realms/acme-eu`, azp: 'integration' });
 const children = [];
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consolidated-load-'));
 const dataDir = path.join(dir, 'data');
@@ -45,7 +50,12 @@ function browser() {
 }
 const admin = browser();
 const cara = browser();
-const stats = async () => (await (await fetch(`${MOCK}/__stats`)).json()).counts;
+/** Calls made to either tenant's Checkmarx One, by kind. */
+const stats = async () => {
+  const sum = {};
+  for (const url of [MOCK, MOCK2]) for (const [k, v] of Object.entries((await (await fetch(`${url}/__stats`)).json()).counts ?? {})) sum[k] = (sum[k] ?? 0) + v;
+  return sum;
+};
 const total = (counts) => Object.values(counts).reduce((a, b) => a + b, 0);
 
 async function signIn(b, email) {
@@ -69,6 +79,7 @@ function files(root = dataDir, out = new Map()) {
 
 test.before(async () => {
   children.push(spawn(process.execPath, ['loadtest/mock-cxone.mjs'], { env: { ...process.env, PORT: String(MOCK_PORT), LAT: '1', PROJECTS: '9', RISKS: '8', FAILED_SCANS: '1' }, stdio: 'ignore' }));
+  children.push(spawn(process.execPath, ['loadtest/mock-cxone.mjs'], { env: { ...process.env, PORT: String(MOCK2_PORT), LAT: '1', PROJECTS: '9', RISKS: '8', FAILED_SCANS: '1' }, stdio: 'ignore' }));
   const server = spawn(process.execPath, ['src/server.js'], {
     env: {
       ...process.env, PORT: String(PORT), HOST: '127.0.0.1', HTTPS: 'off', DATA_DIR: dataDir, ACCEPT_TERMS: 'tests@acme.io', BACKUP_INTERVAL_HOURS: '0', SMTP_HOST: '',
@@ -106,7 +117,7 @@ test.before(async () => {
   await signIn(cara, 'cara@acme.io');
   // Acme EU is connected to Checkmarx One with a key of its own.
   assert.equal((await admin('POST', '/api/me/tenant', { id: eu })).status, 200);
-  const connected = await admin('POST', '/api/integration/cxone', { apiKey: KEY });
+  const connected = await admin('POST', '/api/integration/cxone', { apiKey: KEY2 });
   assert.equal(connected.status, 200, JSON.stringify(connected.body));
   assert.equal((await admin('POST', '/api/me/tenant', { id: 'default' })).status, 200);
   // The view is unlocked, and Cara may see it.
