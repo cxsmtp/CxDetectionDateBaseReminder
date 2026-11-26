@@ -178,3 +178,83 @@ test("a tenant from before the fix: what it read from the first tenant's Checkma
   await start();
   assert.equal(fs.readdirSync(folder(old)).filter((n) => n.startsWith('set-aside-')).length, 1);
 });
+
+/** A second browser: someone signed in with their own Checkmarx One API key (made in the first tenant's). */
+let keyCookie = '';
+async function keyApi(method, url, body) {
+  const r = await fetch(BASE + url, { method, headers: { 'Content-Type': 'application/json', ...(keyCookie ? { Cookie: keyCookie } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  const set = r.headers.get('set-cookie');
+  if (set) keyCookie = set.split(';')[0];
+  const raw = await r.text();
+  let json = null;
+  try {
+    json = JSON.parse(raw);
+  } catch {}
+  return { status: r.status, body: json, raw };
+}
+
+test("signed in with a key of the first tenant's, another tenant still reads only its own Checkmarx One", async () => {
+  // Wait for every tenant to have reconnected after the restarts above.
+  for (let i = 0, before = -1; i < 100; i++) {
+    const now = await projectsAsked(B);
+    if (now === before) break;
+    before = now;
+    await sleep(300);
+  }
+  const personal = mockApiKey({ iss: `${A}/auth/realms/acme`, email: 'admin@acme.io', azp: 'admin-key' });
+  assert.equal((await keyApi('POST', '/api/session', { apiKey: personal })).status, 201);
+  for (const id of ['default', ids.at(-1)]) {
+    assert.equal((await keyApi('POST', '/api/me/tenant', { id })).status, 200);
+    const [a0, b0] = [await projectsAsked(A), await projectsAsked(B)];
+    const r = await keyApi('GET', '/api/scan');
+    const [a1, b1] = [await projectsAsked(A), await projectsAsked(B)];
+    assert.equal(r.status, 200, r.raw.slice(0, 300));
+    if (id === 'default') assert.deepEqual([r.body.totals.projects, b1 - b0], [3, 0], 'the first tenant, with the key itself');
+    else assert.deepEqual([r.body.totals.projects, a1 - a0], [7, 0], `${id}: its own Checkmarx One, never the key's`);
+    // The connection shown at the top of the page is the tenant's.
+    assert.equal((await keyApi('GET', '/api/session')).body.connection.tenant, id === 'default' ? 'acme' : 'beta');
+  }
+  // "The key you signed in with" never connects another tenant: there it is no key at all.
+  assert.equal((await keyApi('POST', '/api/integration/cxone', {})).status, 400);
+});
+
+test("no other tenant connects to the first tenant's Checkmarx One: refused when connecting, not used when stored", async () => {
+  const target = ids.at(-2);
+  await api('POST', '/api/me/tenant', { id: target });
+  const refused = await api('POST', '/api/integration/cxone', { apiKey: KEY_A });
+  assert.equal(refused.status, 409, refused.raw);
+  assert.match(refused.body.error, /first tenant's Checkmarx One/);
+  assert.equal((await api('GET', '/api/integration')).body.connection.tenant, 'beta', 'its own connection stays');
+
+  // As MZ-01.01.21 could leave it: the first tenant's key stored in another tenant, checked only for the endpoints.
+  const folder = path.join(dir, 'data', 'tenants', target);
+  server.kill();
+  await sleep(800);
+  const settingsFile = path.join(folder, 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+  fs.writeFileSync(settingsFile, JSON.stringify({ ...settings, automationApiKey: KEY_A, integrationOverrides: {} }));
+  fs.writeFileSync(path.join(folder, 'cxone-origin.json'), JSON.stringify({ checkedAt: '2026-11-24T00:00:00.000Z', setAside: false }));
+  fs.writeFileSync(path.join(folder, 'finding-journal.json'), JSON.stringify({ version: 1, entries: [{ p: 'p0', n: 'Project 0 of acme', r: 'r1', s: 'HIGH', o: '2026-11-01T00:00:00.000Z' }] }));
+  await start();
+  cookie = '';
+  assert.equal((await api('POST', '/api/session/password', { email: 'admin@acme.io', password: NEXT_PASSWORD })).status, 201);
+  await api('POST', '/api/me/tenant', { id: target });
+  const [a0] = [await projectsAsked(A)];
+  const r = await api('GET', '/api/scan');
+  assert.equal(r.status, 503, `not connected: never the first tenant's data: ${r.raw.slice(0, 300)}\n${log.slice(-2500)}`);
+  assert.equal((await projectsAsked(A)) - a0, 0);
+  const status = (await api('GET', '/api/integration')).body;
+  assert.equal(status.connected, false);
+  assert.match(status.refused, /first tenant's Checkmarx One/);
+  assert.ok(fs.readdirSync(folder).some((n) => n.startsWith('set-aside-')), 'what it read is set aside');
+  assert.ok(!fs.existsSync(path.join(folder, 'finding-journal.json')));
+  let reasons = '';
+  for (let i = 0; i < 100 && !/no longer used here/.test(reasons); i++) {
+    reasons = (await api('GET', '/api/audit?limit=50')).body.entries.map((e) => e.reason).join('\n');
+    await sleep(100);
+  }
+  assert.match(reasons, /stored Checkmarx One key is for acme, the first tenant's Checkmarx One: it is no longer used here/);
+  // Its Admin connects it with its own key: it reads its own again.
+  assert.equal((await api('POST', '/api/integration/cxone', { apiKey: KEY_B })).status, 200);
+  assert.equal((await api('GET', '/api/scan')).body.totals.projects, 7);
+});

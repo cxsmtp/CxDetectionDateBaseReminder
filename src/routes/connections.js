@@ -25,7 +25,7 @@ import { SYSTEM_ACTOR } from './shared.js';
 export function registerConnectionRoutes(app, d) {
   const {
     sessions, tenancy, tstate, settingsStore, guard, audit, integrationOverrides, integrationSession,
-    keyForEndpoints, cxoneFingerprint, activateIntegration, resolveAutomationSession, environmentOverrides, productActive, asyncRoute,
+    keyForEndpoints, cxoneFingerprint, activateIntegration, resolveAutomationSession, environmentOverrides, refuseFirstTenantKey, productActive, asyncRoute,
     requireSession, presenting, can, requirePermission, adminActor, ssoAddressProblem, connectCheckmarxOne,
     settingsFor,
   } = d;
@@ -68,6 +68,8 @@ export function registerConnectionRoutes(app, d) {
       overrides: settings.integrationOverrides ?? { baseUrl: '', iamUrl: '', tenant: '' },
       connection,
       sharedWith: sharedWith(connection),
+      // Its stored key is the first tenant's Checkmarx One's: not used here (integration-session.js activateIntegration).
+      refused: tstate.integrationFailure?.error?.firstTenant ? tstate.integrationFailure.error.message : '',
       // Saved but not working yet: the running connection stays the last known good one.
       pending: cxonePending(settings),
       lastGood: lastGoodView('cxone'),
@@ -83,7 +85,8 @@ export function registerConnectionRoutes(app, d) {
     asyncRoute(async (req, res) => {
       const { apiKey, baseUrl = '', iamUrl = '', tenant = '' } = req.body ?? {};
       // Use this session's own key when none is pasted (signed in with a Checkmarx One key).
-      const key = String(apiKey ?? '').trim() || (req.session.via === 'cxone' ? req.session.connection.apiKey : '');
+      // Never in another tenant than the first: that key is the first tenant's Checkmarx One's (guards.js inTenant).
+      const key = String(apiKey ?? '').trim() || (req.session.via === 'cxone' && !req.session.ownKeyElsewhere ? req.session.connection.apiKey : '');
       if (!key) return res.status(400).json({ error: 'Paste a Checkmarx One API key.', help: explainCxone(new Error('no key'), { apiKey: '' }) });
       // A key that cannot work (its ID, cut short, quoted, expired) is said so before it is tried.
       const malformed = checkCxKey(key);
@@ -97,6 +100,8 @@ export function registerConnectionRoutes(app, d) {
       if (overrides.iamUrl) overrides.iamUrl = checkServiceUrl(overrides.iamUrl, 'IAM URL');
       // The deployment's endpoints are the first tenant's: another tenant's key goes where it says, or where typed.
       const deployed = environmentOverrides();
+      // Never another tenant's way into the first tenant's Checkmarx One: refused before the key is sent there.
+      refuseFirstTenantKey(key, { baseUrl: overrides.baseUrl || deployed.baseUrl, iamUrl: overrides.iamUrl || deployed.iamUrl, tenant: overrides.tenant || deployed.tenant });
       const session = await connectCheckmarxOne(key, {
         baseUrl: overrides.baseUrl || deployed.baseUrl,
         iamUrl: overrides.iamUrl || deployed.iamUrl,
@@ -219,6 +224,7 @@ export function registerConnectionRoutes(app, d) {
       const overrides = { baseUrl: '', iamUrl: '', tenant: '', ...(settings.integrationOverrides ?? {}) };
       const tried = cxoneFingerprint(key, overrides);
       try {
+        refuseFirstTenantKey(key, integrationOverrides(settings));
         const session = await connectCheckmarxOne(key, integrationOverrides(settings));
         if (cxoneFingerprint(settingsStore.get().automationApiKey, settingsStore.get().integrationOverrides ?? {}) !== tried) {
           sessions.destroy(session.id);

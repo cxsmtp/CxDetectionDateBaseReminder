@@ -36,7 +36,7 @@ export function registerSessionRoutes(app, d) {
   const {
     MAINTAINER_EMAIL, dataDir, backupKey, sessions, saveSignInsSoon, tenancy, tstate, settingsStore, guard, audit,
     terms, iam, integrationSession, activations, languageAccess, allowedLanguages, asyncRoute, permissionsFor,
-    isSuperAdmin, tenantsOf, currentSession, requireSession, ownBranding, can, requirePermission, featureLocked,
+    isSuperAdmin, tenantsOf, currentSession, requireSession, ownBranding, can, requirePermission, featureLocked, inTenant,
     adminActor, LOOPBACK, requestOrigin, iamView, visibleUser, auditIam, endSessionsOf, refusalListed, tenantName,
     appNameNow, integrity, labs,
   } = d;
@@ -191,7 +191,8 @@ export function registerSessionRoutes(app, d) {
       const { sso, ready } = ssoState();
       return res.json({ connected: false, signedIn: false, setup: !iam.hasUsers() && Boolean(setupCode), firstStart, passwordReset: passwordResetReady().ready, sso: ready ? { label: sso.label, passwordAdminsOnly: sso.passwordAdminsOnly } : null });
     }
-    res.json(describeMe(session, user));
+    // As the tenant they work in sees it: a key sign-in shows that tenant's connection, not its own key's.
+    res.json(describeMe(inTenant(session, session.tenantId), user));
   });
 
   /** Sign-in attempts per address, to slow down guessing across many accounts. */

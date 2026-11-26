@@ -665,6 +665,7 @@ export async function loadIntegration() {
     .map(([k, v]) => `<div><span class="k">${k}</span><span class="v">${escapeHtml(v ?? '—')}</span></div>`)
     .join('') +
     // Another tenant on this server reads the same Checkmarx One tenant: rarely meant, so it is said.
+    (info.refused ? `<p class="status error" id="integration-refused">${escapeHtml(info.refused)}</p>` : '') +
     (info.sharedWith?.length
       ? `<p class="status error" id="integration-shared">${escapeHtml(`The same Checkmarx One tenant (${c.tenant}) is also used by: ${info.sharedWith.join(', ')}. Each tenant here normally has its own: check this key is for the right one.`)}</p>`
       : '');

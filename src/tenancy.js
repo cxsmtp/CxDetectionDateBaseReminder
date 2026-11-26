@@ -116,7 +116,7 @@ export class Tenancy {
     if (id === DEFAULT_TENANT || this.has(id)) id = `${id.slice(0, 30)}-${randomBytes(3).toString('hex')}`;
     const tenant = { id, name: label, createdAt: new Date().toISOString(), createdBy: String(by) };
     fs.mkdirSync(this.dirOf(id), { recursive: true, mode: 0o700 });
-    writeState(path.join(this.dirOf(id), ORIGIN_FILE), { checkedAt: tenant.createdAt, setAside: false, added: true }, { space: 2 });
+    writeState(path.join(this.dirOf(id), ORIGIN_FILE), { checkedAt: tenant.createdAt, setAside: false, added: true, checks: 1 }, { space: 2 });
     this.#state.tenants.push(tenant);
     this.#save();
     return { ...tenant };
